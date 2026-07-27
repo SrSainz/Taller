@@ -6,6 +6,10 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 
 - Fleet ledger tailored to five vehicles: three professional and two domestic.
 - Two assigned drivers per vehicle.
+- Driver selectors in every row: daily kilometres and fuel spend update per person.
+- Remaining kilometres to the next service shown as a live countdown.
+- Latest workshop amount and concept visible in the fleet ledger.
+- Workshop history table with dates, mileage, amounts, and repeated-concept markers.
 - Search and operational filters.
 - Selectable rows with a detailed shift inspector.
 - Two daily shifts per professional vehicle, with driver, start/end odometer, shift kilometres, fuel litres, average consumption, cost, time, WhatsApp source, and AI confidence.
@@ -30,7 +34,7 @@ No source code was copied from those projects. Their workflows and information m
 
 ## Suggested next architecture
 
-1. Persist vehicles, drivers, work shifts, fuel entries, odometer readings, invoices, and maintenance events in Postgres.
+1. Persist vehicles, drivers, work shifts, driver-level fuel entries, odometer readings, invoices, service targets, and maintenance events in Postgres.
 2. Receive WhatsApp media through a supported WhatsApp Business provider webhook.
 3. Send images to the OpenAI API using structured outputs for total kilometres, shift kilometres, fuel litres, driver/vehicle association, confidence, and validation flags.
 4. Receive workshop invoices through an inbound email provider, store originals securely, and extract structured invoice fields.
