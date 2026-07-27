@@ -9,6 +9,11 @@ When implementing from a selected generated mock, treat that image as the source
 ## Product decisions
 
 - The selected visual target is option 2 from the 27 July 2026 ideation set: a dense fleet ledger with a right-side vehicle inspector.
+- The operating fleet has exactly five vehicles: three professional and two domestic.
+- Every vehicle has two assigned drivers.
+- Professional vehicles receive two WhatsApp shift reports per day. Each report records driver, start and accumulated odometer, kilometres driven, fuel litres, cost, timestamp, extraction confidence, and any consumption anomaly.
+- Domestic vehicles do not require per-shift reporting; either assigned driver can submit a shared odometer reading.
+- Vehicle detail defaults to a collapsible shift ledger so the manager can audit each daily turn without leaving the fleet screen.
 - The first release is a functional front-end prototype with realistic local data; WhatsApp, email, OpenAI extraction, authentication, and persistence remain simulated.
 - The product name is Talleria and the primary interface language is Spanish.
 

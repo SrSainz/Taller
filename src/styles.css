@@ -229,6 +229,125 @@ button:focus-visible, input:focus-visible, tr:focus-visible { outline: 3px solid
 .backdrop { display: none; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
+/* Fleet model: five vehicles, two drivers each and professional shift reporting. */
+.fleet-table th:nth-child(1) { width: 12%; }
+.fleet-table th:nth-child(2) { width: 16%; }
+.fleet-table th:nth-child(3) { width: 13%; }
+.fleet-table th:nth-child(4) { width: 18%; }
+.fleet-table th:nth-child(5) { width: 15%; }
+.fleet-table th:nth-child(6) { width: 10%; }
+.fleet-table th:nth-child(7) { width: 12%; text-align: left; }
+.fleet-table th:nth-child(8) { width: 14%; }
+.fleet-table td:nth-child(5) { text-align: left; }
+.fleet-table td:nth-child(7) { text-align: left; }
+.fleet-table td { height: 72px; }
+
+.use-badge {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.use-badge--profesional { color: #075244; background: #e7f4ef; }
+.use-badge--doméstico { color: #5b616a; background: #f0f2f3; }
+
+.inspector-header { height: 106px; }
+.inspector-header .use-badge { margin-top: 1px; }
+.inspector-drivers {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  color: var(--green-800);
+  background: #f7faf9;
+  border-top: 1px solid var(--line);
+}
+.inspector-drivers > span { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.inspector-drivers strong { color: #2b3934; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inspector-drivers small { color: #7a8681; font-size: 9px; }
+
+.shifts-section { padding: 18px 14px; border-bottom: 1px solid var(--line); }
+.shifts-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+.shifts-heading h2 { margin: 0 0 5px; font-size: 12px; font-weight: 650; }
+.shifts-heading p { margin: 0; color: #77827d; font-size: 9px; }
+.complete-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  border-radius: 999px;
+  color: #087452;
+  background: #e6f5ef;
+  font-size: 8px;
+  font-weight: 650;
+}
+.shift-list { display: grid; gap: 9px; }
+.shift-card { overflow: hidden; border: 1px solid #d8e1de; border-radius: 7px; background: #fff; }
+.shift-card--alert { border-color: #efc27f; }
+.shift-toggle {
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 0;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.shift-toggle:hover { background: #f8fbfa; }
+.shift-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: var(--green-800); background: var(--green-100); }
+.shift-title, .shift-km { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.shift-title strong { font-size: 10.5px; }
+.shift-title small, .shift-km small { color: #76827d; font-size: 8.5px; white-space: nowrap; }
+.shift-km { text-align: right; }
+.shift-km strong { font-size: 11px; color: var(--green-900); }
+.shift-detail { padding: 0 10px 10px; border-top: 1px solid #e7ecea; background: #fbfcfc; animation: reveal .18s ease-out; }
+@keyframes reveal { from { opacity: 0; transform: translateY(-4px); } }
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; margin: 10px 0; border: 1px solid #e1e7e5; border-radius: 5px; background: #fff; }
+.metric-grid > div { min-height: 50px; display: flex; flex-direction: column; gap: 5px; padding: 9px; border-bottom: 1px solid #e7ecea; }
+.metric-grid > div:nth-child(odd) { border-right: 1px solid #e7ecea; }
+.metric-grid > div:nth-last-child(-n+2) { border-bottom: 0; }
+.metric-grid span { color: #78847f; font-size: 8px; }
+.metric-grid strong { color: #26342f; font-size: 10px; font-weight: 600; }
+.consumption-alert { display: flex; align-items: center; gap: 8px; padding: 9px; margin-bottom: 9px; border-radius: 5px; color: #a35e0e; background: #fff3df; }
+.consumption-alert > span { display: flex; flex-direction: column; gap: 3px; font-size: 8px; }
+.consumption-alert strong { font-size: 9px; }
+.whatsapp-proof { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 7px; color: #15935e; }
+.whatsapp-proof > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.whatsapp-proof strong { color: #33413c; font-size: 8.5px; }
+.whatsapp-proof small { color: #78847f; font-size: 7.5px; }
+.whatsapp-proof button { height: 27px; padding: 0 8px; border: 1px solid #9cc8b9; border-radius: 4px; color: var(--green-900); background: #fff; font-size: 8px; font-weight: 650; cursor: pointer; }
+
+.domestic-empty { padding: 30px 20px; text-align: center; border-bottom: 1px solid var(--line); }
+.domestic-icon { width: 48px; height: 48px; margin: 0 auto 13px; display: grid; place-items: center; border-radius: 50%; color: #4f655e; background: #edf2f0; }
+.domestic-empty h2 { margin: 0 0 9px; font-size: 13px; }
+.domestic-empty > p { margin: 0 auto 20px; max-width: 270px; color: #6f7b76; font-size: 9.5px; line-height: 1.55; }
+.domestic-empty > div { display: flex; flex-direction: column; gap: 6px; padding: 14px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 6px; text-align: left; }
+.domestic-empty > div span, .domestic-empty > div small { color: #77827d; font-size: 8px; }
+.domestic-empty > div strong { font-size: 17px; font-weight: 550; }
+.domestic-empty .secondary-button { width: 100%; }
+
+@media (max-width: 1350px) and (min-width: 1181px) {
+  .app-shell { grid-template-columns: 144px minmax(0, 1fr) 322px; }
+  .brand { padding-inline: 20px; font-size: 25px; }
+  .nav-item { padding-inline: 12px; font-size: 12px; }
+  .summary > div { padding-inline: 28px; }
+  .fleet-table { font-size: 10.5px; }
+  .fleet-table th, .fleet-table td { padding-inline: 8px; }
+  .fleet-table th:nth-child(1), .fleet-table td:first-child { padding-left: 16px; }
+  .fleet-table td > small { font-size: 9px; }
+  .use-badge { padding-inline: 7px; font-size: 8.5px; }
+  .status { gap: 5px; font-size: 9.5px; }
+}
+
 @media (max-width: 1180px) {
   .app-shell { grid-template-columns: 112px minmax(658px, 1fr) 228px; }
   .brand { height: 42px; padding: 0 15px; font-size: 20px; }
@@ -291,6 +410,34 @@ button:focus-visible, input:focus-visible, tr:focus-visible { outline: 3px solid
   .tag { padding: 4px 6px; font-size: 7px; }
   .sidebar-footer { padding-block: 6px; }
   .sidebar-footer .nav-item { min-height: 34px; }
+  .fleet-table td { height: 49px; }
+  .use-badge { gap: 3px; padding: 4px 5px; font-size: 7px; }
+  .use-badge svg { width: 10px; }
+  .inspector-header { height: 80px; }
+  .inspector-drivers { min-height: 43px; padding: 7px 10px; gap: 7px; }
+  .inspector-drivers strong { font-size: 7px; }
+  .inspector-drivers small { font-size: 6px; }
+  .shifts-section { padding: 11px 9px; }
+  .shifts-heading { margin-bottom: 9px; }
+  .shifts-heading h2 { margin-bottom: 3px; font-size: 9px; }
+  .shifts-heading p, .complete-mark { font-size: 6px; }
+  .complete-mark { padding: 3px 5px; }
+  .shift-list { gap: 6px; }
+  .shift-toggle { min-height: 48px; grid-template-columns: 25px minmax(0, 1fr) auto 14px; gap: 5px; padding: 7px; }
+  .shift-icon { width: 25px; height: 25px; }
+  .shift-icon svg { width: 14px; }
+  .shift-title, .shift-km { gap: 3px; }
+  .shift-title strong, .shift-km strong { font-size: 7px; }
+  .shift-title small, .shift-km small { font-size: 5.5px; }
+  .metric-grid { margin: 7px 0; }
+  .metric-grid > div { min-height: 36px; gap: 3px; padding: 6px; }
+  .metric-grid span { font-size: 5.5px; }
+  .metric-grid strong { font-size: 6.5px; }
+  .consumption-alert { padding: 6px; margin-bottom: 6px; }
+  .consumption-alert > span, .consumption-alert strong, .whatsapp-proof strong { font-size: 6px; }
+  .whatsapp-proof small, .whatsapp-proof button { font-size: 5px; }
+  .whatsapp-proof button { height: 22px; padding-inline: 6px; }
+  .domestic-empty { padding: 22px 12px; }
 }
 
 @media (max-width: 900px) {
@@ -309,6 +456,24 @@ button:focus-visible, input:focus-visible, tr:focus-visible { outline: 3px solid
   .summary > div { padding-inline: 22px; }
   .fleet-table-wrap { overflow-x: auto; }
   .fleet-table { min-width: 820px; }
+  .inspector-header { height: 102px; }
+  .inspector-drivers { min-height: 54px; padding: 10px 16px; }
+  .inspector-drivers strong { font-size: 10.5px; }
+  .inspector-drivers small { font-size: 9px; }
+  .shifts-section { padding: 18px 16px; }
+  .shifts-heading h2 { font-size: 12px; }
+  .shifts-heading p { font-size: 9px; }
+  .complete-mark { padding: 5px 7px; font-size: 8px; }
+  .shift-toggle { min-height: 64px; grid-template-columns: 34px minmax(0, 1fr) auto 18px; padding: 11px; }
+  .shift-icon { width: 32px; height: 32px; }
+  .shift-title strong, .shift-km strong { font-size: 11px; }
+  .shift-title small, .shift-km small { font-size: 8.5px; }
+  .metric-grid > div { min-height: 52px; padding: 10px; }
+  .metric-grid span { font-size: 8px; }
+  .metric-grid strong { font-size: 10px; }
+  .consumption-alert > span, .consumption-alert strong, .whatsapp-proof strong { font-size: 8px; }
+  .whatsapp-proof small, .whatsapp-proof button { font-size: 7px; }
+  .whatsapp-proof button { height: 29px; }
 }
 
 @media (max-width: 620px) {

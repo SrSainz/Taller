@@ -4,10 +4,13 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 
 ## Current prototype
 
-- Fleet ledger with vehicle, driver, mileage, maintenance, cost, and status data.
+- Fleet ledger tailored to five vehicles: three professional and two domestic.
+- Two assigned drivers per vehicle.
 - Search and operational filters.
-- Selectable rows with a detailed vehicle inspector.
-- Simulated WhatsApp odometer reading with total and daily kilometres.
+- Selectable rows with a detailed shift inspector.
+- Two daily shifts per professional vehicle, with driver, start/end odometer, shift kilometres, fuel litres, average consumption, cost, time, WhatsApp source, and AI confidence.
+- Simplified shared-reading flow for domestic vehicles.
+- Automatic consumption alert for readings outside the expected range.
 - Linked workshop invoice and upcoming maintenance information.
 - Working confirmation, navigation, filter, and feedback states.
 - Responsive desktop and mobile layouts.
@@ -27,9 +30,9 @@ No source code was copied from those projects. Their workflows and information m
 
 ## Suggested next architecture
 
-1. Persist vehicles, drivers, odometer readings, invoices, and maintenance events in Postgres.
+1. Persist vehicles, drivers, work shifts, fuel entries, odometer readings, invoices, and maintenance events in Postgres.
 2. Receive WhatsApp media through a supported WhatsApp Business provider webhook.
-3. Send images to the OpenAI API using structured outputs for total kilometres, daily kilometres, plate, confidence, and validation flags.
+3. Send images to the OpenAI API using structured outputs for total kilometres, shift kilometres, fuel litres, driver/vehicle association, confidence, and validation flags.
 4. Receive workshop invoices through an inbound email provider, store originals securely, and extract structured invoice fields.
 5. Match readings and invoices to vehicles, keep a complete audit trail, and send low-confidence cases to the review queue shown in this prototype.
 
