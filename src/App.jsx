@@ -42,8 +42,8 @@ const vehiclesSeed = [
     nextServiceKm: 134000,
     serviceDate: "12 ago 2026",
     shifts: [
-      { id: "kxd-t2", label: "Turno de tarde", driver: "Elena Torres", time: "14:10–22:04", start: 128310, end: 128460, km: 150, liters: 18.4, cost: 31.28, revenue: 418.2, cash: 76, sentAt: "22:08", confidence: 98 },
-      { id: "kxd-t1", label: "Turno de mañana", driver: "Luis Martínez", time: "06:03–14:01", start: 128142, end: 128310, km: 168, liters: 20.1, cost: 34.17, revenue: 462.8, cash: 128.5, sentAt: "14:05", confidence: 99 },
+      { id: "kxd-t2", label: "Turno de tarde", driver: "Elena Torres", time: "14:10–22:04", start: 128310, end: 128460, km: 150, liters: 18.4, cost: 31.28, revenue: 418.2, cash: 76, monthRevenue: 7954.3, monthTrips: 136, sentAt: "22:08", confidence: 98 },
+      { id: "kxd-t1", label: "Turno de mañana", driver: "Luis Martínez", time: "06:03–14:01", start: 128142, end: 128310, km: 168, liters: 20.1, cost: 34.17, revenue: 462.8, cash: 128.5, monthRevenue: 8240.5, monthTrips: 142, sentAt: "14:05", confidence: 99 },
     ],
     maintenance: [
       { date: "18 jul 2026", km: 127820, concept: "Aceite y filtros", amount: 286.4 },
@@ -60,8 +60,8 @@ const vehiclesSeed = [
     nextServiceKm: 150000,
     serviceDate: "18 ago 2026",
     shifts: [
-      { id: "lpt-t2", label: "Turno de tarde", driver: "Marta Sánchez", time: "14:02–21:46", start: 142842, end: 142980, km: 138, liters: 16.8, cost: 28.56, revenue: 435.2, cash: 110, sentAt: "21:51", confidence: 97 },
-      { id: "lpt-t1", label: "Turno de mañana", driver: "Carlos Pérez", time: "06:08–13:55", start: 142704, end: 142842, km: 138, liters: 17.4, cost: 29.58, revenue: 390.5, cash: 90, sentAt: "14:00", confidence: 99 },
+      { id: "lpt-t2", label: "Turno de tarde", driver: "Marta Sánchez", time: "14:02–21:46", start: 142842, end: 142980, km: 138, liters: 16.8, cost: 28.56, revenue: 435.2, cash: 110, monthRevenue: 8126.4, monthTrips: 139, sentAt: "21:51", confidence: 97 },
+      { id: "lpt-t1", label: "Turno de mañana", driver: "Carlos Pérez", time: "06:08–13:55", start: 142704, end: 142842, km: 138, liters: 17.4, cost: 29.58, revenue: 390.5, cash: 90, monthRevenue: 7318.8, monthTrips: 128, sentAt: "14:00", confidence: 99 },
     ],
     maintenance: [
       { date: "5 jul 2026", km: 140410, concept: "Neumáticos delanteros", amount: 498 },
@@ -78,8 +78,8 @@ const vehiclesSeed = [
     nextServiceKm: 215000,
     serviceDate: "2 ago 2026",
     shifts: [
-      { id: "jbv-t2", label: "Turno de tarde", driver: "Laura Gómez", time: "14:06–21:58", start: 210614, end: 210735, km: 121, liters: 19.2, cost: 32.64, revenue: 402.75, cash: 122, sentAt: "22:03", confidence: 96, alert: true },
-      { id: "jbv-t1", label: "Turno de mañana", driver: "Javier Ruiz", time: "06:11–13:57", start: 210494, end: 210614, km: 120, liters: 12.4, cost: 21.08, revenue: 376.4, cash: 84.5, sentAt: "14:02", confidence: 98 },
+      { id: "jbv-t2", label: "Turno de tarde", driver: "Laura Gómez", time: "14:06–21:58", start: 210614, end: 210735, km: 121, liters: 19.2, cost: 32.64, revenue: 402.75, cash: 122, monthRevenue: 7542.9, monthTrips: 130, sentAt: "22:03", confidence: 96, alert: true },
+      { id: "jbv-t1", label: "Turno de mañana", driver: "Javier Ruiz", time: "06:11–13:57", start: 210494, end: 210614, km: 120, liters: 12.4, cost: 21.08, revenue: 376.4, cash: 84.5, monthRevenue: 6984.25, monthTrips: 121, sentAt: "14:02", confidence: 98 },
     ],
     maintenance: [
       { date: "24 jul 2026", km: 210120, concept: "Aceite y filtros", amount: 312.5 },
@@ -97,8 +97,8 @@ const vehiclesSeed = [
     nextServiceKm: 105000,
     serviceDate: "22 ago 2026",
     daily: [
-      { driver: "Ana García", km: 21, liters: 0, cost: 0, revenue: 0, cash: 0, time: "08:12–13:20" },
-      { driver: "David García", km: 13, liters: 25.1, cost: 42.67, revenue: 0, cash: 0, time: "17:40–19:05" },
+      { driver: "Ana García", km: 21, liters: 0, cost: 0, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "08:12–13:20" },
+      { driver: "David García", km: 13, liters: 25.1, cost: 42.67, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "17:40–19:05" },
     ],
     shifts: [],
     maintenance: [
@@ -116,8 +116,8 @@ const vehiclesSeed = [
     nextServiceKm: 80000,
     serviceDate: "6 ago 2026",
     daily: [
-      { driver: "Sergio Ruiz", km: 11, liters: 0, cost: 0, revenue: 0, cash: 0, time: "09:05–12:16" },
-      { driver: "María Ruiz", km: 7, liters: 18.3, cost: 30.92, revenue: 0, cash: 0, time: "18:10–19:02" },
+      { driver: "Sergio Ruiz", km: 11, liters: 0, cost: 0, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "09:05–12:16" },
+      { driver: "María Ruiz", km: 7, liters: 18.3, cost: 30.92, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "18:10–19:02" },
     ],
     shifts: [],
     maintenance: [
@@ -133,7 +133,7 @@ const formatCurrency = (value) => `${value.toLocaleString("es-ES", { minimumFrac
 const getDriverDay = (vehicle, driver) =>
   vehicle.shifts.find((shift) => shift.driver === driver) ??
   vehicle.daily?.find((entry) => entry.driver === driver) ??
-  { driver, km: 0, liters: 0, cost: 0, revenue: 0, cash: 0, time: "Sin actividad" };
+  { driver, km: 0, liters: 0, cost: 0, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "Sin actividad" };
 
 function UseBadge({ value }) {
   const Icon = value === "Profesional" ? IconBriefcase : IconHome;
@@ -254,11 +254,10 @@ export function App() {
               <thead>
                 <tr>
                   <th>Matrícula</th>
-                  <th>Uso</th>
                   <th>Conductores</th>
+                  <th>Facturación</th>
                   <th>Km hoy</th>
                   <th>Repostaje</th>
-                  <th>Facturación diaria</th>
                   <th>Km acumulados</th>
                   <th>Km para revisión</th>
                   <th>Taller</th>
@@ -281,7 +280,6 @@ export function App() {
                       }}
                     >
                       <td className="plate"><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td>
-                      <td><UseBadge value={vehicle.use} /></td>
                       <td>
                         <div className="driver-selector" aria-label={`Conductores de ${vehicle.plate}`}>
                           {vehicle.drivers.map((name) => (
@@ -298,9 +296,13 @@ export function App() {
                           ))}
                         </div>
                       </td>
+                      <td className="billing-cell">
+                        <strong>{formatCurrency(day.revenue)} hoy</strong>
+                        <small>Mes {formatCurrency(day.monthRevenue)} · {day.monthTrips} viajes</small>
+                        <small>Efectivo hoy {formatCurrency(day.cash)}</small>
+                      </td>
                       <td className="today-km"><strong>{formatKm(day.km)}</strong><small>{driver.split(" ")[0]}</small></td>
                       <td><strong>{formatCurrency(day.cost)}</strong><small>{day.liters ? `${day.liters.toLocaleString("es-ES")} L` : "Sin repostaje"}</small></td>
-                      <td className="billing-cell"><strong>{formatCurrency(day.revenue)}</strong><small>Efectivo {formatCurrency(day.cash)}</small></td>
                       <td><strong>{formatKm(vehicle.odometer)}</strong><small>Actualizado hoy</small></td>
                       <td><span className={`service-countdown ${remaining <= 4500 ? "service-countdown--urgent" : ""}`}><strong>{formatKm(remaining)}</strong><small>{vehicle.serviceDate}</small></span></td>
                       <td>
@@ -351,7 +353,7 @@ export function App() {
               <div className="driver-day-metrics">
                 <div><span>Kilómetros</span><strong>{formatKm(selectedActivity.km)}</strong></div>
                 <div><span>Repostaje</span><strong>{formatCurrency(selectedActivity.cost)}</strong><small>{selectedActivity.liters ? `${selectedActivity.liters.toLocaleString("es-ES")} litros` : "Sin repostaje"}</small></div>
-                <div><span>Facturación</span><strong>{formatCurrency(selectedActivity.revenue)}</strong><small>Efectivo {formatCurrency(selectedActivity.cash)}</small></div>
+                <div><span>Facturación</span><strong>{formatCurrency(selectedActivity.revenue)}</strong><small>Mes {formatCurrency(selectedActivity.monthRevenue)} · {selectedActivity.monthTrips} viajes<br />Efectivo hoy {formatCurrency(selectedActivity.cash)}</small></div>
               </div>
             </section>
 

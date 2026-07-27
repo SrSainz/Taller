@@ -7,7 +7,8 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 - Fleet ledger tailored to five vehicles: three professional and two domestic.
 - Two assigned drivers per vehicle.
 - Driver selectors in every row: daily kilometres and fuel spend update per person.
-- Daily billing per selected driver, with the cash-paid portion shown separately.
+- Billing immediately after the driver selector, with today's total, monthly accumulated billing, monthly accumulated trips, and today's cash-paid portion.
+- No separate usage column in the fleet ledger; professional/domestic usage remains available in the vehicle detail.
 - Remaining kilometres to the next service shown as a live countdown.
 - Latest workshop amount and concept visible in the fleet ledger.
 - Workshop history table with dates, mileage, amounts, and repeated-concept markers.
