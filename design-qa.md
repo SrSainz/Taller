@@ -2,6 +2,7 @@
 
 - Source visual truth: `C:\Users\aiday\OneDrive\Escritorio\app david\design-reference.png`
 - Primary implementation screenshot: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-driver-workshop-1280-final.png`
+- Billing-column screenshot: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-billing-1280.png`
 - Workshop-state screenshot: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-workshop-history-1280.png`
 - Combined comparison: `C:\Users\aiday\OneDrive\Escritorio\app david\design-comparison-workshop.png`
 - Viewport: 1280 × 720 CSS px.
@@ -35,6 +36,7 @@ The inspector workshop state was reviewed at native scale. Four maintenance rows
 ## Browser checks
 
 - Clicking Javier Ruiz in the Renault Master row changes the row from 121 km / 32,64 € to 120 km / 21,08 €.
+- The same driver change updates daily billing from 402,75 € / 122,00 € cash to 376,40 € / 84,50 € cash.
 - The inspector switches to Javier Ruiz and expands his 06:11–13:57 morning part.
 - Clicking the Renault Master workshop cell opens the Taller tab.
 - Workshop history shows 4 interventions, a total of 2.035,80 €, and two repeated-concept markers.
