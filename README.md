@@ -12,6 +12,8 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 - Remaining kilometres to the next service shown as a live countdown.
 - Latest workshop amount and concept visible in the fleet ledger.
 - Workshop history table with dates, mileage, amounts, and repeated-concept markers.
+- Photo-to-invoice workflow from Taller or Facturas, with image preview and an editable dated table of extracted concepts and prices.
+- Vehicle-specific Gastos tab with twelve cost categories, both drivers' monthly billing, total expenses, and the resulting profit margin.
 - Search and operational filters.
 - Selectable rows with a detailed shift inspector.
 - Two daily shifts per professional vehicle, with driver, start/end odometer, shift kilometres, fuel litres, average consumption, cost, time, WhatsApp source, and AI confidence.

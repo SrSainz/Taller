@@ -6,6 +6,7 @@ import {
   IconBriefcase,
   IconBuildingStore,
   IconCalendar,
+  IconCamera,
   IconCar,
   IconCheck,
   IconChevronDown,
@@ -31,6 +32,7 @@ import {
   IconShieldCheck,
   IconSparkles,
   IconTools,
+  IconTrash,
   IconUpload,
   IconUsers,
   IconX,
@@ -146,12 +148,50 @@ const vehiclesSeed = [
 ];
 
 const invoiceSeed = [
-  { id: "FAC-2026-1874", date: "24 jul 2026", provider: "Taller AutoRápido S.L.", plate: "9102 JBV", concept: "Aceite y filtros", amount: 312.5, source: "Correo", status: "Asociada" },
+  {
+    id: "FAC-2026-1874",
+    date: "24 jul 2026",
+    provider: "Taller AutoRápido S.L.",
+    plate: "9102 JBV",
+    concept: "Aceite y filtros",
+    amount: 312.5,
+    source: "Correo",
+    status: "Asociada",
+    items: [
+      { concept: "Aceite motor 5W30", amount: 96.5 },
+      { concept: "Filtro de aceite", amount: 24 },
+      { concept: "Filtro de aire", amount: 38 },
+      { concept: "Mano de obra", amount: 154 },
+    ],
+  },
   { id: "FAC-2026-1842", date: "18 jul 2026", provider: "Mecánica Norte", plate: "1234 KXD", concept: "Aceite y filtros", amount: 286.4, source: "Correo", status: "Asociada" },
   { id: "FAC-2026-1798", date: "5 jul 2026", provider: "Neumáticos Central", plate: "5678 LPT", concept: "Neumáticos delanteros", amount: 498, source: "Correo", status: "Revisar" },
   { id: "FAC-2026-1761", date: "12 jun 2026", provider: "Peugeot Service", plate: "3456 HTR", concept: "Aceite y filtros", amount: 224.8, source: "Manual", status: "Asociada" },
   { id: "FAC-2026-1684", date: "28 may 2026", provider: "Toyota Madrid", plate: "7890 GYL", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
 ];
+
+const expenseCategories = [
+  { label: "Leasing coche", cadence: "Mensual" },
+  { label: "Préstamo licencia", cadence: "Mensual" },
+  { label: "Gasolina", cadence: "Variable" },
+  { label: "Taller", cadence: "Variable" },
+  { label: "Seguridad Social", cadence: "Mensual" },
+  { label: "Nómina", cadence: "Mensual" },
+  { label: "Comisiones conductor", cadence: "Variable" },
+  { label: "Impuestos trimestrales", cadence: "Trimestral" },
+  { label: "IVA intracomunitario", cadence: "Trimestral" },
+  { label: "Seguro", cadence: "Anual" },
+  { label: "Limpieza coche", cadence: "Variable" },
+  { label: "Varios", cadence: "Variable" },
+];
+
+const vehicleExpenseAmounts = {
+  "1234 KXD": [780, 450, 1280.42, 286.4, 390, 1650, 824.05, 1860, 85, 870, 95, 120],
+  "5678 LPT": [895, 450, 1136.28, 498, 390, 1650, 812.64, 1740, 92, 940, 110, 164.8],
+  "9102 JBV": [820, 450, 1054.72, 312.5, 390, 1650, 754.29, 1695, 78, 905, 98, 98.5],
+  "3456 HTR": [420, 0, 185.34, 224.8, 0, 0, 0, 0, 0, 540, 40, 60],
+  "7890 GYL": [0, 310, 142.18, 198.6, 0, 0, 0, 0, 0, 495, 35, 44.9],
+};
 
 const readingSeed = [
   { id: "LEC-4381", time: "Hoy · 22:08", driver: "Elena Torres", plate: "1234 KXD", total: 128460, daily: 150, confidence: 98, status: "Validada" },
@@ -224,6 +264,7 @@ export function App() {
   const [toast, setToast] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modal, setModal] = useState(null);
+  const [invoices, setInvoices] = useState(invoiceSeed);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
@@ -265,6 +306,10 @@ export function App() {
     setToast(message);
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(""), 2800);
+  };
+
+  const savePhotoInvoice = (invoice) => {
+    setInvoices((current) => [invoice, ...current]);
   };
 
   const navigate = (item) => {
@@ -367,7 +412,7 @@ export function App() {
             />
           )}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
-          {activeNav === "Facturas" && <InvoicesView setModal={setModal} />}
+          {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView openVehicle={openVehicleFromModule} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
@@ -387,10 +432,11 @@ export function App() {
           openShift={openShift}
           setOpenShift={setOpenShift}
           notify={notify}
+          setModal={setModal}
         />
       )}
 
-      {modal && <AppModal modal={modal} onClose={() => setModal(null)} notify={notify} />}
+      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
       {sidebarOpen && <button className="backdrop" aria-label="Cerrar menú" onClick={() => setSidebarOpen(false)} />}
     </div>
@@ -479,13 +525,13 @@ function ReadingsView({ setModal }) {
   );
 }
 
-function InvoicesView({ setModal }) {
-  const total = invoiceSeed.reduce((sum, invoice) => sum + invoice.amount, 0);
+function InvoicesView({ invoices, setModal }) {
+  const total = invoices.reduce((sum, invoice) => sum + invoice.amount, 0);
   return (
     <section className="module-page">
       <PageIntro eyebrow="Correo del taller" title="Facturas" description="Facturas recibidas, conceptos extraídos y asociación automática con cada vehículo." action={<button className="primary-button" onClick={() => setModal({ type: "invoice-upload" })}><IconUpload size={18} />Subir factura</button>} />
       <div className="metric-cards">
-        <MetricCard icon={IconCurrencyEuro} label="Gasto registrado" value={formatCurrency(total)} detail="5 facturas este periodo" />
+        <MetricCard icon={IconCurrencyEuro} label="Gasto registrado" value={formatCurrency(total)} detail={`${invoices.length} facturas este periodo`} />
         <MetricCard icon={IconMail} label="Recibidas por correo" value="4" detail="80% del total" />
         <MetricCard icon={IconAlertTriangle} label="Requieren revisión" value="2" detail="Una sin vehículo asociado" tone="amber" />
       </div>
@@ -494,7 +540,7 @@ function InvoicesView({ setModal }) {
         <div className="table-scroll">
           <table className="module-table">
             <thead><tr><th>Factura</th><th>Taller</th><th>Vehículo</th><th>Concepto</th><th>Origen</th><th>Importe</th><th>Estado</th><th /></tr></thead>
-            <tbody>{invoiceSeed.map((invoice) => <tr key={invoice.id}><td><strong>{invoice.id}</strong><small>{invoice.date}</small></td><td>{invoice.provider}</td><td><strong>{invoice.plate}</strong></td><td>{invoice.concept}</td><td><span className="source-label">{invoice.source === "Correo" ? <IconMail size={15} /> : <IconUpload size={15} />}{invoice.source}</span></td><td><strong>{formatCurrency(invoice.amount)}</strong></td><td><StatusBadge status={invoice.status} /></td><td><button className="table-action" onClick={() => setModal({ type: "invoice", item: invoice })}>Ver factura<IconChevronRight size={16} /></button></td></tr>)}</tbody>
+            <tbody>{invoices.map((invoice) => <tr key={invoice.id}><td><strong>{invoice.id}</strong><small>{invoice.date}</small></td><td>{invoice.provider}</td><td><strong>{invoice.plate}</strong></td><td>{invoice.concept}</td><td><span className="source-label">{invoice.source === "Correo" ? <IconMail size={15} /> : invoice.source === "Foto" ? <IconCamera size={15} /> : <IconUpload size={15} />}{invoice.source}</span></td><td><strong>{formatCurrency(invoice.amount)}</strong></td><td><StatusBadge status={invoice.status} /></td><td><button className="table-action" onClick={() => setModal({ type: "invoice", item: invoice })}>Ver factura<IconChevronRight size={16} /></button></td></tr>)}</tbody>
           </table>
         </div>
       </section>
@@ -591,13 +637,13 @@ function HelpView({ openFaq, setOpenFaq, setModal }) {
   );
 }
 
-function VehicleInspector({ selected, selectedDriver, selectedActivity, inspectorTab, setInspectorTab, setInspectorOpen, selectDriver, openShift, setOpenShift, notify }) {
+function VehicleInspector({ selected, selectedDriver, selectedActivity, inspectorTab, setInspectorTab, setInspectorOpen, selectDriver, openShift, setOpenShift, notify, setModal }) {
   const remaining = selected.nextServiceKm - selected.odometer;
   return (
     <aside className="inspector" aria-label={`Detalle de ${selected.plate}`}>
       <header className="inspector-header"><div><span className="inspector-eyebrow">Vehículo seleccionado</span><strong>{selected.plate}</strong><small>{selected.model}</small><UseBadge value={selected.use} /></div><button className="icon-button" aria-label="Cerrar detalle" onClick={() => setInspectorOpen(false)}><IconX size={21} /></button></header>
       <div className="inspector-driver-picker"><span>Conductor</span><div>{selected.drivers.map((driver) => <button className={selectedDriver === driver ? "driver-pill driver-pill--active" : "driver-pill"} key={driver} onClick={() => selectDriver(selected, driver)}>{driver}</button>)}</div></div>
-      <div className="inspector-tabs"><button className={inspectorTab === "Turnos" ? "active" : ""} onClick={() => setInspectorTab("Turnos")}>Actividad</button><button className={inspectorTab === "Taller" ? "active" : ""} onClick={() => setInspectorTab("Taller")}>Taller</button></div>
+      <div className="inspector-tabs"><button className={inspectorTab === "Turnos" ? "active" : ""} onClick={() => setInspectorTab("Turnos")}>Actividad</button><button className={inspectorTab === "Taller" ? "active" : ""} onClick={() => setInspectorTab("Taller")}>Taller</button><button className={inspectorTab === "Gastos" ? "active" : ""} onClick={() => setInspectorTab("Gastos")}>Gastos</button></div>
       <div className="inspector-scroll">
         {inspectorTab === "Turnos" ? (
           <>
@@ -615,24 +661,200 @@ function VehicleInspector({ selected, selectedDriver, selectedActivity, inspecto
               })}</section>
             ) : <section className="domestic-note"><IconHome size={21} /><span><strong>Uso doméstico</strong>Registro diario individual sin parte de turno obligatorio.</span></section>}
           </>
-        ) : <WorkshopHistory vehicle={selected} />}
+        ) : inspectorTab === "Taller" ? <WorkshopHistory vehicle={selected} onCreateInvoice={() => setModal({ type: "invoice-upload", plate: selected.plate })} /> : <VehicleExpenses vehicle={selected} />}
         <section className="next-service"><span className={remaining <= 4500 ? "urgent" : ""}><IconTools size={18} /><strong>{formatKm(remaining)} restantes</strong></span><p>{selected.serviceDate} · objetivo {formatKm(selected.nextServiceKm)}</p></section>
       </div>
     </aside>
   );
 }
 
-function WorkshopHistory({ vehicle }) {
+function WorkshopHistory({ vehicle, onCreateInvoice }) {
   const counts = vehicle.maintenance.reduce((result, item) => ({ ...result, [item.concept]: (result[item.concept] ?? 0) + 1 }), {});
   const total = vehicle.maintenance.reduce((sum, item) => sum + item.amount, 0);
   return (
     <section className="workshop-history">
       <header><span><IconHistory size={18} /><strong>Historial de taller</strong></span><small>{vehicle.maintenance.length} intervenciones</small></header>
       <div className="workshop-total"><span>Importe registrado</span><strong>{formatCurrency(total)}</strong></div>
+      <button className="secondary-button workshop-invoice-button" onClick={onCreateInvoice}><IconCamera size={17} />Crear factura desde una foto</button>
       <div className="maintenance-table" role="table" aria-label={`Historial de taller de ${vehicle.plate}`}>
         {vehicle.maintenance.map((item) => <div className="maintenance-row" role="row" key={`${item.date}-${item.concept}`}><span><strong>{item.date}</strong><small>{formatKm(item.km)}</small></span><span><strong>{item.concept}</strong>{counts[item.concept] > 1 && <small className="repeat-mark">{counts[item.concept]} veces</small>}</span><strong>{formatCurrency(item.amount)}</strong></div>)}
       </div>
     </section>
+  );
+}
+
+function VehicleExpenses({ vehicle }) {
+  const amounts = vehicleExpenseAmounts[vehicle.plate] ?? expenseCategories.map(() => 0);
+  const expenses = expenseCategories.map((category, index) => ({ ...category, amount: amounts[index] ?? 0 }));
+  const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const operating = expenses.filter((expense) => ["Gasolina", "Taller", "Comisiones conductor", "Limpieza coche", "Varios"].includes(expense.label)).reduce((sum, expense) => sum + expense.amount, 0);
+  const fixed = total - operating;
+  const driverRevenue = vehicle.drivers.map((driver) => ({ driver, amount: getDriverDay(vehicle, driver).monthRevenue ?? 0 }));
+  const totalRevenue = driverRevenue.reduce((sum, entry) => sum + entry.amount, 0);
+  const profitMargin = totalRevenue - total;
+  const marginPercent = totalRevenue > 0 ? (profitMargin / totalRevenue) * 100 : 0;
+
+  return (
+    <section className="vehicle-expenses">
+      <header>
+        <div><span><IconCurrencyEuro size={18} /><strong>Gastos del vehículo</strong></span><small>Julio 2026</small></div>
+      </header>
+      <div className="vehicle-margin-summary">
+        <div><span>Facturación conjunta</span><strong>{formatCurrency(totalRevenue)}</strong><small>Dos conductores</small></div>
+        <i>−</i>
+        <div><span>Gastos del coche</span><strong>{formatCurrency(total)}</strong><small>Todos los conceptos</small></div>
+        <i>=</i>
+        <div className={profitMargin >= 0 ? "positive" : "negative"}><span>Margen de beneficio</span><strong>{formatCurrency(profitMargin)}</strong><small>{totalRevenue > 0 ? `${marginPercent.toLocaleString("es-ES", { maximumFractionDigits: 1 })}% sobre facturación` : "Sin facturación asignada"}</small></div>
+      </div>
+      <div className="driver-revenue-summary">
+        <header><span>Facturación mensual por conductor</span><strong>{formatCurrency(totalRevenue)}</strong></header>
+        {driverRevenue.map((entry) => <div key={entry.driver}><span>{entry.driver}</span><strong>{formatCurrency(entry.amount)}</strong></div>)}
+      </div>
+      <div className="expense-breakdown"><div><span>Fijos y fiscales</span><strong>{formatCurrency(fixed)}</strong></div><div><span>Operativos</span><strong>{formatCurrency(operating)}</strong></div></div>
+      <div className="expense-table" role="table" aria-label={`Gastos de ${vehicle.plate} en julio de 2026`}>
+        <div className="expense-row expense-row--header" role="row"><span>Categoría</span><span>Periodo</span><span>Importe</span></div>
+        {expenses.map((expense) => <div className="expense-row" role="row" key={expense.label}><span role="cell"><strong>{expense.label}</strong></span><span role="cell"><small>{expense.amount === 0 ? "No aplica" : expense.cadence}</small></span><strong role="cell" className={expense.amount === 0 ? "expense-zero" : ""}>{formatCurrency(expense.amount)}</strong></div>)}
+      </div>
+      <p className="expense-note">Importes asociados únicamente a {vehicle.plate}. Los trimestrales y anuales muestran el pago registrado en el periodo.</p>
+    </section>
+  );
+}
+
+function AppModalV2({ modal, onClose, notify, onSaveInvoice }) {
+  const item = modal.item;
+  const isReading = modal.type === "reading-review";
+  const isInvoice = modal.type === "invoice";
+  const isPhotoInvoice = modal.type === "invoice-upload";
+  const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", support: "Contactar con soporte" };
+  const complete = (message) => { notify(message); onClose(); };
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <header><div><span>Acción rápida</span><h2 id="modal-title">{titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
+        {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
+        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div><dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div><div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
+        {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
+        {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} onCancel={onClose} onSave={(invoice) => { onSaveInvoice(invoice); complete("Factura creada y añadida al listado"); }} />}
+        {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
+        {!isPhotoInvoice && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
+      </section>
+    </div>
+  );
+}
+
+function InvoiceLinesTable({ date, items }) {
+  return (
+    <section className="invoice-lines-detail">
+      <header><div><h3>Conceptos de la factura</h3><p>Desglose detectado en el documento.</p></div><strong>{formatCurrency(items.reduce((sum, line) => sum + Number(line.amount), 0))}</strong></header>
+      <div className="invoice-lines-scroll">
+        <table>
+          <caption className="sr-only">Conceptos y precios de la factura</caption>
+          <thead><tr><th>Fecha</th><th>Concepto</th><th>Precio</th></tr></thead>
+          <tbody>{items.map((line, index) => <tr key={`${line.concept}-${index}`}><td>{date}</td><td>{line.concept}</td><td><strong>{formatCurrency(Number(line.amount))}</strong></td></tr>)}</tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function InvoicePhotoWorkflow({ initialPlate, onCancel, onSave }) {
+  const [stage, setStage] = useState("upload");
+  const [preview, setPreview] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [date, setDate] = useState("2026-07-28");
+  const [provider, setProvider] = useState("Taller AutoRápido S.L.");
+  const [plate, setPlate] = useState(initialPlate ?? vehiclesSeed[0].plate);
+  const [lines, setLines] = useState([
+    { id: "photo-line-1", concept: "Aceite motor 5W30", amount: 79.9 },
+    { id: "photo-line-2", concept: "Filtro de aceite", amount: 18.5 },
+    { id: "photo-line-3", concept: "Mano de obra", amount: 52 },
+  ]);
+
+  const total = lines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
+  const valid = provider.trim() && plate && lines.length > 0 && lines.every((line) => line.concept.trim() && Number(line.amount) >= 0);
+
+  const preparePhoto = (file) => {
+    if (!file) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      setPreview(String(reader.result));
+      setStage("review");
+    });
+    reader.readAsDataURL(file);
+  };
+
+  const updateLine = (id, field, value) => {
+    setLines((current) => current.map((line) => line.id === id ? { ...line, [field]: field === "amount" ? Number(value) : value } : line));
+  };
+
+  const save = () => {
+    const concepts = lines.map((line) => line.concept.trim());
+    const compactConcept = concepts.length > 2 ? `${concepts.slice(0, 2).join(", ")} +${concepts.length - 2}` : concepts.join(", ");
+    const displayDate = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${date}T12:00:00`)).replace(".", "");
+    onSave({
+      id: `FAC-${date.slice(0, 4)}-${String(Date.now()).slice(-4)}`,
+      date: displayDate,
+      provider: provider.trim(),
+      plate,
+      concept: compactConcept,
+      amount: total,
+      source: "Foto",
+      status: "Revisar",
+      items: lines.map(({ concept, amount }) => ({ concept: concept.trim(), amount: Number(amount) })),
+    });
+  };
+
+  if (stage === "upload") {
+    return (
+      <div className="invoice-photo-upload">
+        <div className="upload-zone">
+          <span className="upload-zone__icon"><IconCamera size={29} /></span>
+          <strong>Fotografía la factura del taller</strong>
+          <p>La imagen se procesará para detectar la fecha, el vehículo y cada concepto con su precio. Podrás corregirlo todo antes de guardarlo.</p>
+          <div className="photo-actions">
+            <label className="primary-button" htmlFor="invoice-camera"><IconCamera size={18} />Hacer una foto</label>
+            <input id="invoice-camera" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => preparePhoto(event.target.files?.[0])} />
+            <label className="secondary-button" htmlFor="invoice-gallery"><IconUpload size={17} />Elegir imagen</label>
+            <input id="invoice-gallery" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => preparePhoto(event.target.files?.[0])} />
+          </div>
+          <button className="text-button" onClick={() => { setFileName("factura_taller_28-07-2026.jpg"); setStage("review"); }}>Probar con una factura de ejemplo</button>
+        </div>
+        <div className="invoice-workflow-actions"><button className="secondary-button" onClick={onCancel}>Cancelar</button></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="invoice-photo-review">
+      <div className="photo-review-layout">
+        <aside className="photo-preview">
+          {preview ? <img src={preview} alt="Fotografía de la factura seleccionada" /> : <span className="photo-preview__placeholder"><IconFileInvoice size={34} /><strong>Factura de ejemplo</strong></span>}
+          <div><IconCamera size={17} /><span><strong>{fileName}</strong><small>Imagen preparada para revisión</small></span></div>
+          <button className="text-button" onClick={() => setStage("upload")}>Cambiar fotografía</button>
+        </aside>
+
+        <section className="invoice-extraction">
+          <div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA 96% · Revisa los datos antes de guardar</small></span></div>
+          <div className="invoice-meta-grid">
+            <label>Fecha de factura<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+            <label>Vehículo<select value={plate} onChange={(event) => setPlate(event.target.value)}>{vehiclesSeed.map((vehicle) => <option key={vehicle.plate} value={vehicle.plate}>{vehicle.plate} · {vehicle.model}</option>)}</select></label>
+            <label className="invoice-provider-field">Taller<input value={provider} onChange={(event) => setProvider(event.target.value)} /></label>
+          </div>
+
+          <div className="extracted-lines-header"><div><h3>Conceptos detectados</h3><p>Edita, elimina o añade líneas.</p></div><button className="secondary-button compact-button" onClick={() => setLines((current) => [...current, { id: `photo-line-${Date.now()}`, concept: "", amount: 0 }])}><IconPlus size={16} />Añadir concepto</button></div>
+          <div className="invoice-lines-scroll">
+            <table className="editable-invoice-table">
+              <caption className="sr-only">Conceptos y precios extraídos de la fotografía</caption>
+              <thead><tr><th>Fecha</th><th>Concepto</th><th>Precio</th><th><span className="sr-only">Eliminar</span></th></tr></thead>
+              <tbody>{lines.map((line) => <tr key={line.id}><td><time dateTime={date}>{new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${date}T12:00:00`))}</time></td><td><input aria-label={`Concepto ${line.id}`} value={line.concept} onChange={(event) => updateLine(line.id, "concept", event.target.value)} /></td><td><label className="price-input"><input aria-label={`Precio de ${line.concept || "nuevo concepto"}`} type="number" min="0" step="0.01" value={line.amount} onChange={(event) => updateLine(line.id, "amount", event.target.value)} /><span>€</span></label></td><td><button className="icon-button delete-line-button" onClick={() => setLines((current) => current.filter((candidate) => candidate.id !== line.id))} aria-label={`Eliminar ${line.concept || "concepto"}`}><IconTrash size={17} /></button></td></tr>)}</tbody>
+              <tfoot><tr><td colSpan={2}>Total factura</td><td colSpan={2}><strong>{formatCurrency(total)}</strong></td></tr></tfoot>
+            </table>
+          </div>
+        </section>
+      </div>
+      <div className="invoice-workflow-actions"><button className="secondary-button" onClick={onCancel}>Cancelar</button><button className="primary-button" disabled={!valid} onClick={save}><IconCheck size={18} />Guardar factura</button></div>
+    </div>
   );
 }
 
