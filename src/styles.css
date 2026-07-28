@@ -182,6 +182,26 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .maintenance-summary > strong { color: var(--green-800); font-size: 25px; }
 .maintenance-summary > p { margin: 9px 0 24px; color: var(--muted); font-size: 9px; line-height: 1.55; }
 .maintenance-summary > div { display: flex; justify-content: space-between; padding: 11px 0; border-top: 1px solid var(--line); font-size: 9px; }
+.workshop-module { margin-bottom: 14px; scroll-margin-top: 84px; }
+.workshop-module__layout { display: grid; grid-template-columns: 270px minmax(0,1fr); min-height: 390px; }
+.workshop-vehicle-list { display: grid; align-content: start; padding: 10px; border-right: 1px solid var(--line); background: #f8faf9; }
+.workshop-vehicle-list button { min-width: 0; min-height: 66px; display: grid; grid-template-columns: minmax(0,1fr) minmax(90px,.8fr) 18px; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
+.workshop-vehicle-list button:hover { background: #fff; }
+.workshop-vehicle-list button.active { border-color: #9fc3b6; background: #fff; box-shadow: 0 4px 14px rgba(20,72,58,.06); }
+.workshop-vehicle-list button > span { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.workshop-vehicle-list button > span:nth-child(2) { text-align: right; }
+.workshop-vehicle-list button strong { overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.workshop-vehicle-list button small { overflow: hidden; color: var(--muted); font-size: 6.5px; text-overflow: ellipsis; white-space: nowrap; }
+.workshop-vehicle-list button > svg { color: var(--muted); }
+.workshop-module .workshop-history { padding: 18px; border-bottom: 0; }
+.workshop-module .workshop-history > header strong { font-size: 11px; }
+.workshop-module .workshop-history > header small { font-size: 8px; }
+.workshop-module .workshop-total { padding: 14px; }
+.workshop-module .workshop-total span { font-size: 8px; }
+.workshop-module .workshop-total strong { font-size: 19px; }
+.workshop-module .maintenance-row { min-height: 58px; grid-template-columns: 118px minmax(0,1fr) 96px; }
+.workshop-module .maintenance-row strong { font-size: 9px; }
+.workshop-module .maintenance-row small { font-size: 7px; }
 
 .automation-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 14px; }
 .automation-card { min-height: 230px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 3px 12px rgba(28,62,51,.03); }
@@ -494,6 +514,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .search { width: 100%; }
   .filters { overflow-x: auto; }
   .maintenance-layout, .help-grid { grid-template-columns: 1fr; }
+  .workshop-module__layout { grid-template-columns: 1fr; }
+  .workshop-vehicle-list { display: flex; overflow-x: auto; padding: 10px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .workshop-vehicle-list button { min-width: 225px; }
   .settings-grid { grid-template-columns: 1fr; }
   .settings-card:last-child { grid-column: auto; }
   .inspector { inset: 0; width: 100%; height: 100vh; }
@@ -517,6 +540,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .segmented { overflow-x: auto; }
   .table-footer { align-items: flex-start; flex-direction: column; justify-content: center; gap: 4px; }
   .maintenance-summary { min-height: 250px; }
+  .workshop-module > .card-header .primary-button { width: 100%; }
+  .workshop-module .workshop-history { padding: 14px 12px; }
+  .workshop-module .maintenance-row { grid-template-columns: 82px minmax(0,1fr) 74px; }
   .modal-backdrop { padding: 8px; }
   .modal { max-height: 96vh; }
   .modal--invoice-photo { width: 100%; }
