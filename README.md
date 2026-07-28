@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.5 seconds
-Output:
 # Talleria
 
 Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage, workshop invoices, and the automations that connect both.
@@ -70,4 +67,3 @@ Production build:
 ```bash
 pnpm run build
 ```
-

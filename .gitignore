@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.vercel/
+.vite*.log
+*.local
+.env*
+!/.env.example
