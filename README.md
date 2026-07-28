@@ -11,7 +11,7 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 - No separate usage column in the fleet ledger; professional/domestic usage remains available in the vehicle detail.
 - Remaining kilometres to the next service shown as a live countdown.
 - Latest workshop amount and concept visible in the fleet ledger.
-- Workshop history table with dates, mileage, amounts, and repeated-concept markers.
+- Workshop workspace integrated into Mantenimiento, with a five-vehicle selector, dated history, amounts, and repeated-concept markers.
 - Photo-to-invoice workflow from Taller or Facturas, with image preview and an editable dated table of extracted concepts and prices.
 - Vehicle-specific Gastos tab with twelve cost categories, both drivers' monthly billing, total expenses, and the resulting profit margin.
 - Search and operational filters.
@@ -33,7 +33,7 @@ This first version is intentionally front-end only. WhatsApp, email ingestion, O
 - `#/flota` — five-vehicle operational ledger and driver inspector.
 - `#/lecturas` — WhatsApp/OCR review queue.
 - `#/facturas` — workshop invoice inbox.
-- `#/mantenimiento` — upcoming services and recent interventions.
+- `#/mantenimiento` — upcoming services, vehicle workshop histories, photo invoices, and recent interventions.
 - `#/automatizaciones` — WhatsApp, email, and OpenAI flow controls.
 - `#/ajustes` — organization and alert thresholds.
 - `#/ayuda` — FAQs and support contact.
