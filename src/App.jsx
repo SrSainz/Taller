@@ -249,6 +249,7 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "green" }) {
 export function App() {
   const [activeNav, setActiveNav] = useState(navFromHash);
   const [selectedPlate, setSelectedPlate] = useState("9102 JBV");
+  const [maintenancePlate, setMaintenancePlate] = useState("9102 JBV");
   const [selectedDrivers, setSelectedDrivers] = useState({
     "1234 KXD": "Luis Martínez",
     "5678 LPT": "Carlos Pérez",
@@ -337,9 +338,9 @@ export function App() {
   };
 
   const openWorkshop = (vehicle) => {
-    setSelectedPlate(vehicle.plate);
-    setInspectorTab("Taller");
-    setInspectorOpen(true);
+    setMaintenancePlate(vehicle.plate);
+    navigate(navItems[3]);
+    window.setTimeout(() => document.getElementById("taller-vehiculo")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   };
 
   const openVehicleFromModule = (plate, tab = "Turnos") => {
@@ -413,7 +414,7 @@ export function App() {
           )}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
-          {activeNav === "Mantenimiento" && <MaintenanceView openVehicle={openVehicleFromModule} />}
+          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} setModal={setModal} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}
@@ -432,7 +433,6 @@ export function App() {
           openShift={openShift}
           setOpenShift={setOpenShift}
           notify={notify}
-          setModal={setModal}
         />
       )}
 
@@ -548,17 +548,38 @@ function InvoicesView({ invoices, setModal }) {
   );
 }
 
-function MaintenanceView({ openVehicle }) {
+function MaintenanceView({ initialPlate, setModal }) {
+  const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
+  const workshopButtonRefs = useRef({});
   const schedule = [...vehiclesSeed].sort((a, b) => (a.nextServiceKm - a.odometer) - (b.nextServiceKm - b.odometer));
+  const workshopVehicle = vehiclesSeed.find((vehicle) => vehicle.plate === workshopPlate) ?? vehiclesSeed[0];
+
+  useEffect(() => {
+    setWorkshopPlate(initialPlate);
+  }, [initialPlate]);
+
+  useEffect(() => {
+    const activeButton = workshopButtonRefs.current[workshopPlate];
+    const list = activeButton?.parentElement;
+    if (activeButton && list && window.innerWidth <= 820) {
+      list.scrollTo({ left: activeButton.offsetLeft - (list.clientWidth - activeButton.clientWidth) / 2, behavior: "smooth" });
+    }
+  }, [workshopPlate]);
+
+  const showWorkshop = (plate) => {
+    setWorkshopPlate(plate);
+    window.setTimeout(() => document.getElementById("taller-vehiculo")?.scrollIntoView({ behavior: "smooth", block: "start" }), 40);
+  };
+
   return (
     <section className="module-page">
-      <PageIntro eyebrow="Plan preventivo" title="Mantenimiento" description="Prioriza revisiones por kilómetros restantes y consulta los conceptos repetidos." action={<button className="primary-button" onClick={() => openVehicle("7890 GYL", "Taller")}><IconCalendar size={18} />Abrir próxima revisión</button>} />
+      <PageIntro eyebrow="Plan preventivo" title="Mantenimiento y taller" description="Prioriza revisiones, consulta el historial completo y crea facturas desde una fotografía." action={<button className="primary-button" onClick={() => showWorkshop(schedule[0].plate)}><IconCalendar size={18} />Abrir próxima revisión</button>} />
       <div className="maintenance-layout">
         <section className="content-card schedule-card">
           <header className="card-header"><div><h2>Próximas revisiones</h2><p>Ordenadas por kilometraje restante.</p></div></header>
           <div className="schedule-list">{schedule.map((vehicle, index) => {
             const remaining = vehicle.nextServiceKm - vehicle.odometer;
-            return <button key={vehicle.plate} className="schedule-row" onClick={() => openVehicle(vehicle.plate, "Taller")}><span className={`schedule-index ${index < 2 ? "urgent" : ""}`}>{index + 1}</span><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><span><strong>{formatKm(remaining)}</strong><small>{vehicle.serviceDate}</small></span><IconChevronRight size={18} /></button>;
+            return <button key={vehicle.plate} className="schedule-row" onClick={() => showWorkshop(vehicle.plate)}><span className={`schedule-index ${index < 2 ? "urgent" : ""}`}>{index + 1}</span><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><span><strong>{formatKm(remaining)}</strong><small>{vehicle.serviceDate}</small></span><IconChevronRight size={18} /></button>;
           })}</div>
         </section>
         <aside className="content-card maintenance-summary">
@@ -569,11 +590,23 @@ function MaintenanceView({ openVehicle }) {
           <div><span>Preventivo</span><strong>68%</strong></div><div><span>Correctivo</span><strong>32%</strong></div>
         </aside>
       </div>
+      <section className="content-card workshop-module" id="taller-vehiculo">
+        <header className="card-header"><div><h2>Taller por vehículo</h2><p>Selecciona un coche para consultar intervenciones, conceptos e importes.</p></div><button className="primary-button" onClick={() => setModal({ type: "invoice-upload", plate: workshopVehicle.plate })}><IconCamera size={17} />Factura desde foto</button></header>
+        <div className="workshop-module__layout">
+          <nav className="workshop-vehicle-list" aria-label="Vehículos con historial de taller">
+            {vehiclesSeed.map((vehicle) => {
+              const latest = vehicle.maintenance[0];
+              return <button ref={(node) => { workshopButtonRefs.current[vehicle.plate] = node; }} className={vehicle.plate === workshopVehicle.plate ? "active" : ""} key={vehicle.plate} onClick={() => setWorkshopPlate(vehicle.plate)} aria-current={vehicle.plate === workshopVehicle.plate ? "true" : undefined}><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><span><strong>{formatCurrency(latest.amount)}</strong><small>{latest.concept}</small></span><IconChevronRight size={17} /></button>;
+            })}
+          </nav>
+          <WorkshopHistory vehicle={workshopVehicle} />
+        </div>
+      </section>
       <section className="content-card">
         <header className="card-header"><div><h2>Últimas intervenciones</h2><p>Consulta rápida de fecha, kilometraje, concepto e importe.</p></div></header>
         <div className="table-scroll"><table className="module-table"><thead><tr><th>Vehículo</th><th>Fecha</th><th>Kilometraje</th><th>Concepto</th><th>Importe</th><th /></tr></thead><tbody>{vehiclesSeed.map((vehicle) => {
           const item = vehicle.maintenance[0];
-          return <tr key={vehicle.plate}><td><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td><td>{item.date}</td><td>{formatKm(item.km)}</td><td>{item.concept}</td><td><strong>{formatCurrency(item.amount)}</strong></td><td><button className="table-action" onClick={() => openVehicle(vehicle.plate, "Taller")}>Historial<IconChevronRight size={16} /></button></td></tr>;
+          return <tr key={vehicle.plate}><td><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td><td>{item.date}</td><td>{formatKm(item.km)}</td><td>{item.concept}</td><td><strong>{formatCurrency(item.amount)}</strong></td><td><button className="table-action" onClick={() => showWorkshop(vehicle.plate)}>Historial<IconChevronRight size={16} /></button></td></tr>;
         })}</tbody></table></div>
       </section>
     </section>
@@ -637,13 +670,13 @@ function HelpView({ openFaq, setOpenFaq, setModal }) {
   );
 }
 
-function VehicleInspector({ selected, selectedDriver, selectedActivity, inspectorTab, setInspectorTab, setInspectorOpen, selectDriver, openShift, setOpenShift, notify, setModal }) {
+function VehicleInspector({ selected, selectedDriver, selectedActivity, inspectorTab, setInspectorTab, setInspectorOpen, selectDriver, openShift, setOpenShift, notify }) {
   const remaining = selected.nextServiceKm - selected.odometer;
   return (
     <aside className="inspector" aria-label={`Detalle de ${selected.plate}`}>
       <header className="inspector-header"><div><span className="inspector-eyebrow">Vehículo seleccionado</span><strong>{selected.plate}</strong><small>{selected.model}</small><UseBadge value={selected.use} /></div><button className="icon-button" aria-label="Cerrar detalle" onClick={() => setInspectorOpen(false)}><IconX size={21} /></button></header>
       <div className="inspector-driver-picker"><span>Conductor</span><div>{selected.drivers.map((driver) => <button className={selectedDriver === driver ? "driver-pill driver-pill--active" : "driver-pill"} key={driver} onClick={() => selectDriver(selected, driver)}>{driver}</button>)}</div></div>
-      <div className="inspector-tabs"><button className={inspectorTab === "Turnos" ? "active" : ""} onClick={() => setInspectorTab("Turnos")}>Actividad</button><button className={inspectorTab === "Taller" ? "active" : ""} onClick={() => setInspectorTab("Taller")}>Taller</button><button className={inspectorTab === "Gastos" ? "active" : ""} onClick={() => setInspectorTab("Gastos")}>Gastos</button></div>
+      <div className="inspector-tabs"><button className={inspectorTab === "Turnos" ? "active" : ""} onClick={() => setInspectorTab("Turnos")}>Actividad</button><button className={inspectorTab === "Gastos" ? "active" : ""} onClick={() => setInspectorTab("Gastos")}>Gastos</button></div>
       <div className="inspector-scroll">
         {inspectorTab === "Turnos" ? (
           <>
@@ -661,7 +694,7 @@ function VehicleInspector({ selected, selectedDriver, selectedActivity, inspecto
               })}</section>
             ) : <section className="domestic-note"><IconHome size={21} /><span><strong>Uso doméstico</strong>Registro diario individual sin parte de turno obligatorio.</span></section>}
           </>
-        ) : inspectorTab === "Taller" ? <WorkshopHistory vehicle={selected} onCreateInvoice={() => setModal({ type: "invoice-upload", plate: selected.plate })} /> : <VehicleExpenses vehicle={selected} />}
+        ) : <VehicleExpenses vehicle={selected} />}
         <section className="next-service"><span className={remaining <= 4500 ? "urgent" : ""}><IconTools size={18} /><strong>{formatKm(remaining)} restantes</strong></span><p>{selected.serviceDate} · objetivo {formatKm(selected.nextServiceKm)}</p></section>
       </div>
     </aside>
@@ -675,7 +708,7 @@ function WorkshopHistory({ vehicle, onCreateInvoice }) {
     <section className="workshop-history">
       <header><span><IconHistory size={18} /><strong>Historial de taller</strong></span><small>{vehicle.maintenance.length} intervenciones</small></header>
       <div className="workshop-total"><span>Importe registrado</span><strong>{formatCurrency(total)}</strong></div>
-      <button className="secondary-button workshop-invoice-button" onClick={onCreateInvoice}><IconCamera size={17} />Crear factura desde una foto</button>
+      {onCreateInvoice && <button className="secondary-button workshop-invoice-button" onClick={onCreateInvoice}><IconCamera size={17} />Crear factura desde una foto</button>}
       <div className="maintenance-table" role="table" aria-label={`Historial de taller de ${vehicle.plate}`}>
         {vehicle.maintenance.map((item) => <div className="maintenance-row" role="row" key={`${item.date}-${item.concept}`}><span><strong>{item.date}</strong><small>{formatKm(item.km)}</small></span><span><strong>{item.concept}</strong>{counts[item.concept] > 1 && <small className="repeat-mark">{counts[item.concept]} veces</small>}</span><strong>{formatCurrency(item.amount)}</strong></div>)}
       </div>
