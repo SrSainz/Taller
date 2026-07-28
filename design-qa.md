@@ -1,53 +1,68 @@
-# Design QA — driver activity and workshop history
+# Design QA — Talleria connected workspace
+
+## Evidence
 
 - Source visual truth: `C:\Users\aiday\OneDrive\Escritorio\app david\design-reference.png`
-- Primary implementation screenshot: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-driver-workshop-1280-final.png`
-- Billing-column screenshot: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-billing-1280.png`
-- Monthly billing screenshot: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-monthly-billing-1280.png`
-- Workshop-state screenshot: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-workshop-history-1280.png`
-- Combined comparison: `C:\Users\aiday\OneDrive\Escritorio\app david\design-comparison-workshop.png`
-- Viewport: 1280 × 720 CSS px.
-- Device pixel ratio: 1.25.
-- Screenshot dimensions: 1280 × 720 px.
-- State: Renault Master selected; Javier Ruiz active; workshop tab open.
+- Current user-reported screen: `C:\Users\aiday\AppData\Local\Temp\codex-clipboard-8555bc35-0a1d-4ed7-94d2-5051dd9ab559.png`
+- Browser-rendered implementation: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-product-redesign-1440.jpg`
+- Responsive implementation: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-product-redesign-mobile.jpg`
+- Full comparison: `C:\Users\aiday\OneDrive\Escritorio\app david\design-comparison-product-redesign.jpg`
+- Focused comparison: `C:\Users\aiday\OneDrive\Escritorio\app david\design-comparison-product-redesign-focused.jpg`
+- Source pixels: 1487 × 1058.
+- Desktop implementation: 1440 × 900 pixels at a 1440 × 900 requested viewport.
+- Mobile implementation: 375 × 811 captured pixels at the 390 × 844 responsive test override.
+- Comparison normalization: the source was scaled to 1440 × 1024 and the implementation retained at 1440 × 900, aligned at the top edge. The focused comparison uses matching fleet-table and inspector regions.
+- State: Flota route, Renault Master selected, Laura Gómez active, Activity tab and afternoon shift expanded.
+
+## Full-view comparison
+
+The implementation preserves the selected option 2 composition: dark-green navigation, white operational header, fleet ledger as the central surface, pale-green selected row, and a right-side vehicle inspector. The revised screen intentionally adds a compact page introduction and three elevated KPI cards so the five-vehicle fleet does not leave the page without hierarchy.
+
+## Focused comparison
+
+The focused table/inspector comparison confirms that plate, driver, odometer, maintenance countdown, cost, WhatsApp source, selected state, and odometer image remain legible and aligned. The implementation adds the requested driver-level daily/monthly billing and trip totals without reintroducing the Uso column.
+
+## Required fidelity surfaces
+
+- Fonts and typography: Inter is used throughout with compact, readable weights. Headings, metrics, table values, supporting labels, and controls have distinct optical hierarchy. Long workshop concepts truncate safely.
+- Spacing and layout rhythm: the three-region frame follows the source. Cards use a consistent 12 px radius, 13–16 px gaps, restrained elevation, and a denser ledger rhythm.
+- Colors and tokens: the source dark green, pale selected green, orange maintenance warning, white surfaces, and cool gray dividers are represented through shared CSS tokens.
+- Image quality: the supplied odometer photograph is used as a real raster asset with a controlled crop. Interface icons come from the existing Tabler icon library; no handcrafted SVG or placeholder art is used.
+- Copy and content: Spanish operational copy reflects five vehicles, two drivers per vehicle, WhatsApp readings, daily/monthly billing, monthly trips, fuel, invoices, and maintenance.
+- Accessibility: semantic navigation and tables, named controls, visible focus rings, `aria-current`, modal dialog semantics, `aria-expanded`, keyboard-selectable vehicle rows, and Escape-to-close behavior are present.
 
 ## Findings
 
 No actionable P0, P1, or P2 findings remain.
 
-- Typography: Inter, compact weights, number emphasis, and secondary labels preserve the selected dense-ledger hierarchy. Currency and countdown values stay on one line.
-- Spacing and layout: the three-region navigation/table/inspector composition remains intact. The ledger has eight columns; Uso is absent and Facturación sits directly after Conductores without increasing page height.
-- Colors and tokens: selected drivers and rows use the established pale green; urgent service countdowns and repeated maintenance concepts use amber; workshop totals use the established dark green.
-- Image quality and icons: the new workflow contains no required raster imagery. All visible UI icons remain from the existing Tabler outline family; no placeholder or handcrafted SVG asset was introduced.
-- Copy and content: the ledger now clearly distinguishes daily kilometres, fuel spending in euros, daily and monthly billing, monthly trip count, accumulated mileage, remaining service kilometres, latest workshop concept, and workshop history.
-- Interaction and accessibility: each driver is a semantic button; the selected driver state is visible in both table and inspector; the workshop cell opens a semantic history table; keyboard row selection and focus outlines remain available.
-
-## Focused comparison evidence
-
-The inspector workshop state was reviewed at native scale. Four maintenance rows fit without collision, amounts align right, dates and mileage remain paired, and both “Aceite y filtros” entries show the same “2 cambios registrados” marker. The table view was separately checked with the Activity tab open to confirm the selected driver’s 120 km and 21,08 € repostaje values.
+- P3: the desktop ledger retains a horizontal scrollbar at dense widths. All eight columns are visible at 1440 px, and the scrollbar remains useful for smaller laptop widths.
+- P3: real backend states will need loading, API failure, and permissions variants when integrations are connected.
 
 ## Comparison history
 
-### Iteration 1
+### Audit / iteration 1
 
-- Earlier P2: at 1280 px, the 188,66 € summary wrapped across two lines and the Uso badge approached the cell boundary.
-- Fix: introduced a compact summary treatment at laptop width and redistributed the eight table tracks to total 100%.
-- Post-fix evidence: `implementation-driver-workshop-1280-final.png`; summary values, usage badges, number plates, countdowns, and workshop amounts render without overlap.
+- P1: sidebar controls only received focus and left the user on Flota.
+- P1: key review tasks had no screen, dialog, or completion state.
+- P2: supporting type was too small and the inspector lacked clear visual grouping.
+- P2: mobile opened directly into the full-screen inspector.
 
-## Browser checks
+### Fixes and post-fix evidence
 
-- Clicking Javier Ruiz in the Renault Master row changes the row from 121 km / 32,64 € to 120 km / 21,08 €.
-- The same driver change updates daily billing from 402,75 € to 376,40 €, monthly billing from 7.542,90 € / 130 trips to 6.984,25 € / 121 trips, and today's cash from 122,00 € to 84,50 €.
-- The ledger exposes exactly eight headers, with Facturación directly after Conductores and no Uso header.
-- The inspector switches to Javier Ruiz and expands his 06:11–13:57 morning part.
-- Clicking the Renault Master workshop cell opens the Taller tab.
-- Workshop history shows 4 interventions, a total of 2.035,80 €, and two repeated-concept markers.
-- Search and professional/domestic filters remain present.
-- Console warnings/errors checked: none.
-- Production build completed successfully.
+- Added functional hash-routed windows for all seven navigation destinations.
+- Added review dialogs, form controls, filters, toggles, FAQs, success feedback, and Escape-to-close behavior.
+- Rebuilt the hierarchy around readable headings, KPI cards, grouped inspector sections, and consistent tokens.
+- Mobile now opens on the fleet page; the inspector appears only after vehicle selection.
+- Post-fix evidence is captured in both desktop and mobile screenshots. Browser console errors and warnings: none.
 
-## Follow-up polish
+## Browser interaction checks
 
-- P3: once real invoice ingestion exists, each workshop row can link to its original invoice without changing this comparison-first table layout.
+- `#/flota` loads the five-vehicle table and driver inspector.
+- Selecting Javier Ruiz changes today’s billing to 376,40 €, monthly billing to 6.984,25 €, and monthly trips to 121.
+- Selecting the Renault workshop amount opens the full maintenance history and repeated-concept markers.
+- `#/lecturas` opens the reading queue; LEC-4380 opens a populated review dialog.
+- `#/facturas`, `#/mantenimiento`, `#/automatizaciones`, `#/ajustes`, and `#/ayuda` each render their own working screen.
+- Mobile menu opens, navigates to Facturas, and closes after selection.
+- Page identity, meaningful DOM, framework overlay, console health, screenshot evidence, and interaction proof all passed.
 
 final result: passed

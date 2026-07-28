@@ -21,5 +21,8 @@ When implementing from a selected generated mock, treat that image as the source
 - The ledger includes a Taller column with the latest maintenance amount and concept. Selecting it opens a dated workshop history table and marks repeated concepts for quick comparison.
 - The first release is a functional front-end prototype with realistic local data; WhatsApp, email, OpenAI extraction, authentication, and persistence remain simulated.
 - The product name is Talleria and the primary interface language is Spanish.
+- Every sidebar destination is a real application window. Flota, Lecturas, Facturas, Mantenimiento, Automatizaciones, Ajustes, and Ayuda must change the route hash, title, content, and active navigation state.
+- Product hierarchy follows the selected dense-ledger direction with stronger readable type, elevated KPI cards, a persistent operational table, and an optional right-side inspector. On mobile, the inspector opens only after a vehicle is selected.
+- Core review actions use accessible dialogs, visible focus states, semantic tables, named controls, and Escape-to-close behavior.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
