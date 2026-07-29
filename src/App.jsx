@@ -15,6 +15,7 @@ import {
   IconCircleCheck,
   IconClock,
   IconCurrencyEuro,
+  IconDownload,
   IconFileInvoice,
   IconGasStation,
   IconGauge,
@@ -283,6 +284,8 @@ export function App() {
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
   const [settings, setSettings] = useState({ company: "Talleria Flota", email: "flota@talleria.es", serviceWarning: "5000", lowConfidence: "94" });
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isStandalone, setIsStandalone] = useState(() => window.matchMedia("(display-mode: standalone)").matches || Boolean(window.navigator.standalone));
   const toastTimer = useRef();
 
   useEffect(() => {
@@ -301,6 +304,28 @@ export function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const displayMode = window.matchMedia("(display-mode: standalone)");
+    const onInstallAvailable = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    const onInstalled = () => {
+      setInstallPrompt(null);
+      setIsStandalone(true);
+    };
+    const onDisplayModeChange = (event) => setIsStandalone(event.matches || Boolean(window.navigator.standalone));
+
+    window.addEventListener("beforeinstallprompt", onInstallAvailable);
+    window.addEventListener("appinstalled", onInstalled);
+    displayMode.addEventListener("change", onDisplayModeChange);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onInstallAvailable);
+      window.removeEventListener("appinstalled", onInstalled);
+      displayMode.removeEventListener("change", onDisplayModeChange);
+    };
   }, []);
 
   const invoices = useMemo(() => [...photoInvoices, ...invoiceSeed], [photoInvoices]);
@@ -343,6 +368,21 @@ export function App() {
 
   const savePhotoInvoice = (invoice) => {
     setPhotoInvoices((current) => [invoice, ...current.filter((item) => item.id !== invoice.id)]);
+  };
+
+  const installApplication = async () => {
+    if (isStandalone) {
+      notify("Talleria ya está abierta como aplicación");
+      return;
+    }
+    if (!installPrompt) {
+      notify("Chrome habilitará la instalación cuando termine de comprobar la aplicación");
+      return;
+    }
+    await installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    setInstallPrompt(null);
+    notify(choice.outcome === "accepted" ? "Instalación iniciada" : "Instalación cancelada");
   };
 
   const navigate = (item) => {
@@ -415,6 +455,7 @@ export function App() {
             <div><span>{activeNav}</span><small>Gestión centralizada de vehículos</small></div>
           </div>
           <div className="topbar-actions">
+            {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar Talleria como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             <span className="date"><IconCalendar size={18} />28 jul 2026</span>
             <button className="bell-button" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((value) => !value)}><IconBell size={20} /><i>2</i></button>
             <button className="profile" onClick={() => notify("Perfil de Ana García")}><span className="avatar">AG</span><span><strong>Ana García</strong><small>Gestora de flota</small></span><IconChevronDown size={17} /></button>
