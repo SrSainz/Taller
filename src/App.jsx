@@ -170,6 +170,19 @@ const invoiceSeed = [
   { id: "FAC-2026-1684", date: "28 may 2026", provider: "Toyota Madrid", plate: "7890 GYL", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
 ];
 
+const photoInvoiceStorageKey = "talleria:photo-invoices:v1";
+
+const loadPhotoInvoices = () => {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(photoInvoiceStorageKey) ?? "[]");
+    return Array.isArray(stored)
+      ? stored.filter((invoice) => invoice?.id && invoice?.plate && Array.isArray(invoice?.items))
+      : [];
+  } catch {
+    return [];
+  }
+};
+
 const expenseCategories = [
   { label: "Leasing coche", cadence: "Mensual" },
   { label: "Préstamo licencia", cadence: "Mensual" },
@@ -265,7 +278,7 @@ export function App() {
   const [toast, setToast] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modal, setModal] = useState(null);
-  const [invoices, setInvoices] = useState(invoiceSeed);
+  const [photoInvoices, setPhotoInvoices] = useState(loadPhotoInvoices);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
@@ -290,18 +303,37 @@ export function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const selected = vehiclesSeed.find((vehicle) => vehicle.plate === selectedPlate) ?? vehiclesSeed[0];
+  const invoices = useMemo(() => [...photoInvoices, ...invoiceSeed], [photoInvoices]);
+  const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
+    const recordedMaintenance = photoInvoices
+      .filter((invoice) => invoice.plate === vehicle.plate)
+      .map((invoice) => ({
+        date: invoice.date,
+        dateIso: invoice.dateIso,
+        km: Number(invoice.km) || vehicle.odometer,
+        concept: invoice.concept,
+        amount: Number(invoice.amount) || 0,
+        invoiceId: invoice.id,
+      }));
+    return { ...vehicle, maintenance: [...recordedMaintenance, ...vehicle.maintenance] };
+  }), [photoInvoices]);
+
+  useEffect(() => {
+    window.localStorage.setItem(photoInvoiceStorageKey, JSON.stringify(photoInvoices));
+  }, [photoInvoices]);
+
+  const selected = vehicles.find((vehicle) => vehicle.plate === selectedPlate) ?? vehicles[0];
   const selectedDriver = selectedDrivers[selected.plate] ?? selected.drivers[0];
   const selectedActivity = getDriverDay(selected, selectedDriver);
   const showInspector = activeNav === "Flota" && inspectorOpen;
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("es");
-    return vehiclesSeed.filter((vehicle) => {
+    return vehicles.filter((vehicle) => {
       const searchable = `${vehicle.plate} ${vehicle.model} ${vehicle.drivers.join(" ")} ${vehicle.maintenance.map((item) => item.concept).join(" ")}`.toLocaleLowerCase("es");
       return (!normalized || searchable.includes(normalized)) && (filter === "Todos" || vehicle.use === filter);
     });
-  }, [filter, query]);
+  }, [filter, query, vehicles]);
 
   const notify = (message) => {
     setToast(message);
@@ -310,7 +342,7 @@ export function App() {
   };
 
   const savePhotoInvoice = (invoice) => {
-    setInvoices((current) => [invoice, ...current]);
+    setPhotoInvoices((current) => [invoice, ...current.filter((item) => item.id !== invoice.id)]);
   };
 
   const navigate = (item) => {
@@ -414,7 +446,7 @@ export function App() {
           )}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
-          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} setModal={setModal} />}
+          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} setModal={setModal} vehicles={vehicles} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}
@@ -436,7 +468,7 @@ export function App() {
         />
       )}
 
-      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} />}
+      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
       {sidebarOpen && <button className="backdrop" aria-label="Cerrar menú" onClick={() => setSidebarOpen(false)} />}
     </div>
@@ -548,23 +580,16 @@ function InvoicesView({ invoices, setModal }) {
   );
 }
 
-function MaintenanceView({ initialPlate, setModal }) {
+function MaintenanceView({ initialPlate, setModal, vehicles }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
-  const workshopButtonRefs = useRef({});
-  const schedule = [...vehiclesSeed].sort((a, b) => (a.nextServiceKm - a.odometer) - (b.nextServiceKm - b.odometer));
-  const workshopVehicle = vehiclesSeed.find((vehicle) => vehicle.plate === workshopPlate) ?? vehiclesSeed[0];
+  const schedule = [...vehicles].sort((a, b) => (a.nextServiceKm - a.odometer) - (b.nextServiceKm - b.odometer));
+  const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
+  const julyMaintenance = vehicles.flatMap((vehicle) => vehicle.maintenance).filter((item) => item.dateIso?.startsWith("2026-07") || item.date.toLocaleLowerCase("es").includes("jul 2026"));
+  const julyTotal = julyMaintenance.reduce((sum, item) => sum + item.amount, 0);
 
   useEffect(() => {
     setWorkshopPlate(initialPlate);
   }, [initialPlate]);
-
-  useEffect(() => {
-    const activeButton = workshopButtonRefs.current[workshopPlate];
-    const list = activeButton?.parentElement;
-    if (activeButton && list && window.innerWidth <= 820) {
-      list.scrollTo({ left: activeButton.offsetLeft - (list.clientWidth - activeButton.clientWidth) / 2, behavior: "smooth" });
-    }
-  }, [workshopPlate]);
 
   const showWorkshop = (plate) => {
     setWorkshopPlate(plate);
@@ -585,8 +610,8 @@ function MaintenanceView({ initialPlate, setModal }) {
         <aside className="content-card maintenance-summary">
           <span className="metric-card__icon"><IconTools size={22} /></span>
           <h2>Resumen de julio</h2>
-          <strong>{formatCurrency(1321.3)}</strong>
-          <p>4 intervenciones realizadas, un 8% menos que el mes anterior.</p>
+          <strong>{formatCurrency(julyTotal)}</strong>
+          <p>{julyMaintenance.length} intervenciones registradas, incluidas las facturas creadas desde una fotografía.</p>
           <div><span>Preventivo</span><strong>68%</strong></div><div><span>Correctivo</span><strong>32%</strong></div>
         </aside>
       </div>
@@ -594,9 +619,9 @@ function MaintenanceView({ initialPlate, setModal }) {
         <header className="card-header"><div><h2>Taller por vehículo</h2><p>Selecciona un coche para consultar intervenciones, conceptos e importes.</p></div><button className="primary-button" onClick={() => setModal({ type: "invoice-upload", plate: workshopVehicle.plate })}><IconCamera size={17} />Factura desde foto</button></header>
         <div className="workshop-module__layout">
           <nav className="workshop-vehicle-list" aria-label="Vehículos con historial de taller">
-            {vehiclesSeed.map((vehicle) => {
+            {vehicles.map((vehicle) => {
               const latest = vehicle.maintenance[0];
-              return <button ref={(node) => { workshopButtonRefs.current[vehicle.plate] = node; }} className={vehicle.plate === workshopVehicle.plate ? "active" : ""} key={vehicle.plate} onClick={() => setWorkshopPlate(vehicle.plate)} aria-current={vehicle.plate === workshopVehicle.plate ? "true" : undefined}><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><span><strong>{formatCurrency(latest.amount)}</strong><small>{latest.concept}</small></span><IconChevronRight size={17} /></button>;
+              return <button className={vehicle.plate === workshopVehicle.plate ? "active" : ""} key={vehicle.plate} onClick={() => setWorkshopPlate(vehicle.plate)} aria-current={vehicle.plate === workshopVehicle.plate ? "true" : undefined}><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><span><strong>{formatCurrency(latest.amount)}</strong><small>{latest.concept}</small></span><IconChevronRight size={17} /></button>;
             })}
           </nav>
           <WorkshopHistory vehicle={workshopVehicle} />
@@ -604,7 +629,7 @@ function MaintenanceView({ initialPlate, setModal }) {
       </section>
       <section className="content-card">
         <header className="card-header"><div><h2>Últimas intervenciones</h2><p>Consulta rápida de fecha, kilometraje, concepto e importe.</p></div></header>
-        <div className="table-scroll"><table className="module-table"><thead><tr><th>Vehículo</th><th>Fecha</th><th>Kilometraje</th><th>Concepto</th><th>Importe</th><th /></tr></thead><tbody>{vehiclesSeed.map((vehicle) => {
+        <div className="table-scroll"><table className="module-table"><thead><tr><th>Vehículo</th><th>Fecha</th><th>Kilometraje</th><th>Concepto</th><th>Importe</th><th /></tr></thead><tbody>{vehicles.map((vehicle) => {
           const item = vehicle.maintenance[0];
           return <tr key={vehicle.plate}><td><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td><td>{item.date}</td><td>{formatKm(item.km)}</td><td>{item.concept}</td><td><strong>{formatCurrency(item.amount)}</strong></td><td><button className="table-action" onClick={() => showWorkshop(vehicle.plate)}>Historial<IconChevronRight size={16} /></button></td></tr>;
         })}</tbody></table></div>
@@ -717,7 +742,10 @@ function WorkshopHistory({ vehicle, onCreateInvoice }) {
 }
 
 function VehicleExpenses({ vehicle }) {
-  const amounts = vehicleExpenseAmounts[vehicle.plate] ?? expenseCategories.map(() => 0);
+  const amounts = [...(vehicleExpenseAmounts[vehicle.plate] ?? expenseCategories.map(() => 0))];
+  amounts[3] = vehicle.maintenance
+    .filter((item) => item.dateIso?.startsWith("2026-07") || item.date.toLocaleLowerCase("es").includes("jul 2026"))
+    .reduce((sum, item) => sum + item.amount, 0);
   const expenses = expenseCategories.map((category, index) => ({ ...category, amount: amounts[index] ?? 0 }));
   const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const operating = expenses.filter((expense) => ["Gasolina", "Taller", "Comisiones conductor", "Limpieza coche", "Varios"].includes(expense.label)).reduce((sum, expense) => sum + expense.amount, 0);
@@ -753,7 +781,7 @@ function VehicleExpenses({ vehicle }) {
   );
 }
 
-function AppModalV2({ modal, onClose, notify, onSaveInvoice }) {
+function AppModalV2({ modal, onClose, notify, onSaveInvoice, vehicles }) {
   const item = modal.item;
   const isReading = modal.type === "reading-review";
   const isInvoice = modal.type === "invoice";
@@ -765,9 +793,9 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice }) {
       <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header><div><span>Acción rápida</span><h2 id="modal-title">{titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
-        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div><dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div><div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
+        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div><dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div>{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
-        {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} onCancel={onClose} onSave={(invoice) => { onSaveInvoice(invoice); complete("Factura creada y añadida al listado"); }} />}
+        {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={(invoice) => { onSaveInvoice(invoice); complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
         {!isPhotoInvoice && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
       </section>
@@ -790,13 +818,14 @@ function InvoiceLinesTable({ date, items }) {
   );
 }
 
-function InvoicePhotoWorkflow({ initialPlate, onCancel, onSave }) {
+function InvoicePhotoWorkflow({ initialPlate, vehicles, onCancel, onSave }) {
   const [stage, setStage] = useState("upload");
   const [preview, setPreview] = useState("");
   const [fileName, setFileName] = useState("");
   const [date, setDate] = useState("2026-07-28");
   const [provider, setProvider] = useState("Taller AutoRápido S.L.");
-  const [plate, setPlate] = useState(initialPlate ?? vehiclesSeed[0].plate);
+  const [plate, setPlate] = useState(initialPlate ?? vehicles[0].plate);
+  const [odometer, setOdometer] = useState(() => vehicles.find((vehicle) => vehicle.plate === (initialPlate ?? vehicles[0].plate))?.odometer ?? 0);
   const [lines, setLines] = useState([
     { id: "photo-line-1", concept: "Aceite motor 5W30", amount: 79.9 },
     { id: "photo-line-2", concept: "Filtro de aceite", amount: 18.5 },
@@ -830,6 +859,8 @@ function InvoicePhotoWorkflow({ initialPlate, onCancel, onSave }) {
       date: displayDate,
       provider: provider.trim(),
       plate,
+      km: Number(odometer),
+      dateIso: date,
       concept: compactConcept,
       amount: total,
       source: "Foto",
@@ -871,7 +902,8 @@ function InvoicePhotoWorkflow({ initialPlate, onCancel, onSave }) {
           <div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA 96% · Revisa los datos antes de guardar</small></span></div>
           <div className="invoice-meta-grid">
             <label>Fecha de factura<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-            <label>Vehículo<select value={plate} onChange={(event) => setPlate(event.target.value)}>{vehiclesSeed.map((vehicle) => <option key={vehicle.plate} value={vehicle.plate}>{vehicle.plate} · {vehicle.model}</option>)}</select></label>
+            <label>Vehículo<select value={plate} onChange={(event) => { const nextPlate = event.target.value; setPlate(nextPlate); setOdometer(vehicles.find((vehicle) => vehicle.plate === nextPlate)?.odometer ?? 0); }}>{vehicles.map((vehicle) => <option key={vehicle.plate} value={vehicle.plate}>{vehicle.plate} · {vehicle.model}</option>)}</select></label>
+            <label>Kilometraje del vehículo<input type="number" min="0" step="1" value={odometer} onChange={(event) => setOdometer(event.target.value)} /></label>
             <label className="invoice-provider-field">Taller<input value={provider} onChange={(event) => setProvider(event.target.value)} /></label>
           </div>
 
