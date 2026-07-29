@@ -517,6 +517,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .workshop-module__layout { grid-template-columns: 1fr; }
   .workshop-vehicle-list { display: flex; overflow-x: auto; padding: 10px; border-right: 0; border-bottom: 1px solid var(--line); }
   .workshop-vehicle-list button { min-width: 225px; }
+  .workshop-vehicle-list button.active { order: -1; }
   .settings-grid { grid-template-columns: 1fr; }
   .settings-card:last-child { grid-column: auto; }
   .inspector { inset: 0; width: 100%; height: 100vh; }
