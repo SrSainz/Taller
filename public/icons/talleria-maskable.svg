@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Talleria">
+  <rect width="512" height="512" fill="#075244"/>
+  <circle cx="256" cy="256" r="182" fill="#0a6655"/>
+  <path d="M154 158h204v58h-70v152h-64V216h-70z" fill="#fff"/>
+  <rect x="224" y="334" width="64" height="34" rx="10" fill="#d9f1e8"/>
+  <path d="M173 406h166" stroke="#8fd2bb" stroke-width="16" stroke-linecap="round"/>
+</svg>

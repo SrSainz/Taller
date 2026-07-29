@@ -20,6 +20,7 @@ When implementing from a selected generated mock, treat that image as the source
 - Driver selection must update daily billing, monthly accumulated billing, monthly accumulated trips, and the portion collected in cash today. Domestic drivers display zero billing and zero trips unless they are later assigned commercial activity.
 - The ledger includes a Taller column with the latest maintenance amount and concept. Selecting it navigates to the selected vehicle's dated workshop history inside Mantenimiento.
 - The first release is a functional front-end prototype with realistic local data; WhatsApp, email, OpenAI extraction, authentication, and persistence remain simulated.
+- The web client is an installable PWA. Production must ship a linked manifest, 192px and 512px install icons, maskable icons, `display: standalone`, a root-scoped service worker, and an in-app install action when the browser exposes the install prompt.
 - The product name is Talleria and the primary interface language is Spanish.
 - Every sidebar destination is a real application window. Flota, Lecturas, Facturas, Mantenimiento, Automatizaciones, Ajustes, and Ayuda must change the route hash, title, content, and active navigation state.
 - Product hierarchy follows the selected dense-ledger direction with stronger readable type, elevated KPI cards, a persistent operational table, and an optional right-side inspector. On mobile, the inspector opens only after a vehicle is selected.

@@ -23,6 +23,7 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 - Linked workshop invoice and upcoming maintenance information.
 - Working confirmation, navigation, filter, and feedback states.
 - Responsive desktop and mobile layouts.
+- Installable PWA with standalone window mode, 192/512 icons, maskable Android icons, shortcuts, and an offline app shell.
 - Fully connected application windows for Lecturas, Facturas, Mantenimiento, Automatizaciones, Ajustes, and Ayuda.
 - Accessible review dialogs for extracted readings, workshop invoices, uploads, and support requests.
 - Hash-based navigation so each section has a stable browser location.
@@ -69,4 +70,5 @@ Production build:
 
 ```bash
 pnpm run build
+pnpm run test:pwa
 ```
