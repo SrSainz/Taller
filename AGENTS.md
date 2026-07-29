@@ -25,6 +25,7 @@ When implementing from a selected generated mock, treat that image as the source
 - Product hierarchy follows the selected dense-ledger direction with stronger readable type, elevated KPI cards, a persistent operational table, and an optional right-side inspector. On mobile, the inspector opens only after a vehicle is selected.
 - Core review actions use accessible dialogs, visible focus states, semantic tables, named controls, and Escape-to-close behavior.
 - Taller is integrated into Mantenimiento, directly below Facturas in the main navigation. It offers a vehicle selector, full history, repeated concepts, and a photo-to-invoice action that preselects the current vehicle.
+- Facturas created from a workshop photo are kept locally between reloads and immediately update Facturas, the selected vehicle's maintenance history, its July workshop expense, and its calculated profit margin.
 - The vehicle inspector contains Actividad and Gastos only. Gastos shows vehicle-specific amounts for leasing coche, préstamo licencia, gasolina, taller, seguridad social, nómina, comisiones conductor, impuestos trimestrales, IVA intracomunitario, seguro, limpieza coche, and varios.
 - Gastos calculates each vehicle's monthly profit margin as the combined monthly billing of its two drivers minus every expense assigned to that vehicle. The UI shows both driver subtotals, total billing, total expenses, absolute margin, and margin percentage.
 
