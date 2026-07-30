@@ -1,68 +1,67 @@
-# Design QA — Talleria connected workspace
+# Design QA · Informes de flota
 
 ## Evidence
 
-- Source visual truth: `C:\Users\aiday\OneDrive\Escritorio\app david\design-reference.png`
-- Current user-reported screen: `C:\Users\aiday\AppData\Local\Temp\codex-clipboard-8555bc35-0a1d-4ed7-94d2-5051dd9ab559.png`
-- Browser-rendered implementation: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-product-redesign-1440.jpg`
-- Responsive implementation: `C:\Users\aiday\OneDrive\Escritorio\app david\implementation-product-redesign-mobile.jpg`
-- Full comparison: `C:\Users\aiday\OneDrive\Escritorio\app david\design-comparison-product-redesign.jpg`
-- Focused comparison: `C:\Users\aiday\OneDrive\Escritorio\app david\design-comparison-product-redesign-focused.jpg`
-- Source pixels: 1487 × 1058.
-- Desktop implementation: 1440 × 900 pixels at a 1440 × 900 requested viewport.
-- Mobile implementation: 375 × 811 captured pixels at the 390 × 844 responsive test override.
-- Comparison normalization: the source was scaled to 1440 × 1024 and the implementation retained at 1440 × 900, aligned at the top edge. The focused comparison uses matching fleet-table and inspector regions.
-- State: Flota route, Renault Master selected, Laura Gómez active, Activity tab and afternoon shift expanded.
-
-## Full-view comparison
-
-The implementation preserves the selected option 2 composition: dark-green navigation, white operational header, fleet ledger as the central surface, pale-green selected row, and a right-side vehicle inspector. The revised screen intentionally adds a compact page introduction and three elevated KPI cards so the five-vehicle fleet does not leave the page without hierarchy.
-
-## Focused comparison
-
-The focused table/inspector comparison confirms that plate, driver, odometer, maintenance countdown, cost, WhatsApp source, selected state, and odometer image remain legible and aligned. The implementation adds the requested driver-level daily/monthly billing and trip totals without reintroducing the Uso column.
+- Source visual truth: `C:\Users\aiday\AppData\Local\Temp\codex-clipboard-db8f26ec-7267-46b1-a72d-a038869bfc02.png`
+- Mobile implementation: `C:\Users\aiday\OneDrive\Escritorio\app david\design-qa-implementation-mobile-v2.png`
+- Desktop implementation: `C:\Users\aiday\OneDrive\Escritorio\app david\design-qa-implementation-desktop.png`
+- Full-view comparison: `C:\Users\aiday\OneDrive\Escritorio\app david\design-qa-comparison-v2.png`
+- Focused tabs/cards comparison: `C:\Users\aiday\OneDrive\Escritorio\app david\design-qa-focused-v2.png`
+- Source pixels: 304 × 575 px, including the reference phone frame.
+- Implementation capture: 375 × 702 px from a 390 × 730 CSS viewport override.
+- Density normalization: the source was proportionally resized to the implementation capture width for the full comparison. The focused comparison aligns the app-owned tabs, date control, and KPI cards while excluding most of the source phone bezel.
+- State: `#/gasolina`, General tab selected.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: Inter is used throughout with compact, readable weights. Headings, metrics, table values, supporting labels, and controls have distinct optical hierarchy. Long workshop concepts truncate safely.
-- Spacing and layout rhythm: the three-region frame follows the source. Cards use a consistent 12 px radius, 13–16 px gaps, restrained elevation, and a denser ledger rhythm.
-- Colors and tokens: the source dark green, pale selected green, orange maintenance warning, white surfaces, and cool gray dividers are represented through shared CSS tokens.
-- Image quality: the supplied odometer photograph is used as a real raster asset with a controlled crop. Interface icons come from the existing Tabler icon library; no handcrafted SVG or placeholder art is used.
-- Copy and content: Spanish operational copy reflects five vehicles, two drivers per vehicle, WhatsApp readings, daily/monthly billing, monthly trips, fuel, invoices, and maintenance.
-- Accessibility: semantic navigation and tables, named controls, visible focus rings, `aria-current`, modal dialog semantics, `aria-expanded`, keyboard-selectable vehicle rows, and Escape-to-close behavior are present.
+- Fonts and typography: Inter reproduces the compact sans-serif hierarchy closely. Labels, tab text, metric values, and secondary rates preserve the reference weight contrast and truncation behavior.
+- Spacing and layout rhythm: the teal header, five-tab strip, date control, 2×2 KPI grid, rounded cards, subtle shadows, and monthly chart follow the reference sequence and density. The desktop adaptation retains the same anatomy in a wider two-column composition.
+- Colors and visual tokens: teal navigation, white cards, pale gray canvas, slate distance, orange cost, green income, and multicolor stacked bars match the reference’s semantic palette.
+- Image quality and asset fidelity: the reference contains no product photography or custom illustration. Tabler supplies the closest matching interface icons and Recharts renders the data visualization without placeholder or handcrafted graphic assets.
+- Copy and content: General, Repostaje, Gasto, Ingreso, and Conductores are present. Conductores replaces Servicio and exposes the configured professional shifts, including Amin on 5043 MLC from 19:00–07:00.
 
-## Findings
+## Full-view and focused comparison
 
-No actionable P0, P1, or P2 findings remain.
-
-- P3: the desktop ledger retains a horizontal scrollbar at dense widths. All eight columns are visible at 1440 px, and the scrollbar remains useful for smaller laptop widths.
-- P3: real backend states will need loading, API failure, and permissions variants when integrations are connected.
+The full comparison confirms the same major visual regions and above-the-fold hierarchy. The focused comparison confirms that the tabs, period control, four KPI cards, icon treatments, semantic colors, dividers, radii, and shadow levels are materially aligned. The implementation intentionally keeps Talleria’s install, notifications, and profile controls in the teal header instead of reproducing the reference search-only action.
 
 ## Comparison history
 
-### Audit / iteration 1
+### Iteration 1
 
-- P1: sidebar controls only received focus and left the user on Flota.
-- P1: key review tasks had no screen, dialog, or completion state.
-- P2: supporting type was too small and the inspector lacked clear visual grouping.
-- P2: mobile opened directly into the full-screen inspector.
+- [P1] The chart bars were absent in the first captured comparison because the capture occurred during the entry animation.
+- [P2] The first chart scale and values produced a visually heavier, income-dominated graph than the reference.
 
-### Fixes and post-fix evidence
+Fixes:
 
-- Added functional hash-routed windows for all seven navigation destinations.
-- Added review dialogs, form controls, filters, toggles, FAQs, success feedback, and Escape-to-close behavior.
-- Rebuilt the hierarchy around readable headings, KPI cards, grouped inspector sections, and consistent tokens.
-- Mobile now opens on the fleet page; the inspector appears only after vehicle selection.
-- Post-fix evidence is captured in both desktop and mobile screenshots. Browser console errors and warnings: none.
+- Disabled bar entry animation so the chart is complete in immediate captures and stable during navigation.
+- Rebalanced the six monthly stacks to the reference’s 0–1000 visual range and mixed category proportions.
+- Changed the title to “Gráfico de gastos mensuales”.
 
-## Browser interaction checks
+Post-fix evidence:
 
-- `#/flota` loads the five-vehicle table and driver inspector.
-- Selecting Javier Ruiz changes today’s billing to 376,40 €, monthly billing to 6.984,25 €, and monthly trips to 121.
-- Selecting the Renault workshop amount opens the full maintenance history and repeated-concept markers.
-- `#/lecturas` opens the reading queue; LEC-4380 opens a populated review dialog.
-- `#/facturas`, `#/mantenimiento`, `#/automatizaciones`, `#/ajustes`, and `#/ayuda` each render their own working screen.
-- Mobile menu opens, navigates to Facturas, and closes after selection.
-- Page identity, meaningful DOM, framework overlay, console health, screenshot evidence, and interaction proof all passed.
+- `design-qa-comparison-v2.png` shows complete stacked bars with the intended orange, red, brown, and green balance.
+- `design-qa-focused-v2.png` confirms the corrected above-the-fold hierarchy and card styling.
+
+## Interaction and responsive checks
+
+- Tested General, Repostaje, Gasto, Ingreso, and Conductores tabs.
+- Confirmed Repostaje keeps the five-vehicle selector and daily ledger.
+- Confirmed Conductores shows Carlos, Fernando, Tirso, Alex, Mauricio, and Amin with their configured shifts.
+- Checked mobile at a 390 × 730 CSS viewport and desktop at 1440 × 900.
+- Browser console errors: none.
+
+## Follow-up polish
+
+- [P3] The global install, notification, and profile controls make the teal header denser than the search-only reference header; retained intentionally because they are established Talleria controls.
+
+## Implementation checklist
+
+- [x] Five functional report tabs.
+- [x] Servicio replaced by Conductores.
+- [x] Reference-inspired teal header and compact tabs.
+- [x] Rounded 2×2 KPI cards.
+- [x] Stable stacked monthly chart.
+- [x] Existing five-vehicle and shift data preserved.
+- [x] Mobile and desktop layouts verified.
 
 final result: passed

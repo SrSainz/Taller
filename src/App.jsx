@@ -38,6 +38,7 @@ import {
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const navItems = [
   { label: "Flota", slug: "flota", icon: IconCar },
@@ -597,11 +598,11 @@ export function App() {
       </aside>
 
       <main className="workspace">
-        <header className="topbar">
+        <header className={activeNav === "Gasolina" ? "topbar topbar--reports" : "topbar"}>
           <div className="topbar-title">
             <button className="icon-button menu-button" onClick={() => setSidebarOpen((value) => !value)} aria-label="Abrir menú"><IconMenu2 size={23} /></button>
             <IconMenu2 className="desktop-menu" size={22} stroke={1.8} />
-            <div><span>{activeNav}</span><small>Gestión centralizada de vehículos</small></div>
+            <div><span>{activeNav === "Gasolina" ? "Informes" : activeNav}</span><small>{activeNav === "Gasolina" ? "Resumen operativo de la flota" : "Gestión centralizada de vehículos"}</small></div>
           </div>
           <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar Talleria como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
@@ -727,104 +728,180 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
 }
 
 function FuelView({ vehicles, selected, onSelectVehicle }) {
-  const totals = vehicles.reduce((summary, vehicle) => {
+  const [reportTab, setReportTab] = useState("General");
+  const tabs = ["General", "Repostaje", "Gasto", "Ingreso", "Conductores"];
+  const vehicleStats = vehicles.map((vehicle) => {
     const entries = vehicle.monthlyFuel ?? [];
     return {
-      liters: summary.liters + entries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0),
-      cost: summary.cost + entries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0),
-      refuels: summary.refuels + entries.length,
+      vehicle,
+      entries,
+      liters: entries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0),
+      cost: entries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0),
+      refuels: entries.length,
     };
-  }, { liters: 0, cost: 0, refuels: 0 });
+  });
+  const totals = vehicleStats.reduce((summary, item) => ({
+    liters: summary.liters + item.liters,
+    cost: summary.cost + item.cost,
+    refuels: summary.refuels + item.refuels,
+  }), { liters: 0, cost: 0, refuels: 0 });
+  const totalIncome = vehicles.flatMap((vehicle) => vehicle.shifts).reduce((sum, shift) => sum + (shift.monthRevenue ?? 0), 0);
+  const totalExpenses = Object.values(vehicleExpenseAmounts).flat().reduce((sum, amount) => sum + amount, 0);
+  const totalDistance = 7524;
+  const balance = totalIncome - totalExpenses;
+  const chartData = [
+    { month: "02/2026", repostaje: 170, gasto: 210, conductores: 120, ingreso: 80 },
+    { month: "03/2026", repostaje: 320, gasto: 430, conductores: 0, ingreso: 70 },
+    { month: "04/2026", repostaje: 340, gasto: 380, conductores: 180, ingreso: 0 },
+    { month: "05/2026", repostaje: 290, gasto: 0, conductores: 0, ingreso: 0 },
+    { month: "06/2026", repostaje: 360, gasto: 380, conductores: 0, ingreso: 0 },
+    { month: "07/2026", repostaje: 210, gasto: 230, conductores: 80, ingreso: 90 },
+  ];
+
+  return (
+    <section className="fuel-reports-page">
+      <nav className="fuel-report-tabs" aria-label="Secciones de informes" role="tablist">
+        {tabs.map((tab) => <button key={tab} role="tab" aria-selected={reportTab === tab} className={reportTab === tab ? "active" : ""} onClick={() => setReportTab(tab)}>{tab}</button>)}
+      </nav>
+      <div className="fuel-report-canvas">
+        <button className="report-period" onClick={() => setReportTab("General")}><span>{totals.refuels + 8} entradas (18/06/2026 - 30/07/2026)</span><IconCalendar size={17} /></button>
+
+        {reportTab === "General" && (
+          <>
+            <div className="report-general-grid">
+              <div className="report-stat-grid">
+                <ReportStatCard icon={IconCurrencyEuro} label="Balance" value={formatCurrency(balance)} daily={formatCurrency(balance / 30)} perKm={formatCurrency(balance / totalDistance)} tone="teal" />
+                <ReportStatCard icon={IconGauge} label="Distancia" value={formatKm(totalDistance)} daily={formatKm(Math.round(totalDistance / 30))} perKm="—" tone="slate" />
+                <ReportStatCard icon={IconFileInvoice} label="Coste" value={formatCurrency(totalExpenses)} daily={formatCurrency(totalExpenses / 30)} perKm={formatCurrency(totalExpenses / totalDistance)} tone="orange" />
+                <ReportStatCard icon={IconBriefcase} label="Ingreso" value={formatCurrency(totalIncome)} daily={formatCurrency(totalIncome / 30)} perKm={formatCurrency(totalIncome / totalDistance)} tone="green" />
+              </div>
+              <section className="report-chart-card">
+                <header><span className="report-chart-icon"><IconGauge size={18} /></span><strong>Gráfico de gastos mensuales</strong></header>
+                <div className="report-chart">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 8, right: 6, left: -18, bottom: 0 }}>
+                      <CartesianGrid stroke="#e9efed" vertical={false} />
+                      <XAxis dataKey="month" tick={{ fontSize: 9, fill: "#75817d" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
+                      <Tooltip formatter={(value, name) => [formatCurrency(Number(value)), name]} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
+                      <Legend wrapperStyle={{ fontSize: 9, paddingTop: 10 }} />
+                      <Bar dataKey="repostaje" name="Repostaje" stackId="a" fill="#ff9d00" radius={[0, 0, 0, 0]} isAnimationActive={false} />
+                      <Bar dataKey="gasto" name="Gasto" stackId="a" fill="#ef4d22" isAnimationActive={false} />
+                      <Bar dataKey="conductores" name="Conductores" stackId="a" fill="#735248" isAnimationActive={false} />
+                      <Bar dataKey="ingreso" name="Ingreso" stackId="a" fill="#26933c" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </section>
+            </div>
+            <FuelVehicleOverview stats={vehicleStats} selected={selected} onSelectVehicle={onSelectVehicle} />
+          </>
+        )}
+
+        {reportTab === "Repostaje" && (
+          <>
+            <FuelVehicleOverview stats={vehicleStats} selected={selected} onSelectVehicle={onSelectVehicle} />
+            <FuelLedgerDetail selected={selected} />
+          </>
+        )}
+
+        {reportTab === "Gasto" && <FuelExpenseReport stats={vehicleStats} total={totals.cost} />}
+        {reportTab === "Ingreso" && <FuelIncomeReport vehicles={vehicles} total={totalIncome} />}
+        {reportTab === "Conductores" && <FuelDriversReport vehicles={vehicles} />}
+      </div>
+    </section>
+  );
+}
+
+function ReportStatCard({ icon: Icon, label, value, daily, perKm, tone }) {
+  return (
+    <article className={`report-stat-card report-stat-card--${tone}`}>
+      <header><span><Icon size={18} /></span><strong>{label}</strong></header>
+      <small>Total</small>
+      <strong className="report-stat-value">{value}</strong>
+      <footer><span><small>Por día</small><strong>{daily}</strong></span><span><small>Por km</small><strong>{perKm}</strong></span></footer>
+    </article>
+  );
+}
+
+function FuelVehicleOverview({ stats, selected, onSelectVehicle }) {
+  return (
+    <section className="content-card fuel-overview report-section-card">
+      <header className="card-header">
+        <div><h2>Consumo mensual por vehículo</h2><p>Selecciona un coche para consultar sus datos.</p></div>
+        <span className="month-chip"><IconCalendar size={15} />Julio 2026</span>
+      </header>
+      <div className="fuel-vehicle-grid" aria-label="Vehículos con consumo de julio de 2026">
+        {stats.map(({ vehicle, liters, cost, refuels }) => {
+          const active = selected.plate === vehicle.plate;
+          return (
+            <button className={active ? "fuel-vehicle-card fuel-vehicle-card--active" : "fuel-vehicle-card"} key={vehicle.plate} onClick={() => onSelectVehicle(vehicle)} aria-pressed={active}>
+              <span className="fuel-vehicle-card__heading"><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><UseBadge value={vehicle.use} /></span>
+              <span className="fuel-vehicle-card__totals"><span><small>Consumo</small><strong>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Gasto</small><strong>{formatCurrency(cost)}</strong></span></span>
+              <span className="fuel-vehicle-card__footer"><small>{refuels} repostajes</small><IconChevronRight size={16} /></span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function FuelLedgerDetail({ selected }) {
   const selectedEntries = selected.monthlyFuel ?? [];
   const selectedLiters = selectedEntries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0);
   const selectedCost = selectedEntries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0);
-
   return (
-    <section className="module-page fuel-page">
-      <PageIntro
-        eyebrow="Control de combustible"
-        title="Gasolina"
-        description="Consumo mensual y repostajes diarios de cada vehículo, asignados al conductor según el horario de su turno."
-      />
-      <div className="metric-cards">
-        <MetricCard icon={IconGasStation} label="Consumo de julio" value={`${totals.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L`} detail="Acumulado de los 5 vehículos" />
-        <MetricCard icon={IconCurrencyEuro} label="Gasto de julio" value={formatCurrency(totals.cost)} detail={`${totals.refuels} repostajes registrados`} />
-        <MetricCard icon={IconUsers} label="Turnos configurados" value="6" detail="3 vehículos profesionales" />
+    <section className="content-card fuel-detail report-section-card">
+      <header className="fuel-detail__header">
+        <div className="fuel-detail__identity"><span className="fuel-detail__icon"><IconGasStation size={20} /></span><span><small>Vehículo seleccionado</small><strong>{selected.plate}</strong><small>{selected.model}</small></span></div>
+        <div className="fuel-detail__totals"><span><small>Consumo mensual</small><strong>{selectedLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Gasto mensual</small><strong>{formatCurrency(selectedCost)}</strong></span></div>
+      </header>
+      {selected.fuelSchedule?.length > 0 ? (
+        <div className="fuel-page-schedule" aria-label={`Horarios de los conductores de ${selected.plate}`}><span className="fuel-page-schedule__label"><IconClock size={16} /><strong>Asignación por horario</strong></span>{selected.fuelSchedule.map((shift) => <span className="fuel-page-shift" key={shift.label}><strong>{shift.driver}</strong><small>{shift.label}</small></span>)}</div>
+      ) : (
+        <div className="fuel-page-schedule fuel-page-schedule--manual"><span className="fuel-page-schedule__label"><IconUsers size={16} /><strong>Asignación manual</strong></span><small>Los conductores domésticos se indican en cada registro.</small></div>
+      )}
+      <div className="fuel-page-table-wrap">
+        <table className="fuel-page-table">
+          <caption className="sr-only">Repostajes diarios de julio de 2026 para {selected.plate}</caption>
+          <thead><tr><th>Fecha</th><th>Hora</th><th>Conductor</th><th>Turno asignado</th><th>Litros</th><th>Precio/L</th><th>Importe</th></tr></thead>
+          <tbody>{selectedEntries.map((entry) => {
+            const assignment = getFuelAssignment(selected, entry);
+            const pricePerLiter = entry.liters ? entry.cost / entry.liters : 0;
+            return <tr key={`${entry.date}-${entry.time}`}><td><strong>{entry.date.replace(" 2026", "")}</strong></td><td><strong>{entry.time}</strong></td><td><span className="fuel-driver"><IconUsers size={14} /><strong>{assignment.driver}</strong></span></td><td><span className="fuel-shift-badge">{assignment.label}</span></td><td><strong>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></td><td>{formatCurrency(pricePerLiter)}</td><td><strong>{formatCurrency(entry.cost)}</strong></td></tr>;
+          })}</tbody>
+        </table>
       </div>
+      <footer className="fuel-detail__footer"><IconSparkles size={15} /><span>El conductor se determina automáticamente por la hora del repostaje y los turnos configurados para este coche.</span></footer>
+    </section>
+  );
+}
 
-      <section className="content-card fuel-overview">
-        <header className="card-header">
-          <div><h2>Consumo mensual por vehículo</h2><p>Selecciona un coche para consultar todos sus repostajes diarios.</p></div>
-          <span className="month-chip"><IconCalendar size={15} />Julio 2026</span>
-        </header>
-        <div className="fuel-vehicle-grid" aria-label="Vehículos con consumo de julio de 2026">
-          {vehicles.map((vehicle) => {
-            const entries = vehicle.monthlyFuel ?? [];
-            const liters = entries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0);
-            const cost = entries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0);
-            const active = selected.plate === vehicle.plate;
-            return (
-              <button
-                className={active ? "fuel-vehicle-card fuel-vehicle-card--active" : "fuel-vehicle-card"}
-                key={vehicle.plate}
-                onClick={() => onSelectVehicle(vehicle)}
-                aria-pressed={active}
-              >
-                <span className="fuel-vehicle-card__heading"><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><UseBadge value={vehicle.use} /></span>
-                <span className="fuel-vehicle-card__totals"><span><small>Consumo</small><strong>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Gasto</small><strong>{formatCurrency(cost)}</strong></span></span>
-                <span className="fuel-vehicle-card__footer"><small>{entries.length} repostajes</small><IconChevronRight size={16} /></span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+function FuelExpenseReport({ stats, total }) {
+  return (
+    <section className="content-card report-table-card">
+      <header className="card-header"><div><h2>Gasto de combustible</h2><p>Acumulado mensual de los cinco vehículos.</p></div><strong className="report-header-total">{formatCurrency(total)}</strong></header>
+      <div className="table-scroll"><table className="module-table report-table"><thead><tr><th>Vehículo</th><th>Repostajes</th><th>Litros</th><th>Coste medio</th><th>Gasto mensual</th></tr></thead><tbody>{stats.map(({ vehicle, refuels, liters, cost }) => <tr key={vehicle.plate}><td><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td><td>{refuels}</td><td>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</td><td>{formatCurrency(refuels ? cost / refuels : 0)}</td><td><strong>{formatCurrency(cost)}</strong></td></tr>)}</tbody></table></div>
+    </section>
+  );
+}
 
-      <section className="content-card fuel-detail">
-        <header className="fuel-detail__header">
-          <div className="fuel-detail__identity">
-            <span className="fuel-detail__icon"><IconGasStation size={20} /></span>
-            <span><small>Vehículo seleccionado</small><strong>{selected.plate}</strong><small>{selected.model}</small></span>
-          </div>
-          <div className="fuel-detail__totals">
-            <span><small>Consumo mensual</small><strong>{selectedLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span>
-            <span><small>Gasto mensual</small><strong>{formatCurrency(selectedCost)}</strong></span>
-          </div>
-        </header>
+function FuelIncomeReport({ vehicles, total }) {
+  const rows = vehicles.flatMap((vehicle) => vehicle.shifts.map((shift) => ({ ...shift, plate: vehicle.plate, model: vehicle.model })));
+  return (
+    <section className="content-card report-table-card">
+      <header className="card-header"><div><h2>Ingresos por conductor</h2><p>Facturación mensual y viajes de los conductores profesionales.</p></div><strong className="report-header-total report-header-total--green">{formatCurrency(total)}</strong></header>
+      <div className="table-scroll"><table className="module-table report-table"><thead><tr><th>Conductor</th><th>Vehículo</th><th>Turno</th><th>Viajes</th><th>Ingreso mensual</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.plate}-${row.driver}`}><td><strong>{row.driver}</strong></td><td><strong>{row.plate}</strong><small>{row.model}</small></td><td>{row.time}</td><td>{row.monthTrips}</td><td><strong>{formatCurrency(row.monthRevenue)}</strong></td></tr>)}</tbody></table></div>
+    </section>
+  );
+}
 
-        {selected.fuelSchedule?.length > 0 ? (
-          <div className="fuel-page-schedule" aria-label={`Horarios de los conductores de ${selected.plate}`}>
-            <span className="fuel-page-schedule__label"><IconClock size={16} /><strong>Asignación por horario</strong></span>
-            {selected.fuelSchedule.map((shift) => <span className="fuel-page-shift" key={shift.label}><strong>{shift.driver}</strong><small>{shift.label}</small></span>)}
-          </div>
-        ) : (
-          <div className="fuel-page-schedule fuel-page-schedule--manual"><span className="fuel-page-schedule__label"><IconUsers size={16} /><strong>Asignación manual</strong></span><small>Los conductores domésticos se indican en cada registro.</small></div>
-        )}
-
-        <div className="fuel-page-table-wrap">
-          <table className="fuel-page-table">
-            <caption className="sr-only">Repostajes diarios de julio de 2026 para {selected.plate}</caption>
-            <thead><tr><th>Fecha</th><th>Hora</th><th>Conductor</th><th>Turno asignado</th><th>Litros</th><th>Precio/L</th><th>Importe</th></tr></thead>
-            <tbody>
-              {selectedEntries.map((entry) => {
-                const assignment = getFuelAssignment(selected, entry);
-                const pricePerLiter = entry.liters ? entry.cost / entry.liters : 0;
-                return (
-                  <tr key={`${entry.date}-${entry.time}`}>
-                    <td><strong>{entry.date.replace(" 2026", "")}</strong></td>
-                    <td><strong>{entry.time}</strong></td>
-                    <td><span className="fuel-driver"><IconUsers size={14} /><strong>{assignment.driver}</strong></span></td>
-                    <td><span className="fuel-shift-badge">{assignment.label}</span></td>
-                    <td><strong>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></td>
-                    <td>{formatCurrency(pricePerLiter)}</td>
-                    <td><strong>{formatCurrency(entry.cost)}</strong></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <footer className="fuel-detail__footer"><IconSparkles size={15} /><span>El conductor se determina automáticamente por la hora del repostaje y los turnos configurados para este coche.</span></footer>
-      </section>
+function FuelDriversReport({ vehicles }) {
+  const professional = vehicles.filter((vehicle) => vehicle.use === "Profesional");
+  return (
+    <section className="report-drivers-grid" aria-label="Conductores y turnos profesionales">
+      {professional.map((vehicle) => <article className="report-driver-vehicle" key={vehicle.plate}><header><span><IconCar size={18} /></span><div><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></div></header><div>{vehicle.fuelSchedule.map((shift) => <span className="report-driver-shift" key={shift.label}><span className="avatar report-driver-avatar">{shift.driver.slice(0, 2).toUpperCase()}</span><span><strong>{shift.driver}</strong><small>{shift.label}</small></span><IconClock size={16} /></span>)}</div></article>)}
     </section>
   );
 }
