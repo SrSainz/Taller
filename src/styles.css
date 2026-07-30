@@ -216,8 +216,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .automation-card p { min-height: 55px; margin: 0; color: var(--muted); font-size: 9px; line-height: 1.55; }
 .automation-card footer { display: flex; align-items: center; justify-content: space-between; padding-top: 16px; margin-top: 14px; border-top: 1px solid var(--line); }
 .automation-card footer small { color: var(--muted); font-size: 8px; }
-.switch { …3720 tokens truncated…6.5px; }
-.fuel-ledger-summary strong { overflow: hidden; color: var(--green-900); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.switch { …3992 tokens truncated…1px 8px; }
+.fuel-daily-heading strong { font-size: 8.5px; }
+.fuel-daily-heading small { color: var(--muted); font-size: 6px; text-align: right; }
 .fuel-ledger-table th:nth-child(1) { width: 21%; }
 .fuel-ledger-table th:nth-child(2) { width: 34%; }
 .fuel-ledger-table th:nth-child(3) { width: 19%; }
