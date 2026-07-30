@@ -380,7 +380,7 @@ export function App() {
   const [query, setQuery] = useState("");
   const [openShift, setOpenShift] = useState("jbv-t2");
   const [inspectorTab, setInspectorTab] = useState(() => navFromHash() === "Gasolina" ? "Gasolina" : "Turnos");
-  const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth > 820 || navFromHash() === "Gasolina");
+  const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth > 820 && navFromHash() !== "Gasolina");
   const [fleetMenuOpen, setFleetMenuOpen] = useState(() => ["Flota", "Mantenimiento", "Gasolina"].includes(navFromHash()));
   const [toast, setToast] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -401,7 +401,7 @@ export function App() {
       if (["Flota", "Mantenimiento", "Gasolina"].includes(nextNav)) setFleetMenuOpen(true);
       if (nextNav === "Gasolina") {
         setInspectorTab("Gasolina");
-        setInspectorOpen(true);
+        setInspectorOpen(false);
       }
     };
     window.addEventListener("hashchange", handleHash);
@@ -464,7 +464,7 @@ export function App() {
   const selected = vehicles.find((vehicle) => vehicle.plate === selectedPlate) ?? vehicles[0];
   const selectedDriver = selectedDrivers[selected.plate] ?? selected.drivers[0];
   const selectedActivity = getDriverDay(selected, selectedDriver);
-  const showInspector = ["Flota", "Gasolina"].includes(activeNav) && inspectorOpen;
+  const showInspector = activeNav === "Flota" && inspectorOpen;
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("es");
@@ -510,7 +510,7 @@ export function App() {
     setFleetMenuOpen(true);
     if (item.label === "Gasolina") {
       setInspectorTab("Gasolina");
-      setInspectorOpen(true);
+      setInspectorOpen(false);
     }
     navigate(item);
   };
@@ -619,7 +619,7 @@ export function App() {
         </header>
 
         <div className="page-scroll">
-          {["Flota", "Gasolina"].includes(activeNav) && (
+          {activeNav === "Flota" && (
             <FleetView
               filtered={filtered}
               filter={filter}
@@ -634,6 +634,7 @@ export function App() {
               setModal={setModal}
             />
           )}
+          {activeNav === "Gasolina" && <FuelView vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} setModal={setModal} vehicles={vehicles} />}
@@ -720,6 +721,109 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
         </div>
         {filtered.length === 0 && <div className="empty-state"><IconSearch size={25} /><strong>Sin resultados</strong><span>Prueba otra matrícula, conductor o trabajo.</span></div>}
         <footer className="table-footer"><span>5 vehículos · 10 conductores</span><span>Selecciona un conductor para ver su actividad diaria</span></footer>
+      </section>
+    </section>
+  );
+}
+
+function FuelView({ vehicles, selected, onSelectVehicle }) {
+  const totals = vehicles.reduce((summary, vehicle) => {
+    const entries = vehicle.monthlyFuel ?? [];
+    return {
+      liters: summary.liters + entries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0),
+      cost: summary.cost + entries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0),
+      refuels: summary.refuels + entries.length,
+    };
+  }, { liters: 0, cost: 0, refuels: 0 });
+  const selectedEntries = selected.monthlyFuel ?? [];
+  const selectedLiters = selectedEntries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0);
+  const selectedCost = selectedEntries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0);
+
+  return (
+    <section className="module-page fuel-page">
+      <PageIntro
+        eyebrow="Control de combustible"
+        title="Gasolina"
+        description="Consumo mensual y repostajes diarios de cada vehículo, asignados al conductor según el horario de su turno."
+      />
+      <div className="metric-cards">
+        <MetricCard icon={IconGasStation} label="Consumo de julio" value={`${totals.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L`} detail="Acumulado de los 5 vehículos" />
+        <MetricCard icon={IconCurrencyEuro} label="Gasto de julio" value={formatCurrency(totals.cost)} detail={`${totals.refuels} repostajes registrados`} />
+        <MetricCard icon={IconUsers} label="Turnos configurados" value="6" detail="3 vehículos profesionales" />
+      </div>
+
+      <section className="content-card fuel-overview">
+        <header className="card-header">
+          <div><h2>Consumo mensual por vehículo</h2><p>Selecciona un coche para consultar todos sus repostajes diarios.</p></div>
+          <span className="month-chip"><IconCalendar size={15} />Julio 2026</span>
+        </header>
+        <div className="fuel-vehicle-grid" aria-label="Vehículos con consumo de julio de 2026">
+          {vehicles.map((vehicle) => {
+            const entries = vehicle.monthlyFuel ?? [];
+            const liters = entries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0);
+            const cost = entries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0);
+            const active = selected.plate === vehicle.plate;
+            return (
+              <button
+                className={active ? "fuel-vehicle-card fuel-vehicle-card--active" : "fuel-vehicle-card"}
+                key={vehicle.plate}
+                onClick={() => onSelectVehicle(vehicle)}
+                aria-pressed={active}
+              >
+                <span className="fuel-vehicle-card__heading"><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><UseBadge value={vehicle.use} /></span>
+                <span className="fuel-vehicle-card__totals"><span><small>Consumo</small><strong>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Gasto</small><strong>{formatCurrency(cost)}</strong></span></span>
+                <span className="fuel-vehicle-card__footer"><small>{entries.length} repostajes</small><IconChevronRight size={16} /></span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="content-card fuel-detail">
+        <header className="fuel-detail__header">
+          <div className="fuel-detail__identity">
+            <span className="fuel-detail__icon"><IconGasStation size={20} /></span>
+            <span><small>Vehículo seleccionado</small><strong>{selected.plate}</strong><small>{selected.model}</small></span>
+          </div>
+          <div className="fuel-detail__totals">
+            <span><small>Consumo mensual</small><strong>{selectedLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span>
+            <span><small>Gasto mensual</small><strong>{formatCurrency(selectedCost)}</strong></span>
+          </div>
+        </header>
+
+        {selected.fuelSchedule?.length > 0 ? (
+          <div className="fuel-page-schedule" aria-label={`Horarios de los conductores de ${selected.plate}`}>
+            <span className="fuel-page-schedule__label"><IconClock size={16} /><strong>Asignación por horario</strong></span>
+            {selected.fuelSchedule.map((shift) => <span className="fuel-page-shift" key={shift.label}><strong>{shift.driver}</strong><small>{shift.label}</small></span>)}
+          </div>
+        ) : (
+          <div className="fuel-page-schedule fuel-page-schedule--manual"><span className="fuel-page-schedule__label"><IconUsers size={16} /><strong>Asignación manual</strong></span><small>Los conductores domésticos se indican en cada registro.</small></div>
+        )}
+
+        <div className="fuel-page-table-wrap">
+          <table className="fuel-page-table">
+            <caption className="sr-only">Repostajes diarios de julio de 2026 para {selected.plate}</caption>
+            <thead><tr><th>Fecha</th><th>Hora</th><th>Conductor</th><th>Turno asignado</th><th>Litros</th><th>Precio/L</th><th>Importe</th></tr></thead>
+            <tbody>
+              {selectedEntries.map((entry) => {
+                const assignment = getFuelAssignment(selected, entry);
+                const pricePerLiter = entry.liters ? entry.cost / entry.liters : 0;
+                return (
+                  <tr key={`${entry.date}-${entry.time}`}>
+                    <td><strong>{entry.date.replace(" 2026", "")}</strong></td>
+                    <td><strong>{entry.time}</strong></td>
+                    <td><span className="fuel-driver"><IconUsers size={14} /><strong>{assignment.driver}</strong></span></td>
+                    <td><span className="fuel-shift-badge">{assignment.label}</span></td>
+                    <td><strong>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></td>
+                    <td>{formatCurrency(pricePerLiter)}</td>
+                    <td><strong>{formatCurrency(entry.cost)}</strong></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <footer className="fuel-detail__footer"><IconSparkles size={15} /><span>El conductor se determina automáticamente por la hora del repostaje y los turnos configurados para este coche.</span></footer>
       </section>
     </section>
   );
