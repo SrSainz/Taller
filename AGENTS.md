@@ -10,7 +10,7 @@ When implementing from a selected generated mock, treat that image as the source
 
 - The selected visual target is option 2 from the 27 July 2026 ideation set: a dense fleet ledger with a right-side vehicle inspector.
 - The operating fleet has exactly five vehicles: three professional and two domestic.
-- Every vehicle has two assigned drivers.
+- Vehicles normally have two assigned drivers; 5043 MLC currently has Mauricio assigned to both professional shifts, so the fleet has nine unique drivers.
 - Professional vehicles receive two WhatsApp shift reports per day. Each report records driver, start and accumulated odometer, kilometres driven, fuel litres, cost, timestamp, extraction confidence, and any consumption anomaly.
 - Domestic vehicles do not require per-shift reporting; either assigned driver can submit a shared odometer reading.
 - Vehicle detail defaults to a collapsible shift ledger so the manager can audit each daily turn without leaving the fleet screen.
@@ -28,6 +28,8 @@ When implementing from a selected generated mock, treat that image as the source
 - Taller is integrated into Mantenimiento, directly below Facturas in the main navigation. It offers a vehicle selector, full history, repeated concepts, and a photo-to-invoice action that preselects the current vehicle.
 - Facturas created from a workshop photo are kept locally between reloads and immediately update Facturas, the selected vehicle's maintenance history, its July workshop expense, and its calculated profit margin.
 - The vehicle inspector contains Actividad, Mantenimiento, Gasolina, and Gastos. Mantenimiento uses a compact Excel-like grid with one row for each agreed maintenance concept, the latest date, and a control to view the associated invoice document. Gasolina lists each driver's daily litres and fuel spend for the selected vehicle.
+- Gasolina shows the selected vehicle's current-month accumulated litres, accumulated spend, refuelling count, average price per litre, and a dated refuelling ledger. Professional refuellings are assigned automatically to a driver from the recorded time and the vehicle's configured shift schedule.
+- The three professional vehicles are 5754 MJV (Carlos 04:00–16:00, Fernando 16:00–04:00), 5750 MJV (Tirso 06:00–18:00, Alex 18:00–06:00), and 5043 MLC (Mauricio in both 07:00–19:00 and 19:00–07:00 shifts).
 - The maintenance concept grid contains Aceite y filtro, Filtro habitáculo, Filtro de aire, Neumáticos, Pastillas de freno, Discos de freno, Transmisión, Bomba de agua, Bujías, Aceite de caja de cambios, Limpiaparabrisas, Fundas de asientos, and Varios.
 - Gastos shows vehicle-specific amounts for leasing coche, préstamo licencia, gasolina, taller, seguridad social, nómina, comisiones conductor, impuestos trimestrales, IVA intracomunitario, seguro, limpieza coche, and varios.
 - Gastos calculates each vehicle's monthly profit margin as the combined monthly billing of its two drivers minus every expense assigned to that vehicle. The UI shows both driver subtotals, total billing, total expenses, absolute margin, and margin percentage.
