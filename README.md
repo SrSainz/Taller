@@ -16,6 +16,7 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 - Photo invoices persist in the browser and automatically update the selected vehicle's workshop history and workshop expense.
 - Vehicle-specific Gastos tab with twelve cost categories, both drivers' monthly billing, total expenses, and the resulting profit margin.
 - Vehicle inspector tabs for Mantenimiento and Gasolina, with an Excel-like concept history, invoice access, and daily refuelling by driver.
+- Gasolina includes monthly accumulated litres and spend, average price, daily refuellings, and automatic driver assignment from each vehicle's shift schedule.
 - Search and operational filters.
 - Selectable rows with a detailed shift inspector.
 - Two daily shifts per professional vehicle, with driver, start/end odometer, shift kilometres, fuel litres, average consumption, cost, time, WhatsApp source, and AI confidence.
