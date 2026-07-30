@@ -363,6 +363,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .fuel-ledger-summary > div { min-width: 0; display: flex; flex-direction: column; gap: 5px; padding: 11px; border: 1px solid var(--line); border-radius: 7px; background: #f8faf9; }
 .fuel-ledger-summary span { color: var(--muted); font-size: 6.5px; }
 .fuel-ledger-summary strong { overflow: hidden; color: var(--green-900); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.fuel-schedule-strip { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; margin-bottom: 9px; border: 1px solid #b9d5cb; border-radius: 7px; background: var(--green-50); }
+.fuel-schedule-strip > span { min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 9px 10px; }
+.fuel-schedule-strip > span + span { border-left: 1px solid #b9d5cb; }
+.fuel-schedule-strip strong { overflow: hidden; color: var(--green-900); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.fuel-schedule-strip small { color: var(--green-700); font-size: 6px; }
+.fuel-ledger-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 2px 10px; color: var(--muted); font-size: 6.5px; }
+.fuel-ledger-meta strong { color: var(--text); font-size: 7.5px; }
+.fuel-daily-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin: 2px 1px 8px; }
+.fuel-daily-heading strong { font-size: 8.5px; }
+.fuel-daily-heading small { color: var(--muted); font-size: 6px; text-align: right; }
 .fuel-ledger-table th:nth-child(1) { width: 21%; }
 .fuel-ledger-table th:nth-child(2) { width: 34%; }
 .fuel-ledger-table th:nth-child(3) { width: 19%; }

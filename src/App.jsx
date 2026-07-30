@@ -54,16 +54,32 @@ const utilityItems = [
 
 const vehiclesSeed = [
   {
-    plate: "1234 KXD",
+    plate: "5754 MJV",
     model: "Ford Transit",
     use: "Profesional",
-    drivers: ["Luis Martínez", "Elena Torres"],
+    drivers: ["Carlos", "Fernando"],
     odometer: 128460,
     nextServiceKm: 134000,
     serviceDate: "12 ago 2026",
+    fuelSchedule: [
+      { label: "04:00–16:00", driver: "Carlos", start: 4, end: 16 },
+      { label: "16:00–04:00", driver: "Fernando", start: 16, end: 4 },
+    ],
+    monthlyFuel: [
+      { date: "28 jul 2026", time: "16:12", liters: 18.4, cost: 31.28 },
+      { date: "28 jul 2026", time: "05:55", liters: 20.1, cost: 34.17 },
+      { date: "25 jul 2026", time: "16:20", liters: 18.9, cost: 32.13 },
+      { date: "25 jul 2026", time: "05:48", liters: 19.8, cost: 33.66 },
+      { date: "21 jul 2026", time: "16:06", liters: 18.2, cost: 30.94 },
+      { date: "21 jul 2026", time: "05:51", liters: 20.4, cost: 34.68 },
+      { date: "17 jul 2026", time: "16:18", liters: 17.8, cost: 30.26 },
+      { date: "17 jul 2026", time: "05:44", liters: 20.2, cost: 34.34 },
+      { date: "12 jul 2026", time: "16:09", liters: 18.7, cost: 31.79 },
+      { date: "12 jul 2026", time: "05:57", liters: 19.6, cost: 33.32 },
+    ],
     shifts: [
-      { id: "kxd-t2", label: "Turno de tarde", driver: "Elena Torres", time: "14:10–22:04", start: 128310, end: 128460, km: 150, liters: 18.4, cost: 31.28, revenue: 418.2, cash: 76, monthRevenue: 7954.3, monthTrips: 136, sentAt: "22:08", confidence: 98 },
-      { id: "kxd-t1", label: "Turno de mañana", driver: "Luis Martínez", time: "06:03–14:01", start: 128142, end: 128310, km: 168, liters: 20.1, cost: 34.17, revenue: 462.8, cash: 128.5, monthRevenue: 8240.5, monthTrips: 142, sentAt: "14:05", confidence: 99 },
+      { id: "kxd-t2", label: "Turno 16:00–04:00", driver: "Fernando", time: "16:00–04:00", start: 128310, end: 128460, km: 150, liters: 18.4, cost: 31.28, revenue: 418.2, cash: 76, monthRevenue: 7954.3, monthTrips: 136, sentAt: "04:08", confidence: 98 },
+      { id: "kxd-t1", label: "Turno 04:00–16:00", driver: "Carlos", time: "04:00–16:00", start: 128142, end: 128310, km: 168, liters: 20.1, cost: 34.17, revenue: 462.8, cash: 128.5, monthRevenue: 8240.5, monthTrips: 142, sentAt: "16:05", confidence: 99 },
     ],
     maintenance: [
       { date: "18 jul 2026", km: 127820, concept: "Aceite y filtros", amount: 286.4 },
@@ -72,16 +88,32 @@ const vehiclesSeed = [
     ],
   },
   {
-    plate: "5678 LPT",
+    plate: "5750 MJV",
     model: "Mercedes Sprinter",
     use: "Profesional",
-    drivers: ["Carlos Pérez", "Marta Sánchez"],
+    drivers: ["Tirso", "Alex"],
     odometer: 142980,
     nextServiceKm: 150000,
     serviceDate: "18 ago 2026",
+    fuelSchedule: [
+      { label: "06:00–18:00", driver: "Tirso", start: 6, end: 18 },
+      { label: "18:00–06:00", driver: "Alex", start: 18, end: 6 },
+    ],
+    monthlyFuel: [
+      { date: "28 jul 2026", time: "18:14", liters: 16.8, cost: 28.56 },
+      { date: "28 jul 2026", time: "06:08", liters: 17.4, cost: 29.58 },
+      { date: "24 jul 2026", time: "18:19", liters: 17.1, cost: 29.07 },
+      { date: "24 jul 2026", time: "06:11", liters: 18.2, cost: 30.94 },
+      { date: "20 jul 2026", time: "18:07", liters: 16.5, cost: 28.05 },
+      { date: "20 jul 2026", time: "06:02", liters: 17.9, cost: 30.43 },
+      { date: "16 jul 2026", time: "18:21", liters: 16.9, cost: 28.73 },
+      { date: "16 jul 2026", time: "06:16", liters: 18.1, cost: 30.77 },
+      { date: "11 jul 2026", time: "18:05", liters: 17.3, cost: 29.41 },
+      { date: "11 jul 2026", time: "06:13", liters: 17.8, cost: 30.26 },
+    ],
     shifts: [
-      { id: "lpt-t2", label: "Turno de tarde", driver: "Marta Sánchez", time: "14:02–21:46", start: 142842, end: 142980, km: 138, liters: 16.8, cost: 28.56, revenue: 435.2, cash: 110, monthRevenue: 8126.4, monthTrips: 139, sentAt: "21:51", confidence: 97 },
-      { id: "lpt-t1", label: "Turno de mañana", driver: "Carlos Pérez", time: "06:08–13:55", start: 142704, end: 142842, km: 138, liters: 17.4, cost: 29.58, revenue: 390.5, cash: 90, monthRevenue: 7318.8, monthTrips: 128, sentAt: "14:00", confidence: 99 },
+      { id: "lpt-t2", label: "Turno 18:00–06:00", driver: "Alex", time: "18:00–06:00", start: 142842, end: 142980, km: 138, liters: 16.8, cost: 28.56, revenue: 435.2, cash: 110, monthRevenue: 8126.4, monthTrips: 139, sentAt: "06:05", confidence: 97 },
+      { id: "lpt-t1", label: "Turno 06:00–18:00", driver: "Tirso", time: "06:00–18:00", start: 142704, end: 142842, km: 138, liters: 17.4, cost: 29.58, revenue: 390.5, cash: 90, monthRevenue: 7318.8, monthTrips: 128, sentAt: "18:04", confidence: 99 },
     ],
     maintenance: [
       { date: "5 jul 2026", km: 140410, concept: "Neumáticos delanteros", amount: 498 },
@@ -90,16 +122,32 @@ const vehiclesSeed = [
     ],
   },
   {
-    plate: "9102 JBV",
+    plate: "5043 MLC",
     model: "Renault Master",
     use: "Profesional",
-    drivers: ["Javier Ruiz", "Laura Gómez"],
+    drivers: ["Mauricio"],
     odometer: 210735,
     nextServiceKm: 215000,
     serviceDate: "2 ago 2026",
+    fuelSchedule: [
+      { label: "07:00–19:00", driver: "Mauricio", start: 7, end: 19 },
+      { label: "19:00–07:00", driver: "Mauricio", start: 19, end: 7 },
+    ],
+    monthlyFuel: [
+      { date: "28 jul 2026", time: "19:12", liters: 19.2, cost: 32.64 },
+      { date: "28 jul 2026", time: "07:18", liters: 12.4, cost: 21.08 },
+      { date: "24 jul 2026", time: "19:09", liters: 18.8, cost: 31.96 },
+      { date: "24 jul 2026", time: "07:11", liters: 13.1, cost: 22.27 },
+      { date: "20 jul 2026", time: "19:17", liters: 19.5, cost: 33.15 },
+      { date: "20 jul 2026", time: "07:06", liters: 12.8, cost: 21.76 },
+      { date: "15 jul 2026", time: "19:04", liters: 18.9, cost: 32.13 },
+      { date: "15 jul 2026", time: "07:21", liters: 13.4, cost: 22.78 },
+      { date: "10 jul 2026", time: "19:15", liters: 19.1, cost: 32.47 },
+      { date: "10 jul 2026", time: "07:09", liters: 12.7, cost: 21.59 },
+    ],
     shifts: [
-      { id: "jbv-t2", label: "Turno de tarde", driver: "Laura Gómez", time: "14:06–21:58", start: 210614, end: 210735, km: 121, liters: 19.2, cost: 32.64, revenue: 402.75, cash: 122, monthRevenue: 7542.9, monthTrips: 130, sentAt: "22:03", confidence: 96, alert: true },
-      { id: "jbv-t1", label: "Turno de mañana", driver: "Javier Ruiz", time: "06:11–13:57", start: 210494, end: 210614, km: 120, liters: 12.4, cost: 21.08, revenue: 376.4, cash: 84.5, monthRevenue: 6984.25, monthTrips: 121, sentAt: "14:02", confidence: 98 },
+      { id: "jbv-t2", label: "Turno 19:00–07:00", driver: "Mauricio", time: "19:00–07:00", start: 210614, end: 210735, km: 121, liters: 19.2, cost: 32.64, revenue: 402.75, cash: 122, monthRevenue: 7542.9, monthTrips: 130, sentAt: "07:03", confidence: 96, alert: true },
+      { id: "jbv-t1", label: "Turno 07:00–19:00", driver: "Mauricio", time: "07:00–19:00", start: 210494, end: 210614, km: 120, liters: 12.4, cost: 21.08, revenue: 376.4, cash: 84.5, monthRevenue: 6984.25, monthTrips: 121, sentAt: "19:02", confidence: 98 },
     ],
     maintenance: [
       { date: "24 jul 2026", km: 210120, concept: "Aceite y filtros", amount: 312.5 },
@@ -120,6 +168,10 @@ const vehiclesSeed = [
       { driver: "Ana García", km: 21, liters: 0, cost: 0, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "08:12–13:20" },
       { driver: "David García", km: 13, liters: 25.1, cost: 42.67, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "17:40–19:05" },
     ],
+    monthlyFuel: [
+      { date: "26 jul 2026", time: "17:42", liters: 25.1, cost: 42.67, driver: "David García" },
+      { date: "11 jul 2026", time: "08:20", liters: 23.4, cost: 39.78, driver: "Ana García" },
+    ],
     shifts: [],
     maintenance: [
       { date: "12 jun 2026", km: 95310, concept: "Aceite y filtros", amount: 224.8 },
@@ -139,6 +191,10 @@ const vehiclesSeed = [
       { driver: "Sergio Ruiz", km: 11, liters: 0, cost: 0, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "09:05–12:16" },
       { driver: "María Ruiz", km: 7, liters: 18.3, cost: 30.92, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "18:10–19:02" },
     ],
+    monthlyFuel: [
+      { date: "23 jul 2026", time: "18:15", liters: 18.3, cost: 30.92, driver: "María Ruiz" },
+      { date: "7 jul 2026", time: "09:12", liters: 17.6, cost: 29.74, driver: "Sergio Ruiz" },
+    ],
     shifts: [],
     maintenance: [
       { date: "28 may 2026", km: 72110, concept: "Aceite y filtros", amount: 198.6 },
@@ -153,7 +209,7 @@ const invoiceSeed = [
     id: "FAC-2026-1874",
     date: "24 jul 2026",
     provider: "Taller AutoRápido S.L.",
-    plate: "9102 JBV",
+    plate: "5043 MLC",
     concept: "Aceite y filtros",
     amount: 312.5,
     source: "Correo",
@@ -165,8 +221,8 @@ const invoiceSeed = [
       { concept: "Mano de obra", amount: 154 },
     ],
   },
-  { id: "FAC-2026-1842", date: "18 jul 2026", provider: "Mecánica Norte", plate: "1234 KXD", concept: "Aceite y filtros", amount: 286.4, source: "Correo", status: "Asociada" },
-  { id: "FAC-2026-1798", date: "5 jul 2026", provider: "Neumáticos Central", plate: "5678 LPT", concept: "Neumáticos delanteros", amount: 498, source: "Correo", status: "Revisar" },
+  { id: "FAC-2026-1842", date: "18 jul 2026", provider: "Mecánica Norte", plate: "5754 MJV", concept: "Aceite y filtros", amount: 286.4, source: "Correo", status: "Asociada" },
+  { id: "FAC-2026-1798", date: "5 jul 2026", provider: "Neumáticos Central", plate: "5750 MJV", concept: "Neumáticos delanteros", amount: 498, source: "Correo", status: "Revisar" },
   { id: "FAC-2026-1761", date: "12 jun 2026", provider: "Peugeot Service", plate: "3456 HTR", concept: "Aceite y filtros", amount: 224.8, source: "Manual", status: "Asociada" },
   { id: "FAC-2026-1684", date: "28 may 2026", provider: "Toyota Madrid", plate: "7890 GYL", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
 ];
@@ -216,20 +272,20 @@ const expenseCategories = [
 ];
 
 const vehicleExpenseAmounts = {
-  "1234 KXD": [780, 450, 1280.42, 286.4, 390, 1650, 824.05, 1860, 85, 870, 95, 120],
-  "5678 LPT": [895, 450, 1136.28, 498, 390, 1650, 812.64, 1740, 92, 940, 110, 164.8],
-  "9102 JBV": [820, 450, 1054.72, 312.5, 390, 1650, 754.29, 1695, 78, 905, 98, 98.5],
+  "5754 MJV": [780, 450, 1280.42, 286.4, 390, 1650, 824.05, 1860, 85, 870, 95, 120],
+  "5750 MJV": [895, 450, 1136.28, 498, 390, 1650, 812.64, 1740, 92, 940, 110, 164.8],
+  "5043 MLC": [820, 450, 1054.72, 312.5, 390, 1650, 754.29, 1695, 78, 905, 98, 98.5],
   "3456 HTR": [420, 0, 185.34, 224.8, 0, 0, 0, 0, 0, 540, 40, 60],
   "7890 GYL": [0, 310, 142.18, 198.6, 0, 0, 0, 0, 0, 495, 35, 44.9],
 };
 
 const readingSeed = [
-  { id: "LEC-4381", time: "Hoy · 22:08", driver: "Elena Torres", plate: "1234 KXD", total: 128460, daily: 150, confidence: 98, status: "Validada" },
-  { id: "LEC-4380", time: "Hoy · 22:03", driver: "Laura Gómez", plate: "9102 JBV", total: 210735, daily: 121, confidence: 96, status: "Revisar" },
-  { id: "LEC-4379", time: "Hoy · 21:51", driver: "Marta Sánchez", plate: "5678 LPT", total: 142980, daily: 138, confidence: 97, status: "Validada" },
+  { id: "LEC-4381", time: "Hoy · 04:08", driver: "Fernando", plate: "5754 MJV", total: 128460, daily: 150, confidence: 98, status: "Validada" },
+  { id: "LEC-4380", time: "Hoy · 07:03", driver: "Mauricio", plate: "5043 MLC", total: 210735, daily: 121, confidence: 96, status: "Revisar" },
+  { id: "LEC-4379", time: "Hoy · 06:05", driver: "Alex", plate: "5750 MJV", total: 142980, daily: 138, confidence: 97, status: "Validada" },
   { id: "LEC-4378", time: "Hoy · 19:05", driver: "David García", plate: "3456 HTR", total: 98215, daily: 13, confidence: 92, status: "Revisar" },
-  { id: "LEC-4377", time: "Hoy · 14:05", driver: "Luis Martínez", plate: "1234 KXD", total: 128310, daily: 168, confidence: 99, status: "Validada" },
-  { id: "LEC-4376", time: "Hoy · 14:02", driver: "Javier Ruiz", plate: "9102 JBV", total: 210614, daily: 120, confidence: 98, status: "Validada" },
+  { id: "LEC-4377", time: "Hoy · 16:05", driver: "Carlos", plate: "5754 MJV", total: 128310, daily: 168, confidence: 99, status: "Validada" },
+  { id: "LEC-4376", time: "Hoy · 19:02", driver: "Mauricio", plate: "5043 MLC", total: 210614, daily: 120, confidence: 98, status: "Validada" },
 ];
 
 const formatKm = (value) => `${new Intl.NumberFormat("es-ES").format(value)} km`;
@@ -239,10 +295,34 @@ const matchesMaintenanceConcept = (value, matches) => {
   const normalized = normalizeText(value);
   return matches.some((match) => normalized.includes(normalizeText(match)));
 };
-const getDriverDay = (vehicle, driver) =>
-  vehicle.shifts.find((shift) => shift.driver === driver) ??
-  vehicle.daily?.find((entry) => entry.driver === driver) ??
-  { driver, km: 0, liters: 0, cost: 0, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "Sin actividad" };
+const getDriverDay = (vehicle, driver) => {
+  const driverShifts = vehicle.shifts.filter((shift) => shift.driver === driver);
+  if (driverShifts.length > 1) {
+    return driverShifts.reduce((summary, shift) => ({
+      ...summary,
+      km: summary.km + shift.km,
+      liters: summary.liters + shift.liters,
+      cost: summary.cost + shift.cost,
+      revenue: summary.revenue + shift.revenue,
+      cash: summary.cash + shift.cash,
+      monthRevenue: summary.monthRevenue + shift.monthRevenue,
+      monthTrips: summary.monthTrips + shift.monthTrips,
+      confidence: Math.min(summary.confidence, shift.confidence),
+    }), { driver, km: 0, liters: 0, cost: 0, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: `${driverShifts.length} turnos registrados`, sentAt: driverShifts[0].sentAt, confidence: 100 });
+  }
+  return driverShifts[0] ??
+    vehicle.daily?.find((entry) => entry.driver === driver) ??
+    { driver, km: 0, liters: 0, cost: 0, revenue: 0, cash: 0, monthRevenue: 0, monthTrips: 0, time: "Sin actividad" };
+};
+const getFuelAssignment = (vehicle, entry) => {
+  if (entry.driver) return { driver: entry.driver, label: "Registro manual" };
+  const hour = Number(entry.time?.split(":")[0]);
+  return vehicle.fuelSchedule?.find((shift) =>
+    shift.start < shift.end
+      ? hour >= shift.start && hour < shift.end
+      : hour >= shift.start || hour < shift.end
+  ) ?? { driver: "Sin asignar", label: "Fuera de turno" };
+};
 
 const navFromHash = () => {
   const slug = window.location.hash.replace(/^#\/?/, "");
@@ -283,12 +363,12 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "green" }) {
 
 export function App() {
   const [activeNav, setActiveNav] = useState(navFromHash);
-  const [selectedPlate, setSelectedPlate] = useState("9102 JBV");
-  const [maintenancePlate, setMaintenancePlate] = useState("9102 JBV");
+  const [selectedPlate, setSelectedPlate] = useState("5043 MLC");
+  const [maintenancePlate, setMaintenancePlate] = useState("5043 MLC");
   const [selectedDrivers, setSelectedDrivers] = useState({
-    "1234 KXD": "Luis Martínez",
-    "5678 LPT": "Carlos Pérez",
-    "9102 JBV": "Laura Gómez",
+    "5754 MJV": "Carlos",
+    "5750 MJV": "Tirso",
+    "5043 MLC": "Mauricio",
     "3456 HTR": "Ana García",
     "7890 GYL": "Sergio Ruiz",
   });
@@ -484,7 +564,7 @@ export function App() {
           {notificationsOpen && (
             <aside className="notification-popover" aria-label="Notificaciones recientes">
               <header><strong>Notificaciones</strong><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></header>
-              <button onClick={() => openVehicleFromModule("9102 JBV")}><IconAlertTriangle size={18} /><span><strong>Revisión próxima</strong><small>Renault Master · 4.265 km restantes</small></span></button>
+              <button onClick={() => openVehicleFromModule("5043 MLC")}><IconAlertTriangle size={18} /><span><strong>Revisión próxima</strong><small>Renault Master · 4.265 km restantes</small></span></button>
               <button onClick={() => navigate(navItems[1])}><IconGauge size={18} /><span><strong>2 lecturas por revisar</strong><small>Confianza inferior al umbral configurado</small></span></button>
             </aside>
           )}
@@ -550,7 +630,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
       />
       <div className="metric-cards">
         <MetricCard icon={IconBriefcase} label="Vehículos profesionales" value="3" detail="6 turnos recibidos hoy" />
-        <MetricCard icon={IconGasStation} label="Repostaje de hoy" value="188,66 €" detail="10 conductores registrados" />
+        <MetricCard icon={IconGasStation} label="Repostaje de hoy" value="177,31 €" detail="9 conductores registrados" />
         <MetricCard icon={IconTools} label="Próxima revisión" value="4.160 km" detail="Toyota Corolla · 6 ago" tone="amber" />
       </div>
       <section className="content-card fleet-card">
@@ -591,7 +671,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
           </table>
         </div>
         {filtered.length === 0 && <div className="empty-state"><IconSearch size={25} /><strong>Sin resultados</strong><span>Prueba otra matrícula, conductor o trabajo.</span></div>}
-        <footer className="table-footer"><span>5 vehículos · 10 conductores</span><span>Selecciona un conductor para ver su actividad diaria</span></footer>
+        <footer className="table-footer"><span>5 vehículos · 9 conductores</span><span>Selecciona un conductor para ver su actividad diaria</span></footer>
       </section>
     </section>
   );
@@ -718,8 +798,8 @@ function AutomationsView({ enabled, setEnabled, notify }) {
       <section className="content-card activity-card">
         <header className="card-header"><div><h2>Actividad reciente</h2><p>Últimas ejecuciones automáticas.</p></div></header>
         <div className="activity-timeline">
-          <div><span><IconBrandWhatsapp size={17} /></span><p><strong>Lectura procesada · 1234 KXD</strong><small>Elena Torres · Confianza IA 98%</small></p><time>22:08</time></div>
-          <div><span><IconMail size={17} /></span><p><strong>Factura asociada · 9102 JBV</strong><small>FAC-2026-1874 · Aceite y filtros</small></p><time>20:42</time></div>
+          <div><span><IconBrandWhatsapp size={17} /></span><p><strong>Lectura procesada · 5754 MJV</strong><small>Fernando · Confianza IA 98%</small></p><time>04:08</time></div>
+          <div><span><IconMail size={17} /></span><p><strong>Factura asociada · 5043 MLC</strong><small>FAC-2026-1874 · Aceite y filtros</small></p><time>20:42</time></div>
           <div><span><IconAlertTriangle size={17} /></span><p><strong>Lectura enviada a revisión</strong><small>David García · Confianza IA 92%</small></p><time>19:05</time></div>
         </div>
       </section>
@@ -779,7 +859,7 @@ function VehicleInspector({ selected, selectedDriver, selectedActivity, invoices
               <div className="driver-metrics"><div><span>Km hoy</span><strong>{formatKm(selectedActivity.km)}</strong></div><div><span>Repostaje</span><strong>{formatCurrency(selectedActivity.cost)}</strong></div><div><span>Facturación</span><strong>{formatCurrency(selectedActivity.revenue)}</strong></div></div>
               <div className="billing-summary"><span>Acumulado mensual</span><strong>{formatCurrency(selectedActivity.monthRevenue)}</strong><small>{selectedActivity.monthTrips} viajes · Efectivo hoy {formatCurrency(selectedActivity.cash)}</small></div>
             </section>
-            {selected.plate === "9102 JBV" && selected.use === "Profesional" && <figure className="odometer-proof"><img src="/assets/odometer-210735.jpg" alt={`Odómetro de ${selected.plate} con ${selected.odometer} kilómetros`} /><figcaption><IconBrandWhatsapp size={17} /><span><strong>Imagen recibida por WhatsApp</strong><small>Hoy · {selectedActivity.sentAt ?? "14:02"} · Confianza IA {selectedActivity.confidence ?? 98}%</small></span></figcaption></figure>}
+            {selected.plate === "5043 MLC" && selected.use === "Profesional" && <figure className="odometer-proof"><img src="/assets/odometer-210735.jpg" alt={`Odómetro de ${selected.plate} con ${selected.odometer} kilómetros`} /><figcaption><IconBrandWhatsapp size={17} /><span><strong>Imagen recibida por WhatsApp</strong><small>Hoy · {selectedActivity.sentAt ?? "19:02"} · Confianza IA {selectedActivity.confidence ?? 98}%</small></span></figcaption></figure>}
             {selected.use === "Profesional" ? (
               <section className="shifts-section"><header><div><h2>Parte del conductor</h2><p>Datos del turno seleccionado</p></div><StatusBadge status="Recibido" /></header>{selected.shifts.filter((shift) => shift.driver === selectedDriver).map((shift) => {
                 const expanded = openShift === shift.id;
@@ -849,37 +929,47 @@ function VehicleMaintenanceLedger({ vehicle, invoices, onOpenInvoice }) {
 }
 
 function VehicleFuelLedger({ vehicle }) {
-  const entries = vehicle.shifts.length > 0 ? vehicle.shifts : (vehicle.daily ?? []);
+  const entries = vehicle.monthlyFuel ?? [];
   const totalLiters = entries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0);
   const totalCost = entries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0);
+  const averagePrice = totalLiters > 0 ? totalCost / totalLiters : 0;
 
   return (
     <section className="inspector-ledger fuel-ledger">
       <header className="inspector-ledger-heading">
         <span><IconGasStation size={18} /><strong>Gasolina</strong></span>
-        <small>Hoy · por conductor</small>
+        <small>Julio 2026</small>
       </header>
+      {vehicle.fuelSchedule?.length > 0 && (
+        <div className="fuel-schedule-strip" aria-label={`Turnos de combustible de ${vehicle.plate}`}>
+          {vehicle.fuelSchedule.map((shift) => <span key={shift.label}><strong>{shift.driver}</strong><small>{shift.label}</small></span>)}
+        </div>
+      )}
       <div className="fuel-ledger-summary">
-        <div><span>Litros</span><strong>{totalLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></div>
-        <div><span>Importe total</span><strong>{formatCurrency(totalCost)}</strong></div>
+        <div><span>Consumo mensual</span><strong>{totalLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></div>
+        <div><span>Gasto mensual</span><strong>{formatCurrency(totalCost)}</strong></div>
       </div>
+      <div className="fuel-ledger-meta"><span><strong>{entries.length}</strong> repostajes</span><span>Media <strong>{formatCurrency(averagePrice)}/L</strong></span></div>
+      <div className="fuel-daily-heading"><strong>Repostajes diarios</strong><small>Asignados automáticamente según la hora</small></div>
       <div className="inspector-ledger-scroll">
         <table className="inspector-ledger-table fuel-ledger-table">
-          <caption className="sr-only">Repostajes de hoy para {vehicle.plate}</caption>
-          <thead><tr><th>Fecha</th><th>Conductor</th><th>Litros</th><th>Importe</th></tr></thead>
+          <caption className="sr-only">Repostajes de julio de 2026 para {vehicle.plate}, asignados por horario a cada conductor</caption>
+          <thead><tr><th>Fecha y hora</th><th>Conductor</th><th>Litros</th><th>Importe</th></tr></thead>
           <tbody>
-            {entries.map((entry) => (
-              <tr key={`${entry.driver}-${entry.time}`}>
-                <td><strong>Hoy</strong><small>{entry.time}</small></td>
-                <td><strong>{entry.driver}</strong><small>{entry.liters > 0 ? "Repostaje registrado" : "Sin repostaje"}</small></td>
+            {entries.map((entry) => {
+              const assignment = getFuelAssignment(vehicle, entry);
+              return (
+              <tr key={`${entry.date}-${entry.time}`}>
+                <td><strong>{entry.date.replace(" 2026", "")}</strong><small>{entry.time}</small></td>
+                <td><strong>{assignment.driver}</strong><small>{assignment.label}</small></td>
                 <td><strong>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></td>
                 <td><strong>{formatCurrency(entry.cost)}</strong></td>
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
       </div>
-      <p className="inspector-ledger-note">Los importes proceden del parte diario enviado por cada conductor.</p>
+      <p className="inspector-ledger-note">El conductor se determina por la hora del repostaje y el turno configurado para este coche.</p>
     </section>
   );
 }
