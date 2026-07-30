@@ -125,13 +125,13 @@ const vehiclesSeed = [
     plate: "5043 MLC",
     model: "Renault Master",
     use: "Profesional",
-    drivers: ["Mauricio"],
+    drivers: ["Mauricio", "Amin"],
     odometer: 210735,
     nextServiceKm: 215000,
     serviceDate: "2 ago 2026",
     fuelSchedule: [
       { label: "07:00–19:00", driver: "Mauricio", start: 7, end: 19 },
-      { label: "19:00–07:00", driver: "Mauricio", start: 19, end: 7 },
+      { label: "19:00–07:00", driver: "Amin", start: 19, end: 7 },
     ],
     monthlyFuel: [
       { date: "28 jul 2026", time: "19:12", liters: 19.2, cost: 32.64 },
@@ -146,7 +146,7 @@ const vehiclesSeed = [
       { date: "10 jul 2026", time: "07:09", liters: 12.7, cost: 21.59 },
     ],
     shifts: [
-      { id: "jbv-t2", label: "Turno 19:00–07:00", driver: "Mauricio", time: "19:00–07:00", start: 210614, end: 210735, km: 121, liters: 19.2, cost: 32.64, revenue: 402.75, cash: 122, monthRevenue: 7542.9, monthTrips: 130, sentAt: "07:03", confidence: 96, alert: true },
+      { id: "jbv-t2", label: "Turno 19:00–07:00", driver: "Amin", time: "19:00–07:00", start: 210614, end: 210735, km: 121, liters: 19.2, cost: 32.64, revenue: 402.75, cash: 122, monthRevenue: 7542.9, monthTrips: 130, sentAt: "07:03", confidence: 96, alert: true },
       { id: "jbv-t1", label: "Turno 07:00–19:00", driver: "Mauricio", time: "07:00–19:00", start: 210494, end: 210614, km: 120, liters: 12.4, cost: 21.08, revenue: 376.4, cash: 84.5, monthRevenue: 6984.25, monthTrips: 121, sentAt: "19:02", confidence: 98 },
     ],
     maintenance: [
@@ -281,7 +281,7 @@ const vehicleExpenseAmounts = {
 
 const readingSeed = [
   { id: "LEC-4381", time: "Hoy · 04:08", driver: "Fernando", plate: "5754 MJV", total: 128460, daily: 150, confidence: 98, status: "Validada" },
-  { id: "LEC-4380", time: "Hoy · 07:03", driver: "Mauricio", plate: "5043 MLC", total: 210735, daily: 121, confidence: 96, status: "Revisar" },
+  { id: "LEC-4380", time: "Hoy · 07:03", driver: "Amin", plate: "5043 MLC", total: 210735, daily: 121, confidence: 96, status: "Revisar" },
   { id: "LEC-4379", time: "Hoy · 06:05", driver: "Alex", plate: "5750 MJV", total: 142980, daily: 138, confidence: 97, status: "Validada" },
   { id: "LEC-4378", time: "Hoy · 19:05", driver: "David García", plate: "3456 HTR", total: 98215, daily: 13, confidence: 92, status: "Revisar" },
   { id: "LEC-4377", time: "Hoy · 16:05", driver: "Carlos", plate: "5754 MJV", total: 128310, daily: 168, confidence: 99, status: "Validada" },
@@ -389,7 +389,7 @@ export function App() {
   const [isStandalone, setIsStandalone] = useState(() => window.matchMedia("(display-mode: standalone)").matches || Boolean(window.navigator.standalone));
   const toastTimer = useRef();
 
-  use…15666 tokens truncated…tem = modal.item;
+  useEf…15666 tokens truncated…tem = modal.item;
   const isReading = modal.type === "reading-review";
   const isInvoice = modal.type === "invoice";
   const isPhotoInvoice = modal.type === "invoice-upload";
