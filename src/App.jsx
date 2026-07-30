@@ -171,6 +171,22 @@ const invoiceSeed = [
   { id: "FAC-2026-1684", date: "28 may 2026", provider: "Toyota Madrid", plate: "7890 GYL", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
 ];
 
+const maintenanceConceptRows = [
+  { label: "Aceite y filtro", matches: ["aceite y filtro", "aceite motor", "filtro de aceite"] },
+  { label: "Filtro habitáculo", matches: ["filtro habitaculo", "filtro de polen"] },
+  { label: "Filtro de aire", matches: ["filtro de aire"] },
+  { label: "Neumáticos", matches: ["neumatico", "rueda"] },
+  { label: "Pastillas de freno", matches: ["pastilla de freno", "pastillas de freno"] },
+  { label: "Discos de freno", matches: ["disco de freno", "discos de freno"] },
+  { label: "Transmisión", matches: ["transmision"] },
+  { label: "Bomba de agua", matches: ["bomba de agua"] },
+  { label: "Bujías", matches: ["bujia"] },
+  { label: "Aceite de caja de cambios", matches: ["aceite de caja", "aceite caja"] },
+  { label: "Limpiaparabrisas", matches: ["limpiaparabrisas", "escobilla"] },
+  { label: "Fundas de asientos", matches: ["funda de asiento", "fundas de asientos"] },
+  { label: "Varios", matches: ["varios", "otros"] },
+];
+
 const photoInvoiceStorageKey = "talleria:photo-invoices:v1";
 
 const loadPhotoInvoices = () => {
@@ -218,6 +234,11 @@ const readingSeed = [
 
 const formatKm = (value) => `${new Intl.NumberFormat("es-ES").format(value)} km`;
 const formatCurrency = (value) => `${value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+const normalizeText = (value = "") => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
+const matchesMaintenanceConcept = (value, matches) => {
+  const normalized = normalizeText(value);
+  return matches.some((match) => normalized.includes(normalizeText(match)));
+};
 const getDriverDay = (vehicle, driver) =>
   vehicle.shifts.find((shift) => shift.driver === driver) ??
   vehicle.daily?.find((entry) => entry.driver === driver) ??
@@ -499,9 +520,11 @@ export function App() {
           selected={selected}
           selectedDriver={selectedDriver}
           selectedActivity={selectedActivity}
+          invoices={invoices}
           inspectorTab={inspectorTab}
           setInspectorTab={setInspectorTab}
           setInspectorOpen={setInspectorOpen}
+          setModal={setModal}
           selectDriver={selectDriver}
           openShift={openShift}
           setOpenShift={setOpenShift}
@@ -736,15 +759,20 @@ function HelpView({ openFaq, setOpenFaq, setModal }) {
   );
 }
 
-function VehicleInspector({ selected, selectedDriver, selectedActivity, inspectorTab, setInspectorTab, setInspectorOpen, selectDriver, openShift, setOpenShift, notify }) {
+function VehicleInspector({ selected, selectedDriver, selectedActivity, invoices, inspectorTab, setInspectorTab, setInspectorOpen, setModal, selectDriver, openShift, setOpenShift, notify }) {
   const remaining = selected.nextServiceKm - selected.odometer;
   return (
     <aside className="inspector" aria-label={`Detalle de ${selected.plate}`}>
       <header className="inspector-header"><div><span className="inspector-eyebrow">Vehículo seleccionado</span><strong>{selected.plate}</strong><small>{selected.model}</small><UseBadge value={selected.use} /></div><button className="icon-button" aria-label="Cerrar detalle" onClick={() => setInspectorOpen(false)}><IconX size={21} /></button></header>
       <div className="inspector-driver-picker"><span>Conductor</span><div>{selected.drivers.map((driver) => <button className={selectedDriver === driver ? "driver-pill driver-pill--active" : "driver-pill"} key={driver} onClick={() => selectDriver(selected, driver)}>{driver}</button>)}</div></div>
-      <div className="inspector-tabs"><button className={inspectorTab === "Turnos" ? "active" : ""} onClick={() => setInspectorTab("Turnos")}>Actividad</button><button className={inspectorTab === "Gastos" ? "active" : ""} onClick={() => setInspectorTab("Gastos")}>Gastos</button></div>
+      <div className="inspector-tabs" role="tablist" aria-label="Información del vehículo">
+        <button role="tab" aria-selected={inspectorTab === "Turnos"} className={inspectorTab === "Turnos" ? "active" : ""} onClick={() => setInspectorTab("Turnos")}>Actividad</button>
+        <button role="tab" aria-selected={inspectorTab === "Mantenimiento"} className={inspectorTab === "Mantenimiento" ? "active" : ""} onClick={() => setInspectorTab("Mantenimiento")}>Mantenimiento</button>
+        <button role="tab" aria-selected={inspectorTab === "Gasolina"} className={inspectorTab === "Gasolina" ? "active" : ""} onClick={() => setInspectorTab("Gasolina")}>Gasolina</button>
+        <button role="tab" aria-selected={inspectorTab === "Gastos"} className={inspectorTab === "Gastos" ? "active" : ""} onClick={() => setInspectorTab("Gastos")}>Gastos</button>
+      </div>
       <div className="inspector-scroll">
-        {inspectorTab === "Turnos" ? (
+        {inspectorTab === "Turnos" && (
           <>
             <section className="driver-summary">
               <header><span><IconClock size={17} /><strong>{selectedDriver}</strong></span><small>Hoy · {selectedActivity.time}</small></header>
@@ -760,10 +788,99 @@ function VehicleInspector({ selected, selectedDriver, selectedActivity, inspecto
               })}</section>
             ) : <section className="domestic-note"><IconHome size={21} /><span><strong>Uso doméstico</strong>Registro diario individual sin parte de turno obligatorio.</span></section>}
           </>
-        ) : <VehicleExpenses vehicle={selected} />}
+        )}
+        {inspectorTab === "Mantenimiento" && <VehicleMaintenanceLedger vehicle={selected} invoices={invoices} onOpenInvoice={(invoice) => setModal({ type: "invoice", item: invoice })} />}
+        {inspectorTab === "Gasolina" && <VehicleFuelLedger vehicle={selected} />}
+        {inspectorTab === "Gastos" && <VehicleExpenses vehicle={selected} />}
         <section className="next-service"><span className={remaining <= 4500 ? "urgent" : ""}><IconTools size={18} /><strong>{formatKm(remaining)} restantes</strong></span><p>{selected.serviceDate} · objetivo {formatKm(selected.nextServiceKm)}</p></section>
       </div>
     </aside>
+  );
+}
+
+function VehicleMaintenanceLedger({ vehicle, invoices, onOpenInvoice }) {
+  const rows = maintenanceConceptRows.map((category) => {
+    const maintenance = vehicle.maintenance.find((item) => matchesMaintenanceConcept(item.concept, category.matches));
+    const invoiceMatches = (item) =>
+      item.plate === vehicle.plate &&
+      (matchesMaintenanceConcept(item.concept, category.matches) || item.items?.some((line) => matchesMaintenanceConcept(line.concept, category.matches)));
+    const invoice = invoices.find((item) => invoiceMatches(item) && (!maintenance || item.date === maintenance.date))
+      ?? invoices.find(invoiceMatches);
+    const invoiceLine = invoice?.items?.find((line) => matchesMaintenanceConcept(line.concept, category.matches));
+    return {
+      ...category,
+      maintenance,
+      invoice,
+      date: maintenance?.date ?? invoice?.date,
+      amount: invoiceLine?.amount ?? maintenance?.amount ?? invoice?.amount,
+    };
+  });
+  const registered = rows.filter((row) => row.date || row.invoice).length;
+
+  return (
+    <section className="inspector-ledger inspector-maintenance-ledger">
+      <header className="inspector-ledger-heading">
+        <span><IconTools size={18} /><strong>Mantenimiento por concepto</strong></span>
+        <small>{registered} de {rows.length} registrados</small>
+      </header>
+      <div className="inspector-ledger-summary">
+        <span>Historial de {vehicle.plate}</span>
+        <strong>{vehicle.maintenance.length} intervenciones</strong>
+        <small>Último registro por cada concepto</small>
+      </div>
+      <div className="inspector-ledger-scroll">
+        <table className="inspector-ledger-table">
+          <caption className="sr-only">Mantenimiento de {vehicle.plate} organizado por concepto, fecha y factura</caption>
+          <thead><tr><th>Concepto</th><th>Fecha</th><th>Factura</th></tr></thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.label} className={!row.date && !row.invoice ? "is-empty" : ""}>
+                <td><strong>{row.label}</strong>{row.maintenance && normalizeText(row.maintenance.concept) !== normalizeText(row.label) && <small>{row.maintenance.concept}</small>}</td>
+                <td>{row.date ? <><strong>{row.date}</strong>{row.maintenance?.km && <small>{formatKm(row.maintenance.km)}</small>}</> : <span>—</span>}</td>
+                <td>{row.invoice ? <><button className="invoice-link-button" onClick={() => onOpenInvoice(row.invoice)} aria-label={`Ver factura ${row.invoice.id} de ${row.label}`}><IconFileInvoice size={14} />Ver</button><small>{row.amount != null ? formatCurrency(Number(row.amount)) : row.invoice.id}</small></> : <span>—</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="inspector-ledger-note">Selecciona «Ver» para consultar el documento y su desglose.</p>
+    </section>
+  );
+}
+
+function VehicleFuelLedger({ vehicle }) {
+  const entries = vehicle.shifts.length > 0 ? vehicle.shifts : (vehicle.daily ?? []);
+  const totalLiters = entries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0);
+  const totalCost = entries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0);
+
+  return (
+    <section className="inspector-ledger fuel-ledger">
+      <header className="inspector-ledger-heading">
+        <span><IconGasStation size={18} /><strong>Gasolina</strong></span>
+        <small>Hoy · por conductor</small>
+      </header>
+      <div className="fuel-ledger-summary">
+        <div><span>Litros</span><strong>{totalLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></div>
+        <div><span>Importe total</span><strong>{formatCurrency(totalCost)}</strong></div>
+      </div>
+      <div className="inspector-ledger-scroll">
+        <table className="inspector-ledger-table fuel-ledger-table">
+          <caption className="sr-only">Repostajes de hoy para {vehicle.plate}</caption>
+          <thead><tr><th>Fecha</th><th>Conductor</th><th>Litros</th><th>Importe</th></tr></thead>
+          <tbody>
+            {entries.map((entry) => (
+              <tr key={`${entry.driver}-${entry.time}`}>
+                <td><strong>Hoy</strong><small>{entry.time}</small></td>
+                <td><strong>{entry.driver}</strong><small>{entry.liters > 0 ? "Repostaje registrado" : "Sin repostaje"}</small></td>
+                <td><strong>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></td>
+                <td><strong>{formatCurrency(entry.cost)}</strong></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="inspector-ledger-note">Los importes proceden del parte diario enviado por cada conductor.</p>
+    </section>
   );
 }
 
