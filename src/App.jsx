@@ -43,8 +43,12 @@ const navItems = [
   { label: "Flota", slug: "flota", icon: IconCar },
   { label: "Lecturas", slug: "lecturas", icon: IconGauge, badge: 2 },
   { label: "Facturas", slug: "facturas", icon: IconFileInvoice, badge: 3 },
-  { label: "Mantenimiento", slug: "mantenimiento", icon: IconTools },
   { label: "Automatizaciones", slug: "automatizaciones", icon: IconRobot },
+];
+
+const fleetSubItems = [
+  { label: "Mantenimiento", slug: "mantenimiento", icon: IconTools },
+  { label: "Gasolina", slug: "gasolina", icon: IconGasStation },
 ];
 
 const utilityItems = [
@@ -326,7 +330,7 @@ const getFuelAssignment = (vehicle, entry) => {
 
 const navFromHash = () => {
   const slug = window.location.hash.replace(/^#\/?/, "");
-  return [...navItems, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Flota";
+  return [...navItems, ...fleetSubItems, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Flota";
 };
 
 function UseBadge({ value }) {
@@ -375,8 +379,9 @@ export function App() {
   const [filter, setFilter] = useState("Todos");
   const [query, setQuery] = useState("");
   const [openShift, setOpenShift] = useState("jbv-t2");
-  const [inspectorTab, setInspectorTab] = useState("Turnos");
-  const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth > 820);
+  const [inspectorTab, setInspectorTab] = useState(() => navFromHash() === "Gasolina" ? "Gasolina" : "Turnos");
+  const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth > 820 || navFromHash() === "Gasolina");
+  const [fleetMenuOpen, setFleetMenuOpen] = useState(() => ["Flota", "Mantenimiento", "Gasolina"].includes(navFromHash()));
   const [toast, setToast] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modal, setModal] = useState(null);
@@ -390,7 +395,15 @@ export function App() {
   const toastTimer = useRef();
 
   useEffect(() => {
-    const handleHash = () => setActiveNav(navFromHash());
+    const handleHash = () => {
+      const nextNav = navFromHash();
+      setActiveNav(nextNav);
+      if (["Flota", "Mantenimiento", "Gasolina"].includes(nextNav)) setFleetMenuOpen(true);
+      if (nextNav === "Gasolina") {
+        setInspectorTab("Gasolina");
+        setInspectorOpen(true);
+      }
+    };
     window.addEventListener("hashchange", handleHash);
     return () => window.removeEventListener("hashchange", handleHash);
   }, []);
@@ -451,7 +464,7 @@ export function App() {
   const selected = vehicles.find((vehicle) => vehicle.plate === selectedPlate) ?? vehicles[0];
   const selectedDriver = selectedDrivers[selected.plate] ?? selected.drivers[0];
   const selectedActivity = getDriverDay(selected, selectedDriver);
-  const showInspector = activeNav === "Flota" && inspectorOpen;
+  const showInspector = ["Flota", "Gasolina"].includes(activeNav) && inspectorOpen;
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("es");
@@ -493,6 +506,20 @@ export function App() {
     if (window.location.hash !== `#/${item.slug}`) window.location.hash = `/${item.slug}`;
   };
 
+  const navigateFleetSubItem = (item) => {
+    setFleetMenuOpen(true);
+    if (item.label === "Gasolina") {
+      setInspectorTab("Gasolina");
+      setInspectorOpen(true);
+    }
+    navigate(item);
+  };
+
+  const openFleetNavigation = () => {
+    setFleetMenuOpen((current) => activeNav === "Flota" ? !current : true);
+    if (activeNav !== "Flota") navigate(navItems[0]);
+  };
+
   const selectVehicle = (vehicle) => {
     const driver = selectedDrivers[vehicle.plate] ?? vehicle.drivers[0];
     const activity = getDriverDay(vehicle, driver);
@@ -506,13 +533,13 @@ export function App() {
     setSelectedDrivers((current) => ({ ...current, [vehicle.plate]: driver }));
     setSelectedPlate(vehicle.plate);
     setOpenShift(activity.id ?? "");
-    setInspectorTab("Turnos");
+    if (activeNav !== "Gasolina") setInspectorTab("Turnos");
     setInspectorOpen(true);
   };
 
   const openWorkshop = (vehicle) => {
     setMaintenancePlate(vehicle.plate);
-    navigate(navItems[3]);
+    navigateFleetSubItem(fleetSubItems[0]);
     window.setTimeout(() => document.getElementById("taller-vehiculo")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   };
 
@@ -529,7 +556,28 @@ export function App() {
         <div className="brand"><span>T</span><strong>Talleria</strong></div>
         <nav aria-label="Navegación principal">
           <span className="nav-group-label">Operación</span>
-          {navItems.map((item) => {
+          <div className="nav-fleet-group">
+            <button
+              className={["Flota", "Mantenimiento", "Gasolina"].includes(activeNav) ? "nav-item nav-item--active" : "nav-item"}
+              onClick={openFleetNavigation}
+              aria-expanded={fleetMenuOpen}
+              aria-controls="fleet-submenu"
+            >
+              <IconCar size={20} stroke={1.8} />
+              <span>Flota</span>
+              {fleetMenuOpen ? <IconChevronUp className="nav-item__chevron" size={16} /> : <IconChevronDown className="nav-item__chevron" size={16} />}
+            </button>
+            {fleetMenuOpen && (
+              <div className="nav-submenu" id="fleet-submenu">
+                {fleetSubItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = activeNav === item.label;
+                  return <button className={active ? "nav-subitem nav-subitem--active" : "nav-subitem"} key={item.label} onClick={() => navigateFleetSubItem(item)} aria-current={active ? "page" : undefined}><Icon size={16} stroke={1.8} /><span>{item.label}</span></button>;
+                })}
+              </div>
+            )}
+          </div>
+          {navItems.slice(1).map((item) => {
             const Icon = item.icon;
             const active = activeNav === item.label;
             return (
@@ -571,7 +619,7 @@ export function App() {
         </header>
 
         <div className="page-scroll">
-          {activeNav === "Flota" && (
+          {["Flota", "Gasolina"].includes(activeNav) && (
             <FleetView
               filtered={filtered}
               filter={filter}

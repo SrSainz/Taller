@@ -30,12 +30,14 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 - Fully connected application windows for Lecturas, Facturas, Mantenimiento, Automatizaciones, Ajustes, and Ayuda.
 - Accessible review dialogs for extracted readings, workshop invoices, uploads, and support requests.
 - Hash-based navigation so each section has a stable browser location.
+- Expandable Flota navigation with nested Mantenimiento and Gasolina destinations.
 
 This first version is intentionally front-end only. WhatsApp, email ingestion, OpenAI image extraction, authentication, persistence, and real invoice matching are represented with realistic mock data.
 
 ## Application windows
 
 - `#/flota` — five-vehicle operational ledger and driver inspector.
+- `#/gasolina` — fleet ledger with the selected vehicle's monthly fuel inspector open.
 - `#/lecturas` — WhatsApp/OCR review queue.
 - `#/facturas` — workshop invoice inbox.
 - `#/mantenimiento` — upcoming services, vehicle workshop histories, photo invoices, and recent interventions.

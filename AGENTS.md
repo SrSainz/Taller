@@ -23,6 +23,7 @@ When implementing from a selected generated mock, treat that image as the source
 - The web client is an installable PWA. Production must ship a linked manifest, 192px and 512px install icons, maskable icons, `display: standalone`, a root-scoped service worker, and an in-app install action when the browser exposes the install prompt.
 - The product name is Talleria and the primary interface language is Spanish.
 - Every sidebar destination is a real application window. Flota, Lecturas, Facturas, Mantenimiento, Automatizaciones, Ajustes, and Ayuda must change the route hash, title, content, and active navigation state.
+- Flota is an expandable sidebar parent. Mantenimiento and Gasolina are nested beneath it; Mantenimiento keeps its full workspace route and Gasolina uses `#/gasolina` to open the selected vehicle's fuel inspector directly. Mantenimiento must not appear as a separate top-level sidebar item.
 - Product hierarchy follows the selected dense-ledger direction with stronger readable type, elevated KPI cards, a persistent operational table, and an optional right-side inspector. On mobile, the inspector opens only after a vehicle is selected.
 - Core review actions use accessible dialogs, visible focus states, semantic tables, named controls, and Escape-to-close behavior.
 - Taller is integrated into Mantenimiento, directly below Facturas in the main navigation. It offers a vehicle selector, full history, repeated concepts, and a photo-to-invoice action that preselects the current vehicle.
