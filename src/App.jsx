@@ -43,8 +43,12 @@ const navItems = [
   { label: "Flota", slug: "flota", icon: IconCar },
   { label: "Lecturas", slug: "lecturas", icon: IconGauge, badge: 2 },
   { label: "Facturas", slug: "facturas", icon: IconFileInvoice, badge: 3 },
-  { label: "Mantenimiento", slug: "mantenimiento", icon: IconTools },
   { label: "Automatizaciones", slug: "automatizaciones", icon: IconRobot },
+];
+
+const fleetSubItems = [
+  { label: "Mantenimiento", slug: "mantenimiento", icon: IconTools },
+  { label: "Gasolina", slug: "gasolina", icon: IconGasStation },
 ];
 
 const utilityItems = [
@@ -326,7 +330,7 @@ const getFuelAssignment = (vehicle, entry) => {
 
 const navFromHash = () => {
   const slug = window.location.hash.replace(/^#\/?/, "");
-  return [...navItems, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Flota";
+  return [...navItems, ...fleetSubItems, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Flota";
 };
 
 function UseBadge({ value }) {
@@ -375,8 +379,9 @@ export function App() {
   const [filter, setFilter] = useState("Todos");
   const [query, setQuery] = useState("");
   const [openShift, setOpenShift] = useState("jbv-t2");
-  const [inspectorTab, setInspectorTab] = useState("Turnos");
-  const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth > 820);
+  const [inspectorTab, setInspectorTab] = useState(() => navFromHash() === "Gasolina" ? "Gasolina" : "Turnos");
+  const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth > 820 || navFromHash() === "Gasolina");
+  const [fleetMenuOpen, setFleetMenuOpen] = useState(() => ["Flota", "Mantenimiento", "Gasolina"].includes(navFromHash()));
   const [toast, setToast] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modal, setModal] = useState(null);
@@ -384,12 +389,7 @@ export function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
-  const [settings, setSettings] = useState({ company: "Talleria Flota", email: "flota@talleria.es", serviceWarning: "5000", lowConfidence: "94" });
-  const [installPrompt, setInstallPrompt] = useState(null);
-  const [isStandalone, setIsStandalone] = useState(() => window.matchMedia("(display-mode: standalone)").matches || Boolean(window.navigator.standalone));
-  const toastTimer = useRef();
-
-  useEf…15666 tokens truncated…tem = modal.item;
+  const [settings, setSettings] = useState({ company: "Talleria Flota", …16303 tokens truncated…tem = modal.item;
   const isReading = modal.type === "reading-review";
   const isInvoice = modal.type === "invoice";
   const isPhotoInvoice = modal.type === "invoice-upload";
