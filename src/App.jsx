@@ -61,6 +61,11 @@ const utilityItems = [
 const topbarItems = [navItems[4], ...utilityItems];
 
 const vehicleOrder = ["5043 MLC", "5750 MJV", "5754 MJV", "0344 LCP", "9401 LTG"];
+const vehicleBrandLogos = {
+  Toyota: "/brands/toyota.svg",
+  Lexus: "/brands/lexus.svg",
+  Peugeot: "/brands/peugeot.svg",
+};
 
 const vehiclesSeed = [
   {
@@ -302,6 +307,21 @@ const readingSeed = [
 const formatKm = (value) => `${new Intl.NumberFormat("es-ES").format(value)} km`;
 const formatCurrency = (value) => `${value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const normalizeText = (value = "") => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
+const maintenanceMonths = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
+const getVehicleBrand = (vehicle) => vehicle.model.split(" ")[0];
+const getMaintenanceDateValue = (item) => {
+  if (item.dateIso) return Date.parse(item.dateIso);
+  const [day, month, year] = normalizeText(item.date).split(/\s+/);
+  return Date.UTC(Number(year), maintenanceMonths[month] ?? 0, Number(day));
+};
+const formatMaintenanceDate = (item) => {
+  const date = new Date(getMaintenanceDateValue(item));
+  return `${date.getUTCFullYear()}/${String(date.getUTCMonth() + 1).padStart(2, "0")}/${String(date.getUTCDate()).padStart(2, "0")}`;
+};
+const getMaintenanceInvoice = (item, vehicle, invoices) => invoices.find((invoice) => invoice.id === item.invoiceId)
+  ?? invoices.find((invoice) => invoice.plate === vehicle.plate
+    && normalizeText(invoice.date) === normalizeText(item.date)
+    && normalizeText(invoice.concept) === normalizeText(item.concept));
 const matchesMaintenanceConcept = (value, matches) => {
   const normalized = normalizeText(value);
   return matches.some((match) => normalized.includes(normalizeText(match)));
@@ -606,7 +626,7 @@ export function App() {
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
-          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} setModal={setModal} vehicles={vehicles} />}
+          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}
@@ -929,7 +949,7 @@ function InvoicesView({ invoices, setModal }) {
   );
 }
 
-function MaintenanceView({ initialPlate, setModal, vehicles }) {
+function LegacyMaintenanceView({ initialPlate, setModal, vehicles }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const schedule = vehicles;
   const nextServiceVehicle = [...vehicles].sort((a, b) => (a.nextServiceKm - a.odometer) - (b.nextServiceKm - b.odometer))[0];
@@ -983,6 +1003,87 @@ function MaintenanceView({ initialPlate, setModal, vehicles }) {
           const item = vehicle.maintenance[0];
           return <tr key={vehicle.plate}><td><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td><td>{item.date}</td><td>{formatKm(item.km)}</td><td>{item.concept}</td><td><strong>{formatCurrency(item.amount)}</strong></td><td><button className="table-action" onClick={() => showWorkshop(vehicle.plate)}>Historial<IconChevronRight size={16} /></button></td></tr>;
         })}</tbody></table></div>
+      </section>
+    </section>
+  );
+}
+
+function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
+  const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
+  const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
+  const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
+  const selectedBrand = getVehicleBrand(workshopVehicle);
+  const sortedMaintenance = [...workshopVehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a));
+  const total = sortedMaintenance.reduce((sum, item) => sum + item.amount, 0);
+
+  useEffect(() => {
+    setWorkshopPlate(initialPlate);
+  }, [initialPlate]);
+
+  useEffect(() => {
+    const first = [...workshopVehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a))[0];
+    setOpenMaintenanceKey(first ? `${first.date}-${first.concept}-${first.km}` : "");
+  }, [workshopVehicle.plate]);
+
+  const selectWorkshopVehicle = (plate) => {
+    setWorkshopPlate(plate);
+    window.setTimeout(() => document.getElementById("historial-mantenimiento")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 40);
+  };
+
+  return (
+    <section className="module-page">
+      <PageIntro eyebrow="Plan preventivo" title="Mantenimiento" description="Selecciona un coche para consultar sus revisiones, abrir el detalle de cada fecha o ver la factura del taller." action={<button className="primary-button" onClick={() => setModal({ type: "invoice-upload", plate: workshopVehicle.plate })}><IconCamera size={17} />Factura desde foto</button>} />
+      <nav className="maintenance-vehicle-banners" aria-label="Vehículos de la flota">
+        {vehicles.map((vehicle, index) => {
+          const brand = getVehicleBrand(vehicle);
+          const latest = [...vehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a))[0];
+          const remaining = vehicle.nextServiceKm - vehicle.odometer;
+          const isActive = vehicle.plate === workshopVehicle.plate;
+          return (
+            <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} key={vehicle.plate} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
+              <span className="maintenance-vehicle-number">{index + 1}</span>
+              <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
+              <span className="maintenance-vehicle-identity"><small>{brand}</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></span>
+              <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
+              <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
+              <span className="maintenance-vehicle-service"><small>Próxima revisión</small><strong>{formatKm(remaining)}</strong><span>{vehicle.serviceDate}</span></span>
+              <IconChevronRight className="maintenance-vehicle-chevron" size={21} />
+            </button>
+          );
+        })}
+      </nav>
+      <section className="content-card maintenance-history-panel" id="historial-mantenimiento">
+        <header className="maintenance-history-header">
+          <div className="maintenance-history-vehicle">
+            <span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt="" /></span>
+            <span><small>Historial seleccionado</small><h2>{workshopVehicle.plate}</h2><p>{workshopVehicle.model} · {workshopVehicle.use}</p></span>
+          </div>
+          <div className="maintenance-history-total"><small>{sortedMaintenance.length} intervenciones</small><strong>{formatCurrency(total)}</strong></div>
+        </header>
+        <div className="maintenance-timeline" aria-label={`Historial de mantenimiento de ${workshopVehicle.plate}`}>
+          {sortedMaintenance.map((item) => {
+            const key = `${item.date}-${item.concept}-${item.km}`;
+            const isOpen = openMaintenanceKey === key;
+            const invoice = getMaintenanceInvoice(item, workshopVehicle, invoices);
+            const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
+            const detailId = `detail-${workshopVehicle.plate.replace(/\s/g, "")}-${item.km}`;
+            return (
+              <article className={`maintenance-event ${isOpen ? "is-open" : ""}`} key={key}>
+                <button className="maintenance-event-date" onClick={() => setOpenMaintenanceKey(isOpen ? "" : key)} aria-expanded={isOpen} aria-controls={detailId}>
+                  <IconCalendar size={18} /><span><strong>{formatMaintenanceDate(item)}</strong><small>{formatKm(item.km)}</small></span><IconChevronDown className="maintenance-event-toggle" size={18} />
+                </button>
+                <div className="maintenance-event-summary"><small>Actuación</small><strong>{item.concept}</strong><span>{formatCurrency(item.amount)}</span></div>
+                <div className="maintenance-event-invoice">
+                  {invoice ? <button onClick={() => setModal({ type: "invoice", item: invoice })} aria-label={`Abrir factura ${invoice.id}`}><IconFileInvoice size={18} /><span><strong>Abrir factura</strong><small>{invoice.id}</small></span></button> : <span className="maintenance-invoice-unavailable"><IconFileInvoice size={18} /><span><strong>Sin factura</strong><small>No proporcionada</small></span></span>}
+                </div>
+                {isOpen && <div className="maintenance-event-detail" id={detailId}>
+                  <header><strong>Trabajos realizados</strong><small>{invoice?.provider ?? "Registro de mantenimiento"}</small></header>
+                  <div>{details.map((detail, index) => <span key={`${detail.concept}-${index}`}><span><IconCheck size={15} />{detail.concept}</span><strong>{formatCurrency(Number(detail.amount))}</strong></span>)}</div>
+                </div>}
+              </article>
+            );
+          })}
+        </div>
       </section>
     </section>
   );
