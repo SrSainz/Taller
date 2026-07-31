@@ -4,11 +4,11 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 
 ## Current prototype
 
-- Fleet ledger tailored to five vehicles: three professional and two domestic.
+- Fleet ledger tailored to five vehicles: three professional and two particular.
 - Two assigned drivers per vehicle.
 - Driver selectors in every row: daily kilometres and fuel spend update per person.
 - Billing immediately after the driver selector, with today's total, monthly accumulated billing, monthly accumulated trips, and today's cash-paid portion.
-- No separate usage column in the fleet ledger; professional/domestic usage remains available in the vehicle detail.
+- No separate usage column in the fleet ledger; professional/particular usage remains available in the vehicle detail.
 - Remaining kilometres to the next service shown as a live countdown.
 - Latest workshop amount and concept visible in the fleet ledger.
 - Workshop workspace integrated into Mantenimiento, with a five-vehicle selector, dated history, amounts, and repeated-concept markers.
@@ -21,7 +21,7 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 - Search and operational filters.
 - Selectable rows with a detailed shift inspector.
 - Two daily shifts per professional vehicle, with driver, start/end odometer, shift kilometres, fuel litres, average consumption, cost, time, WhatsApp source, and AI confidence.
-- Simplified shared-reading flow for domestic vehicles.
+- Simplified shared-reading flow for particular vehicles.
 - Automatic consumption alert for readings outside the expected range.
 - Linked workshop invoice and upcoming maintenance information.
 - Working confirmation, navigation, filter, and feedback states.

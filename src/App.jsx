@@ -60,6 +60,8 @@ const utilityItems = [
 
 const topbarItems = [navItems[4], ...utilityItems];
 
+const vehicleOrder = ["5043 MLC", "5750 MJV", "5754 MJV", "0344 LCP", "9401 LTG"];
+
 const vehiclesSeed = [
   {
     plate: "5754 MJV",
@@ -165,9 +167,9 @@ const vehiclesSeed = [
     ],
   },
   {
-    plate: "3456 HTR",
+    plate: "0344 LCP",
     model: "Peugeot 3008",
-    use: "Doméstico",
+    use: "Particular",
     drivers: ["Ana García", "David García"],
     odometer: 98215,
     nextServiceKm: 105000,
@@ -188,9 +190,9 @@ const vehiclesSeed = [
     ],
   },
   {
-    plate: "7890 GYL",
+    plate: "9401 LTG",
     model: "Toyota Corolla",
-    use: "Doméstico",
+    use: "Particular",
     drivers: ["Sergio Ruiz", "María Ruiz"],
     odometer: 75840,
     nextServiceKm: 80000,
@@ -231,8 +233,8 @@ const invoiceSeed = [
   },
   { id: "FAC-2026-1842", date: "18 jul 2026", provider: "Mecánica Norte", plate: "5754 MJV", concept: "Aceite y filtros", amount: 286.4, source: "Correo", status: "Asociada" },
   { id: "FAC-2026-1798", date: "5 jul 2026", provider: "Neumáticos Central", plate: "5750 MJV", concept: "Neumáticos delanteros", amount: 498, source: "Correo", status: "Revisar" },
-  { id: "FAC-2026-1761", date: "12 jun 2026", provider: "Peugeot Service", plate: "3456 HTR", concept: "Aceite y filtros", amount: 224.8, source: "Manual", status: "Asociada" },
-  { id: "FAC-2026-1684", date: "28 may 2026", provider: "Toyota Madrid", plate: "7890 GYL", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
+  { id: "FAC-2026-1761", date: "12 jun 2026", provider: "Peugeot Service", plate: "0344 LCP", concept: "Aceite y filtros", amount: 224.8, source: "Manual", status: "Asociada" },
+  { id: "FAC-2026-1684", date: "28 may 2026", provider: "Toyota Madrid", plate: "9401 LTG", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
 ];
 
 const maintenanceConceptRows = [
@@ -252,12 +254,13 @@ const maintenanceConceptRows = [
 ];
 
 const photoInvoiceStorageKey = "talleria:photo-invoices:v1";
+const migratedPlates = { "3456 HTR": "0344 LCP", "7890 GYL": "9401 LTG" };
 
 const loadPhotoInvoices = () => {
   try {
     const stored = JSON.parse(window.localStorage.getItem(photoInvoiceStorageKey) ?? "[]");
     return Array.isArray(stored)
-      ? stored.filter((invoice) => invoice?.id && invoice?.plate && Array.isArray(invoice?.items))
+      ? stored.filter((invoice) => invoice?.id && invoice?.plate && Array.isArray(invoice?.items)).map((invoice) => ({ ...invoice, plate: migratedPlates[invoice.plate] ?? invoice.plate }))
       : [];
   } catch {
     return [];
@@ -283,15 +286,15 @@ const vehicleExpenseAmounts = {
   "5754 MJV": [780, 450, 1280.42, 286.4, 390, 1650, 824.05, 1860, 85, 870, 95, 120],
   "5750 MJV": [895, 450, 1136.28, 498, 390, 1650, 812.64, 1740, 92, 940, 110, 164.8],
   "5043 MLC": [820, 450, 1054.72, 312.5, 390, 1650, 754.29, 1695, 78, 905, 98, 98.5],
-  "3456 HTR": [420, 0, 185.34, 224.8, 0, 0, 0, 0, 0, 540, 40, 60],
-  "7890 GYL": [0, 310, 142.18, 198.6, 0, 0, 0, 0, 0, 495, 35, 44.9],
+  "0344 LCP": [420, 0, 185.34, 224.8, 0, 0, 0, 0, 0, 540, 40, 60],
+  "9401 LTG": [0, 310, 142.18, 198.6, 0, 0, 0, 0, 0, 495, 35, 44.9],
 };
 
 const readingSeed = [
   { id: "LEC-4381", time: "Hoy · 04:08", driver: "Fernando", plate: "5754 MJV", total: 128460, daily: 150, confidence: 98, status: "Validada" },
   { id: "LEC-4380", time: "Hoy · 07:03", driver: "Amin", plate: "5043 MLC", total: 210735, daily: 121, confidence: 96, status: "Revisar" },
   { id: "LEC-4379", time: "Hoy · 06:05", driver: "Alex", plate: "5750 MJV", total: 142980, daily: 138, confidence: 97, status: "Validada" },
-  { id: "LEC-4378", time: "Hoy · 19:05", driver: "David García", plate: "3456 HTR", total: 98215, daily: 13, confidence: 92, status: "Revisar" },
+  { id: "LEC-4378", time: "Hoy · 19:05", driver: "David García", plate: "0344 LCP", total: 98215, daily: 13, confidence: 92, status: "Revisar" },
   { id: "LEC-4377", time: "Hoy · 16:05", driver: "Carlos", plate: "5754 MJV", total: 128310, daily: 168, confidence: 99, status: "Validada" },
   { id: "LEC-4376", time: "Hoy · 19:02", driver: "Mauricio", plate: "5043 MLC", total: 210614, daily: 120, confidence: 98, status: "Validada" },
 ];
@@ -387,8 +390,8 @@ export function App() {
     "5754 MJV": "Carlos",
     "5750 MJV": "Tirso",
     "5043 MLC": "Mauricio",
-    "3456 HTR": "Ana García",
-    "7890 GYL": "Sergio Ruiz",
+    "0344 LCP": "Ana García",
+    "9401 LTG": "Sergio Ruiz",
   });
   const [filter, setFilter] = useState("Todos");
   const [query, setQuery] = useState("");
@@ -465,7 +468,7 @@ export function App() {
         invoiceId: invoice.id,
       }));
     return { ...vehicle, maintenance: [...recordedMaintenance, ...vehicle.maintenance] };
-  }), [photoInvoices]);
+  }).sort((a, b) => vehicleOrder.indexOf(a.plate) - vehicleOrder.indexOf(b.plate)), [photoInvoices]);
 
   useEffect(() => {
     window.localStorage.setItem(photoInvoiceStorageKey, JSON.stringify(photoInvoices));
@@ -651,7 +654,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
         <header className="fleet-toolbar" aria-label="Filtros de vehículos">
           <label className="search"><IconSearch size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar matrícula, conductor o trabajo" /></label>
           <div className="filters">
-            {["Todos", "Profesional", "Doméstico"].map((name) => <button key={name} className={filter === name ? "filter-button filter-button--active" : "filter-button"} onClick={() => setFilter(name)}>{name}</button>)}
+            {["Todos", "Profesional", "Particular"].map((name) => <button key={name} className={filter === name ? "filter-button filter-button--active" : "filter-button"} onClick={() => setFilter(name)}>{name}</button>)}
           </div>
         </header>
         <div className="table-scroll">
@@ -833,7 +836,7 @@ function FuelLedgerDetail({ selected }) {
       {selected.fuelSchedule?.length > 0 ? (
         <div className="fuel-page-schedule" aria-label={`Horarios de los conductores de ${selected.plate}`}><span className="fuel-page-schedule__label"><IconClock size={16} /><strong>Asignación por horario</strong></span>{selected.fuelSchedule.map((shift) => <span className="fuel-page-shift" key={shift.label}><strong>{shift.driver}</strong><small>{shift.label}</small></span>)}</div>
       ) : (
-        <div className="fuel-page-schedule fuel-page-schedule--manual"><span className="fuel-page-schedule__label"><IconUsers size={16} /><strong>Asignación manual</strong></span><small>Los conductores domésticos se indican en cada registro.</small></div>
+        <div className="fuel-page-schedule fuel-page-schedule--manual"><span className="fuel-page-schedule__label"><IconUsers size={16} /><strong>Asignación manual</strong></span><small>Los conductores particulares se indican en cada registro.</small></div>
       )}
       <div className="fuel-page-table-wrap">
         <table className="fuel-page-table">
@@ -928,7 +931,8 @@ function InvoicesView({ invoices, setModal }) {
 
 function MaintenanceView({ initialPlate, setModal, vehicles }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
-  const schedule = [...vehicles].sort((a, b) => (a.nextServiceKm - a.odometer) - (b.nextServiceKm - b.odometer));
+  const schedule = vehicles;
+  const nextServiceVehicle = [...vehicles].sort((a, b) => (a.nextServiceKm - a.odometer) - (b.nextServiceKm - b.odometer))[0];
   const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
   const julyMaintenance = vehicles.flatMap((vehicle) => vehicle.maintenance).filter((item) => item.dateIso?.startsWith("2026-07") || item.date.toLocaleLowerCase("es").includes("jul 2026"));
   const julyTotal = julyMaintenance.reduce((sum, item) => sum + item.amount, 0);
@@ -944,13 +948,13 @@ function MaintenanceView({ initialPlate, setModal, vehicles }) {
 
   return (
     <section className="module-page">
-      <PageIntro eyebrow="Plan preventivo" title="Mantenimiento y taller" description="Prioriza revisiones, consulta el historial completo y crea facturas desde una fotografía." action={<button className="primary-button" onClick={() => showWorkshop(schedule[0].plate)}><IconCalendar size={18} />Abrir próxima revisión</button>} />
+      <PageIntro eyebrow="Plan preventivo" title="Mantenimiento y taller" description="Prioriza revisiones, consulta el historial completo y crea facturas desde una fotografía." action={<button className="primary-button" onClick={() => showWorkshop(nextServiceVehicle.plate)}><IconCalendar size={18} />Abrir próxima revisión</button>} />
       <div className="maintenance-layout">
         <section className="content-card schedule-card">
-          <header className="card-header"><div><h2>Próximas revisiones</h2><p>Ordenadas por kilometraje restante.</p></div></header>
+          <header className="card-header"><div><h2>Vehículos</h2><p>Profesionales primero y particulares después.</p></div></header>
           <div className="schedule-list">{schedule.map((vehicle, index) => {
             const remaining = vehicle.nextServiceKm - vehicle.odometer;
-            return <button key={vehicle.plate} className="schedule-row" onClick={() => showWorkshop(vehicle.plate)}><span className={`schedule-index ${index < 2 ? "urgent" : ""}`}>{index + 1}</span><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><span><strong>{formatKm(remaining)}</strong><small>{vehicle.serviceDate}</small></span><IconChevronRight size={18} /></button>;
+            return <button key={vehicle.plate} className="schedule-row" onClick={() => showWorkshop(vehicle.plate)}><span className={`schedule-index ${remaining <= 5000 ? "urgent" : ""}`}>{index + 1}</span><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><span><strong>{formatKm(remaining)}</strong><small>{vehicle.serviceDate}</small></span><IconChevronRight size={18} /></button>;
           })}</div>
         </section>
         <aside className="content-card maintenance-summary">
@@ -1068,7 +1072,7 @@ function VehicleInspector({ selected, selectedDriver, selectedActivity, invoices
                 const consumption = (shift.liters / shift.km) * 100;
                 return <article className={`shift-card ${shift.alert ? "shift-card--alert" : ""}`} key={shift.id}><button className="shift-toggle" onClick={() => setOpenShift(expanded ? "" : shift.id)} aria-expanded={expanded}><span className="shift-icon"><IconClock size={17} /></span><span><strong>{shift.label}</strong><small>{shift.time}</small></span><span><strong>{shift.km} km</strong><small>{formatCurrency(shift.cost)}</small></span>{expanded ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />}</button>{expanded && <div className="shift-detail"><div className="shift-metrics"><div><span>Km inicio</span><strong>{formatKm(shift.start)}</strong></div><div><span>Total acumulado</span><strong>{formatKm(shift.end)}</strong></div><div><span>Litros</span><strong>{shift.liters.toLocaleString("es-ES")} L</strong></div><div><span>Consumo</span><strong>{consumption.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L/100</strong></div></div>{shift.alert && <div className="inline-alert"><IconAlertTriangle size={16} /><span><strong>Consumo superior al habitual</strong>Revisar antes de validar.</span></div>}<button className="secondary-button full-button" onClick={() => notify(`Turno de ${shift.driver} validado`)}><IconCheck size={17} />Validar turno</button></div>}</article>;
               })}</section>
-            ) : <section className="domestic-note"><IconHome size={21} /><span><strong>Uso doméstico</strong>Registro diario individual sin parte de turno obligatorio.</span></section>}
+            ) : <section className="domestic-note"><IconHome size={21} /><span><strong>Uso particular</strong>Registro diario individual sin parte de turno obligatorio.</span></section>}
           </>
         )}
         {inspectorTab === "Mantenimiento" && <VehicleMaintenanceLedger vehicle={selected} invoices={invoices} onOpenInvoice={(invoice) => setModal({ type: "invoice", item: invoice })} />}

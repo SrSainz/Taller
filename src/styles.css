@@ -389,7 +389,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .inspector-header strong { font-size: 21px; letter-spacing: -.4px; }
 .inspector-header small { color: var(--muted); font-size: 10px; }
 .use-badge { width: fit-content; display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px; margin-top: 3px; border-radius: 999px; color: var(--green-800); background: var(--green-50); font-size: 7px; font-weight: 650; }
-.use-badge--doméstico { color: #59645f; background: #eef1f0; }
+.use-badge--particular { color: #59645f; background: #eef1f0; }
 .inspector-driver-picker { min-height: 65px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: #f9fbfa; }
 .inspector-driver-picker > span { display: block; margin-bottom: 7px; color: var(--muted); font-size: 7px; font-weight: 600; text-transform: uppercase; }
 .inspector-driver-picker > div { display: flex; flex-wrap: wrap; gap: 6px; }

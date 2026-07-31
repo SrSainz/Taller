@@ -9,15 +9,15 @@ When implementing from a selected generated mock, treat that image as the source
 ## Product decisions
 
 - The selected visual target is option 2 from the 27 July 2026 ideation set: a dense fleet ledger with a right-side vehicle inspector.
-- The operating fleet has exactly five vehicles: three professional and two domestic.
+- The operating fleet has exactly five vehicles: three professional and two particular.
 - Every vehicle has two assigned drivers; the fleet has ten unique drivers.
 - Professional vehicles receive two WhatsApp shift reports per day. Each report records driver, start and accumulated odometer, kilometres driven, fuel litres, cost, timestamp, extraction confidence, and any consumption anomaly.
-- Domestic vehicles do not require per-shift reporting; either assigned driver can submit a shared odometer reading.
+- Particular vehicles do not require per-shift reporting; either assigned driver can submit a shared odometer reading.
 - Vehicle detail defaults to a collapsible shift ledger so the manager can audit each daily turn without leaving the fleet screen.
 - The main ledger omits separate Vehicle and Status columns. The model remains visible below the plate, while Status is replaced by a numeric remaining-kilometres countdown to the next service.
 - Driver names are interactive selectors. Selecting either driver must update that row and the inspector with the driver's kilometres and fuel spend in euros for the day.
 - The main ledger has no Uso column. Facturación appears immediately after Conductores.
-- Driver selection must update daily billing, monthly accumulated billing, monthly accumulated trips, and the portion collected in cash today. Domestic drivers display zero billing and zero trips unless they are later assigned commercial activity.
+- Driver selection must update daily billing, monthly accumulated billing, monthly accumulated trips, and the portion collected in cash today. Particular drivers display zero billing and zero trips unless they are later assigned commercial activity.
 - The ledger includes a Taller column with the latest maintenance amount and concept. Selecting it navigates to the selected vehicle's dated workshop history inside Mantenimiento.
 - The first release is a functional front-end prototype with realistic local data; WhatsApp, email, OpenAI extraction, authentication, and persistence remain simulated.
 - The web client is an installable PWA. Production must ship a linked manifest, 192px and 512px install icons, maskable icons, `display: standalone`, a root-scoped service worker, and an in-app install action when the browser exposes the install prompt.
@@ -37,7 +37,8 @@ When implementing from a selected generated mock, treat that image as the source
 - The Vista operativa home dashboard has exactly four financial KPI cards: Facturación in blue, Mantenimiento in grey, Combustible in red, and Neto in green. Their totals must represent monthly driver billing, workshop spend, recorded fuel spend, and billing minus all vehicle expenses respectively.
 - All four KPI cards are actionable: Facturación opens Ingreso, Mantenimiento opens its workspace, Combustible opens Repostaje, and Neto opens Gasto.
 - The phrase "Control de flota" is not used in the interface. The Flota workspace is headed simply "Vehículos".
-- The three professional vehicles are 5754 MJV (Carlos 04:00–16:00, Fernando 16:00–04:00), 5750 MJV (Tirso 06:00–18:00, Alex 18:00–06:00), and 5043 MLC (Mauricio 07:00–19:00, Amin 19:00–07:00).
+- Vehicle order is fixed everywhere: 1) 5043 MLC, professional, Renault Master; 2) 5750 MJV, professional, Mercedes Sprinter; 3) 5754 MJV, professional, Ford Transit; 4) 0344 LCP, particular, Peugeot 3008; 5) 9401 LTG, particular, Toyota Corolla.
+- Professional schedules are 5043 MLC (Mauricio 07:00–19:00, Amin 19:00–07:00), 5750 MJV (Tirso 06:00–18:00, Alex 18:00–06:00), and 5754 MJV (Carlos 04:00–16:00, Fernando 16:00–04:00).
 - The maintenance concept grid contains Aceite y filtro, Filtro habitáculo, Filtro de aire, Neumáticos, Pastillas de freno, Discos de freno, Transmisión, Bomba de agua, Bujías, Aceite de caja de cambios, Limpiaparabrisas, Fundas de asientos, and Varios.
 - Gastos shows vehicle-specific amounts for leasing coche, préstamo licencia, gasolina, taller, seguridad social, nómina, comisiones conductor, impuestos trimestrales, IVA intracomunitario, seguro, limpieza coche, and varios.
 - Gastos calculates each vehicle's monthly profit margin as the combined monthly billing of its two drivers minus every expense assigned to that vehicle. The UI shows both driver subtotals, total billing, total expenses, absolute margin, and margin percentage.
