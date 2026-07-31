@@ -65,7 +65,7 @@ const vehicleOrder = ["5043 MLC", "5750 MJV", "5754 MJV", "0344 LCP", "9401 LTG"
 const vehiclesSeed = [
   {
     plate: "5754 MJV",
-    model: "Ford Transit",
+    model: "Toyota Corolla",
     use: "Profesional",
     drivers: ["Carlos", "Fernando"],
     odometer: 128460,
@@ -99,7 +99,7 @@ const vehiclesSeed = [
   },
   {
     plate: "5750 MJV",
-    model: "Mercedes Sprinter",
+    model: "Toyota Corolla",
     use: "Profesional",
     drivers: ["Tirso", "Alex"],
     odometer: 142980,
@@ -133,7 +133,7 @@ const vehiclesSeed = [
   },
   {
     plate: "5043 MLC",
-    model: "Renault Master",
+    model: "Toyota Corolla",
     use: "Profesional",
     drivers: ["Mauricio", "Amin"],
     odometer: 210735,
@@ -580,7 +580,7 @@ export function App() {
           {notificationsOpen && (
             <aside className="notification-popover" aria-label="Notificaciones recientes">
               <header><strong>Notificaciones</strong><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></header>
-              <button onClick={() => openVehicleFromModule("5043 MLC")}><IconAlertTriangle size={18} /><span><strong>Revisión próxima</strong><small>Renault Master · 4.265 km restantes</small></span></button>
+              <button onClick={() => openVehicleFromModule("5043 MLC")}><IconAlertTriangle size={18} /><span><strong>Revisión próxima</strong><small>Toyota Corolla · 4.265 km restantes</small></span></button>
               <button onClick={() => navigate(navItems[2])}><IconGauge size={18} /><span><strong>2 lecturas por revisar</strong><small>Confianza inferior al umbral configurado</small></span></button>
             </aside>
           )}
