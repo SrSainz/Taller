@@ -59,6 +59,8 @@ const utilityItems = [
   { label: "Ayuda", slug: "ayuda", icon: IconHelpCircle },
 ];
 
+const topbarItems = [navItems[4], ...utilityItems];
+
 const vehiclesSeed = [
   {
     plate: "5754 MJV",
@@ -580,7 +582,7 @@ export function App() {
               </div>
             )}
           </div>
-          {navItems.slice(2).map((item) => {
+          {navItems.slice(2, 4).map((item) => {
             const Icon = item.icon;
             const active = activeNav === item.label;
             return (
@@ -590,13 +592,6 @@ export function App() {
             );
           })}
         </nav>
-        <div className="sidebar-footer">
-          {utilityItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeNav === item.label;
-            return <button className={active ? "nav-item nav-item--active" : "nav-item"} key={item.label} onClick={() => navigate(item)} aria-current={active ? "page" : undefined}><Icon size={20} /><span>{item.label}</span></button>;
-          })}
-        </div>
       </aside>
 
       <main className="workspace">
@@ -608,6 +603,13 @@ export function App() {
           <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar Talleria como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             <span className="date"><IconCalendar size={18} />28 jul 2026</span>
+            <div className="topbar-shortcuts" aria-label="Accesos de gestión">
+              {topbarItems.map((item) => {
+                const Icon = item.icon;
+                const active = activeNav === item.label;
+                return <button className={active ? "topbar-route-button topbar-route-button--active" : "topbar-route-button"} key={item.label} onClick={() => navigate(item)} aria-label={item.label} aria-current={active ? "page" : undefined} title={item.label}><Icon size={17} /><span>{item.label}</span></button>;
+              })}
+            </div>
             <button className="bell-button" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((value) => !value)}><IconBell size={20} /><i>2</i></button>
             <button className="profile" onClick={() => notify("Perfil de Ana García")}><span className="avatar">AG</span><span><strong>Ana García</strong><small>Gestora de flota</small></span><IconChevronDown size={17} /></button>
           </div>
