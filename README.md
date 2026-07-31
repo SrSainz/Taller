@@ -30,7 +30,7 @@ Talleria is a visual fleet-maintenance prototype for supervising vehicle mileage
 - Fully connected application windows for Lecturas, Facturas, Mantenimiento, Automatizaciones, Ajustes, and Ayuda.
 - Accessible review dialogs for extracted readings, workshop invoices, uploads, and support requests.
 - Hash-based navigation so each section has a stable browser location.
-- Vista operativa is the named PWA home view; navigation opens from the top menu and never occupies a permanent column.
+- Vista operativa > General is the named PWA home view and sole navigation hub. Its quick actions open the operational workspaces without a sidebar or hamburger menu.
 - Expandable Flota navigation with nested Mantenimiento and Gasolina destinations.
 
 This first version is intentionally front-end only. WhatsApp, email ingestion, OpenAI image extraction, authentication, persistence, and real invoice matching are represented with realistic mock data.

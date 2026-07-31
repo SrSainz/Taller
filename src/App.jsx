@@ -24,7 +24,6 @@ import {
   IconHistory,
   IconHome,
   IconMail,
-  IconMenu2,
   IconMessageCircle,
   IconPlus,
   IconRefresh,
@@ -386,9 +385,7 @@ export function App() {
   const [openShift, setOpenShift] = useState("jbv-t2");
   const [inspectorTab, setInspectorTab] = useState(() => navFromHash() === "Gasolina" ? "Gasolina" : "Turnos");
   const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth > 820 && navFromHash() !== "Gasolina");
-  const [fleetMenuOpen, setFleetMenuOpen] = useState(() => ["Flota", "Mantenimiento", "Gasolina"].includes(navFromHash()));
   const [toast, setToast] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modal, setModal] = useState(null);
   const [photoInvoices, setPhotoInvoices] = useState(loadPhotoInvoices);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -403,7 +400,6 @@ export function App() {
     const handleHash = () => {
       const nextNav = navFromHash();
       setActiveNav(nextNav);
-      if (["Flota", "Mantenimiento", "Gasolina"].includes(nextNav)) setFleetMenuOpen(true);
       if (nextNav === "Gasolina") {
         setInspectorTab("Gasolina");
         setInspectorOpen(false);
@@ -418,7 +414,6 @@ export function App() {
       if (event.key === "Escape") {
         setModal(null);
         setNotificationsOpen(false);
-        setSidebarOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -506,23 +501,16 @@ export function App() {
 
   const navigate = (item) => {
     setActiveNav(item.label);
-    setSidebarOpen(false);
     setNotificationsOpen(false);
     if (window.location.hash !== `#/${item.slug}`) window.location.hash = `/${item.slug}`;
   };
 
   const navigateFleetSubItem = (item) => {
-    setFleetMenuOpen(true);
     if (item.label === "Gasolina") {
       setInspectorTab("Gasolina");
       setInspectorOpen(false);
     }
     navigate(item);
-  };
-
-  const openFleetNavigation = () => {
-    setFleetMenuOpen((current) => activeNav === "Flota" ? !current : true);
-    if (activeNav !== "Flota") navigate(navItems[1]);
   };
 
   const selectVehicle = (vehicle) => {
@@ -557,47 +545,10 @@ export function App() {
 
   return (
     <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}`}>
-      <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`}>
-        <button className="brand" onClick={() => navigate(navItems[0])} aria-label="Ir a Vista operativa"><span>V</span><strong>Vista operativa</strong></button>
-        <nav aria-label="Navegación principal">
-          <span className="nav-group-label">Operación</span>
-          <div className="nav-fleet-group">
-            <button
-              className={["Flota", "Mantenimiento", "Gasolina"].includes(activeNav) ? "nav-item nav-item--active" : "nav-item"}
-              onClick={openFleetNavigation}
-              aria-expanded={fleetMenuOpen}
-              aria-controls="fleet-submenu"
-            >
-              <IconCar size={20} stroke={1.8} />
-              <span>Flota</span>
-              {fleetMenuOpen ? <IconChevronUp className="nav-item__chevron" size={16} /> : <IconChevronDown className="nav-item__chevron" size={16} />}
-            </button>
-            {fleetMenuOpen && (
-              <div className="nav-submenu" id="fleet-submenu">
-                {fleetSubItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = activeNav === item.label;
-                  return <button className={active ? "nav-subitem nav-subitem--active" : "nav-subitem"} key={item.label} onClick={() => navigateFleetSubItem(item)} aria-current={active ? "page" : undefined}><Icon size={16} stroke={1.8} /><span>{item.label}</span></button>;
-                })}
-              </div>
-            )}
-          </div>
-          {navItems.slice(2, 4).map((item) => {
-            const Icon = item.icon;
-            const active = activeNav === item.label;
-            return (
-              <button className={active ? "nav-item nav-item--active" : "nav-item"} key={item.label} onClick={() => navigate(item)} aria-current={active ? "page" : undefined}>
-                <Icon size={20} stroke={1.8} /><span>{item.label}</span>{item.badge && <i>{item.badge}</i>}
-              </button>
-            );
-          })}
-        </nav>
-      </aside>
-
       <main className="workspace">
         <header className={["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}>
           <div className="topbar-title">
-            <button className="icon-button menu-button" onClick={() => setSidebarOpen((value) => !value)} aria-label="Abrir menú"><IconMenu2 size={23} /></button>
+            <button className="workspace-home-button" onClick={() => navigate(navItems[0])} aria-label="Volver a Vista operativa" title="Vista operativa">V</button>
             <div><span>{activeNav === "Informes" ? "Vista operativa" : activeNav}</span><small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small></div>
           </div>
           <div className="topbar-actions">
@@ -638,8 +589,8 @@ export function App() {
               setModal={setModal}
             />
           )}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} setModal={setModal} vehicles={vehicles} />}
@@ -668,7 +619,6 @@ export function App() {
 
       {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
-      {sidebarOpen && <button className="backdrop" aria-label="Cerrar menú" onClick={() => setSidebarOpen(false)} />}
     </div>
   );
 }
@@ -731,7 +681,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
   );
 }
 
-function FuelView({ vehicles, selected, onSelectVehicle, initialTab = "General" }) {
+function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab = "General" }) {
   const [reportTab, setReportTab] = useState(initialTab);
   const tabs = ["General", "Repostaje", "Gasto", "Ingreso", "Conductores"];
   const vehicleStats = vehicles.map((vehicle) => {
@@ -774,12 +724,19 @@ function FuelView({ vehicles, selected, onSelectVehicle, initialTab = "General" 
 
         {reportTab === "General" && (
           <>
+            <nav className="report-quick-actions" aria-label="Accesos de Vista operativa">
+              <button onClick={() => onNavigate(navItems[1])}><IconCar size={18} /><span>Vehículos</span></button>
+              <button onClick={() => onNavigate(navItems[2])}><IconGauge size={18} /><span>Lecturas</span><i>2</i></button>
+              <button onClick={() => onNavigate(navItems[3])}><IconFileInvoice size={18} /><span>Facturas</span><i>3</i></button>
+              <button onClick={() => onNavigate(fleetSubItems[0])}><IconTools size={18} /><span>Mantenimiento</span></button>
+              <button onClick={() => setReportTab("Repostaje")}><IconGasStation size={18} /><span>Combustible</span></button>
+            </nav>
             <div className="report-general-grid">
               <div className="report-stat-grid">
-                <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(totalIncome)} daily={formatCurrency(totalIncome / 30)} perKm={formatCurrency(totalIncome / totalDistance)} tone="blue" />
-                <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(totalMaintenance)} daily={formatCurrency(totalMaintenance / 30)} perKm={formatCurrency(totalMaintenance / totalDistance)} tone="slate" />
-                <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(totalFuel)} daily={formatCurrency(totalFuel / 30)} perKm={formatCurrency(totalFuel / totalDistance)} tone="red" />
-                <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatCurrency(balance)} daily={formatCurrency(balance / 30)} perKm={formatCurrency(balance / totalDistance)} tone="green" />
+                <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(totalIncome)} daily={formatCurrency(totalIncome / 30)} perKm={formatCurrency(totalIncome / totalDistance)} tone="blue" onClick={() => setReportTab("Ingreso")} />
+                <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(totalMaintenance)} daily={formatCurrency(totalMaintenance / 30)} perKm={formatCurrency(totalMaintenance / totalDistance)} tone="slate" onClick={() => onNavigate(fleetSubItems[0])} />
+                <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(totalFuel)} daily={formatCurrency(totalFuel / 30)} perKm={formatCurrency(totalFuel / totalDistance)} tone="red" onClick={() => setReportTab("Repostaje")} />
+                <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatCurrency(balance)} daily={formatCurrency(balance / 30)} perKm={formatCurrency(balance / totalDistance)} tone="green" onClick={() => setReportTab("Gasto")} />
               </div>
               <section className="report-chart-card">
                 <header><span className="report-chart-icon"><IconGauge size={18} /></span><strong>Gráfico de gastos mensuales</strong></header>
@@ -819,14 +776,14 @@ function FuelView({ vehicles, selected, onSelectVehicle, initialTab = "General" 
   );
 }
 
-function ReportStatCard({ icon: Icon, label, value, daily, perKm, tone }) {
+function ReportStatCard({ icon: Icon, label, value, daily, perKm, tone, onClick }) {
   return (
-    <article className={`report-stat-card report-stat-card--${tone}`}>
-      <header><span><Icon size={18} /></span><strong>{label}</strong></header>
+    <button type="button" className={`report-stat-card report-stat-card--${tone}`} onClick={onClick} aria-label={`Abrir ${label}`}>
+      <span className="report-stat-card__header"><span><Icon size={18} /></span><strong>{label}</strong></span>
       <small>Total</small>
       <strong className="report-stat-value">{value}</strong>
-      <footer><span><small>Por día</small><strong>{daily}</strong></span><span><small>Por km</small><strong>{perKm}</strong></span></footer>
-    </article>
+      <span className="report-stat-card__footer"><span><small>Por día</small><strong>{daily}</strong></span><span><small>Por km</small><strong>{perKm}</strong></span></span>
+    </button>
   );
 }
 
