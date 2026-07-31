@@ -598,7 +598,7 @@ export function App() {
         <header className={["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}>
           <div className="topbar-title">
             <button className="icon-button menu-button" onClick={() => setSidebarOpen((value) => !value)} aria-label="Abrir menú"><IconMenu2 size={23} /></button>
-            {activeNav !== "Informes" && <div><span>{activeNav}</span><small>{activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small></div>}
+            <div><span>{activeNav === "Informes" ? "Vista operativa" : activeNav}</span><small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small></div>
           </div>
           <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar Talleria como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
@@ -677,8 +677,8 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
   return (
     <section className="module-page fleet-page">
       <PageIntro
-        eyebrow="Vista operativa"
-        title="Control de flota"
+        eyebrow="Flota"
+        title="Vehículos"
         description="Kilómetros, facturación, combustible y mantenimiento en una única vista."
         action={<button className="primary-button" onClick={() => setModal({ type: "reading" })}><IconPlus size={18} />Registrar lectura</button>}
       />
