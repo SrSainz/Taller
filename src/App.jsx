@@ -168,7 +168,7 @@ const vehiclesSeed = [
   },
   {
     plate: "0344 LCP",
-    model: "Peugeot 3008",
+    model: "Lexus IS 300h",
     use: "Particular",
     drivers: ["Ana García", "David García"],
     odometer: 98215,
@@ -233,7 +233,7 @@ const invoiceSeed = [
   },
   { id: "FAC-2026-1842", date: "18 jul 2026", provider: "Mecánica Norte", plate: "5754 MJV", concept: "Aceite y filtros", amount: 286.4, source: "Correo", status: "Asociada" },
   { id: "FAC-2026-1798", date: "5 jul 2026", provider: "Neumáticos Central", plate: "5750 MJV", concept: "Neumáticos delanteros", amount: 498, source: "Correo", status: "Revisar" },
-  { id: "FAC-2026-1761", date: "12 jun 2026", provider: "Peugeot Service", plate: "0344 LCP", concept: "Aceite y filtros", amount: 224.8, source: "Manual", status: "Asociada" },
+  { id: "FAC-2026-1761", date: "12 jun 2026", provider: "Lexus Service", plate: "0344 LCP", concept: "Aceite y filtros", amount: 224.8, source: "Manual", status: "Asociada" },
   { id: "FAC-2026-1684", date: "28 may 2026", provider: "Toyota Madrid", plate: "9401 LTG", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
 ];
 
