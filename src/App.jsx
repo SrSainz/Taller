@@ -337,6 +337,16 @@ const navFromHash = () => {
   return [...navItems, ...fleetSubItems, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Informes";
 };
 
+const isStandaloneApp = () => window.matchMedia("(display-mode: standalone)").matches || Boolean(window.navigator.standalone);
+
+const initialAppNav = () => {
+  if (isStandaloneApp() || !window.location.hash) {
+    window.history.replaceState(null, "", "#/informes");
+    return "Informes";
+  }
+  return navFromHash();
+};
+
 function UseBadge({ value }) {
   const Icon = value === "Profesional" ? IconBriefcase : IconHome;
   return <span className={`use-badge use-badge--${value.toLowerCase()}`}><Icon size={13} />{value}</span>;
@@ -370,7 +380,7 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "green" }) {
 }
 
 export function App() {
-  const [activeNav, setActiveNav] = useState(navFromHash);
+  const [activeNav, setActiveNav] = useState(initialAppNav);
   const [selectedPlate, setSelectedPlate] = useState("5043 MLC");
   const [maintenancePlate, setMaintenancePlate] = useState("5043 MLC");
   const [selectedDrivers, setSelectedDrivers] = useState({
@@ -393,7 +403,7 @@ export function App() {
   const [openFaq, setOpenFaq] = useState(0);
   const [settings, setSettings] = useState({ company: "Talleria Flota", email: "flota@talleria.es", serviceWarning: "5000", lowConfidence: "94" });
   const [installPrompt, setInstallPrompt] = useState(null);
-  const [isStandalone, setIsStandalone] = useState(() => window.matchMedia("(display-mode: standalone)").matches || Boolean(window.navigator.standalone));
+  const [isStandalone, setIsStandalone] = useState(isStandaloneApp);
   const toastTimer = useRef();
 
   useEffect(() => {
