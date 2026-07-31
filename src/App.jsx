@@ -38,7 +38,7 @@ import {
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const navItems = [
   { label: "Informes", slug: "informes", icon: IconChartBar },
@@ -294,6 +294,17 @@ const vehicleExpenseAmounts = {
   "0344 LCP": [420, 0, 185.34, 224.8, 0, 0, 0, 0, 0, 540, 40, 60],
   "9401 LTG": [0, 310, 142.18, 198.6, 0, 0, 0, 0, 0, 495, 35, 44.9],
 };
+
+const reportMonths = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const reportYears = [2025, 2026];
+const reportSeasonality = [0.82, 0.87, 0.94, 0.91, 0.98, 1.03, 1, 0.96, 1.05, 1.02, 0.93, 0.79];
+const getReportPeriodFactor = (month, year) => reportSeasonality[month] * (year === 2026 ? 1 : 0.9);
+const getMaintenanceAmountForPeriod = (vehicle, month, year) => vehicle.maintenance
+  .filter((item) => {
+    const date = new Date(getMaintenanceDateValue(item));
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month;
+  })
+  .reduce((sum, item) => sum + item.amount, 0);
 
 const readingSeed = [
   { id: "LEC-4381", time: "Hoy · 04:08", driver: "Fernando", plate: "5754 MJV", total: 128460, daily: 150, confidence: 98, status: "Validada" },
@@ -718,6 +729,9 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
 
 function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab = "General" }) {
   const [reportTab, setReportTab] = useState(initialTab);
+  const [chartMetric, setChartMetric] = useState("billing");
+  const [reportMonth, setReportMonth] = useState(6);
+  const [reportYear, setReportYear] = useState(2026);
   const tabs = ["General", "Repostaje", "Gasto", "Ingreso", "Conductores"];
   const vehicleStats = vehicles.map((vehicle) => {
     const entries = vehicle.monthlyFuel ?? [];
@@ -735,19 +749,54 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
     refuels: summary.refuels + item.refuels,
   }), { liters: 0, cost: 0, refuels: 0 });
   const totalIncome = vehicles.flatMap((vehicle) => vehicle.shifts).reduce((sum, shift) => sum + (shift.monthRevenue ?? 0), 0);
-  const totalExpenses = Object.values(vehicleExpenseAmounts).flat().reduce((sum, amount) => sum + amount, 0);
-  const totalMaintenance = Object.values(vehicleExpenseAmounts).reduce((sum, amounts) => sum + (amounts[3] ?? 0), 0);
-  const totalFuel = totals.cost;
   const totalDistance = 7524;
-  const balance = totalIncome - totalExpenses;
-  const chartData = [
-    { month: "02/2026", repostaje: 170, gasto: 210, conductores: 120, ingreso: 80 },
-    { month: "03/2026", repostaje: 320, gasto: 430, conductores: 0, ingreso: 70 },
-    { month: "04/2026", repostaje: 340, gasto: 380, conductores: 180, ingreso: 0 },
-    { month: "05/2026", repostaje: 290, gasto: 0, conductores: 0, ingreso: 0 },
-    { month: "06/2026", repostaje: 360, gasto: 380, conductores: 0, ingreso: 0 },
-    { month: "07/2026", repostaje: 210, gasto: 230, conductores: 80, ingreso: 90 },
-  ];
+  const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
+  const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
+  const billingChartData = vehicles
+    .filter((vehicle) => vehicle.use === "Profesional")
+    .flatMap((vehicle, vehicleIndex) => vehicle.drivers.map((driver, driverIndex) => ({
+      label: driver,
+      detail: vehicle.plate,
+      value: Math.round(getDriverDay(vehicle, driver).monthRevenue * periodFactor * (1 + ((vehicleIndex + driverIndex) % 3 - 1) * 0.018)),
+    })));
+  const fuelChartData = vehicleStats.map(({ vehicle, cost }, index) => ({
+    label: vehicle.plate,
+    detail: vehicle.model,
+    value: Number((cost * periodFactor * (1 + (index - 2) * 0.012)).toFixed(2)),
+  }));
+  const maintenanceChartData = vehicles.map((vehicle) => ({
+    label: vehicle.plate,
+    detail: vehicle.model,
+    value: getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear),
+  }));
+  const netChartData = vehicles.map((vehicle, index) => {
+    const revenue = vehicle.use === "Profesional"
+      ? vehicle.drivers.reduce((sum, driver) => sum + getDriverDay(vehicle, driver).monthRevenue, 0) * periodFactor
+      : 0;
+    const baseExpenses = vehicleExpenseAmounts[vehicle.plate] ?? expenseCategories.map(() => 0);
+    const expenses = baseExpenses.reduce((sum, amount, expenseIndex) => {
+      if (expenseIndex === 2) return sum + fuelChartData[index].value;
+      if (expenseIndex === 3) return sum + maintenanceChartData[index].value;
+      return sum + amount * periodFactor;
+    }, 0);
+    return { label: vehicle.plate, detail: vehicle.model, value: Number((revenue - expenses).toFixed(2)) };
+  });
+  const chartOptions = {
+    billing: { title: "Facturación por conductor", description: "Ingresos mensuales de los seis conductores profesionales.", color: "#1976c9", data: billingChartData },
+    maintenance: { title: "Mantenimiento por coche", description: "Importe de las actuaciones registradas en cada vehículo.", color: "#607d89", data: maintenanceChartData },
+    fuel: { title: "Combustible por coche", description: "Gasto mensual de combustible de los cinco vehículos.", color: "#df4538", data: fuelChartData },
+    net: { title: "Beneficio neto por coche", description: "Facturación menos todos los gastos asignados a cada vehículo.", color: "#28923c", data: netChartData },
+  };
+  const activeChart = chartOptions[chartMetric];
+  const selectedPeriodLabel = `${reportMonths[reportMonth]} ${reportYear}`;
+  const periodEntries = Math.round((totals.refuels + 8) * periodFactor);
+  const hasChartData = activeChart.data.some((item) => item.value !== 0);
+  const periodTotals = {
+    billing: billingChartData.reduce((sum, item) => sum + item.value, 0),
+    maintenance: maintenanceChartData.reduce((sum, item) => sum + item.value, 0),
+    fuel: fuelChartData.reduce((sum, item) => sum + item.value, 0),
+    net: netChartData.reduce((sum, item) => sum + item.value, 0),
+  };
 
   return (
     <section className="fuel-reports-page">
@@ -755,7 +804,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
         {tabs.map((tab) => <button key={tab} role="tab" aria-selected={reportTab === tab} className={reportTab === tab ? "active" : ""} onClick={() => setReportTab(tab)}>{tab}</button>)}
       </nav>
       <div className="fuel-report-canvas">
-        <button className="report-period" onClick={() => setReportTab("General")}><span>{totals.refuels + 8} entradas (18/06/2026 - 30/07/2026)</span><IconCalendar size={17} /></button>
+        <button className="report-period" onClick={() => setReportTab("General")}><span>{selectedPeriodLabel} · {periodEntries} entradas operativas</span><IconCalendar size={17} /></button>
 
         {reportTab === "General" && (
           <>
@@ -768,27 +817,32 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
             </nav>
             <div className="report-general-grid">
               <div className="report-stat-grid">
-                <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(totalIncome)} daily={formatCurrency(totalIncome / 30)} perKm={formatCurrency(totalIncome / totalDistance)} tone="blue" onClick={() => setReportTab("Ingreso")} />
-                <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(totalMaintenance)} daily={formatCurrency(totalMaintenance / 30)} perKm={formatCurrency(totalMaintenance / totalDistance)} tone="slate" onClick={() => onNavigate(fleetSubItems[0])} />
-                <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(totalFuel)} daily={formatCurrency(totalFuel / 30)} perKm={formatCurrency(totalFuel / totalDistance)} tone="red" onClick={() => setReportTab("Repostaje")} />
-                <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatCurrency(balance)} daily={formatCurrency(balance / 30)} perKm={formatCurrency(balance / totalDistance)} tone="green" onClick={() => setReportTab("Gasto")} />
+                <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(periodTotals.billing)} daily={formatCurrency(periodTotals.billing / periodDays)} perKm={formatCurrency(periodTotals.billing / totalDistance)} tone="blue" active={chartMetric === "billing"} onClick={() => setChartMetric("billing")} />
+                <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="slate" active={chartMetric === "maintenance"} onClick={() => setChartMetric("maintenance")} />
+                <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(periodTotals.fuel)} daily={formatCurrency(periodTotals.fuel / periodDays)} perKm={formatCurrency(periodTotals.fuel / totalDistance)} tone="red" active={chartMetric === "fuel"} onClick={() => setChartMetric("fuel")} />
+                <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
               </div>
               <section className="report-chart-card">
-                <header><span className="report-chart-icon"><IconGauge size={18} /></span><strong>Gráfico de gastos mensuales</strong></header>
+                <header className="report-chart-card__top">
+                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong>{activeChart.title}</strong><small>{activeChart.description}</small></span></div>
+                  <div className="report-chart-filters" aria-label="Periodo del gráfico">
+                    <label><span>Mes</span><select value={reportMonth} onChange={(event) => setReportMonth(Number(event.target.value))}>{reportMonths.map((month, index) => <option value={index} key={month}>{month}</option>)}</select></label>
+                    <label><span>Año</span><select value={reportYear} onChange={(event) => setReportYear(Number(event.target.value))}>{reportYears.map((year) => <option value={year} key={year}>{year}</option>)}</select></label>
+                  </div>
+                </header>
                 <div className="report-chart">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 8, right: 6, left: -18, bottom: 0 }}>
+                  {hasChartData ? <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={activeChart.data} margin={{ top: 12, right: 6, left: 2, bottom: 4 }}>
                       <CartesianGrid stroke="#e9efed" vertical={false} />
-                      <XAxis dataKey="month" tick={{ fontSize: 9, fill: "#75817d" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
-                      <Tooltip formatter={(value, name) => [formatCurrency(Number(value)), name]} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
-                      <Legend wrapperStyle={{ fontSize: 9, paddingTop: 10 }} />
-                      <Bar dataKey="repostaje" name="Repostaje" stackId="a" fill="#ff9d00" radius={[0, 0, 0, 0]} isAnimationActive={false} />
-                      <Bar dataKey="gasto" name="Gasto" stackId="a" fill="#ef4d22" isAnimationActive={false} />
-                      <Bar dataKey="conductores" name="Conductores" stackId="a" fill="#735248" isAnimationActive={false} />
-                      <Bar dataKey="ingreso" name="Ingreso" stackId="a" fill="#26933c" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                      <XAxis dataKey="label" interval={0} tick={{ fontSize: 8, fill: "#75817d" }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
+                      <Tooltip formatter={(value) => [formatCurrency(Number(value)), activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
+                      {chartMetric === "net" && <ReferenceLine y={0} stroke="#aab5b1" />}
+                      <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={52} isAnimationActive={false}>
+                        {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
+                      </Bar>
                     </BarChart>
-                  </ResponsiveContainer>
+                  </ResponsiveContainer> : <div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div>}
                 </div>
               </section>
             </div>
@@ -811,9 +865,9 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
   );
 }
 
-function ReportStatCard({ icon: Icon, label, value, daily, perKm, tone, onClick }) {
+function ReportStatCard({ icon: Icon, label, value, daily, perKm, tone, active, onClick }) {
   return (
-    <button type="button" className={`report-stat-card report-stat-card--${tone}`} onClick={onClick} aria-label={`Abrir ${label}`}>
+    <button type="button" className={`report-stat-card report-stat-card--${tone}${active ? " report-stat-card--active" : ""}`} onClick={onClick} aria-label={`Mostrar gráfico de ${label}`} aria-pressed={active}>
       <span className="report-stat-card__header"><span><Icon size={18} /></span><strong>{label}</strong></span>
       <small>Total</small>
       <strong className="report-stat-value">{value}</strong>
