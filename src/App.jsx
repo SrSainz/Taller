@@ -556,15 +556,9 @@ export function App() {
   return (
     <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}`}>
       <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`}>
-        <div className="brand"><span>T</span><strong>Talleria</strong></div>
+        <button className="brand" onClick={() => navigate(navItems[0])} aria-label="Ir a la página de inicio"><span>T</span><strong>Talleria</strong></button>
         <nav aria-label="Navegación principal">
           <span className="nav-group-label">Operación</span>
-          {(() => {
-            const item = navItems[0];
-            const Icon = item.icon;
-            const active = activeNav === item.label;
-            return <button className={active ? "nav-item nav-item--active" : "nav-item"} onClick={() => navigate(item)} aria-current={active ? "page" : undefined}><Icon size={20} stroke={1.8} /><span>{item.label}</span></button>;
-          })()}
           <div className="nav-fleet-group">
             <button
               className={["Flota", "Mantenimiento", "Gasolina"].includes(activeNav) ? "nav-item nav-item--active" : "nav-item"}
@@ -609,8 +603,7 @@ export function App() {
         <header className={["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}>
           <div className="topbar-title">
             <button className="icon-button menu-button" onClick={() => setSidebarOpen((value) => !value)} aria-label="Abrir menú"><IconMenu2 size={23} /></button>
-            <IconMenu2 className="desktop-menu" size={22} stroke={1.8} />
-            <div><span>{["Informes", "Gasolina"].includes(activeNav) ? "Informes" : activeNav}</span><small>{["Informes", "Gasolina"].includes(activeNav) ? "Resumen operativo de la flota" : "Gestión centralizada de vehículos"}</small></div>
+            {activeNav !== "Informes" && <div><span>{activeNav}</span><small>{activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small></div>}
           </div>
           <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar Talleria como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}

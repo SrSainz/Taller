@@ -41,12 +41,6 @@
   ],
   "shortcuts": [
     {
-      "name": "Informes",
-      "short_name": "Informes",
-      "url": "/#/informes",
-      "icons": [{ "src": "/icons/talleria-192.png", "sizes": "192x192" }]
-    },
-    {
       "name": "Flota",
       "short_name": "Flota",
       "url": "/#/flota",

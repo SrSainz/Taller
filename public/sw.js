@@ -1,4 +1,4 @@
-const cacheName = "talleria-shell-v2";
+const cacheName = "talleria-shell-v3";
 const appShell = [
   "/",
   "/index.html",
