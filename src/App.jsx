@@ -667,7 +667,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
       />
       <div className="metric-cards">
         <MetricCard icon={IconBriefcase} label="Vehículos profesionales" value="3" detail="6 turnos recibidos hoy" />
-        <MetricCard icon={IconGasStation} label="Repostaje de hoy" value="177,31 €" detail="10 conductores registrados" />
+        <MetricCard icon={IconGasStation} label="Repostaje de hoy" value="177,31 €" detail="6 conductores profesionales" />
         <MetricCard icon={IconTools} label="Próxima revisión" value="4.160 km" detail="Peugeot 2008 · 6 ago" tone="amber" />
       </div>
       <section className="content-card fleet-card">
@@ -691,12 +691,14 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
                   <tr className={selected.plate === vehicle.plate ? "is-selected" : ""} key={vehicle.plate} onClick={() => selectVehicle(vehicle)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") selectVehicle(vehicle); }}>
                     <td className="plate"><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td>
                     <td>
-                      <div className="driver-selector" aria-label={`Conductores de ${vehicle.plate}`}>
-                        {vehicle.drivers.map((name) => <button className={driver === name ? "driver-chip driver-chip--active" : "driver-chip"} key={name} onClick={(event) => { event.stopPropagation(); selectDriver(vehicle, name); }}>{name}</button>)}
-                      </div>
+                      {vehicle.use === "Profesional" ? (
+                        <div className="driver-selector" aria-label={`Conductores de ${vehicle.plate}`}>
+                          {vehicle.drivers.map((name) => <button className={driver === name ? "driver-chip driver-chip--active" : "driver-chip"} key={name} onClick={(event) => { event.stopPropagation(); selectDriver(vehicle, name); }}>{name}</button>)}
+                        </div>
+                      ) : <span className="no-driver-associated">Sin conductor asociado</span>}
                     </td>
                     <td className="billing-cell"><strong>{formatCurrency(day.revenue)} hoy</strong><small>Mes {formatCurrency(day.monthRevenue)} · {day.monthTrips} viajes</small><small>Efectivo {formatCurrency(day.cash)}</small></td>
-                    <td><strong>{formatKm(day.km)}</strong><small>{driver.split(" ")[0]}</small></td>
+                    <td><strong>{formatKm(day.km)}</strong><small>{vehicle.use === "Profesional" ? driver.split(" ")[0] : "Uso particular"}</small></td>
                     <td><strong>{formatCurrency(day.cost)}</strong><small>{day.liters ? `${day.liters.toLocaleString("es-ES")} L` : "Sin repostaje"}</small></td>
                     <td><strong>{formatKm(vehicle.odometer)}</strong><small>Actualizado hoy</small></td>
                     <td><span className={`service-countdown ${remaining <= 4500 ? "service-countdown--urgent" : ""}`}><strong>{formatKm(remaining)}</strong><small>{vehicle.serviceDate}</small></span></td>
@@ -708,7 +710,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
           </table>
         </div>
         {filtered.length === 0 && <div className="empty-state"><IconSearch size={25} /><strong>Sin resultados</strong><span>Prueba otra matrícula, conductor o trabajo.</span></div>}
-        <footer className="table-footer"><span>5 vehículos · 10 conductores</span><span>Selecciona un conductor para ver su actividad diaria</span></footer>
+        <footer className="table-footer"><span>5 vehículos · 6 conductores profesionales</span><span>Selecciona un conductor para ver su actividad diaria</span></footer>
       </section>
     </section>
   );
@@ -1151,7 +1153,9 @@ function VehicleInspector({ selected, selectedDriver, selectedActivity, invoices
   return (
     <aside className="inspector" aria-label={`Detalle de ${selected.plate}`}>
       <header className="inspector-header"><div><span className="inspector-eyebrow">Vehículo seleccionado</span><strong>{selected.plate}</strong><small>{selected.model}</small><UseBadge value={selected.use} /></div><button className="icon-button" aria-label="Cerrar detalle" onClick={() => setInspectorOpen(false)}><IconX size={21} /></button></header>
-      <div className="inspector-driver-picker"><span>Conductor</span><div>{selected.drivers.map((driver) => <button className={selectedDriver === driver ? "driver-pill driver-pill--active" : "driver-pill"} key={driver} onClick={() => selectDriver(selected, driver)}>{driver}</button>)}</div></div>
+      {selected.use === "Profesional" ? (
+        <div className="inspector-driver-picker"><span>Conductor</span><div>{selected.drivers.map((driver) => <button className={selectedDriver === driver ? "driver-pill driver-pill--active" : "driver-pill"} key={driver} onClick={() => selectDriver(selected, driver)}>{driver}</button>)}</div></div>
+      ) : <div className="inspector-no-driver"><IconHome size={18} /><span>Sin conductor asociado</span></div>}
       <div className="inspector-tabs" role="tablist" aria-label="Información del vehículo">
         <button role="tab" aria-selected={inspectorTab === "Turnos"} className={inspectorTab === "Turnos" ? "active" : ""} onClick={() => setInspectorTab("Turnos")}>Actividad</button>
         <button role="tab" aria-selected={inspectorTab === "Mantenimiento"} className={inspectorTab === "Mantenimiento" ? "active" : ""} onClick={() => setInspectorTab("Mantenimiento")}>Mantenimiento</button>
@@ -1162,7 +1166,7 @@ function VehicleInspector({ selected, selectedDriver, selectedActivity, invoices
         {inspectorTab === "Turnos" && (
           <>
             <section className="driver-summary">
-              <header><span><IconClock size={17} /><strong>{selectedDriver}</strong></span><small>Hoy · {selectedActivity.time}</small></header>
+              <header><span><IconClock size={17} /><strong>{selected.use === "Profesional" ? selectedDriver : "Uso particular"}</strong></span><small>Hoy · {selectedActivity.time}</small></header>
               <div className="driver-metrics"><div><span>Km hoy</span><strong>{formatKm(selectedActivity.km)}</strong></div><div><span>Repostaje</span><strong>{formatCurrency(selectedActivity.cost)}</strong></div><div><span>Facturación</span><strong>{formatCurrency(selectedActivity.revenue)}</strong></div></div>
               <div className="billing-summary"><span>Acumulado mensual</span><strong>{formatCurrency(selectedActivity.monthRevenue)}</strong><small>{selectedActivity.monthTrips} viajes · Efectivo hoy {formatCurrency(selectedActivity.cash)}</small></div>
             </section>

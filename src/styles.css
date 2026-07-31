@@ -140,6 +140,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .fleet-table td small, .module-table td small { margin-top: 4px; color: #77837e; font-size: 7.5px; }
 .plate strong { color: #11221b !important; letter-spacing: .02em; }
 .driver-selector { display: grid; gap: 3px; }
+.no-driver-associated { display: inline-flex; align-items: center; min-height: 23px; color: var(--muted); font-size: 8px; font-weight: 600; }
 .driver-chip { width: fit-content; max-width: 100%; padding: 3px 6px; overflow: hidden; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #67746e; font-size: 8px; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .driver-chip:hover { background: #f0f7f4; color: var(--green-900); }
 .driver-chip--active { border-color: #9fc7b9; background: #e8f4f0; color: var(--green-900); font-weight: 650; }
@@ -450,6 +451,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .inspector-driver-picker { min-height: 65px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: #f9fbfa; }
 .inspector-driver-picker > span { display: block; margin-bottom: 7px; color: var(--muted); font-size: 7px; font-weight: 600; text-transform: uppercase; }
 .inspector-driver-picker > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.inspector-no-driver { display: flex; min-height: 54px; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: #f9fbfa; color: var(--muted); font-size: 9px; font-weight: 600; }
 .driver-pill { min-height: 27px; padding: 0 9px; border: 1px solid var(--line-dark); border-radius: 999px; background: #fff; color: #5e6a65; font-size: 7.5px; cursor: pointer; }
 .driver-pill:hover { border-color: #91b7aa; }
 .driver-pill--active { border-color: #75aa98; background: var(--green-50); color: var(--green-900); font-weight: 650; }
