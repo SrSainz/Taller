@@ -192,12 +192,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-stat-card footer > span:last-child { text-align: right; }
 .report-stat-card footer small { color: #98a29e; font-size: 6.5px; }
 .report-stat-card footer strong { overflow: hidden; color: #45534e; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.report-stat-card--teal header > span { background: #079ea7; }
-.report-stat-card--teal .report-stat-value { color: #07929b; }
+.report-stat-card--blue header > span { background: #1976c9; }
+.report-stat-card--blue .report-stat-value { color: #146bb5; }
 .report-stat-card--slate header > span { background: #607d89; }
 .report-stat-card--slate .report-stat-value { color: #607782; }
-.report-stat-card--orange header > span { background: #ef5228; }
-.report-stat-card--orange .report-stat-value { color: #e84c22; }
+.report-stat-card--red header > span { background: #df4538; }
+.report-stat-card--red .report-stat-value { color: #d43b30; }
 .report-stat-card--green header > span { background: #28923c; }
 .report-stat-card--green .report-stat-value { color: #278c3b; }
 .report-chart-card { min-width: 0; min-height: 322px; padding: 15px 16px 10px; border: 1px solid #dae3e0; border-radius: 13px; background: #fff; box-shadow: 0 3px 8px rgba(38,67,58,.09); }

@@ -751,6 +751,8 @@ function FuelView({ vehicles, selected, onSelectVehicle, initialTab = "General" 
   }), { liters: 0, cost: 0, refuels: 0 });
   const totalIncome = vehicles.flatMap((vehicle) => vehicle.shifts).reduce((sum, shift) => sum + (shift.monthRevenue ?? 0), 0);
   const totalExpenses = Object.values(vehicleExpenseAmounts).flat().reduce((sum, amount) => sum + amount, 0);
+  const totalMaintenance = Object.values(vehicleExpenseAmounts).reduce((sum, amounts) => sum + (amounts[3] ?? 0), 0);
+  const totalFuel = totals.cost;
   const totalDistance = 7524;
   const balance = totalIncome - totalExpenses;
   const chartData = [
@@ -774,10 +776,10 @@ function FuelView({ vehicles, selected, onSelectVehicle, initialTab = "General" 
           <>
             <div className="report-general-grid">
               <div className="report-stat-grid">
-                <ReportStatCard icon={IconCurrencyEuro} label="Balance" value={formatCurrency(balance)} daily={formatCurrency(balance / 30)} perKm={formatCurrency(balance / totalDistance)} tone="teal" />
-                <ReportStatCard icon={IconGauge} label="Distancia" value={formatKm(totalDistance)} daily={formatKm(Math.round(totalDistance / 30))} perKm="—" tone="slate" />
-                <ReportStatCard icon={IconFileInvoice} label="Coste" value={formatCurrency(totalExpenses)} daily={formatCurrency(totalExpenses / 30)} perKm={formatCurrency(totalExpenses / totalDistance)} tone="orange" />
-                <ReportStatCard icon={IconBriefcase} label="Ingreso" value={formatCurrency(totalIncome)} daily={formatCurrency(totalIncome / 30)} perKm={formatCurrency(totalIncome / totalDistance)} tone="green" />
+                <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(totalIncome)} daily={formatCurrency(totalIncome / 30)} perKm={formatCurrency(totalIncome / totalDistance)} tone="blue" />
+                <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(totalMaintenance)} daily={formatCurrency(totalMaintenance / 30)} perKm={formatCurrency(totalMaintenance / totalDistance)} tone="slate" />
+                <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(totalFuel)} daily={formatCurrency(totalFuel / 30)} perKm={formatCurrency(totalFuel / totalDistance)} tone="red" />
+                <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatCurrency(balance)} daily={formatCurrency(balance / 30)} perKm={formatCurrency(balance / totalDistance)} tone="green" />
               </div>
               <section className="report-chart-card">
                 <header><span className="report-chart-icon"><IconGauge size={18} /></span><strong>Gráfico de gastos mensuales</strong></header>
