@@ -558,7 +558,7 @@ export function App() {
   return (
     <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}`}>
       <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`}>
-        <button className="brand" onClick={() => navigate(navItems[0])} aria-label="Ir a la página de inicio"><span>T</span><strong>Talleria</strong></button>
+        <button className="brand" onClick={() => navigate(navItems[0])} aria-label="Ir a Vista operativa"><span>V</span><strong>Vista operativa</strong></button>
         <nav aria-label="Navegación principal">
           <span className="nav-group-label">Operación</span>
           <div className="nav-fleet-group">
