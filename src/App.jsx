@@ -191,7 +191,7 @@ const vehiclesSeed = [
   },
   {
     plate: "9401 LTG",
-    model: "Toyota Corolla",
+    model: "Peugeot 2008",
     use: "Particular",
     drivers: ["Sergio Ruiz", "María Ruiz"],
     odometer: 75840,
@@ -234,7 +234,7 @@ const invoiceSeed = [
   { id: "FAC-2026-1842", date: "18 jul 2026", provider: "Mecánica Norte", plate: "5754 MJV", concept: "Aceite y filtros", amount: 286.4, source: "Correo", status: "Asociada" },
   { id: "FAC-2026-1798", date: "5 jul 2026", provider: "Neumáticos Central", plate: "5750 MJV", concept: "Neumáticos delanteros", amount: 498, source: "Correo", status: "Revisar" },
   { id: "FAC-2026-1761", date: "12 jun 2026", provider: "Lexus Service", plate: "0344 LCP", concept: "Aceite y filtros", amount: 224.8, source: "Manual", status: "Asociada" },
-  { id: "FAC-2026-1684", date: "28 may 2026", provider: "Toyota Madrid", plate: "9401 LTG", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
+  { id: "FAC-2026-1684", date: "28 may 2026", provider: "Peugeot Madrid", plate: "9401 LTG", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
 ];
 
 const maintenanceConceptRows = [
@@ -648,7 +648,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
       <div className="metric-cards">
         <MetricCard icon={IconBriefcase} label="Vehículos profesionales" value="3" detail="6 turnos recibidos hoy" />
         <MetricCard icon={IconGasStation} label="Repostaje de hoy" value="177,31 €" detail="10 conductores registrados" />
-        <MetricCard icon={IconTools} label="Próxima revisión" value="4.160 km" detail="Toyota Corolla · 6 ago" tone="amber" />
+        <MetricCard icon={IconTools} label="Próxima revisión" value="4.160 km" detail="Peugeot 2008 · 6 ago" tone="amber" />
       </div>
       <section className="content-card fleet-card">
         <header className="fleet-toolbar" aria-label="Filtros de vehículos">
