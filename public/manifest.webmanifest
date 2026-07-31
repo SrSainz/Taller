@@ -5,7 +5,7 @@
   "description": "Control de kilometraje, facturación, gastos y mantenimiento de vehículos.",
   "lang": "es",
   "dir": "ltr",
-  "start_url": "/#/flota",
+  "start_url": "/#/informes",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
@@ -40,6 +40,12 @@
     }
   ],
   "shortcuts": [
+    {
+      "name": "Informes",
+      "short_name": "Informes",
+      "url": "/#/informes",
+      "icons": [{ "src": "/icons/talleria-192.png", "sizes": "192x192" }]
+    },
     {
       "name": "Flota",
       "short_name": "Flota",

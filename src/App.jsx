@@ -8,6 +8,7 @@ import {
   IconCalendar,
   IconCamera,
   IconCar,
+  IconChartBar,
   IconCheck,
   IconChevronDown,
   IconChevronRight,
@@ -41,6 +42,7 @@ import {
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const navItems = [
+  { label: "Informes", slug: "informes", icon: IconChartBar },
   { label: "Flota", slug: "flota", icon: IconCar },
   { label: "Lecturas", slug: "lecturas", icon: IconGauge, badge: 2 },
   { label: "Facturas", slug: "facturas", icon: IconFileInvoice, badge: 3 },
@@ -331,7 +333,7 @@ const getFuelAssignment = (vehicle, entry) => {
 
 const navFromHash = () => {
   const slug = window.location.hash.replace(/^#\/?/, "");
-  return [...navItems, ...fleetSubItems, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Flota";
+  return [...navItems, ...fleetSubItems, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Informes";
 };
 
 function UseBadge({ value }) {
@@ -518,7 +520,7 @@ export function App() {
 
   const openFleetNavigation = () => {
     setFleetMenuOpen((current) => activeNav === "Flota" ? !current : true);
-    if (activeNav !== "Flota") navigate(navItems[0]);
+    if (activeNav !== "Flota") navigate(navItems[1]);
   };
 
   const selectVehicle = (vehicle) => {
@@ -548,7 +550,7 @@ export function App() {
     setSelectedPlate(plate);
     setInspectorTab(tab);
     setInspectorOpen(true);
-    navigate(navItems[0]);
+    navigate(navItems[1]);
   };
 
   return (
@@ -557,6 +559,12 @@ export function App() {
         <div className="brand"><span>T</span><strong>Talleria</strong></div>
         <nav aria-label="Navegación principal">
           <span className="nav-group-label">Operación</span>
+          {(() => {
+            const item = navItems[0];
+            const Icon = item.icon;
+            const active = activeNav === item.label;
+            return <button className={active ? "nav-item nav-item--active" : "nav-item"} onClick={() => navigate(item)} aria-current={active ? "page" : undefined}><Icon size={20} stroke={1.8} /><span>{item.label}</span></button>;
+          })()}
           <div className="nav-fleet-group">
             <button
               className={["Flota", "Mantenimiento", "Gasolina"].includes(activeNav) ? "nav-item nav-item--active" : "nav-item"}
@@ -578,7 +586,7 @@ export function App() {
               </div>
             )}
           </div>
-          {navItems.slice(1).map((item) => {
+          {navItems.slice(2).map((item) => {
             const Icon = item.icon;
             const active = activeNav === item.label;
             return (
@@ -598,11 +606,11 @@ export function App() {
       </aside>
 
       <main className="workspace">
-        <header className={activeNav === "Gasolina" ? "topbar topbar--reports" : "topbar"}>
+        <header className={["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}>
           <div className="topbar-title">
             <button className="icon-button menu-button" onClick={() => setSidebarOpen((value) => !value)} aria-label="Abrir menú"><IconMenu2 size={23} /></button>
             <IconMenu2 className="desktop-menu" size={22} stroke={1.8} />
-            <div><span>{activeNav === "Gasolina" ? "Informes" : activeNav}</span><small>{activeNav === "Gasolina" ? "Resumen operativo de la flota" : "Gestión centralizada de vehículos"}</small></div>
+            <div><span>{["Informes", "Gasolina"].includes(activeNav) ? "Informes" : activeNav}</span><small>{["Informes", "Gasolina"].includes(activeNav) ? "Resumen operativo de la flota" : "Gestión centralizada de vehículos"}</small></div>
           </div>
           <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar Talleria como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
@@ -614,7 +622,7 @@ export function App() {
             <aside className="notification-popover" aria-label="Notificaciones recientes">
               <header><strong>Notificaciones</strong><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></header>
               <button onClick={() => openVehicleFromModule("5043 MLC")}><IconAlertTriangle size={18} /><span><strong>Revisión próxima</strong><small>Renault Master · 4.265 km restantes</small></span></button>
-              <button onClick={() => navigate(navItems[1])}><IconGauge size={18} /><span><strong>2 lecturas por revisar</strong><small>Confianza inferior al umbral configurado</small></span></button>
+              <button onClick={() => navigate(navItems[2])}><IconGauge size={18} /><span><strong>2 lecturas por revisar</strong><small>Confianza inferior al umbral configurado</small></span></button>
             </aside>
           )}
         </header>
@@ -635,7 +643,8 @@ export function App() {
               setModal={setModal}
             />
           )}
-          {activeNav === "Gasolina" && <FuelView vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} setModal={setModal} vehicles={vehicles} />}
@@ -727,8 +736,8 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
   );
 }
 
-function FuelView({ vehicles, selected, onSelectVehicle }) {
-  const [reportTab, setReportTab] = useState("General");
+function FuelView({ vehicles, selected, onSelectVehicle, initialTab = "General" }) {
+  const [reportTab, setReportTab] = useState(initialTab);
   const tabs = ["General", "Repostaje", "Gasto", "Ingreso", "Conductores"];
   const vehicleStats = vehicles.map((vehicle) => {
     const entries = vehicle.monthlyFuel ?? [];

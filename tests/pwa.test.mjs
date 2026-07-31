@@ -12,7 +12,7 @@ test("build emits an installable standalone manifest", () => {
   assert.ok(existsSync(manifestPath), "manifest.webmanifest is missing from the build");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   assert.equal(manifest.display, "standalone");
-  assert.equal(manifest.start_url, "/#/flota");
+  assert.equal(manifest.start_url, "/#/informes");
   assert.equal(manifest.scope, "/");
   assert.equal(manifest.prefer_related_applications, false);
 
