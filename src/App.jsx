@@ -825,7 +825,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   };
   const activeChart = chartOptions[chartMetric];
   const selectedPeriodLabel = `${reportMonths[reportMonth]} ${reportYear}`;
-  const periodEntries = Math.round((totals.refuels + 8) * periodFactor);
   const hasChartData = chartMetric === "summary"
     ? activeChart.data.some((item) => [item.billing, item.maintenance, item.fuel, item.net].some((value) => value !== 0))
     : activeChart.data.some((item) => item.value !== 0);
@@ -833,8 +832,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   return (
     <section className="fuel-reports-page">
       <div className="fuel-report-canvas">
-        <button className="report-period" onClick={() => setReportTab("General")}><span>{selectedPeriodLabel} · {periodEntries} entradas operativas</span><IconCalendar size={17} /></button>
-
         {reportTab === "General" && (
           <>
             <nav className="report-quick-actions" aria-label="Accesos de SOBRE RUEDAS">
