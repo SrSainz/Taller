@@ -733,7 +733,14 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
   const [chartMetric, setChartMetric] = useState("summary");
   const [reportMonth, setReportMonth] = useState(6);
   const [reportYear, setReportYear] = useState(2026);
+  const [periodMenu, setPeriodMenu] = useState("");
   const tabs = ["General", "Repostaje", "Gasto", "Ingreso", "Conductores"];
+  useEffect(() => {
+    if (!periodMenu) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [periodMenu]);
   const vehicleStats = vehicles.map((vehicle) => {
     const entries = vehicle.monthlyFuel ?? [];
     return {
@@ -835,8 +842,16 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
                   <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong>{activeChart.title}</strong><small>{activeChart.description}</small></span></div>
                   <div className="report-chart-filters" aria-label="Periodo del gráfico">
                     <button type="button" className={chartMetric === "summary" ? "report-summary-button report-summary-button--active" : "report-summary-button"} onClick={() => setChartMetric("summary")} aria-pressed={chartMetric === "summary"}><IconChartBar size={14} />Resumen</button>
-                    <label><span>Mes</span><select value={reportMonth} onChange={(event) => setReportMonth(Number(event.target.value))}>{reportMonths.map((month, index) => <option value={index} key={month}>{month}</option>)}</select></label>
-                    <label><span>Año</span><select value={reportYear} onChange={(event) => setReportYear(Number(event.target.value))}>{reportYears.map((year) => <option value={year} key={year}>{year}</option>)}</select></label>
+                    <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
+                      <span>Mes</span>
+                      <button type="button" className="report-period-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
+                      {periodMenu === "month" && <div className="report-period-menu report-period-menu--months" role="listbox" aria-label="Seleccionar mes">{reportMonths.map((month, index) => <button type="button" role="option" aria-selected={reportMonth === index} className={reportMonth === index ? "selected" : ""} onClick={() => { setReportMonth(index); setPeriodMenu(""); }} key={month}>{month}{reportMonth === index && <IconCheck size={12} />}</button>)}</div>}
+                    </div>
+                    <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
+                      <span>Año</span>
+                      <button type="button" className="report-period-trigger report-period-trigger--year" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
+                      {periodMenu === "year" && <div className="report-period-menu report-period-menu--years" role="listbox" aria-label="Seleccionar año">{reportYears.map((year) => <button type="button" role="option" aria-selected={reportYear === year} className={reportYear === year ? "selected" : ""} onClick={() => { setReportYear(year); setPeriodMenu(""); }} key={year}>{year}{reportYear === year && <IconCheck size={12} />}</button>)}</div>}
+                    </div>
                   </div>
                 </header>
                 <div className="report-chart">
