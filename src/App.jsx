@@ -440,6 +440,7 @@ export function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(isStandaloneApp);
   const [homeReportTab, setHomeReportTab] = useState("General");
+  const [homeChartMetric, setHomeChartMetric] = useState("summary");
   const toastTimer = useRef();
 
   useEffect(() => {
@@ -553,6 +554,7 @@ export function App() {
 
   const openGeneral = () => {
     setHomeReportTab("General");
+    setHomeChartMetric("summary");
     navigate(navItems[0]);
   };
 
@@ -640,7 +642,7 @@ export function App() {
               setModal={setModal}
             />
           )}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
@@ -734,11 +736,13 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
   );
 }
 
-function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange }) {
+function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;
-  const [chartMetric, setChartMetric] = useState("summary");
+  const [internalChartMetric, setInternalChartMetric] = useState("summary");
+  const chartMetric = controlledChartMetric ?? internalChartMetric;
+  const setChartMetric = onChartMetricChange ?? setInternalChartMetric;
   const [reportMonth, setReportMonth] = useState(6);
   const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
