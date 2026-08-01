@@ -734,7 +734,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [reportMonth, setReportMonth] = useState(6);
   const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
-  const tabs = ["General", "Ingreso", "Conductores"];
+  const tabs = ["General"];
   useEffect(() => {
     if (!periodMenu) return undefined;
     const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
@@ -840,7 +840,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
             </nav>
             <div className="report-general-grid">
               <div className="report-stat-grid">
-                <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(periodTotals.billing)} daily={formatCurrency(periodTotals.billing / periodDays)} perKm={formatCurrency(periodTotals.billing / totalDistance)} tone="blue" active={chartMetric === "billing"} onClick={() => setChartMetric("billing")} />
+                <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(periodTotals.billing)} daily={formatCurrency(periodTotals.billing / periodDays)} perKm={formatCurrency(periodTotals.billing / totalDistance)} tone="blue" active={false} actionLabel="Abrir Facturación y Conductores" onClick={() => setReportTab("Facturación")} />
                 <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="slate" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
                 <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(periodTotals.fuel)} daily={formatCurrency(periodTotals.fuel / periodDays)} perKm={formatCurrency(periodTotals.fuel / totalDistance)} tone="red" active={false} actionLabel="Abrir detalle de Combustible" onClick={() => setReportTab("Repostaje")} />
                 <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
@@ -903,8 +903,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
         )}
 
         {reportTab === "Gasto" && <FuelExpenseReport stats={vehicleStats} total={totals.cost} />}
-        {reportTab === "Ingreso" && <FuelIncomeReport vehicles={vehicles} total={totalIncome} />}
-        {reportTab === "Conductores" && <FuelDriversReport vehicles={vehicles} />}
+        {reportTab === "Facturación" && <div className="report-billing-stack"><FuelIncomeReport vehicles={vehicles} total={totalIncome} /><FuelDriversReport vehicles={vehicles} /></div>}
       </div>
     </section>
   );
