@@ -634,8 +634,8 @@ export function App() {
               setModal={setModal}
             />
           )}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} />}
@@ -728,7 +728,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
   );
 }
 
-function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab = "General" }) {
+function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General" }) {
   const [reportTab, setReportTab] = useState(initialTab);
   const [chartMetric, setChartMetric] = useState("summary");
   const [reportMonth, setReportMonth] = useState(6);
@@ -900,7 +900,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
         {reportTab === "Repostaje" && (
           <>
             <FuelVehicleOverview stats={vehicleStats} selected={selected} onSelectVehicle={onSelectVehicle} />
-            <FuelLedgerDetail selected={selected} />
+            <FuelLedgerDetail selected={selected} onOpenInvoice={(item) => setModal({ type: "invoice", item })} />
           </>
         )}
 
@@ -946,7 +946,7 @@ function FuelVehicleOverview({ stats, selected, onSelectVehicle }) {
   );
 }
 
-function FuelLedgerDetail({ selected }) {
+function FuelLedgerDetail({ selected, onOpenInvoice }) {
   const selectedEntries = selected.monthlyFuel ?? [];
   const selectedLiters = selectedEntries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0);
   const selectedCost = selectedEntries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0);
@@ -964,15 +964,28 @@ function FuelLedgerDetail({ selected }) {
       <div className="fuel-page-table-wrap">
         <table className="fuel-page-table">
           <caption className="sr-only">Repostajes diarios de julio de 2026 para {selected.plate}</caption>
-          <thead><tr><th>Fecha</th><th>Hora</th><th>Conductor</th><th>Turno asignado</th><th>Litros</th><th>Precio/L</th><th>Importe</th></tr></thead>
-          <tbody>{selectedEntries.map((entry) => {
+          <thead><tr><th>Fecha</th><th>Hora</th><th>Conductor</th><th>Importe</th><th>Precio/Litro</th><th>Factura</th></tr></thead>
+          <tbody>{selectedEntries.map((entry, index) => {
             const assignment = getFuelAssignment(selected, entry);
             const pricePerLiter = entry.liters ? entry.cost / entry.liters : 0;
-            return <tr key={`${entry.date}-${entry.time}`}><td><strong>{entry.date.replace(" 2026", "")}</strong></td><td><strong>{entry.time}</strong></td><td><span className="fuel-driver"><IconUsers size={14} /><strong>{assignment.driver}</strong></span></td><td><span className="fuel-shift-badge">{assignment.label}</span></td><td><strong>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></td><td>{formatCurrency(pricePerLiter)}</td><td><strong>{formatCurrency(entry.cost)}</strong></td></tr>;
+            const invoice = {
+              id: `PLG-${selected.plate.replace(/\s/g, "")}-${String(index + 1).padStart(2, "0")}`,
+              provider: "Plenergy",
+              date: entry.date,
+              plate: selected.plate,
+              driver: assignment.driver,
+              concept: `Repostaje de ${entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L`,
+              liters: entry.liters,
+              pricePerLiter,
+              amount: entry.cost,
+              source: "Cuenta Plenergy",
+              status: "Descargada",
+            };
+            return <tr key={`${entry.date}-${entry.time}`}><td><strong>{entry.date.replace(" 2026", "")}</strong></td><td><strong>{entry.time}</strong></td><td><span className="fuel-driver"><IconUsers size={14} /><strong>{assignment.driver}</strong></span></td><td><strong>{formatCurrency(entry.cost)}</strong></td><td>{formatCurrency(pricePerLiter)}</td><td><button type="button" className="fuel-invoice-button" onClick={() => onOpenInvoice(invoice)} aria-label={`Ver factura Plenergy de ${selected.plate} del ${entry.date} a las ${entry.time}`}><IconFileInvoice size={14} />Ver factura</button></td></tr>;
           })}</tbody>
         </table>
       </div>
-      <footer className="fuel-detail__footer"><IconSparkles size={15} /><span>El conductor se determina automáticamente por la hora del repostaje y los turnos configurados para este coche.</span></footer>
+      <footer className="fuel-detail__footer"><IconSparkles size={15} /><span>El conductor se determina automáticamente por la hora. Las facturas quedan archivadas desde la cuenta de la aplicación Plenergy.</span></footer>
     </section>
   );
 }
@@ -1452,19 +1465,20 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, vehicles }) {
   const item = modal.item;
   const isReading = modal.type === "reading-review";
   const isInvoice = modal.type === "invoice";
+  const isFuelInvoice = isInvoice && item?.source === "Cuenta Plenergy";
   const isPhotoInvoice = modal.type === "invoice-upload";
   const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", support: "Contactar con soporte" };
   const complete = (message) => { notify(message); onClose(); };
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <header><div><span>Acción rápida</span><h2 id="modal-title">{titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
+        <header><div><span>Acción rápida</span><h2 id="modal-title">{isFuelInvoice ? "Factura Plenergy" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
-        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div><dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div>{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
+        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div><dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div>{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={(invoice) => { onSaveInvoice(invoice); complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
-        {!isPhotoInvoice && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
+        {!isPhotoInvoice && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Factura Plenergy archivada" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar factura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
       </section>
     </div>
   );
