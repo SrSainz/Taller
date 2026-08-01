@@ -730,7 +730,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
 
 function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab = "General" }) {
   const [reportTab, setReportTab] = useState(initialTab);
-  const [chartMetric, setChartMetric] = useState("billing");
+  const [chartMetric, setChartMetric] = useState("summary");
   const [reportMonth, setReportMonth] = useState(6);
   const [reportYear, setReportYear] = useState(2026);
   const tabs = ["General", "Repostaje", "Gasto", "Ingreso", "Conductores"];
@@ -782,7 +782,20 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
     }, 0);
     return { label: vehicle.plate, detail: vehicle.model, value: Number((revenue - expenses).toFixed(2)) };
   });
+  const periodTotals = {
+    billing: billingChartData.reduce((sum, item) => sum + item.value, 0),
+    maintenance: maintenanceChartData.reduce((sum, item) => sum + item.value, 0),
+    fuel: fuelChartData.reduce((sum, item) => sum + item.value, 0),
+    net: netChartData.reduce((sum, item) => sum + item.value, 0),
+  };
+  const summaryChartData = [
+    { label: "Facturación", detail: "Ingresos de conductores", value: periodTotals.billing, color: "#1976c9" },
+    { label: "Mantenimiento", detail: "Actuaciones de taller", value: periodTotals.maintenance, color: "#607d89" },
+    { label: "Combustible", detail: "Repostajes de la flota", value: periodTotals.fuel, color: "#df4538" },
+    { label: "Neto", detail: "Beneficio de la flota", value: periodTotals.net, color: "#28923c" },
+  ];
   const chartOptions = {
+    summary: { title: "Resumen general", description: "Las cuatro áreas de la flota reunidas en una sola gráfica.", color: "#079ea7", data: summaryChartData },
     billing: { title: "Facturación por conductor", description: "Ingresos mensuales de los seis conductores profesionales.", color: "#1976c9", data: billingChartData },
     maintenance: { title: "Mantenimiento por coche", description: "Importe de las actuaciones registradas en cada vehículo.", color: "#607d89", data: maintenanceChartData },
     fuel: { title: "Combustible por coche", description: "Gasto mensual de combustible de los cinco vehículos.", color: "#df4538", data: fuelChartData },
@@ -792,12 +805,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
   const selectedPeriodLabel = `${reportMonths[reportMonth]} ${reportYear}`;
   const periodEntries = Math.round((totals.refuels + 8) * periodFactor);
   const hasChartData = activeChart.data.some((item) => item.value !== 0);
-  const periodTotals = {
-    billing: billingChartData.reduce((sum, item) => sum + item.value, 0),
-    maintenance: maintenanceChartData.reduce((sum, item) => sum + item.value, 0),
-    fuel: fuelChartData.reduce((sum, item) => sum + item.value, 0),
-    net: netChartData.reduce((sum, item) => sum + item.value, 0),
-  };
 
   return (
     <section className="fuel-reports-page">
@@ -827,6 +834,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
                 <header className="report-chart-card__top">
                   <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong>{activeChart.title}</strong><small>{activeChart.description}</small></span></div>
                   <div className="report-chart-filters" aria-label="Periodo del gráfico">
+                    <button type="button" className={chartMetric === "summary" ? "report-summary-button report-summary-button--active" : "report-summary-button"} onClick={() => setChartMetric("summary")} aria-pressed={chartMetric === "summary"}><IconChartBar size={14} />Resumen</button>
                     <label><span>Mes</span><select value={reportMonth} onChange={(event) => setReportMonth(Number(event.target.value))}>{reportMonths.map((month, index) => <option value={index} key={month}>{month}</option>)}</select></label>
                     <label><span>Año</span><select value={reportYear} onChange={(event) => setReportYear(Number(event.target.value))}>{reportYears.map((year) => <option value={year} key={year}>{year}</option>)}</select></label>
                   </div>
@@ -840,7 +848,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
                       <Tooltip formatter={(value) => [formatCurrency(Number(value)), activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {chartMetric === "net" && <ReferenceLine y={0} stroke="#aab5b1" />}
                       <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={52} isAnimationActive={false}>
-                        {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
+                        {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={entry.color ?? (chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color)} />)}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer> : <div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div>}
