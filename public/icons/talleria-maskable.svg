@@ -1,9 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SOBRE RUEDAS">
-  <rect width="512" height="512" fill="#075244"/>
-  <circle cx="256" cy="256" r="182" fill="#0a6655"/>
-  <circle cx="256" cy="256" r="126" fill="none" stroke="#fff" stroke-width="46"/>
-  <circle cx="256" cy="256" r="74" fill="none" stroke="#8fd2bb" stroke-width="15"/>
-  <path d="M256 182v48M256 282v48M182 256h48M282 256h48M204 204l34 34M274 274l34 34M308 204l-34 34M238 274l-34 34" stroke="#8fd2bb" stroke-width="16" stroke-linecap="round"/>
-  <circle cx="256" cy="256" r="31" fill="#fff"/>
-  <circle cx="256" cy="256" r="12" fill="#0a6655"/>
+  <rect width="512" height="512" fill="#FF2800"/>
+  <g transform="rotate(-14 256 256)">
+    <ellipse cx="256" cy="256" rx="116" ry="150" fill="#0A0A0C" stroke="#303034" stroke-width="16" stroke-dasharray="22 13"/>
+    <ellipse cx="256" cy="256" rx="59" ry="91" fill="#FF2800" stroke="#242428" stroke-width="11"/>
+    <path d="M187 178c-12 41-14 98-2 145" fill="none" stroke="#3A3A3E" stroke-width="9" stroke-linecap="round" opacity=".6"/>
+  </g>
 </svg>

@@ -8,10 +8,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const iconDirectory = path.join(root, "public", "icons");
 const colors = {
   transparent: [0, 0, 0, 0],
-  background: [7, 82, 68, 255],
-  surface: [10, 102, 85, 255],
-  white: [255, 255, 255, 255],
-  accent: [143, 210, 187, 255],
+  background: [255, 40, 0, 255],
+  rubber: [10, 10, 12, 255],
+  sidewall: [36, 36, 40, 255],
+  tread: [48, 48, 52, 255],
+  highlight: [58, 58, 62, 255],
 };
 
 const crcTable = Array.from({ length: 256 }, (_, index) => {
@@ -43,51 +44,36 @@ const roundedRectContains = (x, y, left, top, width, height, radius) => {
   return Math.hypot(Math.max(distanceX, 0), Math.max(distanceY, 0)) + Math.min(Math.max(distanceX, distanceY), 0) <= radius;
 };
 
-const segmentContains = (x, y, startX, startY, endX, endY, radius) => {
-  const deltaX = endX - startX;
-  const deltaY = endY - startY;
-  const lengthSquared = deltaX * deltaX + deltaY * deltaY;
-  const progress = Math.max(0, Math.min(1, ((x - startX) * deltaX + (y - startY) * deltaY) / lengthSquared));
-  const closestX = startX + progress * deltaX;
-  const closestY = startY + progress * deltaY;
-  return Math.hypot(x - closestX, y - closestY) <= radius;
-};
+const tireColorAt = (x, y, maskable) => {
+  const angle = 14 * Math.PI / 180;
+  const deltaX = x - 256;
+  const deltaY = y - 256;
+  const localX = Math.cos(angle) * deltaX - Math.sin(angle) * deltaY;
+  const localY = Math.sin(angle) * deltaX + Math.cos(angle) * deltaY;
+  const outerX = maskable ? 116 : 132;
+  const outerY = maskable ? 150 : 170;
+  const innerX = maskable ? 59 : 68;
+  const innerY = maskable ? 91 : 104;
+  const outer = (localX / outerX) ** 2 + (localY / outerY) ** 2;
+  const inner = (localX / innerX) ** 2 + (localY / innerY) ** 2;
 
-const wheelColorAt = (x, y, outerRadius) => {
-  const distance = Math.hypot(x - 256, y - 256);
-  const innerRadius = outerRadius * 0.66;
-  if (distance <= outerRadius && distance >= innerRadius) return colors.white;
-  if (distance < innerRadius) {
-    const spokeStart = outerRadius * 0.25;
-    const spokeEnd = outerRadius * 0.56;
-    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
-      if (segmentContains(
-        x,
-        y,
-        256 + Math.cos(angle) * spokeStart,
-        256 + Math.sin(angle) * spokeStart,
-        256 + Math.cos(angle) * spokeEnd,
-        256 + Math.sin(angle) * spokeEnd,
-        outerRadius * 0.055,
-      )) return colors.accent;
-    }
-    if (distance <= outerRadius * 0.09) return colors.surface;
-    if (distance <= outerRadius * 0.24) return colors.white;
+  if (outer > 1 || inner < 1) return null;
+  if (inner < 1.22) return colors.sidewall;
+  if (outer > 0.78 && Math.abs(localX) > outerX * 0.56) {
+    const treadPosition = ((localY + outerY) % 39 + 39) % 39;
+    if (treadPosition < 14) return colors.tread;
   }
-  return null;
+  if (localX < -outerX * 0.48 && localX > -outerX * 0.78 && localY > -outerY * 0.55 && localY < outerY * 0.48) return colors.highlight;
+  return colors.rubber;
 };
 
 const colorAt = (x, y, maskable) => {
   if (maskable) {
-    let color = colors.background;
-    if (Math.hypot(x - 256, y - 256) <= 182) color = colors.surface;
-    return wheelColorAt(x, y, 126) ?? color;
+    return tireColorAt(x, y, true) ?? colors.background;
   }
 
   if (!roundedRectContains(x, y, 0, 0, 512, 512, 112)) return colors.transparent;
-  let color = colors.background;
-  if (roundedRectContains(x, y, 70, 70, 372, 372, 88)) color = colors.surface;
-  return wheelColorAt(x, y, 142) ?? color;
+  return tireColorAt(x, y, false) ?? colors.background;
 };
 
 const createIcon = (size, maskable) => {
