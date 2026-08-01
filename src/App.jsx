@@ -734,7 +734,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [reportMonth, setReportMonth] = useState(6);
   const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
-  const tabs = ["General", "Gasto", "Ingreso", "Conductores"];
+  const tabs = ["General", "Ingreso", "Conductores"];
   useEffect(() => {
     if (!periodMenu) return undefined;
     const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };

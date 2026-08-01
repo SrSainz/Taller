@@ -157,7 +157,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .empty-state span { font-size: 9px; }
 
 .fuel-reports-page { min-height: 100%; background: #f2f5f4; }
-.fuel-report-tabs { min-height: 48px; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); border-bottom: 1px solid #dce5e1; background: #fff; box-shadow: 0 2px 7px rgba(40,67,59,.04); }
+.fuel-report-tabs { min-height: 48px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); border-bottom: 1px solid #dce5e1; background: #fff; box-shadow: 0 2px 7px rgba(40,67,59,.04); }
 .fuel-report-tabs button { position: relative; min-width: 0; border: 0; background: transparent; color: #8a9290; font-size: 8px; font-weight: 650; letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
 .fuel-report-tabs button::after { content: ""; position: absolute; right: 18%; bottom: 0; left: 18%; height: 2px; border-radius: 2px 2px 0 0; background: transparent; }
 .fuel-report-tabs button:hover { color: #0a8e97; background: #f6fbfa; }
