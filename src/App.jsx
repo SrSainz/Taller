@@ -837,12 +837,11 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
               <button onClick={() => onNavigate(navItems[1])}><IconCar size={18} /><span>Vehículos</span></button>
               <button onClick={() => onNavigate(navItems[2])}><IconGauge size={18} /><span>Lecturas</span><i>2</i></button>
               <button onClick={() => onNavigate(navItems[3])}><IconFileInvoice size={18} /><span>Facturas</span><i>3</i></button>
-              <button onClick={() => onNavigate(fleetSubItems[0])}><IconTools size={18} /><span>Mantenimiento</span></button>
             </nav>
             <div className="report-general-grid">
               <div className="report-stat-grid">
                 <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(periodTotals.billing)} daily={formatCurrency(periodTotals.billing / periodDays)} perKm={formatCurrency(periodTotals.billing / totalDistance)} tone="blue" active={chartMetric === "billing"} onClick={() => setChartMetric("billing")} />
-                <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="slate" active={chartMetric === "maintenance"} onClick={() => setChartMetric("maintenance")} />
+                <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="slate" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
                 <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(periodTotals.fuel)} daily={formatCurrency(periodTotals.fuel / periodDays)} perKm={formatCurrency(periodTotals.fuel / totalDistance)} tone="red" active={false} actionLabel="Abrir detalle de Combustible" onClick={() => setReportTab("Repostaje")} />
                 <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
               </div>

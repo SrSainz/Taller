@@ -23,7 +23,7 @@ When implementing from a selected generated mock, treat that image as the source
 - The web client is an installable PWA. Production must ship a linked manifest, 192px and 512px install icons, maskable icons, `display: standalone`, a root-scoped service worker, and an in-app install action when the browser exposes the install prompt.
 - The product name is SOBRE RUEDAS and the primary interface language is Spanish. Its persistent home control and installable PWA icon use a slightly tilted black tyre on a solid Ferrari-red (`#FF2800`) background instead of a letter.
 - Every destination is a real application window. Flota, Lecturas, Facturas, Mantenimiento, Automatizaciones, Ajustes, and Ayuda must change the route hash, title, content, and active navigation state, but they are entered only from SOBRE RUEDAS controls.
-- There is no sidebar or hamburger menu. SOBRE RUEDAS > General is the sole navigation hub. Its quick-action row opens Vehículos, Lecturas, Facturas, and Mantenimiento; the persistent tyre-logo button always returns to General.
+- There is no sidebar or hamburger menu. SOBRE RUEDAS > General is the sole navigation hub. Its quick-action row opens Vehículos, Lecturas, and Facturas; the persistent tyre-logo button always returns to General.
 - Product hierarchy follows the selected dense-ledger direction with stronger readable type, elevated KPI cards, a persistent operational table, and an optional right-side inspector. On mobile, the inspector opens only after a vehicle is selected.
 - Core review actions use accessible dialogs, visible focus states, semantic tables, named controls, and Escape-to-close behavior.
 - Taller is integrated into Mantenimiento and is reached from the General quick actions. It offers a vehicle selector, full history, repeated concepts, and a photo-to-invoice action that preselects the current vehicle.
@@ -37,6 +37,7 @@ When implementing from a selected generated mock, treat that image as the source
 - The SOBRE RUEDAS home dashboard has exactly four financial KPI cards: Facturación in blue, Mantenimiento in grey, Combustible in red, and Neto in green. Their totals must represent monthly driver billing, workshop spend, recorded fuel spend, and billing minus all vehicle expenses respectively.
 - All four KPI cards are actionable: Facturación opens Ingreso, Mantenimiento opens its workspace, Combustible opens Repostaje, and Neto opens Gasto.
 - The red Combustible KPI card is the only visible entry point for the complete refuelling workspace from General. The duplicate Repostaje top tab and Combustible quick action are removed.
+- The grey Mantenimiento KPI card is the only visible entry point for the complete maintenance workspace from General. The duplicate Mantenimiento quick action is removed.
 - The phrase "Control de flota" is not used in the interface. The Flota workspace is headed simply "Vehículos".
 - Vehicle order is fixed everywhere: 1) 5043 MLC, professional, Toyota Corolla; 2) 5750 MJV, professional, Toyota Corolla; 3) 5754 MJV, professional, Toyota Corolla; 4) 0344 LCP, particular, Lexus IS 300h; 5) 9401 LTG, particular, Peugeot 2008.
 - Professional schedules are 5043 MLC (Mauricio 07:00–19:00, Amin 19:00–07:00), 5750 MJV (Tirso 06:00–18:00, Alex 18:00–06:00), and 5754 MJV (Carlos 04:00–16:00, Fernando 16:00–04:00).
