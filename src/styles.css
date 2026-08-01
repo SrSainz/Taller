@@ -290,9 +290,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .fuel-detail__footer span { color: var(--muted); font-size: 7px; line-height: 1.45; }
 .report-table-card { border-radius: 13px; box-shadow: 0 3px 9px rgba(38,67,58,.08); }
 .report-header-total { color: #e84c22; font-size: 19px; white-space: nowrap; }
-.report-header-total--green { color: #278c3b; }
+.report-header-total--green { color: #1f7b33; }
 .report-table { min-width: 760px; }
 .report-table td:last-child strong { color: #0a8e97; }
+.report-table-card .card-header p { color: #65716c; }
 .report-drivers-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
 .report-driver-vehicle { overflow: hidden; border: 1px solid #d9e3df; border-radius: 13px; background: #fff; box-shadow: 0 3px 9px rgba(38,67,58,.08); }
 .report-driver-vehicle > header { min-height: 68px; display: flex; align-items: center; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--line); background: #f7fbfa; }
@@ -313,6 +314,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .module-table td { height: 66px; font-size: 9px; }
 .module-table th:first-child, .module-table td:first-child { padding-left: 18px; }
 .module-table th:last-child, .module-table td:last-child { padding-right: 18px; text-align: right; }
+.report-income-table-wrap { width: min(100%,820px); margin: 0 auto 18px; }
+.module-table.report-income-table { min-width: 620px; table-layout: fixed; }
+.report-income-table__driver { width: 29%; }
+.report-income-table__vehicle { width: 31%; }
+.report-income-table__trips { width: 15%; }
+.report-income-table__revenue { width: 25%; }
+.report-income-table th, .report-income-table td { padding-right: 16px; padding-left: 16px; }
+.report-income-table th { height: 40px; }
+.report-income-table th:nth-child(3), .report-income-table td:nth-child(3) { text-align: center; }
+.report-income-table td { height: 50px; }
+.report-income-table td small { color: #5f6c67; }
+.report-income-table td:nth-child(3) strong { color: #3e4d47; font-size: 10px; }
+.report-income-table td:last-child strong { color: #007780; font-size: 10px; }
 .table-action { display: inline-flex; align-items: center; gap: 4px; padding: 6px 7px; border: 0; border-radius: 6px; background: transparent; color: var(--green-800); font-size: 8px; font-weight: 650; white-space: nowrap; cursor: pointer; }
 .table-action:hover { background: var(--green-50); }
 .status-badge { width: fit-content; display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 999px; background: #eff3f1; color: #53615b; font-size: 7.5px; font-weight: 650; white-space: nowrap; }
@@ -834,6 +848,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .report-chart { height: 235px; }
   .report-section-card, .report-table-card, .report-driver-vehicle { border-radius: 11px; }
   .report-header-total { font-size: 15px; }
+  .report-income-table-wrap { width: 100%; margin-bottom: 0; overflow-x: visible; }
+  .module-table.report-income-table { width: 100%; min-width: 0; }
+  .report-income-table__driver { width: 27%; }
+  .report-income-table__vehicle { width: 28%; }
+  .report-income-table__trips { width: 14%; }
+  .report-income-table__revenue { width: 31%; }
+  .module-table.report-income-table th, .module-table.report-income-table td { padding-right: 6px; padding-left: 6px; }
+  .module-table.report-income-table th:first-child, .module-table.report-income-table td:first-child { padding-left: 18px; }
+  .module-table.report-income-table th:last-child, .module-table.report-income-table td:last-child { padding-right: 12px; }
+  .report-income-table th { font-size: 6.5px; }
+  .report-income-table td strong, .report-income-table td:nth-child(3) strong, .report-income-table td:last-child strong { font-size: 8px; }
+  .report-income-table td small { font-size: 6px; }
   .module-page { padding: 12px; }
   .page-intro h1 { font-size: 21px; }
   .metric-card > div > strong { font-size: 20px; }

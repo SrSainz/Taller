@@ -991,7 +991,14 @@ function FuelIncomeReport({ vehicles, total }) {
   return (
     <section className="content-card report-table-card">
       <header className="card-header"><div><h2>Ingresos por conductor</h2><p>Facturación mensual y viajes de los conductores profesionales.</p></div><strong className="report-header-total report-header-total--green">{formatCurrency(total)}</strong></header>
-      <div className="table-scroll"><table className="module-table report-table"><thead><tr><th>Conductor</th><th>Vehículo</th><th>Turno</th><th>Viajes</th><th>Ingreso mensual</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.plate}-${row.driver}`}><td><strong>{row.driver}</strong></td><td><strong>{row.plate}</strong><small>{row.model}</small></td><td>{row.time}</td><td>{row.monthTrips}</td><td><strong>{formatCurrency(row.monthRevenue)}</strong></td></tr>)}</tbody></table></div>
+      <div className="table-scroll report-income-table-wrap">
+        <table className="module-table report-table report-income-table">
+          <caption className="sr-only">Ingresos mensuales, viajes y vehículo asignado por conductor</caption>
+          <colgroup><col className="report-income-table__driver" /><col className="report-income-table__vehicle" /><col className="report-income-table__trips" /><col className="report-income-table__revenue" /></colgroup>
+          <thead><tr><th scope="col">Conductor</th><th scope="col">Vehículo</th><th scope="col">Viajes</th><th scope="col">Ingreso mensual</th></tr></thead>
+          <tbody>{rows.map((row) => <tr key={`${row.plate}-${row.driver}`}><td><strong>{row.driver}</strong><small>{row.time}</small></td><td><strong>{row.plate}</strong><small>{row.model}</small></td><td><strong>{row.monthTrips}</strong></td><td><strong>{formatCurrency(row.monthRevenue)}</strong></td></tr>)}</tbody>
+        </table>
+      </div>
     </section>
   );
 }
