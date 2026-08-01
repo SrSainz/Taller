@@ -157,12 +157,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .empty-state span { font-size: 9px; }
 
 .fuel-reports-page { min-height: 100%; background: #f2f5f4; }
-.fuel-report-tabs { min-height: 48px; display: grid; grid-template-columns: minmax(0,1fr); border-bottom: 1px solid #dce5e1; background: #fff; box-shadow: 0 2px 7px rgba(40,67,59,.04); }
-.fuel-report-tabs button { position: relative; min-width: 0; border: 0; background: transparent; color: #8a9290; font-size: 8px; font-weight: 650; letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
-.fuel-report-tabs button::after { content: ""; position: absolute; right: 18%; bottom: 0; left: 18%; height: 2px; border-radius: 2px 2px 0 0; background: transparent; }
-.fuel-report-tabs button:hover { color: #0a8e97; background: #f6fbfa; }
-.fuel-report-tabs button.active { color: #07949e; }
-.fuel-report-tabs button.active::after { background: #0a9ba5; }
 .fuel-report-canvas { width: min(1240px, 100%); padding: 14px 22px 28px; margin: 0 auto; }
 .report-period { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 15px; margin-bottom: 12px; border: 1px solid #dfe7e4; border-radius: 8px; background: #fff; color: var(--text); font-size: 9px; font-weight: 650; box-shadow: 0 2px 5px rgba(35,64,55,.05); cursor: pointer; }
 .report-period svg { margin-left: auto; color: #079ba5; }
@@ -784,7 +778,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .notification-popover { position: fixed; top: 62px; right: 12px; left: 12px; width: auto; }
   .page-scroll { overflow: visible; }
   .module-page { padding: 16px; }
-  .fuel-report-tabs { position: sticky; z-index: 8; top: 70px; }
   .fuel-report-canvas { padding: 10px 12px 24px; }
   .report-quick-actions { display: flex; overflow-x: auto; padding-bottom: 3px; scroll-snap-type: x mandatory; }
   .report-quick-actions button { min-width: 132px; scroll-snap-align: start; }
@@ -833,9 +826,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .topbar-title small { display: none; }
   .topbar-title span { font-size: 16px; }
   .topbar--reports { height: 64px; }
-  .fuel-report-tabs { top: 64px; min-height: 43px; }
-  .fuel-report-tabs button { padding: 0 3px; font-size: 6.5px; letter-spacing: 0; }
-  .fuel-report-tabs button::after { right: 10%; left: 10%; }
   .fuel-report-canvas { padding: 9px 9px 22px; }
   .report-period { min-height: 39px; font-size: 7px; }
   .report-quick-actions button { min-width: 118px; min-height: 44px; padding-inline: 8px; font-size: 8px; }

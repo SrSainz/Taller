@@ -439,6 +439,7 @@ export function App() {
   const [settings, setSettings] = useState({ company: "SOBRE RUEDAS", email: "flota@sobreruedas.es", serviceWarning: "5000", lowConfidence: "94" });
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(isStandaloneApp);
+  const [homeReportTab, setHomeReportTab] = useState("General");
   const toastTimer = useRef();
 
   useEffect(() => {
@@ -550,6 +551,11 @@ export function App() {
     if (window.location.hash !== `#/${item.slug}`) window.location.hash = `/${item.slug}`;
   };
 
+  const openGeneral = () => {
+    setHomeReportTab("General");
+    navigate(navItems[0]);
+  };
+
   const navigateFleetSubItem = (item) => {
     if (item.label === "Gasolina") {
       setInspectorTab("Gasolina");
@@ -593,7 +599,7 @@ export function App() {
       <main className="workspace">
         <header className={["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}>
           <div className="topbar-title">
-            <button className="workspace-home-button" onClick={() => navigate(navItems[0])} aria-label="Volver a SOBRE RUEDAS" title="SOBRE RUEDAS"><IconWheel size={23} stroke={1.8} /></button>
+            <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir el resumen general" title="Resumen general"><IconWheel size={23} stroke={1.8} /></button>
             <div><span>{activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav}</span><small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small></div>
           </div>
           <div className="topbar-actions">
@@ -634,7 +640,7 @@ export function App() {
               setModal={setModal}
             />
           )}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
@@ -728,13 +734,14 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
   );
 }
 
-function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General" }) {
-  const [reportTab, setReportTab] = useState(initialTab);
+function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange }) {
+  const [internalReportTab, setInternalReportTab] = useState(initialTab);
+  const reportTab = controlledReportTab ?? internalReportTab;
+  const setReportTab = onReportTabChange ?? setInternalReportTab;
   const [chartMetric, setChartMetric] = useState("summary");
   const [reportMonth, setReportMonth] = useState(6);
   const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
-  const tabs = ["General"];
   useEffect(() => {
     if (!periodMenu) return undefined;
     const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
@@ -825,9 +832,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
 
   return (
     <section className="fuel-reports-page">
-      <nav className="fuel-report-tabs" aria-label="Secciones de informes" role="tablist">
-        {tabs.map((tab) => <button key={tab} role="tab" aria-selected={reportTab === tab} className={reportTab === tab ? "active" : ""} onClick={() => setReportTab(tab)}>{tab}</button>)}
-      </nav>
       <div className="fuel-report-canvas">
         <button className="report-period" onClick={() => setReportTab("General")}><span>{selectedPeriodLabel} · {periodEntries} entradas operativas</span><IconCalendar size={17} /></button>
 
