@@ -209,11 +209,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-chart-card__top { justify-content: space-between; min-height: 46px; }
 .report-chart-card__top > div:first-child { min-width: 0; display: flex; align-items: center; gap: 9px; }
 .report-chart-card__top > div:first-child > span:last-child { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.report-chart-card__top small { overflow: hidden; color: #7d8984; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.report-chart-card__top small { overflow: hidden; color: #65716c; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .report-chart-filters { display: flex; align-items: center; gap: 7px; }
 .report-summary-button { align-self: flex-end; min-height: 29px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #d6e1dd; border-radius: 7px; background: #fff; color: #586660; font-size: 8px; font-weight: 650; cursor: pointer; }
 .report-summary-button:hover, .report-summary-button--active { border-color: #75aa98; background: #edf7f3; color: var(--green-900); }
-.report-period-dropdown { position: relative; display: flex; flex-direction: column; gap: 3px; color: #7a8581; font-size: 6.5px; font-weight: 650; text-transform: uppercase; }
+.report-period-dropdown { position: relative; display: flex; flex-direction: column; gap: 3px; color: #586660; font-size: 7px; font-weight: 650; text-transform: uppercase; }
 .report-period-trigger { min-width: 92px; min-height: 29px; display: flex; align-items: center; justify-content: space-between; gap: 7px; padding: 0 7px 0 9px; border: 1px solid #d6e1dd; border-radius: 7px; background: #fff; color: #263b34; font-size: 8px; font-weight: 650; cursor: pointer; }
 .report-period-trigger:hover, .report-period-trigger[aria-expanded="true"] { border-color: #75aa98; background: #f5faf8; }
 .report-period-trigger--year { min-width: 70px; }
@@ -223,6 +223,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-period-menu button { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 7px; border: 0; border-radius: 6px; background: transparent; color: #586660; font-size: 7.5px; text-align: left; cursor: pointer; }
 .report-period-menu button:hover, .report-period-menu button.selected { background: #eaf5f1; color: var(--green-900); font-weight: 700; }
 .report-chart { width: 100%; height: 260px; }
+.report-chart--summary { display: grid; grid-template-rows: minmax(0,1fr) 24px; }
+.report-chart-legend { display: flex; align-items: center; justify-content: center; gap: 13px; color: #586660; font-size: 8px; }
+.report-chart-legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.report-chart-legend__swatch { width: 8px; height: 8px; display: block; border-radius: 1px; }
+.report-chart-legend__swatch--billing { background: #1976c9; }
+.report-chart-legend__swatch--maintenance { background: #607d89; }
+.report-chart-legend__swatch--fuel { background: #df4538; }
+.report-chart-legend__swatch--net { background: #28923c; }
 .report-chart-empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 6px; color: #8b9692; text-align: center; }
 .report-chart-empty svg { color: #9caaa5; }
 .report-chart-empty strong { color: #53615c; font-size: 10px; }

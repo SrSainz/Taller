@@ -795,14 +795,22 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
     fuel: fuelChartData.reduce((sum, item) => sum + item.value, 0),
     net: netChartData.reduce((sum, item) => sum + item.value, 0),
   };
-  const summaryChartData = [
-    { label: "Facturación", detail: "Ingresos de conductores", value: periodTotals.billing, color: "#1976c9" },
-    { label: "Mantenimiento", detail: "Actuaciones de taller", value: periodTotals.maintenance, color: "#607d89" },
-    { label: "Combustible", detail: "Repostajes de la flota", value: periodTotals.fuel, color: "#df4538" },
-    { label: "Neto", detail: "Beneficio de la flota", value: periodTotals.net, color: "#28923c" },
-  ];
+  const summaryChartData = vehicles.map((vehicle, index) => ({
+    label: vehicle.plate,
+    detail: vehicle.model,
+    billing: billingChartData.filter((item) => item.detail === vehicle.plate).reduce((sum, item) => sum + item.value, 0),
+    maintenance: maintenanceChartData[index].value,
+    fuel: fuelChartData[index].value,
+    net: netChartData[index].value,
+  }));
+  const summaryMetricLabels = {
+    billing: "Facturación",
+    maintenance: "Mantenimiento",
+    fuel: "Combustible",
+    net: "Neto",
+  };
   const chartOptions = {
-    summary: { title: "Resumen general", description: "Las cuatro áreas de la flota reunidas en una sola gráfica.", color: "#079ea7", data: summaryChartData },
+    summary: { title: "Resumen general por coche", description: "Una barra por coche con Facturación, Mantenimiento, Combustible y Neto.", color: "#079ea7", data: summaryChartData },
     billing: { title: "Facturación por conductor", description: "Ingresos mensuales de los seis conductores profesionales.", color: "#1976c9", data: billingChartData },
     maintenance: { title: "Mantenimiento por coche", description: "Importe de las actuaciones registradas en cada vehículo.", color: "#607d89", data: maintenanceChartData },
     fuel: { title: "Combustible por coche", description: "Gasto mensual de combustible de los cinco vehículos.", color: "#df4538", data: fuelChartData },
@@ -811,7 +819,9 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
   const activeChart = chartOptions[chartMetric];
   const selectedPeriodLabel = `${reportMonths[reportMonth]} ${reportYear}`;
   const periodEntries = Math.round((totals.refuels + 8) * periodFactor);
-  const hasChartData = activeChart.data.some((item) => item.value !== 0);
+  const hasChartData = chartMetric === "summary"
+    ? activeChart.data.some((item) => [item.billing, item.maintenance, item.fuel, item.net].some((value) => value !== 0))
+    : activeChart.data.some((item) => item.value !== 0);
 
   return (
     <section className="fuel-reports-page">
@@ -840,7 +850,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
               <section className="report-chart-card">
                 <header className="report-chart-card__top">
                   <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong>{activeChart.title}</strong><small>{activeChart.description}</small></span></div>
-                  <div className="report-chart-filters" aria-label="Periodo del gráfico">
+                  <div className="report-chart-filters" role="group" aria-label="Periodo del gráfico">
                     <button type="button" className={chartMetric === "summary" ? "report-summary-button report-summary-button--active" : "report-summary-button"} onClick={() => setChartMetric("summary")} aria-pressed={chartMetric === "summary"}><IconChartBar size={14} />Resumen</button>
                     <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
                       <span>Mes</span>
@@ -854,19 +864,32 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
                     </div>
                   </div>
                 </header>
-                <div className="report-chart">
-                  {hasChartData ? <ResponsiveContainer width="100%" height="100%">
+                <div className={chartMetric === "summary" ? "report-chart report-chart--summary" : "report-chart"}>
+                  {hasChartData ? <>
+                    <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={activeChart.data} margin={{ top: 12, right: 6, left: 2, bottom: 4 }}>
                       <CartesianGrid stroke="#e9efed" vertical={false} />
                       <XAxis dataKey="label" interval={0} tick={{ fontSize: 8, fill: "#75817d" }} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
-                      <Tooltip formatter={(value) => [formatCurrency(Number(value)), activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
-                      {chartMetric === "net" && <ReferenceLine y={0} stroke="#aab5b1" />}
-                      <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={52} isAnimationActive={false}>
-                        {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={entry.color ?? (chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color)} />)}
-                      </Bar>
+                      <Tooltip formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
+                      {(chartMetric === "net" || chartMetric === "summary") && <ReferenceLine y={0} stroke="#aab5b1" />}
+                      {chartMetric === "summary" ? <>
+                        <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill="#1976c9" maxBarSize={58} minPointSize={2} isAnimationActive={false} />
+                        <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill="#607d89" maxBarSize={58} minPointSize={2} isAnimationActive={false} />
+                        <Bar dataKey="fuel" name="fuel" stackId="vehicle-summary" fill="#df4538" maxBarSize={58} minPointSize={2} isAnimationActive={false} />
+                        <Bar dataKey="net" name="net" stackId="vehicle-summary" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={58} minPointSize={2} isAnimationActive={false} />
+                      </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={52} isAnimationActive={false}>
+                        {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
+                      </Bar>}
                     </BarChart>
-                  </ResponsiveContainer> : <div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div>}
+                    </ResponsiveContainer>
+                    {chartMetric === "summary" && <div className="report-chart-legend" aria-label="Leyenda del resumen general">
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--billing" />Facturación</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--maintenance" />Mantenimiento</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--fuel" />Combustible</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--net" />Neto</span>
+                    </div>}
+                  </> : <div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div>}
                 </div>
               </section>
             </div>
