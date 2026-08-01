@@ -996,7 +996,7 @@ function FuelIncomeReport({ vehicles, total }) {
           <caption className="sr-only">Ingresos mensuales, viajes y vehículo asignado por conductor</caption>
           <colgroup><col className="report-income-table__driver" /><col className="report-income-table__vehicle" /><col className="report-income-table__trips" /><col className="report-income-table__revenue" /></colgroup>
           <thead><tr><th scope="col">Conductor</th><th scope="col">Vehículo</th><th scope="col">Viajes</th><th scope="col">Ingreso mensual</th></tr></thead>
-          <tbody>{rows.map((row) => <tr key={`${row.plate}-${row.driver}`}><td><strong>{row.driver}</strong><small>{row.time}</small></td><td><strong>{row.plate}</strong><small>{row.model}</small></td><td><strong>{row.monthTrips}</strong></td><td><strong>{formatCurrency(row.monthRevenue)}</strong></td></tr>)}</tbody>
+          <tbody>{rows.map((row) => <tr key={`${row.plate}-${row.driver}`}><td><strong>{row.driver}</strong></td><td><strong>{row.plate}</strong><small>{row.model}</small></td><td><strong>{row.monthTrips}</strong></td><td><strong>{formatCurrency(row.monthRevenue)}</strong></td></tr>)}</tbody>
         </table>
       </div>
     </section>
