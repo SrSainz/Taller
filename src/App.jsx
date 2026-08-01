@@ -1136,9 +1136,15 @@ function LegacyMaintenanceView({ initialPlate, setModal, vehicles }) {
 function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
+  const [openConceptKey, setOpenConceptKey] = useState("");
   const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
   const selectedBrand = getVehicleBrand(workshopVehicle);
   const sortedMaintenance = [...workshopVehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a));
+  const maintenanceRecords = sortedMaintenance.map((item) => {
+    const invoice = getMaintenanceInvoice(item, workshopVehicle, invoices);
+    const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
+    return { item, invoice, details };
+  });
   const total = sortedMaintenance.reduce((sum, item) => sum + item.amount, 0);
 
   useEffect(() => {
@@ -1148,7 +1154,15 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
   useEffect(() => {
     const first = [...workshopVehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a))[0];
     setOpenMaintenanceKey(first ? `${first.date}-${first.concept}-${first.km}` : "");
+    setOpenConceptKey("");
   }, [workshopVehicle.plate]);
+
+  useEffect(() => {
+    if (!openConceptKey) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setOpenConceptKey(""); };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [openConceptKey]);
 
   const selectWorkshopVehicle = (plate) => {
     setWorkshopPlate(plate);
@@ -1186,11 +1200,9 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
           <div className="maintenance-history-total"><small>{sortedMaintenance.length} intervenciones</small><strong>{formatCurrency(total)}</strong></div>
         </header>
         <div className="maintenance-timeline" aria-label={`Historial de mantenimiento de ${workshopVehicle.plate}`}>
-          {sortedMaintenance.map((item) => {
+          {maintenanceRecords.map(({ item, invoice, details }) => {
             const key = `${item.date}-${item.concept}-${item.km}`;
             const isOpen = openMaintenanceKey === key;
-            const invoice = getMaintenanceInvoice(item, workshopVehicle, invoices);
-            const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
             const detailId = `detail-${workshopVehicle.plate.replace(/\s/g, "")}-${item.km}`;
             return (
               <article className={`maintenance-event ${isOpen ? "is-open" : ""}`} key={key}>
@@ -1203,7 +1215,32 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
                 </div>
                 {isOpen && <div className="maintenance-event-detail" id={detailId}>
                   <header><strong>Trabajos realizados</strong><small>{invoice?.provider ?? "Registro de mantenimiento"}</small></header>
-                  <div>{details.map((detail, index) => <span key={`${detail.concept}-${index}`}><span><IconCheck size={15} />{detail.concept}</span><strong>{formatCurrency(Number(detail.amount))}</strong></span>)}</div>
+                  <div>{details.map((detail, index) => {
+                    const conceptKey = `${key}-${index}`;
+                    const conceptMatchId = `coincidencias-${workshopVehicle.plate.replace(/\s/g, "")}-${item.km}-${index}`;
+                    const isConceptOpen = openConceptKey === conceptKey;
+                    const normalizedConcept = normalizeText(detail.concept).trim();
+                    const matches = maintenanceRecords.flatMap((record) => record.details
+                      .filter((candidate) => normalizeText(candidate.concept).trim() === normalizedConcept)
+                      .map((candidate) => ({
+                        date: formatMaintenanceDate(record.item),
+                        km: record.item.km,
+                        concept: candidate.concept,
+                        amount: Number(candidate.amount),
+                      })));
+                    return <div className={`maintenance-work-item ${isConceptOpen ? "is-open" : ""}`} key={`${detail.concept}-${index}`}>
+                      <button type="button" className="maintenance-work-item__trigger" onClick={() => setOpenConceptKey(isConceptOpen ? "" : conceptKey)} aria-expanded={isConceptOpen} aria-controls={conceptMatchId} aria-label={`Ver todas las coincidencias de ${detail.concept}`}>
+                        <span><IconCheck size={15} />{detail.concept}</span><span><strong>{formatCurrency(Number(detail.amount))}</strong><IconChevronDown size={16} /></span>
+                      </button>
+                      {isConceptOpen && <div className="maintenance-concept-matches" id={conceptMatchId}>
+                        <header><strong>Coincidencias de «{detail.concept}»</strong><small>{matches.length} {matches.length === 1 ? "registro" : "registros"}</small></header>
+                        <div role="table" aria-label={`Coincidencias de ${detail.concept}`}>
+                          <div role="row" className="maintenance-concept-matches__head"><span role="columnheader">Fecha</span><span role="columnheader">Kilometraje</span><span role="columnheader">Concepto</span><span role="columnheader">Importe</span></div>
+                          {matches.map((match, matchIndex) => <div role="row" key={`${match.date}-${match.km}-${matchIndex}`}><span role="cell"><strong>{match.date}</strong></span><span role="cell">{formatKm(match.km)}</span><span role="cell">{match.concept}</span><span role="cell"><strong>{formatCurrency(match.amount)}</strong></span></div>)}
+                        </div>
+                      </div>}
+                    </div>;
+                  })}</div>
                 </div>}
               </article>
             );
