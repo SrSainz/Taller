@@ -734,7 +734,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [reportMonth, setReportMonth] = useState(6);
   const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
-  const tabs = ["General", "Repostaje", "Gasto", "Ingreso", "Conductores"];
+  const tabs = ["General", "Gasto", "Ingreso", "Conductores"];
   useEffect(() => {
     if (!periodMenu) return undefined;
     const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
@@ -838,13 +838,12 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
               <button onClick={() => onNavigate(navItems[2])}><IconGauge size={18} /><span>Lecturas</span><i>2</i></button>
               <button onClick={() => onNavigate(navItems[3])}><IconFileInvoice size={18} /><span>Facturas</span><i>3</i></button>
               <button onClick={() => onNavigate(fleetSubItems[0])}><IconTools size={18} /><span>Mantenimiento</span></button>
-              <button onClick={() => setReportTab("Repostaje")}><IconGasStation size={18} /><span>Combustible</span></button>
             </nav>
             <div className="report-general-grid">
               <div className="report-stat-grid">
                 <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(periodTotals.billing)} daily={formatCurrency(periodTotals.billing / periodDays)} perKm={formatCurrency(periodTotals.billing / totalDistance)} tone="blue" active={chartMetric === "billing"} onClick={() => setChartMetric("billing")} />
                 <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="slate" active={chartMetric === "maintenance"} onClick={() => setChartMetric("maintenance")} />
-                <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(periodTotals.fuel)} daily={formatCurrency(periodTotals.fuel / periodDays)} perKm={formatCurrency(periodTotals.fuel / totalDistance)} tone="red" active={chartMetric === "fuel"} onClick={() => setChartMetric("fuel")} />
+                <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(periodTotals.fuel)} daily={formatCurrency(periodTotals.fuel / periodDays)} perKm={formatCurrency(periodTotals.fuel / totalDistance)} tone="red" active={false} actionLabel="Abrir detalle de Combustible" onClick={() => setReportTab("Repostaje")} />
                 <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
               </div>
               <section className="report-chart-card">
@@ -912,9 +911,9 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   );
 }
 
-function ReportStatCard({ icon: Icon, label, value, daily, perKm, tone, active, onClick }) {
+function ReportStatCard({ icon: Icon, label, value, daily, perKm, tone, active, actionLabel, onClick }) {
   return (
-    <button type="button" className={`report-stat-card report-stat-card--${tone}${active ? " report-stat-card--active" : ""}`} onClick={onClick} aria-label={`Mostrar gráfico de ${label}`} aria-pressed={active}>
+    <button type="button" className={`report-stat-card report-stat-card--${tone}${active ? " report-stat-card--active" : ""}`} onClick={onClick} aria-label={actionLabel ?? `Mostrar gráfico de ${label}`} aria-pressed={active}>
       <span className="report-stat-card__header"><span><Icon size={18} /></span><strong>{label}</strong></span>
       <small>Total</small>
       <strong className="report-stat-value">{value}</strong>

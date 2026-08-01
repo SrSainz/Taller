@@ -157,7 +157,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .empty-state span { font-size: 9px; }
 
 .fuel-reports-page { min-height: 100%; background: #f2f5f4; }
-.fuel-report-tabs { min-height: 48px; display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); border-bottom: 1px solid #dce5e1; background: #fff; box-shadow: 0 2px 7px rgba(40,67,59,.04); }
+.fuel-report-tabs { min-height: 48px; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); border-bottom: 1px solid #dce5e1; background: #fff; box-shadow: 0 2px 7px rgba(40,67,59,.04); }
 .fuel-report-tabs button { position: relative; min-width: 0; border: 0; background: transparent; color: #8a9290; font-size: 8px; font-weight: 650; letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
 .fuel-report-tabs button::after { content: ""; position: absolute; right: 18%; bottom: 0; left: 18%; height: 2px; border-radius: 2px 2px 0 0; background: transparent; }
 .fuel-report-tabs button:hover { color: #0a8e97; background: #f6fbfa; }
@@ -166,7 +166,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .fuel-report-canvas { width: min(1240px, 100%); padding: 14px 22px 28px; margin: 0 auto; }
 .report-period { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 15px; margin-bottom: 12px; border: 1px solid #dfe7e4; border-radius: 8px; background: #fff; color: var(--text); font-size: 9px; font-weight: 650; box-shadow: 0 2px 5px rgba(35,64,55,.05); cursor: pointer; }
 .report-period svg { margin-left: auto; color: #079ba5; }
-.report-quick-actions { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; margin-bottom: 12px; }
+.report-quick-actions { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; margin-bottom: 12px; }
 .report-quick-actions button { position: relative; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 11px; border: 1px solid #d7e4df; border-radius: 10px; background: #fff; color: #315148; font-size: 9px; font-weight: 650; cursor: pointer; box-shadow: 0 2px 7px rgba(35,64,55,.05); }
 .report-quick-actions button:hover { border-color: #83b4a4; background: #eef8f4; color: var(--green-900); transform: translateY(-1px); }
 .report-quick-actions button svg { color: #0a8d78; }
