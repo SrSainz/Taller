@@ -11,7 +11,6 @@ const colors = {
   background: [7, 82, 68, 255],
   surface: [10, 102, 85, 255],
   white: [255, 255, 255, 255],
-  soft: [217, 241, 232, 255],
   accent: [143, 210, 187, 255],
 };
 
@@ -44,28 +43,51 @@ const roundedRectContains = (x, y, left, top, width, height, radius) => {
   return Math.hypot(Math.max(distanceX, 0), Math.max(distanceY, 0)) + Math.min(Math.max(distanceX, distanceY), 0) <= radius;
 };
 
-const capsuleContains = (x, y, startX, endX, centerY, radius) => {
-  const closestX = Math.max(startX, Math.min(endX, x));
-  return Math.hypot(x - closestX, y - centerY) <= radius;
+const segmentContains = (x, y, startX, startY, endX, endY, radius) => {
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+  const progress = Math.max(0, Math.min(1, ((x - startX) * deltaX + (y - startY) * deltaY) / lengthSquared));
+  const closestX = startX + progress * deltaX;
+  const closestY = startY + progress * deltaY;
+  return Math.hypot(x - closestX, y - closestY) <= radius;
+};
+
+const wheelColorAt = (x, y, outerRadius) => {
+  const distance = Math.hypot(x - 256, y - 256);
+  const innerRadius = outerRadius * 0.66;
+  if (distance <= outerRadius && distance >= innerRadius) return colors.white;
+  if (distance < innerRadius) {
+    const spokeStart = outerRadius * 0.25;
+    const spokeEnd = outerRadius * 0.56;
+    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+      if (segmentContains(
+        x,
+        y,
+        256 + Math.cos(angle) * spokeStart,
+        256 + Math.sin(angle) * spokeStart,
+        256 + Math.cos(angle) * spokeEnd,
+        256 + Math.sin(angle) * spokeEnd,
+        outerRadius * 0.055,
+      )) return colors.accent;
+    }
+    if (distance <= outerRadius * 0.09) return colors.surface;
+    if (distance <= outerRadius * 0.24) return colors.white;
+  }
+  return null;
 };
 
 const colorAt = (x, y, maskable) => {
   if (maskable) {
     let color = colors.background;
     if (Math.hypot(x - 256, y - 256) <= 182) color = colors.surface;
-    if ((x >= 154 && x <= 358 && y >= 158 && y <= 216) || (x >= 224 && x <= 288 && y >= 216 && y <= 368)) color = colors.white;
-    if (roundedRectContains(x, y, 224, 334, 64, 34, 10)) color = colors.soft;
-    if (capsuleContains(x, y, 173, 339, 406, 8)) color = colors.accent;
-    return color;
+    return wheelColorAt(x, y, 126) ?? color;
   }
 
   if (!roundedRectContains(x, y, 0, 0, 512, 512, 112)) return colors.transparent;
   let color = colors.background;
   if (roundedRectContains(x, y, 70, 70, 372, 372, 88)) color = colors.surface;
-  if ((x >= 132 && x <= 380 && y >= 142 && y <= 206) || (x >= 219 && x <= 293 && y >= 206 && y <= 394)) color = colors.white;
-  if (roundedRectContains(x, y, 219, 352, 74, 42, 12)) color = colors.soft;
-  if (capsuleContains(x, y, 151, 361, 425, 9)) color = colors.accent;
-  return color;
+  return wheelColorAt(x, y, 142) ?? color;
 };
 
 const createIcon = (size, maskable) => {

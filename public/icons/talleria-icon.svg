@@ -1,7 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Talleria">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SOBRE RUEDAS">
   <rect width="512" height="512" rx="112" fill="#075244"/>
   <rect x="70" y="70" width="372" height="372" rx="88" fill="#0a6655"/>
-  <path d="M132 142h248v64h-87v188h-74V206h-87z" fill="#fff"/>
-  <rect x="219" y="352" width="74" height="42" rx="12" fill="#d9f1e8"/>
-  <path d="M151 425h210" stroke="#8fd2bb" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="142" fill="none" stroke="#fff" stroke-width="52"/>
+  <circle cx="256" cy="256" r="84" fill="none" stroke="#8fd2bb" stroke-width="16"/>
+  <path d="M256 172v56M256 284v56M172 256h56M284 256h56M197 197l40 40M275 275l40 40M315 197l-40 40M237 275l-40 40" stroke="#8fd2bb" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="34" fill="#fff"/>
+  <circle cx="256" cy="256" r="13" fill="#0a6655"/>
 </svg>

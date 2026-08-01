@@ -36,6 +36,7 @@ import {
   IconTrash,
   IconUpload,
   IconUsers,
+  IconWheel,
   IconX,
 } from "@tabler/icons-react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -435,7 +436,7 @@ export function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
-  const [settings, setSettings] = useState({ company: "Talleria Flota", email: "flota@talleria.es", serviceWarning: "5000", lowConfidence: "94" });
+  const [settings, setSettings] = useState({ company: "SOBRE RUEDAS", email: "flota@sobreruedas.es", serviceWarning: "5000", lowConfidence: "94" });
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(isStandaloneApp);
   const toastTimer = useRef();
@@ -530,7 +531,7 @@ export function App() {
 
   const installApplication = async () => {
     if (isStandalone) {
-      notify("Talleria ya está abierta como aplicación");
+      notify("SOBRE RUEDAS ya está abierta como aplicación");
       return;
     }
     if (!installPrompt) {
@@ -592,11 +593,11 @@ export function App() {
       <main className="workspace">
         <header className={["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}>
           <div className="topbar-title">
-            <button className="workspace-home-button" onClick={() => navigate(navItems[0])} aria-label="Volver a Vista operativa" title="Vista operativa">V</button>
-            <div><span>{activeNav === "Informes" ? "Vista operativa" : activeNav}</span><small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small></div>
+            <button className="workspace-home-button" onClick={() => navigate(navItems[0])} aria-label="Volver a SOBRE RUEDAS" title="SOBRE RUEDAS"><IconWheel size={23} stroke={1.8} /></button>
+            <div><span>{activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav}</span><small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small></div>
           </div>
           <div className="topbar-actions">
-            {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar Talleria como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
+            {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             <span className="date"><IconCalendar size={18} />28 jul 2026</span>
             <div className="topbar-shortcuts" aria-label="Accesos de gestión">
               {topbarItems.map((item) => {
@@ -808,7 +809,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, initialTab 
 
         {reportTab === "General" && (
           <>
-            <nav className="report-quick-actions" aria-label="Accesos de Vista operativa">
+            <nav className="report-quick-actions" aria-label="Accesos de SOBRE RUEDAS">
               <button onClick={() => onNavigate(navItems[1])}><IconCar size={18} /><span>Vehículos</span></button>
               <button onClick={() => onNavigate(navItems[2])}><IconGauge size={18} /><span>Lecturas</span><i>2</i></button>
               <button onClick={() => onNavigate(navItems[3])}><IconFileInvoice size={18} /><span>Facturas</span><i>3</i></button>
@@ -1188,7 +1189,7 @@ function SettingsView({ settings, setSettings, notify }) {
 function HelpView({ openFaq, setOpenFaq, setModal }) {
   const faqs = [
     ["¿Cómo llega una lectura desde WhatsApp?", "El conductor envía la imagen al número de empresa. La automatización identifica matrícula y conductor, extrae kilómetros y marca los casos dudosos para revisión."],
-    ["¿Cómo se asocia una factura a un vehículo?", "Talleria lee el adjunto del correo, detecta matrícula, taller, concepto e importe y propone una asociación antes de incorporarla al historial."],
+    ["¿Cómo se asocia una factura a un vehículo?", "SOBRE RUEDAS lee el adjunto del correo, detecta matrícula, taller, concepto e importe y propone una asociación antes de incorporarla al historial."],
     ["¿Puedo corregir un dato extraído?", "Sí. Desde Lecturas o Facturas puedes abrir la revisión, corregir cualquier campo y validar el registro conservando la trazabilidad."],
   ];
   return (
@@ -1196,7 +1197,7 @@ function HelpView({ openFaq, setOpenFaq, setModal }) {
       <PageIntro eyebrow="Centro de ayuda" title="¿En qué podemos ayudarte?" description="Guías rápidas para gestionar lecturas, facturas y revisiones." action={<button className="primary-button" onClick={() => setModal({ type: "support" })}><IconMessageCircle size={18} />Contactar soporte</button>} />
       <div className="help-grid">
         <section className="content-card faq-card"><header className="card-header"><div><h2>Preguntas frecuentes</h2><p>Respuestas sobre los flujos principales.</p></div></header>{faqs.map(([question, answer], index) => <article key={question}><button onClick={() => setOpenFaq(openFaq === index ? -1 : index)} aria-expanded={openFaq === index}><span>{question}</span>{openFaq === index ? <IconChevronUp size={19} /> : <IconChevronDown size={19} />}</button>{openFaq === index && <p>{answer}</p>}</article>)}</section>
-        <aside className="content-card support-card"><span><IconHelpCircle size={25} /></span><h2>Soporte Talleria</h2><p>Si una lectura, factura o mantenimiento no cuadra, revisamos el caso contigo.</p><div><IconClock size={18} /><span><strong>Lunes a viernes</strong><small>09:00–18:00</small></span></div><div><IconMail size={18} /><span><strong>soporte@talleria.es</strong><small>Respuesta en menos de 4 horas</small></span></div><button className="secondary-button" onClick={() => setModal({ type: "support" })}>Abrir consulta</button></aside>
+        <aside className="content-card support-card"><span><IconHelpCircle size={25} /></span><h2>Soporte SOBRE RUEDAS</h2><p>Si una lectura, factura o mantenimiento no cuadra, revisamos el caso contigo.</p><div><IconClock size={18} /><span><strong>Lunes a viernes</strong><small>09:00–18:00</small></span></div><div><IconMail size={18} /><span><strong>soporte@sobreruedas.es</strong><small>Respuesta en menos de 4 horas</small></span></div><button className="secondary-button" onClick={() => setModal({ type: "support" })}>Abrir consulta</button></aside>
       </div>
     </section>
   );
@@ -1549,7 +1550,7 @@ function AppModal({ modal, onClose, notify }) {
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
         {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div><dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div><div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl></>}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
-        {modal.type === "invoice-upload" && <div className="upload-zone"><IconFileInvoice size={30} /><strong>Subir factura del taller</strong><p>Formatos PDF, JPG o PNG. Talleria propondrá vehículo, concepto e importe.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar archivo</button></div>}
+        {modal.type === "invoice-upload" && <div className="upload-zone"><IconFileInvoice size={30} /><strong>Subir factura del taller</strong><p>Formatos PDF, JPG o PNG. SOBRE RUEDAS propondrá vehículo, concepto e importe.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar archivo</button></div>}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
         <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>
       </section>
