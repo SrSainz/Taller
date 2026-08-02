@@ -839,7 +839,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
           <>
             <nav className="report-quick-actions" aria-label="Accesos de SOBRE RUEDAS">
               <button onClick={() => onNavigate(navItems[1])}><IconCar size={18} /><span>Vehículos</span></button>
-              <button onClick={() => onNavigate(navItems[2])}><IconGauge size={18} /><span>Lecturas</span><i>2</i></button>
               <button onClick={() => onNavigate(navItems[3])}><IconFileInvoice size={18} /><span>Facturas</span><i>3</i></button>
             </nav>
             <div className="report-general-grid">
