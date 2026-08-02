@@ -54,8 +54,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .topbar-title > div { display: flex; flex-direction: column; gap: 2px; }
 .topbar-title span { font-size: 18px; font-weight: 650; letter-spacing: -.25px; }
 .topbar-title small { color: var(--muted); font-size: 9px; }
-.workspace-home-button { width: 36px; height: 36px; display: grid; flex: 0 0 36px; place-items: center; padding: 0; border: 1px solid #a9c7be; border-radius: 10px; background: var(--green-50); color: var(--green-900); font-size: 15px; font-weight: 750; cursor: pointer; }
-.workspace-home-button:hover { border-color: #6fa492; background: #e1f2ec; }
+.workspace-home-button { width: 62px; height: 40px; display: grid; flex: 0 0 62px; place-items: center; padding: 0; overflow: hidden; border: 1px solid rgba(22,31,28,.28); border-radius: 11px; background: #d20000; cursor: pointer; box-shadow: 0 3px 10px rgba(18,28,24,.16); }
+.workspace-home-button picture, .workspace-home-button img { width: 100%; height: 100%; display: block; }
+.workspace-home-button img { object-fit: contain; }
+.workspace-home-button:hover { border-color: rgba(255,40,0,.8); box-shadow: 0 4px 13px rgba(255,40,0,.22); transform: translateY(-1px); }
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
 .topbar-shortcuts { display: flex; align-items: center; gap: 6px; }
 .topbar-route-button { min-height: 35px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: #43564f; font-size: 8px; font-weight: 650; cursor: pointer; }
@@ -476,6 +478,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .settings-card > header { display: flex; gap: 10px; margin-bottom: 18px; color: var(--green-800); }
 .settings-card h2 { margin: 0 0 4px; color: var(--text); font-size: 12px; }
 .settings-card p { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.4; }
+.settings-brand-preview { min-height: 72px; display: flex; align-items: center; gap: 12px; padding: 9px; border: 1px solid var(--line); border-radius: 10px; background: #f7faf9; }
+.settings-brand-preview img { width: 92px; height: 45px; display: block; flex: 0 0 92px; object-fit: contain; border-radius: 8px; background: #d20000; box-shadow: 0 3px 9px rgba(25,35,31,.16); }
+.settings-brand-preview span { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.settings-brand-preview strong { color: var(--text); font-size: 9px; }
+.settings-brand-preview small { color: var(--muted); font-size: 7px; line-height: 1.35; }
 .settings-card > label, .support-form label { display: flex; flex-direction: column; gap: 6px; margin-top: 13px; color: #4d5c56; font-size: 8px; font-weight: 600; }
 .settings-card input, .support-form input, .support-form textarea, .form-grid input { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--line-dark); border-radius: 7px; background: #fff; color: var(--text); font-size: 9px; outline: 0; }
 .support-form textarea { resize: vertical; }
@@ -839,6 +846,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .profile { display: none; }
   .topbar-title small { display: none; }
   .topbar-title span { font-size: 16px; }
+  .topbar-title { gap: 9px; }
+  .workspace-home-button { width: 40px; height: 40px; flex-basis: 40px; border-radius: 11px; background: #ff2800; }
   .topbar--reports { height: 64px; }
   .fuel-report-canvas { padding: 9px 9px 22px; }
   .report-quick-actions button { min-width: 118px; min-height: 44px; padding-inline: 8px; font-size: 8px; }

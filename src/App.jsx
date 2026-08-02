@@ -36,7 +36,6 @@ import {
   IconTrash,
   IconUpload,
   IconUsers,
-  IconWheel,
   IconX,
 } from "@tabler/icons-react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -601,7 +600,7 @@ export function App() {
       <main className="workspace">
         <header className={["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}>
           <div className="topbar-title">
-            <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir el resumen general" title="Resumen general"><IconWheel size={23} stroke={1.8} /></button>
+            <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
             <div><span>{activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav}</span><small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small></div>
           </div>
           <div className="topbar-actions">
@@ -1282,7 +1281,7 @@ function SettingsView({ settings, setSettings, notify }) {
     <section className="module-page settings-page">
       <PageIntro eyebrow="Configuración" title="Ajustes" description="Define los datos generales, umbrales de aviso y criterios de revisión automática." />
       <div className="settings-grid">
-        <section className="content-card settings-card"><header><IconBuildingStore size={20} /><div><h2>Organización</h2><p>Datos visibles en informes y comunicaciones.</p></div></header><label>Nombre de la flota<input value={settings.company} onChange={(event) => update("company", event.target.value)} /></label><label>Correo de gestión<input type="email" value={settings.email} onChange={(event) => update("email", event.target.value)} /></label></section>
+        <section className="content-card settings-card"><header><IconBuildingStore size={20} /><div><h2>Organización</h2><p>Datos visibles en informes y comunicaciones.</p></div></header><div className="settings-brand-preview"><img src="/brand/sobre-ruedas-logo.png" alt="Logotipo de SOBRE RUEDAS" /><span><strong>Logotipo de empresa</strong><small>Identidad visual activa en la aplicación</small></span></div><label>Nombre de la flota<input value={settings.company} onChange={(event) => update("company", event.target.value)} /></label><label>Correo de gestión<input type="email" value={settings.email} onChange={(event) => update("email", event.target.value)} /></label></section>
         <section className="content-card settings-card"><header><IconAlertTriangle size={20} /><div><h2>Alertas</h2><p>Cuándo debe intervenir el gestor.</p></div></header><label>Avisar antes de la revisión<div className="input-suffix"><input type="number" value={settings.serviceWarning} onChange={(event) => update("serviceWarning", event.target.value)} /><span>km</span></div></label><label>Revisar si la confianza baja de<div className="input-suffix"><input type="number" value={settings.lowConfidence} onChange={(event) => update("lowConfidence", event.target.value)} /><span>%</span></div></label></section>
         <section className="content-card settings-card"><header><IconShieldCheck size={20} /><div><h2>Seguridad</h2><p>Acceso y trazabilidad de cambios.</p></div></header><div className="settings-row"><span><strong>Registro de auditoría</strong><small>Conservar cambios durante 12 meses</small></span><StatusBadge status="Activo" /></div><div className="settings-row"><span><strong>Doble validación</strong><small>Para importes superiores a 1.000 €</small></span><StatusBadge status="Activo" /></div></section>
       </div>
