@@ -15,6 +15,7 @@ When implementing from a selected generated mock, treat that image as the source
 - Particular vehicles do not require per-shift reporting; either assigned driver can submit a shared odometer reading.
 - Vehicle detail defaults to a collapsible shift ledger so the manager can audit each daily turn without leaving the fleet screen.
 - The main ledger omits separate Vehicle and Status columns. The model remains visible below the plate, while Status is replaced by a numeric remaining-kilometres countdown to the next service.
+- The Vehículos ledger labels the accumulated vehicle odometer column “Km totales”, never “Km acumulados”.
 - Driver names are interactive selectors. Selecting either driver must update that row and the inspector with the driver's kilometres and fuel spend in euros for the day.
 - The main ledger has no Uso column. Facturación appears immediately after Conductores.
 - Driver selection must update daily billing, monthly accumulated billing, monthly accumulated trips, and the portion collected in cash today. Particular drivers display zero billing and zero trips unless they are later assigned commercial activity.

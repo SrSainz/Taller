@@ -699,7 +699,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
         <div className="table-scroll">
           <table className="fleet-table">
             <caption className="sr-only">Estado operativo de los cinco vehículos</caption>
-            <thead><tr><th>Matrícula</th><th>Conductores</th><th>Facturación</th><th>Km hoy</th><th>Repostaje</th><th>Km acumulados</th><th>Km para revisión</th><th>Taller</th></tr></thead>
+            <thead><tr><th>Matrícula</th><th>Conductores</th><th>Facturación</th><th>Km hoy</th><th>Repostaje</th><th>Km totales</th><th>Km para revisión</th><th>Taller</th></tr></thead>
             <tbody>
               {filtered.map((vehicle) => {
                 const driver = selectedDrivers[vehicle.plate] ?? vehicle.drivers[0];
