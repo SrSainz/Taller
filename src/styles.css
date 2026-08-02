@@ -220,7 +220,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-chart { width: 100%; height: 260px; }
 .report-chart--summary { display: grid; grid-template-rows: minmax(0,1fr) 24px; }
 .report-chart-legend { display: flex; align-items: center; justify-content: center; gap: 13px; color: #586660; font-size: 8px; }
-.report-chart-legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.report-chart-legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-weight: 700; }
 .report-chart-legend__swatch { width: 8px; height: 8px; display: block; border-radius: 1px; }
 .report-chart-legend__swatch--billing { background: #1976c9; }
 .report-chart-legend__swatch--maintenance { background: #607d89; }

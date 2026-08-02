@@ -870,7 +870,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                     <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={activeChart.data} margin={{ top: 12, right: 6, left: 2, bottom: 4 }}>
                       <CartesianGrid stroke="#e9efed" vertical={false} />
-                      <XAxis dataKey="label" interval={0} tick={{ fontSize: 8, fill: "#75817d" }} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="label" interval={0} tick={{ fontSize: 8, fontWeight: chartMetric === "billing" ? 400 : 700, fill: "#75817d" }} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
                       <Tooltip formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || chartMetric === "summary") && <ReferenceLine y={0} stroke="#aab5b1" />}
@@ -885,10 +885,10 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                     </BarChart>
                     </ResponsiveContainer>
                     {chartMetric === "summary" && <div className="report-chart-legend" aria-label="Leyenda del resumen general">
-                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--billing" />Facturación</span>
-                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--maintenance" />Mantenimiento</span>
-                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--fuel" />Combustible</span>
-                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--net" />Neto</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--billing" />FACTURACIÓN</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--maintenance" />MANTENIMIENTO</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--fuel" />COMBUSTIBLE</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--net" />NETO</span>
                     </div>}
                   </> : <div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div>}
                 </div>
