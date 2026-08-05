@@ -581,6 +581,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .uber-card-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 14px; }
 .uber-card-actions button { min-height: 32px; }
 .uber-inline-message { margin: 10px 0 0; color: #a34726; font-size: 8px; line-height: 1.45; }
+.uber-privacy-link { display: inline-flex; margin-top: 12px; color: var(--green-800); font-size: 8px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
 .uber-security-note { display: block; margin-top: 11px; }
 .settings-actions { position: fixed; z-index: 18; right: 24px; bottom: 0; left: 24px; width: min(calc(100% - 48px), 1432px); min-height: 76px; display: flex; align-items: center; justify-content: flex-end; gap: 9px; padding: 14px 0 18px; margin: 0 auto; border-top: 1px solid var(--line); background: rgba(244,247,246,.97); box-shadow: 0 -12px 28px rgba(25,55,45,.07); backdrop-filter: blur(10px); }
 

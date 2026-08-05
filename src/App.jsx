@@ -1486,6 +1486,21 @@ function UberIntegrationCard({ notify }) {
     }
   };
 
+  const disconnect = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/uber/disconnect", { method: "POST", headers: { Accept: "application/json" } });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || "No se pudo desconectar Uber");
+      setDiagnostics(null);
+      await refreshStatus();
+      notify(payload.message || "Cuenta de Uber desconectada");
+    } catch (error) {
+      notify(error.message || "No se pudo desconectar la cuenta de Uber");
+      setLoading(false);
+    }
+  };
+
   useEffect(() => { refreshStatus(); }, []);
 
   const configured = status?.configured;
@@ -1497,7 +1512,8 @@ function UberIntegrationCard({ notify }) {
       <div className="uber-scope-list"><span>Permisos previstos</span><strong>partner.accounts · partner.payments · partner.trips</strong></div>
       {diagnostics?.access && <div className="uber-diagnostics" aria-live="polite"><strong>Diagnóstico de acceso</strong>{diagnostics.access.map((item) => <div key={item.id}><span>{item.label}<small>{item.scope}</small></span><StatusBadge status={item.ok ? "Disponible" : `HTTP ${item.status}`} /></div>)}</div>}
       {diagnostics?.message && <p className="uber-inline-message">{diagnostics.message}</p>}
-      <footer className="uber-card-actions"><button className="secondary-button" type="button" onClick={refreshStatus} disabled={loading}><IconRefresh size={16} />Actualizar</button>{configured && !connected && <button className="primary-button" type="button" onClick={() => { window.location.assign("/api/uber/authorize"); }}><IconBrandUber size={16} />Conectar Uber</button>}{connected && <button className="primary-button" type="button" onClick={runDiagnostics} disabled={loading}><IconSearch size={16} />Analizar acceso</button>}</footer>
+      <footer className="uber-card-actions"><button className="secondary-button" type="button" onClick={refreshStatus} disabled={loading}><IconRefresh size={16} />Actualizar</button>{configured && !connected && <button className="primary-button" type="button" onClick={() => { window.location.assign("/api/uber/authorize"); }}><IconBrandUber size={16} />Conectar Uber</button>}{connected && <><button className="secondary-button" type="button" onClick={disconnect} disabled={loading}><IconX size={16} />Desconectar</button><button className="primary-button" type="button" onClick={runDiagnostics} disabled={loading}><IconSearch size={16} />Analizar acceso</button></>}</footer>
+      <a className="uber-privacy-link" href="/privacidad" target="_blank" rel="noreferrer">Ver política de privacidad de SOBRE RUEDAS</a>
       <small className="uber-security-note">Nunca pegues aquí el secreto: el navegador no lo recibe y el repositorio no lo almacena.</small>
     </section>
   );
