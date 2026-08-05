@@ -301,6 +301,27 @@ const fuelPeriodSuffixPattern = /\b[a-záéíóú]{3}\s+\d{4}$/i;
 const reportYears = [2025, 2026];
 const reportSeasonality = [0.82, 0.87, 0.94, 0.91, 0.98, 1.03, 1, 0.96, 1.05, 1.02, 0.93, 0.79];
 const getReportPeriodFactor = (month, year) => reportSeasonality[month] * (year === 2026 ? 1 : 0.9);
+const calendarWeekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const getDriverBillingDays = (driver, plate, month, year, monthlyRevenue) => {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const seed = `${driver}-${plate}-${month}-${year}`.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  const billableDays = Array.from({ length: daysInMonth }, (_, index) => index + 1).filter((day) => {
+    const weekday = new Date(year, month, day).getDay();
+    return weekday !== 0 && (day + seed) % 11 !== 0;
+  });
+  const totalCents = Math.round(monthlyRevenue * 100);
+  const weights = billableDays.map((day) => 80 + ((seed + day * 17) % 71));
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  let assignedCents = 0;
+
+  return new Map(billableDays.map((day, index) => {
+    const cents = index === billableDays.length - 1
+      ? totalCents - assignedCents
+      : Math.floor((totalCents * weights[index]) / totalWeight);
+    assignedCents += cents;
+    return [day, cents / 100];
+  }));
+};
 const getMaintenanceAmountForPeriod = (vehicle, month, year) => vehicle.maintenance
   .filter((item) => {
     const date = new Date(getMaintenanceDateValue(item));
@@ -752,12 +773,20 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [reportMonth, setReportMonth] = useState(6);
   const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
+  const [billingDriverKey, setBillingDriverKey] = useState("");
   useEffect(() => {
     if (!periodMenu) return undefined;
     const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [periodMenu]);
+  useEffect(() => {
+    if (!billingDriverKey) return undefined;
+    const animationFrame = window.requestAnimationFrame(() => {
+      document.getElementById("driver-billing-calendar")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [billingDriverKey]);
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
   const selectedPeriodLabel = `${reportMonths[reportMonth]} ${reportYear}`;
   const vehicleStats = vehicles.map((vehicle) => {
@@ -780,16 +809,26 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     cost: summary.cost + item.cost,
     refuels: summary.refuels + item.refuels,
   }), { liters: 0, cost: 0, refuels: 0 });
-  const totalIncome = vehicles.flatMap((vehicle) => vehicle.shifts).reduce((sum, shift) => sum + (shift.monthRevenue ?? 0), 0);
   const totalDistance = 7524;
   const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
-  const billingChartData = vehicles
+  const billingRows = vehicles
     .filter((vehicle) => vehicle.use === "Profesional")
-    .flatMap((vehicle, vehicleIndex) => vehicle.drivers.map((driver, driverIndex) => ({
-      label: driver,
-      detail: vehicle.plate,
-      value: Math.round(getDriverDay(vehicle, driver).monthRevenue * periodFactor * (1 + ((vehicleIndex + driverIndex) % 3 - 1) * 0.018)),
-    })));
+    .flatMap((vehicle, vehicleIndex) => vehicle.drivers.map((driver, driverIndex) => {
+      const activity = getDriverDay(vehicle, driver);
+      return {
+        key: `${vehicle.plate}-${driver}`,
+        driver,
+        plate: vehicle.plate,
+        model: vehicle.model,
+        trips: Math.round(activity.monthTrips * periodFactor),
+        revenue: Math.round(activity.monthRevenue * periodFactor * (1 + ((vehicleIndex + driverIndex) % 3 - 1) * 0.018)),
+      };
+    }));
+  const billingChartData = billingRows.map((row) => ({
+    label: row.driver,
+    detail: row.plate,
+    value: row.revenue,
+  }));
   const fuelChartData = vehicleStats.map(({ vehicle, cost }, index) => ({
     label: vehicle.plate,
     detail: vehicle.model,
@@ -841,6 +880,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   };
   const activeChart = chartOptions[chartMetric];
   const selectedFuelStats = vehicleStats.find(({ vehicle }) => vehicle.plate === selected.plate) ?? vehicleStats[0];
+  const selectedBillingDriver = billingRows.find((row) => row.key === billingDriverKey) ?? null;
   const hasChartData = chartMetric === "summary"
     ? activeChart.data.some((item) => [item.billing, item.maintenance, item.fuel, item.net].some((value) => value !== 0))
     : activeChart.data.some((item) => item.value !== 0);
@@ -919,7 +959,22 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
         )}
 
         {reportTab === "Gasto" && <FuelExpenseReport stats={vehicleStats} total={totals.cost} />}
-        {reportTab === "Facturación" && <div className="report-billing-stack"><FuelIncomeReport vehicles={vehicles} total={totalIncome} /><FuelDriversReport vehicles={vehicles} /></div>}
+        {reportTab === "Facturación" && <div className="report-billing-stack">
+          <FuelIncomeReport
+            rows={billingRows}
+            total={periodTotals.billing}
+            month={reportMonth}
+            year={reportYear}
+            periodMenu={periodMenu}
+            selectedDriverKey={billingDriverKey}
+            onSelectDriver={setBillingDriverKey}
+            onTogglePeriodMenu={setPeriodMenu}
+            onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }}
+            onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }}
+          />
+          {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} month={reportMonth} year={reportYear} onClose={() => setBillingDriverKey("")} /> : null}
+          <FuelDriversReport vehicles={vehicles} selectedDriverKey={billingDriverKey} onSelectDriver={setBillingDriverKey} />
+        </div>}
       </div>
     </section>
   );
@@ -1024,28 +1079,76 @@ function FuelExpenseReport({ stats, total }) {
   );
 }
 
-function FuelIncomeReport({ vehicles, total }) {
-  const rows = vehicles.flatMap((vehicle) => vehicle.shifts.map((shift) => ({ ...shift, plate: vehicle.plate, model: vehicle.model })));
+function FuelIncomeReport({ rows, total, month, year, periodMenu, selectedDriverKey, onSelectDriver, onTogglePeriodMenu, onSelectMonth, onSelectYear }) {
   return (
     <section className="content-card report-table-card">
-      <header className="card-header"><div><h2>Ingresos por conductor</h2><p>Facturación mensual y viajes de los conductores profesionales.</p></div><strong className="report-header-total report-header-total--green">{formatCurrency(total)}</strong></header>
+      <header className="card-header billing-report-header">
+        <div><h2>Ingresos por conductor</h2><p>Selecciona un conductor para consultar su facturación diaria.</p></div>
+        <div className="billing-report-header__actions">
+          <div className="report-chart-filters billing-period-filters" role="group" aria-label="Periodo de Facturación">
+            <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onTogglePeriodMenu(""); }}>
+              <span>Mes</span>
+              <button type="button" className="report-period-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "billing-month"} onClick={() => onTogglePeriodMenu(periodMenu === "billing-month" ? "" : "billing-month")}><span>{reportMonths[month]}</span><IconChevronDown size={13} /></button>
+              {periodMenu === "billing-month" ? <div className="report-period-menu report-period-menu--months" role="listbox" aria-label="Seleccionar mes de Facturación">{reportMonths.map((monthLabel, index) => <button type="button" role="option" aria-selected={month === index} className={month === index ? "selected" : ""} onClick={() => onSelectMonth(index)} key={monthLabel}>{monthLabel}{month === index ? <IconCheck size={12} /> : null}</button>)}</div> : null}
+            </div>
+            <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onTogglePeriodMenu(""); }}>
+              <span>Año</span>
+              <button type="button" className="report-period-trigger report-period-trigger--year" aria-haspopup="listbox" aria-expanded={periodMenu === "billing-year"} onClick={() => onTogglePeriodMenu(periodMenu === "billing-year" ? "" : "billing-year")}><span>{year}</span><IconChevronDown size={13} /></button>
+              {periodMenu === "billing-year" ? <div className="report-period-menu report-period-menu--years" role="listbox" aria-label="Seleccionar año de Facturación">{reportYears.map((yearOption) => <button type="button" role="option" aria-selected={year === yearOption} className={year === yearOption ? "selected" : ""} onClick={() => onSelectYear(yearOption)} key={yearOption}>{yearOption}{year === yearOption ? <IconCheck size={12} /> : null}</button>)}</div> : null}
+            </div>
+          </div>
+          <strong className="report-header-total report-header-total--green">{formatCurrency(total)}</strong>
+        </div>
+      </header>
       <div className="table-scroll report-income-table-wrap">
         <table className="module-table report-table report-income-table">
           <caption className="sr-only">Ingresos mensuales, viajes y vehículo asignado por conductor</caption>
           <colgroup><col className="report-income-table__driver" /><col className="report-income-table__vehicle" /><col className="report-income-table__trips" /><col className="report-income-table__revenue" /></colgroup>
           <thead><tr><th scope="col">Conductor</th><th scope="col">Vehículo</th><th scope="col">Viajes</th><th scope="col">Ingreso mensual</th></tr></thead>
-          <tbody>{rows.map((row) => <tr key={`${row.plate}-${row.driver}`}><td><strong>{row.driver}</strong></td><td><strong>{row.plate}</strong><small>{row.model}</small></td><td><strong>{row.monthTrips}</strong></td><td><strong>{formatCurrency(row.monthRevenue)}</strong></td></tr>)}</tbody>
+          <tbody>{rows.map((row) => <tr className={selectedDriverKey === row.key ? "report-income-row--selected" : ""} key={row.key}><td><button type="button" className="report-income-driver-button" onClick={() => onSelectDriver(row.key)} aria-expanded={selectedDriverKey === row.key} aria-controls="driver-billing-calendar"><span>{row.driver}</span><small>Ver calendario</small></button></td><td><strong>{row.plate}</strong><small>{row.model}</small></td><td><strong>{row.trips}</strong></td><td><strong>{formatCurrency(row.revenue)}</strong></td></tr>)}</tbody>
         </table>
       </div>
     </section>
   );
 }
 
-function FuelDriversReport({ vehicles }) {
+function DriverBillingCalendar({ row, month, year, onClose }) {
+  const billingDays = getDriverBillingDays(row.driver, row.plate, month, year, row.revenue);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const leadingDays = (new Date(year, month, 1).getDay() + 6) % 7;
+  const calendarCells = [
+    ...Array.from({ length: leadingDays }, (_, index) => ({ key: `leading-${index}`, empty: true })),
+    ...Array.from({ length: daysInMonth }, (_, index) => ({ key: `day-${index + 1}`, day: index + 1 })),
+  ];
+
+  return (
+    <section className="content-card driver-billing-calendar" id="driver-billing-calendar" aria-labelledby="driver-billing-calendar-title">
+      <header className="driver-billing-calendar__header">
+        <div className="driver-billing-calendar__identity">
+          <span className="avatar report-driver-avatar">{row.driver.slice(0, 2).toUpperCase()}</span>
+          <span><strong id="driver-billing-calendar-title">{row.driver}</strong><small>{row.plate} · {row.model}</small></span>
+        </div>
+        <div className="driver-billing-calendar__summary"><span><small>{reportMonths[month]} {year}</small><strong>{formatCurrency(row.revenue)}</strong></span><button type="button" onClick={onClose} aria-label={`Cerrar calendario de ${row.driver}`}><IconX size={17} /></button></div>
+      </header>
+      <div className="driver-billing-calendar__weekdays" aria-hidden="true">{calendarWeekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
+      <div className="driver-billing-calendar__grid" role="grid" aria-label={`Facturación diaria de ${row.driver} en ${reportMonths[month]} de ${year}`}>
+        {calendarCells.map((cell) => cell.empty
+          ? <span className="driver-billing-day driver-billing-day--empty" aria-hidden="true" key={cell.key} />
+          : <div className={billingDays.has(cell.day) ? "driver-billing-day driver-billing-day--active" : "driver-billing-day"} role="gridcell" aria-label={billingDays.has(cell.day) ? `${cell.day} de ${reportMonths[month]}: ${formatCurrency(billingDays.get(cell.day))}` : `${cell.day} de ${reportMonths[month]}: sin facturación`} key={cell.key}><span>{cell.day}</span>{billingDays.has(cell.day) ? <strong>{formatCurrency(billingDays.get(cell.day))}</strong> : <small>—</small>}</div>)}
+      </div>
+      <footer className="driver-billing-calendar__footer"><span><strong>{billingDays.size}</strong> días con facturación</span><span>Total del mes <strong>{formatCurrency(row.revenue)}</strong></span></footer>
+    </section>
+  );
+}
+
+function FuelDriversReport({ vehicles, selectedDriverKey, onSelectDriver }) {
   const professional = vehicles.filter((vehicle) => vehicle.use === "Profesional");
   return (
     <section className="report-drivers-grid" aria-label="Conductores y turnos profesionales">
-      {professional.map((vehicle) => <article className="report-driver-vehicle" key={vehicle.plate}><header><span><IconCar size={18} /></span><div><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></div></header><div>{vehicle.fuelSchedule.map((shift) => <span className="report-driver-shift" key={shift.label}><span className="avatar report-driver-avatar">{shift.driver.slice(0, 2).toUpperCase()}</span><span><strong>{shift.driver}</strong><small>{shift.label}</small></span><IconClock size={16} /></span>)}</div></article>)}
+      {professional.map((vehicle) => <article className="report-driver-vehicle" key={vehicle.plate}><header><span><IconCar size={18} /></span><div><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></div></header><div>{vehicle.fuelSchedule.map((shift) => {
+        const driverKey = `${vehicle.plate}-${shift.driver}`;
+        return <button type="button" className={selectedDriverKey === driverKey ? "report-driver-shift report-driver-shift--selected" : "report-driver-shift"} onClick={() => onSelectDriver(driverKey)} aria-expanded={selectedDriverKey === driverKey} aria-controls="driver-billing-calendar" key={shift.label}><span className="avatar report-driver-avatar">{shift.driver.slice(0, 2).toUpperCase()}</span><span><strong>{shift.driver}</strong><small>{shift.label}</small></span><IconClock size={16} /></button>;
+      })}</div></article>)}
     </section>
   );
 }
