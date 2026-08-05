@@ -212,7 +212,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-period-trigger:hover, .report-period-trigger[aria-expanded="true"] { border-color: #75aa98; background: #f5faf8; }
 .report-period-trigger--year { min-width: 70px; }
 .report-period-menu { position: absolute; z-index: 30; top: calc(100% + 5px); right: 0; padding: 6px; border: 1px solid #d5e0dc; border-radius: 9px; background: #fff; box-shadow: 0 12px 28px rgba(20,55,45,.16); text-transform: none; }
-.report-period-menu--months { right: 0; left: auto; width: max-content; max-width: calc(100vw - 24px); max-height: min(380px, calc(100vh - 150px)); display: grid; grid-template-columns: max-content; gap: 3px; overflow-y: auto; overscroll-behavior: contain; }
+.report-period-menu--months { right: 0; left: auto; width: max-content; max-width: calc(100vw - 24px); max-height: min(420px, calc(100vh - 150px)); display: grid; grid-template-columns: max-content; gap: 3px; overflow-y: auto; overscroll-behavior: contain; }
 .report-period-menu--years { width: 86px; display: grid; gap: 3px; }
 .report-period-menu button { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 7px; border: 0; border-radius: 6px; background: transparent; color: #586660; font-size: 7.5px; text-align: left; cursor: pointer; }
 .report-period-menu--months button { white-space: nowrap; }
@@ -233,6 +233,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-section-card { margin-bottom: 14px; border-radius: 13px; box-shadow: 0 3px 8px rgba(38,67,58,.07); }
 .fuel-overview { margin-bottom: 14px; }
 .month-chip { min-height: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #b8d4ca; border-radius: 999px; background: var(--green-50); color: var(--green-900); font-size: 8px; font-weight: 650; white-space: nowrap; }
+.fuel-period-dropdown { flex: 0 0 auto; align-items: stretch; }
+.fuel-period-dropdown > small { color: var(--muted); font-size: 6.5px; font-weight: 600; text-align: right; text-transform: none; }
+.fuel-period-trigger { min-width: 108px; justify-content: flex-start; }
+.fuel-period-trigger > span { flex: 1; text-align: left; }
 .fuel-vehicle-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; padding: 14px; background: #f8faf9; }
 .fuel-vehicle-card { min-width: 0; min-height: 152px; display: flex; flex-direction: column; gap: 15px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; text-align: left; cursor: pointer; box-shadow: 0 2px 8px rgba(28,62,51,.025); transition: border-color .15s, box-shadow .15s, transform .15s; }
 .fuel-vehicle-card:hover { border-color: #9bbfb2; box-shadow: 0 7px 18px rgba(28,62,51,.07); transform: translateY(-1px); }

@@ -296,6 +296,8 @@ const vehicleExpenseAmounts = {
 };
 
 const reportMonths = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const reportMonthTokens = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const fuelPeriodSuffixPattern = /\b[a-záéíóú]{3}\s+\d{4}$/i;
 const reportYears = [2025, 2026];
 const reportSeasonality = [0.82, 0.87, 0.94, 0.91, 0.98, 1.03, 1, 0.96, 1.05, 1.02, 0.93, 0.79];
 const getReportPeriodFactor = (month, year) => reportSeasonality[month] * (year === 2026 ? 1 : 0.9);
@@ -751,8 +753,15 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [periodMenu]);
+  const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
+  const selectedPeriodLabel = `${reportMonths[reportMonth]} ${reportYear}`;
   const vehicleStats = vehicles.map((vehicle) => {
-    const entries = vehicle.monthlyFuel ?? [];
+    const entries = (vehicle.monthlyFuel ?? []).map((entry) => ({
+      ...entry,
+      date: entry.date.replace(fuelPeriodSuffixPattern, `${reportMonthTokens[reportMonth]} ${reportYear}`),
+      liters: Number(((entry.liters ?? 0) * periodFactor).toFixed(2)),
+      cost: Number(((entry.cost ?? 0) * periodFactor).toFixed(2)),
+    }));
     return {
       vehicle,
       entries,
@@ -768,7 +777,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   }), { liters: 0, cost: 0, refuels: 0 });
   const totalIncome = vehicles.flatMap((vehicle) => vehicle.shifts).reduce((sum, shift) => sum + (shift.monthRevenue ?? 0), 0);
   const totalDistance = 7524;
-  const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
   const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
   const billingChartData = vehicles
     .filter((vehicle) => vehicle.use === "Profesional")
@@ -780,7 +788,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const fuelChartData = vehicleStats.map(({ vehicle, cost }, index) => ({
     label: vehicle.plate,
     detail: vehicle.model,
-    value: Number((cost * periodFactor * (1 + (index - 2) * 0.012)).toFixed(2)),
+    value: Number((cost * (1 + (index - 2) * 0.012)).toFixed(2)),
   }));
   const maintenanceChartData = vehicles.map((vehicle) => ({
     label: vehicle.plate,
@@ -827,7 +835,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     net: { title: "Beneficio neto por coche", description: "Facturación menos todos los gastos asignados a cada vehículo.", color: "#28923c", data: netChartData },
   };
   const activeChart = chartOptions[chartMetric];
-  const selectedPeriodLabel = `${reportMonths[reportMonth]} ${reportYear}`;
+  const selectedFuelStats = vehicleStats.find(({ vehicle }) => vehicle.plate === selected.plate) ?? vehicleStats[0];
   const hasChartData = chartMetric === "summary"
     ? activeChart.data.some((item) => [item.billing, item.maintenance, item.fuel, item.net].some((value) => value !== 0))
     : activeChart.data.some((item) => item.value !== 0);
@@ -894,14 +902,14 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 </div>
               </section>
             </div>
-            <FuelVehicleOverview stats={vehicleStats} selected={selected} onSelectVehicle={onSelectVehicle} />
+            <FuelVehicleOverview stats={vehicleStats} selected={selected} onSelectVehicle={onSelectVehicle} month={reportMonth} year={reportYear} menuOpen={periodMenu === "fuel-month"} onToggleMonth={() => setPeriodMenu((current) => current === "fuel-month" ? "" : "fuel-month")} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onCloseMenu={() => setPeriodMenu("")} />
           </>
         )}
 
         {reportTab === "Repostaje" && (
           <>
-            <FuelVehicleOverview stats={vehicleStats} selected={selected} onSelectVehicle={onSelectVehicle} />
-            <FuelLedgerDetail selected={selected} onOpenInvoice={(item) => setModal({ type: "invoice", item })} />
+            <FuelVehicleOverview stats={vehicleStats} selected={selected} onSelectVehicle={onSelectVehicle} month={reportMonth} year={reportYear} menuOpen={periodMenu === "fuel-month"} onToggleMonth={() => setPeriodMenu((current) => current === "fuel-month" ? "" : "fuel-month")} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onCloseMenu={() => setPeriodMenu("")} />
+            <FuelLedgerDetail selected={selected} entries={selectedFuelStats.entries} periodLabel={selectedPeriodLabel} onOpenInvoice={(item) => setModal({ type: "invoice", item })} />
           </>
         )}
 
@@ -923,14 +931,20 @@ function ReportStatCard({ icon: Icon, label, value, daily, perKm, tone, active, 
   );
 }
 
-function FuelVehicleOverview({ stats, selected, onSelectVehicle }) {
+function FuelVehicleOverview({ stats, selected, onSelectVehicle, month, year, menuOpen, onToggleMonth, onSelectMonth, onCloseMenu }) {
+  const periodLabel = `${reportMonths[month]} ${year}`;
   return (
     <section className="content-card fuel-overview report-section-card">
       <header className="card-header">
         <div><h2>Consumo mensual por vehículo</h2><p>Selecciona un coche para consultar sus datos.</p></div>
-        <span className="month-chip"><IconCalendar size={15} />Julio 2026</span>
+        <div className="report-period-dropdown fuel-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onCloseMenu(); }}>
+          <span>Mes</span>
+          <button type="button" className="report-period-trigger fuel-period-trigger" aria-haspopup="listbox" aria-expanded={menuOpen} onClick={onToggleMonth}><IconCalendar size={14} /><span>{reportMonths[month]}</span><IconChevronDown size={13} /></button>
+          {menuOpen && <div className="report-period-menu report-period-menu--months" role="listbox" aria-label="Seleccionar mes de Combustible">{reportMonths.map((monthLabel, index) => <button type="button" role="option" aria-selected={month === index} className={month === index ? "selected" : ""} onClick={() => onSelectMonth(index)} key={monthLabel}>{monthLabel}{month === index && <IconCheck size={12} />}</button>)}</div>}
+          <small>{periodLabel}</small>
+        </div>
       </header>
-      <div className="fuel-vehicle-grid" aria-label="Vehículos con consumo de julio de 2026">
+      <div className="fuel-vehicle-grid" aria-label={`Vehículos con consumo de ${periodLabel.toLocaleLowerCase("es")}`}>
         {stats.map(({ vehicle, liters, cost, refuels }) => {
           const active = selected.plate === vehicle.plate;
           return (
@@ -946,8 +960,8 @@ function FuelVehicleOverview({ stats, selected, onSelectVehicle }) {
   );
 }
 
-function FuelLedgerDetail({ selected, onOpenInvoice }) {
-  const selectedEntries = selected.monthlyFuel ?? [];
+function FuelLedgerDetail({ selected, entries, periodLabel, onOpenInvoice }) {
+  const selectedEntries = entries ?? [];
   const selectedLiters = selectedEntries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0);
   const selectedCost = selectedEntries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0);
   return (
@@ -963,7 +977,7 @@ function FuelLedgerDetail({ selected, onOpenInvoice }) {
       )}
       <div className="fuel-page-table-wrap">
         <table className="fuel-page-table">
-          <caption className="sr-only">Repostajes diarios de julio de 2026 para {selected.plate}</caption>
+          <caption className="sr-only">Repostajes diarios de {periodLabel.toLocaleLowerCase("es")} para {selected.plate}</caption>
           <thead><tr><th>Fecha</th><th>Hora</th><th>Conductor</th><th>Importe</th><th>Precio/Litro</th><th>Factura</th></tr></thead>
           <tbody>{selectedEntries.map((entry, index) => {
             const assignment = getFuelAssignment(selected, entry);
