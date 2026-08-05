@@ -483,6 +483,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .activity-timeline strong { font-size: 9px; }
 .activity-timeline small, .activity-timeline time { color: var(--muted); font-size: 8px; }
 
+.settings-page { padding-bottom: 104px; }
 .settings-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
 .settings-card { padding: 18px; }
 .settings-card > header { display: flex; gap: 10px; margin-bottom: 18px; color: var(--green-800); }
@@ -504,7 +505,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .settings-row > span { display: flex; flex-direction: column; gap: 4px; }
 .settings-row strong { font-size: 9px; }
 .settings-row small { color: var(--muted); font-size: 7.5px; }
-.settings-actions { display: flex; justify-content: flex-end; gap: 9px; padding-top: 18px; }
+.settings-actions { position: fixed; z-index: 18; right: 24px; bottom: 0; left: 24px; width: min(calc(100% - 48px), 1432px); min-height: 76px; display: flex; align-items: center; justify-content: flex-end; gap: 9px; padding: 14px 0 18px; margin: 0 auto; border-top: 1px solid var(--line); background: rgba(244,247,246,.97); box-shadow: 0 -12px 28px rgba(25,55,45,.07); backdrop-filter: blur(10px); }
 
 .help-grid { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(260px,.7fr); gap: 14px; }
 .faq-card > article { border-bottom: 1px solid var(--line); }
@@ -842,6 +843,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .install-app-button span { display: none; }
   .settings-grid { grid-template-columns: 1fr; }
   .settings-card:last-child { grid-column: auto; }
+  .settings-page { padding-bottom: 106px; }
+  .settings-actions { right: 0; left: 0; width: 100%; min-height: 72px; display: grid; grid-template-columns: 1fr 1fr; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .settings-actions > button { width: 100%; }
   .inspector { inset: 0; width: 100%; height: 100vh; }
   .inspector-header { min-height: 120px; }
   .odometer-proof img { height: 220px; }
