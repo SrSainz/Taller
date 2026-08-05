@@ -327,6 +327,11 @@ const getMaintenanceDateValue = (item) => {
   const [day, month, year] = normalizeText(item.date).split(/\s+/);
   return Date.UTC(Number(year), maintenanceMonths[month] ?? 0, Number(day));
 };
+const getFuelEntryDateValue = (entry) => {
+  const [day, month, year] = normalizeText(entry.date).split(/\s+/);
+  const [hour = 0, minute = 0] = (entry.time ?? "").split(":").map(Number);
+  return Date.UTC(Number(year), maintenanceMonths[month] ?? 0, Number(day), hour, minute);
+};
 const formatMaintenanceDate = (item) => {
   const date = new Date(getMaintenanceDateValue(item));
   return `${date.getUTCFullYear()}/${String(date.getUTCMonth() + 1).padStart(2, "0")}/${String(date.getUTCDate()).padStart(2, "0")}`;
@@ -944,30 +949,35 @@ function FuelVehicleOverview({ stats, selected, onSelectVehicle, month, year, me
           <small>{periodLabel}</small>
         </div>
       </header>
-      <div className="fuel-vehicle-grid" aria-label={`Vehículos con consumo de ${periodLabel.toLocaleLowerCase("es")}`}>
-        {stats.map(({ vehicle, liters, cost, refuels }) => {
+      <nav className="fuel-vehicle-banners" aria-label={`Vehículos con consumo de ${periodLabel.toLocaleLowerCase("es")}`}>
+        {stats.map(({ vehicle, liters, cost, refuels }, index) => {
           const active = selected.plate === vehicle.plate;
+          const brand = getVehicleBrand(vehicle);
           return (
-            <button className={active ? "fuel-vehicle-card fuel-vehicle-card--active" : "fuel-vehicle-card"} key={vehicle.plate} onClick={() => onSelectVehicle(vehicle)} aria-pressed={active}>
-              <span className="fuel-vehicle-card__heading"><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><UseBadge value={vehicle.use} /></span>
-              <span className="fuel-vehicle-card__totals"><span><small>Consumo</small><strong>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Gasto</small><strong>{formatCurrency(cost)}</strong></span></span>
-              <span className="fuel-vehicle-card__footer"><small>{refuels} repostajes</small><IconChevronRight size={16} /></span>
+            <button className={`fuel-vehicle-banner ${active ? "active" : ""}`} key={vehicle.plate} onClick={() => onSelectVehicle(vehicle)} aria-pressed={active} aria-label={`Ver repostajes de ${vehicle.plate}, ${vehicle.model}`}>
+              <span className="fuel-vehicle-number">{index + 1}</span>
+              <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
+              <span className="fuel-vehicle-identity"><small>{brand}</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></span>
+              <span className="fuel-vehicle-type"><UseBadge value={vehicle.use} /></span>
+              <span className="fuel-vehicle-consumption"><small>Consumo · {reportMonths[month]}</small><strong>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong><span>{formatCurrency(cost)} · {refuels} repostajes</span></span>
+              <IconChevronRight className="fuel-vehicle-chevron" size={21} />
             </button>
           );
         })}
-      </div>
+      </nav>
     </section>
   );
 }
 
 function FuelLedgerDetail({ selected, entries, periodLabel, onOpenInvoice }) {
-  const selectedEntries = entries ?? [];
+  const selectedEntries = [...(entries ?? [])].sort((a, b) => getFuelEntryDateValue(b) - getFuelEntryDateValue(a));
   const selectedLiters = selectedEntries.reduce((sum, entry) => sum + (entry.liters ?? 0), 0);
   const selectedCost = selectedEntries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0);
+  const selectedBrand = getVehicleBrand(selected);
   return (
     <section className="content-card fuel-detail report-section-card">
       <header className="fuel-detail__header">
-        <div className="fuel-detail__identity"><span className="fuel-detail__icon"><IconGasStation size={20} /></span><span><small>Vehículo seleccionado</small><strong>{selected.plate}</strong><small>{selected.model}</small></span></div>
+        <div className="fuel-detail__identity"><span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt={`Logotipo de ${selectedBrand}`} /></span><span><small>Vehículo seleccionado</small><strong>{selected.plate}</strong><small>{selected.model}</small></span></div>
         <div className="fuel-detail__totals"><span><small>Consumo mensual</small><strong>{selectedLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Gasto mensual</small><strong>{formatCurrency(selectedCost)}</strong></span></div>
       </header>
       {selected.fuelSchedule?.length > 0 ? (
@@ -975,10 +985,11 @@ function FuelLedgerDetail({ selected, entries, periodLabel, onOpenInvoice }) {
       ) : (
         <div className="fuel-page-schedule fuel-page-schedule--manual"><span className="fuel-page-schedule__label"><IconUsers size={16} /><strong>Asignación manual</strong></span><small>Los conductores particulares se indican en cada registro.</small></div>
       )}
+      <div className="fuel-ledger-period"><span><strong>Repostajes de {periodLabel}</strong><small>Ordenados del más reciente al más antiguo</small></span><strong>{selectedEntries.length} registros</strong></div>
       <div className="fuel-page-table-wrap">
         <table className="fuel-page-table">
           <caption className="sr-only">Repostajes diarios de {periodLabel.toLocaleLowerCase("es")} para {selected.plate}</caption>
-          <thead><tr><th>Fecha</th><th>Hora</th><th>Conductor</th><th>Importe</th><th>Precio/Litro</th><th>Factura</th></tr></thead>
+          <thead><tr><th scope="col">Fecha</th><th scope="col">Hora</th><th scope="col">Conductor</th><th scope="col">Importe</th><th scope="col">Precio/Litro</th><th scope="col">Factura</th></tr></thead>
           <tbody>{selectedEntries.map((entry, index) => {
             const assignment = getFuelAssignment(selected, entry);
             const pricePerLiter = entry.liters ? entry.cost / entry.liters : 0;
@@ -995,7 +1006,7 @@ function FuelLedgerDetail({ selected, entries, periodLabel, onOpenInvoice }) {
               source: "Cuenta Plenergy",
               status: "Descargada",
             };
-            return <tr key={`${entry.date}-${entry.time}`}><td><strong>{entry.date.replace(" 2026", "")}</strong></td><td><strong>{entry.time}</strong></td><td><span className="fuel-driver"><IconUsers size={14} /><strong>{assignment.driver}</strong></span></td><td><strong>{formatCurrency(entry.cost)}</strong></td><td>{formatCurrency(pricePerLiter)}</td><td><button type="button" className="fuel-invoice-button" onClick={() => onOpenInvoice(invoice)} aria-label={`Ver factura Plenergy de ${selected.plate} del ${entry.date} a las ${entry.time}`}><IconFileInvoice size={14} />Ver factura</button></td></tr>;
+            return <tr key={`${entry.date}-${entry.time}`}><td><strong>{entry.date.replace(/\s+\d{4}$/, "")}</strong></td><td><strong>{entry.time}</strong></td><td><span className="fuel-driver"><IconUsers size={14} /><strong>{assignment.driver}</strong></span></td><td><strong>{formatCurrency(entry.cost)}</strong></td><td>{formatCurrency(pricePerLiter)}</td><td><button type="button" className="fuel-invoice-button" onClick={() => onOpenInvoice(invoice)} aria-label={`Ver factura Plenergy de ${selected.plate} del ${entry.date} a las ${entry.time}`}><IconFileInvoice size={14} />Ver factura</button></td></tr>;
           })}</tbody>
         </table>
       </div>
