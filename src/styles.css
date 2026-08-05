@@ -564,6 +564,24 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .settings-row > span { display: flex; flex-direction: column; gap: 4px; }
 .settings-row strong { font-size: 9px; }
 .settings-row small { color: var(--muted); font-size: 7.5px; }
+.settings-card--uber { grid-column: span 2; }
+.settings-card--uber > header { margin-bottom: 14px; }
+.settings-card--uber > header > svg { flex: 0 0 auto; color: #111; }
+.uber-connection-status { display: grid; grid-template-columns: 18px minmax(0,1fr) auto; align-items: center; gap: 9px; padding: 11px 12px; border: 1px solid #e5e8e6; border-radius: 9px; background: #fafbfb; color: #1e2723; }
+.uber-connection-status > svg { color: #111; }
+.uber-connection-status > span, .uber-diagnostics > div > span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.uber-connection-status strong { font-size: 9px; }
+.uber-connection-status small, .uber-scope-list span, .uber-diagnostics small, .uber-security-note { color: var(--muted); font-size: 7px; line-height: 1.45; }
+.uber-scope-list { display: flex; flex-direction: column; gap: 4px; padding: 12px 0 4px; }
+.uber-scope-list strong { color: #333b37; font-size: 8px; font-weight: 650; word-break: break-word; }
+.uber-diagnostics { display: grid; gap: 7px; padding: 11px 0 2px; }
+.uber-diagnostics > strong { color: var(--text); font-size: 9px; }
+.uber-diagnostics > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 7px; border-top: 1px solid var(--line); }
+.uber-diagnostics > div > span > strong { font-size: 8px; }
+.uber-card-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 14px; }
+.uber-card-actions button { min-height: 32px; }
+.uber-inline-message { margin: 10px 0 0; color: #a34726; font-size: 8px; line-height: 1.45; }
+.uber-security-note { display: block; margin-top: 11px; }
 .settings-actions { position: fixed; z-index: 18; right: 24px; bottom: 0; left: 24px; width: min(calc(100% - 48px), 1432px); min-height: 76px; display: flex; align-items: center; justify-content: flex-end; gap: 9px; padding: 14px 0 18px; margin: 0 auto; border-top: 1px solid var(--line); background: rgba(244,247,246,.97); box-shadow: 0 -12px 28px rgba(25,55,45,.07); backdrop-filter: blur(10px); }
 
 .help-grid { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(260px,.7fr); gap: 14px; }
@@ -902,9 +920,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .install-app-button span { display: none; }
   .settings-grid { grid-template-columns: 1fr; }
   .settings-card:last-child { grid-column: auto; }
+  .settings-card--uber { grid-column: auto; }
   .settings-page { padding-bottom: 106px; }
   .settings-actions { right: 0; left: 0; width: 100%; min-height: 72px; display: grid; grid-template-columns: 1fr 1fr; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
   .settings-actions > button { width: 100%; }
+  .uber-connection-status { grid-template-columns: 18px minmax(0,1fr); }
+  .uber-connection-status > .status-badge { grid-column: 2; justify-self: start; }
+  .uber-card-actions { flex-direction: column-reverse; }
+  .uber-card-actions button { width: 100%; }
   .inspector { inset: 0; width: 100%; height: 100vh; }
   .inspector-header { min-height: 120px; }
   .odometer-proof img { height: 220px; }

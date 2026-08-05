@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconAlertTriangle,
+  IconBrandUber,
   IconBell,
   IconBrandWhatsapp,
   IconBriefcase,
@@ -23,6 +24,7 @@ import {
   IconHelpCircle,
   IconHistory,
   IconHome,
+  IconKey,
   IconMail,
   IconMessageCircle,
   IconPlus,
@@ -1444,7 +1446,59 @@ function SettingsView({ settings, setSettings, notify }) {
         <section className="content-card settings-card"><header><IconAlertTriangle size={20} /><div><h2>Alertas</h2><p>Cuándo debe intervenir el gestor.</p></div></header><label>Avisar antes de la revisión<div className="input-suffix"><input type="number" value={settings.serviceWarning} onChange={(event) => update("serviceWarning", event.target.value)} /><span>km</span></div></label><label>Revisar si la confianza baja de<div className="input-suffix"><input type="number" value={settings.lowConfidence} onChange={(event) => update("lowConfidence", event.target.value)} /><span>%</span></div></label></section>
         <section className="content-card settings-card"><header><IconShieldCheck size={20} /><div><h2>Seguridad</h2><p>Acceso y trazabilidad de cambios.</p></div></header><div className="settings-row"><span><strong>Registro de auditoría</strong><small>Conservar cambios durante 12 meses</small></span><StatusBadge status="Activo" /></div><div className="settings-row"><span><strong>Doble validación</strong><small>Para importes superiores a 1.000 €</small></span><StatusBadge status="Activo" /></div></section>
       </div>
+      <UberIntegrationCard notify={notify} />
       <footer className="settings-actions"><button className="secondary-button" onClick={() => notify("Cambios descartados")}>Descartar</button><button className="primary-button" onClick={() => notify("Ajustes guardados")}><IconCheck size={18} />Guardar ajustes</button></footer>
+    </section>
+  );
+}
+
+function UberIntegrationCard({ notify }) {
+  const [status, setStatus] = useState(null);
+  const [diagnostics, setDiagnostics] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const runDiagnostics = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/uber/diagnostics", { headers: { Accept: "application/json" } });
+      const payload = await response.json();
+      setDiagnostics(payload);
+      if (!response.ok) notify(payload.message || "No se pudo analizar el acceso de Uber");
+    } catch (error) {
+      setDiagnostics({ connected: false, message: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshStatus = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/uber/status", { headers: { Accept: "application/json" } });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || "No se pudo consultar Uber");
+      setStatus(payload);
+      if (payload.hasSession) await runDiagnostics();
+    } catch (error) {
+      setStatus({ configured: false, message: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { refreshStatus(); }, []);
+
+  const configured = status?.configured;
+  const connected = status?.hasSession || diagnostics?.connected;
+  return (
+    <section className="content-card settings-card settings-card--uber">
+      <header><IconBrandUber size={20} /><div><h2>Uber Developer</h2><p>Conecta la cuenta de los conductores y analiza viajes, pagos y perfil desde el servidor.</p></div></header>
+      <div className="uber-connection-status"><IconKey size={16} /><span><strong>{configured ? "Credenciales protegidas configuradas" : "Falta configurar las credenciales"}</strong><small>UBER_CLIENT_ID, UBER_CLIENT_SECRET y UBER_REDIRECT_URI se guardan solo en Vercel.</small></span><StatusBadge status={connected ? "Conectado" : configured ? "Listo" : "Pendiente"} /></div>
+      <div className="uber-scope-list"><span>Permisos previstos</span><strong>partner.accounts · partner.payments · partner.trips</strong></div>
+      {diagnostics?.access && <div className="uber-diagnostics" aria-live="polite"><strong>Diagnóstico de acceso</strong>{diagnostics.access.map((item) => <div key={item.id}><span>{item.label}<small>{item.scope}</small></span><StatusBadge status={item.ok ? "Disponible" : `HTTP ${item.status}`} /></div>)}</div>}
+      {diagnostics?.message && <p className="uber-inline-message">{diagnostics.message}</p>}
+      <footer className="uber-card-actions"><button className="secondary-button" type="button" onClick={refreshStatus} disabled={loading}><IconRefresh size={16} />Actualizar</button>{configured && !connected && <button className="primary-button" type="button" onClick={() => { window.location.assign("/api/uber/authorize"); }}><IconBrandUber size={16} />Conectar Uber</button>}{connected && <button className="primary-button" type="button" onClick={runDiagnostics} disabled={loading}><IconSearch size={16} />Analizar acceso</button>}</footer>
+      <small className="uber-security-note">Nunca pegues aquí el secreto: el navegador no lo recibe y el repositorio no lo almacena.</small>
     </section>
   );
 }
