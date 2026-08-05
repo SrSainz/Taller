@@ -1,14 +1,14 @@
-const cacheName = "sobre-ruedas-shell-v12";
+const cacheName = "sobre-ruedas-shell-v13";
 const appShell = [
   "/",
   "/index.html",
-  "/manifest.webmanifest",
+  "/manifest.webmanifest?v=20260805",
   "/brand/sobre-ruedas-logo.png",
   "/brand/sobre-ruedas-app-icon.png",
-  "/icons/sobre-ruedas-192.png",
-  "/icons/sobre-ruedas-512.png",
-  "/icons/sobre-ruedas-maskable-192.png",
-  "/icons/sobre-ruedas-maskable-512.png",
+  "/icons/sobre-ruedas-192.png?v=20260805",
+  "/icons/sobre-ruedas-512.png?v=20260805",
+  "/icons/sobre-ruedas-maskable-192.png?v=20260805",
+  "/icons/sobre-ruedas-maskable-512.png?v=20260805",
 ];
 
 const cacheAppShell = async () => {

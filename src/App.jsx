@@ -600,7 +600,7 @@ export function App() {
       <main className="workspace">
         <header className={["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}>
           <div className="topbar-title">
-            <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
+            <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
             <div><span>{activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav}</span><small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small></div>
           </div>
           <div className="topbar-actions">

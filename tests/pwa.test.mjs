@@ -19,10 +19,12 @@ test("build emits an installable standalone manifest", () => {
   for (const size of ["192x192", "512x512"]) {
     const icon = manifest.icons.find((item) => item.sizes === size && item.purpose === "any");
     assert.ok(icon, `missing ${size} install icon`);
-    assert.ok(existsSync(path.join(root, "dist", "client", icon.src.replace(/^\//, ""))), `${icon.src} is missing`);
+    const iconPath = new URL(icon.src, "https://sobre-ruedas.test").pathname.replace(/^\//, "");
+    assert.ok(existsSync(path.join(root, "dist", "client", iconPath)), `${icon.src} is missing`);
   }
 
   assert.ok(manifest.icons.some((item) => item.purpose === "maskable"), "maskable icon is missing");
+  assert.ok(manifest.icons.every((item) => item.src.includes("sobre-ruedas") && !item.src.includes("talleria")), "legacy T icon is still referenced");
 });
 
 test("build emits a service worker with offline navigation fallback", () => {
