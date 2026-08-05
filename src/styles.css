@@ -315,7 +315,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-driver-shift { min-height: 66px; display: grid; grid-template-columns: 34px minmax(0,1fr) 18px; align-items: center; gap: 9px; border-bottom: 1px solid #e7ecea; }
 .report-driver-shift:last-child { border-bottom: 0; }
 .report-driver-shift > span:nth-child(2) { display: flex; flex-direction: column; gap: 4px; }
-.report-driver-shift strong { font-size: 9px; }
+.report-driver-shift strong { font-size: 11px; letter-spacing: .045em; text-transform: uppercase; }
 .report-driver-shift small { color: var(--muted); font-size: 7px; }
 .report-driver-shift > svg { color: #0b979f; }
 .report-driver-avatar { width: 32px; height: 32px; background: #0a9ba5; font-size: 8px; }
@@ -334,6 +334,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-income-table th { height: 40px; }
 .report-income-table th:nth-child(3), .report-income-table td:nth-child(3) { text-align: center; }
 .report-income-table td { height: 50px; }
+.report-income-table td:first-child strong { color: var(--text); font-size: 12px; letter-spacing: .045em; text-transform: uppercase; }
 .report-income-table td small { color: #5f6c67; }
 .report-income-table td:nth-child(3) strong { color: #3e4d47; font-size: 10px; }
 .report-income-table td:last-child strong { color: #007780; font-size: 10px; }
@@ -886,6 +887,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .module-table.report-income-table th:last-child, .module-table.report-income-table td:last-child { padding-right: 12px; }
   .report-income-table th { font-size: 6.5px; }
   .report-income-table td strong, .report-income-table td:nth-child(3) strong, .report-income-table td:last-child strong { font-size: 8px; }
+  .report-income-table td:first-child strong { font-size: 10px; }
   .report-income-table td small { font-size: 6px; }
   .module-page { padding: 12px; }
   .page-intro h1 { font-size: 21px; }
