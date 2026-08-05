@@ -539,6 +539,16 @@ export function App() {
   const selectedDriver = selectedDrivers[selected.plate] ?? selected.drivers[0];
   const selectedActivity = getDriverDay(selected, selectedDriver);
   const showInspector = activeNav === "Flota" && inspectorOpen;
+  const detailHeaderTitle = activeNav === "Mantenimiento"
+    ? "Mantenimiento"
+    : activeNav === "Informes" && homeReportTab === "Facturación"
+      ? "Facturación"
+      : activeNav === "Informes" && homeReportTab === "Repostaje"
+        ? "Combustible"
+        : activeNav === "Informes" && homeReportTab === "General" && homeChartMetric === "net"
+          ? "Neto"
+          : "";
+  const compactDetailHeader = Boolean(detailHeaderTitle);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("es");
@@ -626,12 +636,12 @@ export function App() {
   return (
     <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}`}>
       <main className="workspace">
-        <header className={["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}>
+        <header className={`${["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}`}>
           <div className="topbar-title">
             <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
-            <div><span>{activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav}</span><small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small></div>
+            <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small>}</div>
           </div>
-          <div className="topbar-actions">
+          {!compactDetailHeader && <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             <span className="date"><IconCalendar size={18} />28 jul 2026</span>
             <div className="topbar-shortcuts" aria-label="Accesos de gestión">
@@ -643,8 +653,8 @@ export function App() {
             </div>
             <button className="bell-button" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((value) => !value)}><IconBell size={20} /><i>2</i></button>
             <button className="profile" onClick={() => notify("Perfil de Ana García")}><span className="avatar">AG</span><span><strong>Ana García</strong><small>Gestora de flota</small></span><IconChevronDown size={17} /></button>
-          </div>
-          {notificationsOpen && (
+          </div>}
+          {!compactDetailHeader && notificationsOpen && (
             <aside className="notification-popover" aria-label="Notificaciones recientes">
               <header><strong>Notificaciones</strong><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></header>
               <button onClick={() => openVehicleFromModule("5043 MLC")}><IconAlertTriangle size={18} /><span><strong>Revisión próxima</strong><small>Toyota Corolla · 4.265 km restantes</small></span></button>
@@ -774,6 +784,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
   const [billingDriverKey, setBillingDriverKey] = useState("");
+  const [billingVehiclePlate, setBillingVehiclePlate] = useState("");
   useEffect(() => {
     if (!periodMenu) return undefined;
     const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
@@ -872,7 +883,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     net: "Neto",
   };
   const chartOptions = {
-    summary: { title: "Resumen general por coche", description: "Una barra por coche con Facturación, Mantenimiento, Combustible y Neto.", color: "#079ea7", data: summaryChartData },
+    summary: { title: "Resumen general por coche", description: "", color: "#079ea7", data: summaryChartData },
     billing: { title: "Facturación por conductor", description: "Ingresos mensuales de los seis conductores profesionales.", color: "#1976c9", data: billingChartData },
     maintenance: { title: "Mantenimiento por coche", description: "Importe de las actuaciones registradas en cada vehículo.", color: "#607d89", data: maintenanceChartData },
     fuel: { title: "Combustible por coche", description: "Gasto mensual de combustible de los cinco vehículos.", color: "#df4538", data: fuelChartData },
@@ -881,6 +892,8 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const activeChart = chartOptions[chartMetric];
   const selectedFuelStats = vehicleStats.find(({ vehicle }) => vehicle.plate === selected.plate) ?? vehicleStats[0];
   const selectedBillingDriver = billingRows.find((row) => row.key === billingDriverKey) ?? null;
+  const selectedBillingVehicle = vehicles.find((vehicle) => vehicle.plate === billingVehiclePlate) ?? null;
+  const selectedBillingVehicleRows = billingRows.filter((row) => row.plate === billingVehiclePlate);
   const hasChartData = chartMetric === "summary"
     ? activeChart.data.some((item) => [item.billing, item.maintenance, item.fuel, item.net].some((value) => value !== 0))
     : activeChart.data.some((item) => item.value !== 0);
@@ -903,7 +916,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
               </div>
               <section className="report-chart-card">
                 <header className="report-chart-card__top">
-                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong>{activeChart.title}</strong><small>{activeChart.description}</small></span></div>
+                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
                   <div className="report-chart-filters" role="group" aria-label="Periodo del gráfico">
                     <button type="button" className={chartMetric === "summary" ? "report-summary-button report-summary-button--active" : "report-summary-button"} onClick={() => setChartMetric("summary")} aria-pressed={chartMetric === "summary"}><IconChartBar size={14} />Resumen</button>
                     <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
@@ -938,10 +951,10 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                     </BarChart>
                     </ResponsiveContainer>
                     {chartMetric === "summary" && <div className="report-chart-legend" aria-label="Leyenda del resumen general">
-                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--billing" />FACTURACIÓN</span>
-                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--maintenance" />MANTENIMIENTO</span>
-                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--fuel" />COMBUSTIBLE</span>
-                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--net" />NETO</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--billing" />Facturación</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--maintenance" />Mantenimiento</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--fuel" />Combustible</span>
+                      <span><i className="report-chart-legend__swatch report-chart-legend__swatch--net" />Neto</span>
                     </div>}
                   </> : <div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div>}
                 </div>
@@ -967,11 +980,14 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
             year={reportYear}
             periodMenu={periodMenu}
             selectedDriverKey={billingDriverKey}
+            selectedVehiclePlate={billingVehiclePlate}
             onSelectDriver={setBillingDriverKey}
+            onSelectVehicle={(plate) => setBillingVehiclePlate((current) => current === plate ? "" : plate)}
             onTogglePeriodMenu={setPeriodMenu}
             onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }}
             onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }}
           />
+          {selectedBillingVehicle ? <VehicleBillingSummary vehicle={selectedBillingVehicle} rows={selectedBillingVehicleRows} month={reportMonth} year={reportYear} /> : null}
           {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} month={reportMonth} year={reportYear} onClose={() => setBillingDriverKey("")} /> : null}
           <FuelDriversReport vehicles={vehicles} selectedDriverKey={billingDriverKey} onSelectDriver={setBillingDriverKey} />
         </div>}
@@ -1079,11 +1095,11 @@ function FuelExpenseReport({ stats, total }) {
   );
 }
 
-function FuelIncomeReport({ rows, total, month, year, periodMenu, selectedDriverKey, onSelectDriver, onTogglePeriodMenu, onSelectMonth, onSelectYear }) {
+function FuelIncomeReport({ rows, total, month, year, periodMenu, selectedDriverKey, selectedVehiclePlate, onSelectDriver, onSelectVehicle, onTogglePeriodMenu, onSelectMonth, onSelectYear }) {
   return (
     <section className="content-card report-table-card">
       <header className="card-header billing-report-header">
-        <div><h2>Ingresos por conductor</h2><p>Selecciona un conductor para consultar su facturación diaria.</p></div>
+        <div className="billing-report-heading"><h2>Facturación</h2></div>
         <div className="billing-report-header__actions">
           <div className="report-chart-filters billing-period-filters" role="group" aria-label="Periodo de Facturación">
             <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onTogglePeriodMenu(""); }}>
@@ -1105,8 +1121,23 @@ function FuelIncomeReport({ rows, total, month, year, periodMenu, selectedDriver
           <caption className="sr-only">Ingresos mensuales, viajes y vehículo asignado por conductor</caption>
           <colgroup><col className="report-income-table__driver" /><col className="report-income-table__vehicle" /><col className="report-income-table__trips" /><col className="report-income-table__revenue" /></colgroup>
           <thead><tr><th scope="col">Conductor</th><th scope="col">Vehículo</th><th scope="col">Viajes</th><th scope="col">Ingreso mensual</th></tr></thead>
-          <tbody>{rows.map((row) => <tr className={selectedDriverKey === row.key ? "report-income-row--selected" : ""} key={row.key}><td><button type="button" className="report-income-driver-button" onClick={() => onSelectDriver(row.key)} aria-expanded={selectedDriverKey === row.key} aria-controls="driver-billing-calendar"><span>{row.driver}</span><small>Ver calendario</small></button></td><td><strong>{row.plate}</strong><small>{row.model}</small></td><td><strong>{row.trips}</strong></td><td><strong>{formatCurrency(row.revenue)}</strong></td></tr>)}</tbody>
+          <tbody>{rows.map((row) => <tr className={`${selectedDriverKey === row.key ? "report-income-row--selected " : ""}${selectedVehiclePlate === row.plate ? "report-income-row--vehicle-selected" : ""}`} key={row.key}><td><button type="button" className="report-income-driver-button" onClick={() => onSelectDriver(row.key)} aria-expanded={selectedDriverKey === row.key} aria-controls="driver-billing-calendar"><span>{row.driver}</span><small>Ver calendario</small></button></td><td><button type="button" className="report-income-vehicle-button" onClick={() => onSelectVehicle(row.plate)} aria-expanded={selectedVehiclePlate === row.plate} aria-controls="vehicle-billing-summary" aria-label={`Ver facturación conjunta de ${row.plate}`}><strong>{row.plate}</strong><small>{row.model}</small></button></td><td><strong>{row.trips}</strong></td><td><strong>{formatCurrency(row.revenue)}</strong></td></tr>)}</tbody>
         </table>
+      </div>
+    </section>
+  );
+}
+
+function VehicleBillingSummary({ vehicle, rows, month, year }) {
+  const total = rows.reduce((sum, row) => sum + row.revenue, 0);
+  return (
+    <section className="content-card vehicle-billing-summary" id="vehicle-billing-summary" aria-labelledby="vehicle-billing-summary-title">
+      <header className="vehicle-billing-summary__header">
+        <div><span className="vehicle-billing-summary__label"><IconCar size={15} />Facturación conjunta</span><h3 id="vehicle-billing-summary-title">{vehicle.plate}</h3><small>{vehicle.model} · {reportMonths[month]} {year}</small></div>
+        <strong>{formatCurrency(total)}</strong>
+      </header>
+      <div className="vehicle-billing-summary__drivers">
+        {rows.map((row) => <div key={row.key}><span><strong>{row.driver}</strong><small>{row.trips} viajes</small></span><strong>{formatCurrency(row.revenue)}</strong></div>)}
       </div>
     </section>
   );
@@ -1317,6 +1348,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
           );
         })}
       </nav>
+      <div className="maintenance-vehicle-divider" aria-hidden="true" />
       <section className="content-card maintenance-history-panel" id="historial-mantenimiento">
         <header className="maintenance-history-header">
           <div className="maintenance-history-vehicle">
