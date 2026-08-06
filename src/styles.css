@@ -27,6 +27,10 @@
   --billing-strong: #3f9650;
   --billing-soft: #eef9ef;
   --billing-line: #cce7cf;
+  --billing-blue: #1976c9;
+  --billing-blue-strong: #146bb5;
+  --billing-blue-soft: #edf5ff;
+  --billing-blue-line: #cbdff4;
   --shadow: 0 10px 30px rgba(25, 55, 45, .08);
 }
 
@@ -93,8 +97,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .topbar .workspace-home-button { border-color: rgba(255,255,255,.42); background: #d20000; }
 .topbar .workspace-home-button:hover { background: #e00000; }
 .topbar .install-app-button, .topbar .bell-button { border-color: rgba(255,255,255,.32); background: rgba(255,255,255,.1); color: #fff; }
-.topbar .install-app-button:hover, .topbar .bell-button:hover, .topbar .profile:hover { background: rgba(255,255,255,.2); }
+.topbar .topbar-route-button { border-color: rgba(255,255,255,.32); background: rgba(255,255,255,.1); color: #fff; }
+.topbar .install-app-button:hover, .topbar .topbar-route-button:hover, .topbar .bell-button:hover, .topbar .profile:hover { background: rgba(255,255,255,.2); }
 .topbar .avatar { background: rgba(255,255,255,.16); }
+.topbar-route-button { position: relative; }
+.topbar-route-button i { position: absolute; top: -6px; right: -5px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 3px; border: 2px solid #050505; border-radius: 999px; background: var(--green-900); color: #fff; font-size: 7px; font-style: normal; font-weight: 750; }
+.topbar-route-button--facturas svg { color: #bfe8ff; }
 .topbar-management-menu { position: absolute; top: 62px; right: 22px; z-index: 30; width: 240px; display: grid; gap: 4px; padding: 8px; border: 1px solid #343434; border-radius: 12px; background: #0b0b0b; box-shadow: 0 16px 32px rgba(0,0,0,.35); }
 .topbar-management-menu__item { min-height: 42px; display: flex; align-items: center; gap: 10px; width: 100%; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; color: #fff; font-size: 9px; font-weight: 650; text-align: left; cursor: pointer; }
 .topbar-management-menu__item:hover, .topbar-management-menu__item--active { background: #252525; }
@@ -117,6 +125,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .notification-popover > button small { color: var(--muted); font-size: 8px; }
 
 .page-scroll { min-height: 0; flex: 1; overflow: auto; }
+.page-scroll--dashboard { display: flex; height: calc(100vh - 70px); flex-direction: column; overflow: hidden; }
+.page-scroll--dashboard .fuel-reports-page { height: 100%; min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; overflow: hidden; }
+.page-scroll--dashboard .fuel-report-canvas { height: 100%; min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; }
+.page-scroll--dashboard .report-general-grid { min-height: 0; display: flex; flex: 1; flex-direction: column; margin-bottom: 0; }
+.page-scroll--dashboard .report-stat-grid { flex: 0 0 auto; gap: 8px; margin-bottom: 8px; }
+.page-scroll--dashboard .report-stat-card--fleet { min-height: 100px; padding-block: 10px; }
+.page-scroll--dashboard .report-stat-card--wide { min-height: 86px; padding-block: 9px; }
+.page-scroll--dashboard .report-chart-card { min-height: 0; display: flex; flex: 1; flex-direction: column; }
+.page-scroll--dashboard .report-chart { min-height: 0; flex: 1; height: auto; }
 .module-page { width: min(1480px, 100%); min-height: 100%; padding: 24px; margin: 0 auto; }
 .page-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
 .page-intro > div { max-width: 690px; }
@@ -202,18 +219,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-stat-card { min-width: 0; min-height: 156px; padding: 14px; border: 1px solid #dae3e0; border-radius: 13px; background: #fff; color: var(--text); text-align: left; cursor: pointer; box-shadow: 0 3px 8px rgba(38,67,58,.09); transition: border-color .15s, box-shadow .15s, transform .15s; }
 .report-stat-card:hover { border-color: #9bbfb2; box-shadow: 0 8px 20px rgba(38,67,58,.12); transform: translateY(-1px); }
 .report-stat-card--fleet, .report-stat-card--wide { grid-column: 1 / -1; }
-.report-stat-card--fleet { min-height: 118px; display: grid; grid-template-columns: minmax(190px,.55fr) minmax(0,1.45fr) 22px; align-items: center; gap: 18px; padding: 15px 18px; border-color: #b7dbc0; background: linear-gradient(115deg, #fff 0%, #f8fff9 100%); }
-.report-stat-card--fleet:hover { border-color: var(--billing-strong); }
+.report-stat-card--fleet { min-height: 118px; display: grid; grid-template-columns: minmax(190px,.55fr) minmax(0,1.45fr) 22px; align-items: center; gap: 18px; padding: 15px 18px; border-color: var(--billing-blue-line); background: linear-gradient(115deg, #fff 0%, #f7fbff 100%); }
+.report-stat-card--fleet:hover { border-color: var(--billing-blue); }
 .report-stat-card--fleet .report-stat-card__header { margin-bottom: 0; }
-.report-stat-card--fleet .report-stat-card__icon { background: var(--billing-light); color: var(--billing-strong); }
+.report-stat-card--fleet .report-stat-card__icon { background: var(--billing-blue); color: #fff; }
 .report-stat-card__heading { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .report-stat-card__heading small { overflow: hidden; color: #6e8275; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .report-stat-fleet__metrics { min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
 .report-stat-fleet__metric { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding-left: 13px; border-left: 1px solid #dcebe0; }
 .report-stat-fleet__metric > span { display: inline-flex; align-items: center; gap: 5px; color: #718078; font-size: 8px; font-weight: 650; white-space: nowrap; }
-.report-stat-fleet__metric > span svg { color: var(--billing-strong); }
-.report-stat-fleet__metric strong { overflow: hidden; color: #2e6f3d; font-size: 16px; letter-spacing: -.25px; text-overflow: ellipsis; white-space: nowrap; }
-.report-stat-fleet__arrow { color: var(--billing-strong); }
+.report-stat-fleet__metric > span svg { color: var(--billing-blue); }
+.report-stat-fleet__metric strong { overflow: hidden; color: var(--billing-blue-strong); font-size: 16px; letter-spacing: -.25px; text-overflow: ellipsis; white-space: nowrap; }
+.report-stat-fleet__arrow { color: var(--billing-blue); }
 .report-stat-card--wide { min-height: 112px; display: grid; grid-template-columns: minmax(190px,.55fr) minmax(0,1.45fr); grid-template-rows: auto auto auto; column-gap: 18px; align-items: center; padding-block: 13px; }
 .report-stat-card--wide .report-stat-card__header { grid-row: 1 / -1; margin-bottom: 0; }
 .report-stat-card--wide > small { grid-column: 2; align-self: end; margin-bottom: 0; }
@@ -950,6 +967,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .notification-popover { position: fixed; top: 62px; right: 12px; left: 12px; width: auto; }
   .topbar-management-menu { position: fixed; top: 58px; right: 12px; width: min(240px, calc(100vw - 24px)); }
   .page-scroll { overflow: visible; }
+  .page-scroll--dashboard { height: calc(100vh - 70px); overflow: hidden; }
   .module-page { padding: 16px; }
   .fuel-report-canvas { padding: 10px 12px 24px; }
   .report-quick-actions { display: flex; overflow-x: auto; padding-bottom: 3px; scroll-snap-type: x mandatory; }
@@ -1015,8 +1033,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .report-quick-actions button { min-width: 118px; min-height: 44px; padding-inline: 8px; font-size: 8px; }
   .report-stat-grid { grid-template-columns: 1fr; gap: 8px; }
   .report-stat-card { min-height: 145px; padding: 11px; border-radius: 11px; }
-  .report-stat-card--fleet { min-height: 138px; grid-template-columns: minmax(0,1fr) 20px; gap: 9px; padding: 11px; }
-  .report-stat-card--wide { min-height: 112px; grid-template-columns: minmax(105px,.75fr) minmax(0,1.25fr); column-gap: 10px; padding: 11px; }
+  .page-scroll--dashboard { height: calc(100vh - 64px); }
+  .page-scroll--dashboard .report-stat-card--fleet { min-height: 112px; grid-template-columns: minmax(0,1fr) 20px; gap: 9px; padding: 11px; }
+  .page-scroll--dashboard .report-stat-card--wide { min-height: 98px; grid-template-columns: minmax(105px,.75fr) minmax(0,1.25fr); column-gap: 10px; padding: 11px; }
   .report-stat-fleet__metrics { grid-column: 1 / -1; gap: 6px; }
   .report-stat-fleet__metric { padding-left: 7px; }
   .report-stat-fleet__metric > span { font-size: 7px; }
