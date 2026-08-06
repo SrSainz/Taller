@@ -726,7 +726,7 @@ export function App() {
           <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}`}>
           <div className="topbar-title">
             <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
-            <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : "Gestión centralizada de vehículos"}</small>}</div>
+            <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : "Gestión centralizada de vehículos"}</small>}</div>
           </div>
           {!compactDetailHeader && <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
@@ -1123,7 +1123,7 @@ function ReportFleetSummaryCard({ billing, fuel, onClick }) {
     <button type="button" className="report-stat-card report-stat-card--fleet" onClick={onClick} aria-label="Abrir Conductores, Facturación y Consumo">
       <span className="report-stat-card__header">
         <span className="report-stat-card__icon"><IconUsers size={18} /></span>
-        <span className="report-stat-card__heading"><strong>Conductores</strong><small>Facturación y Consumo</small></span>
+        <span className="report-stat-card__heading"><strong>CONDUCTORES</strong></span>
       </span>
       <span className="report-stat-fleet__metrics">
         <span className="report-stat-fleet__metric"><span><IconFileInvoice size={14} />Facturación</span><strong>{billing}</strong></span>
@@ -1344,6 +1344,7 @@ function DriversView({ vehicles, setModal }) {
   const [selectedDriverKey, setSelectedDriverKey] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
   const driverGridRef = useRef(null);
+  const calendarRef = useRef(null);
   const touchStartX = useRef(null);
   const professionalVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.use === "Profesional"), [vehicles]);
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
@@ -1399,9 +1400,16 @@ function DriversView({ vehicles, setModal }) {
       : calendarRows.find((row) => row.active)?.day ?? 1);
   }, [selectedDriver?.key, reportMonth, reportYear]);
 
+  useEffect(() => {
+    if (!selectedDriverKey) return undefined;
+    const frame = window.requestAnimationFrame(() => calendarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedDriverKey, selectedDay]);
+
   const selectDriver = (row) => {
     setSelectedDriverKey(row.key);
-    setSelectedDay(null);
+    const nextCalendarRows = getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear);
+    setSelectedDay(nextCalendarRows.find((calendarRow) => calendarRow.active)?.day ?? 1);
   };
   const shiftMonth = (delta) => {
     const next = new Date(reportYear, reportMonth + delta, 1);
@@ -1460,15 +1468,13 @@ function DriversView({ vehicles, setModal }) {
 
       <div ref={driverGridRef} className="drivers-list" aria-label="Seis conductores profesionales">
         {driverRows.map((row) => <button type="button" className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key} onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}>
-          <span className="avatar driver-list-card__avatar">{row.driver.slice(0, 2).toUpperCase()}</span>
           <span className="driver-list-card__identity"><strong>{row.driver}</strong><small>{row.plate} · {row.model}</small></span>
           <span className="driver-list-card__metric driver-list-card__metric--billing"><small>Facturación</small><strong>{formatCurrency(row.revenue)}</strong></span>
           <span className="driver-list-card__metric driver-list-card__metric--fuel"><small>Consumo</small><strong>{formatCurrency(row.fuelCost)}</strong></span>
-          <IconChevronRight size={17} />
         </button>)}
       </div>
 
-      {selectedDriver && <section className="drivers-calendar-card" aria-labelledby="drivers-calendar-title">
+      {selectedDriver && <section ref={calendarRef} className="drivers-calendar-card" aria-labelledby="drivers-calendar-title">
         <header className="drivers-calendar-card__header">
           <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(-1)} aria-label="Mes anterior"><IconChevronLeft size={18} /></button>
           <div><span>Calendario de facturación y consumo</span><strong id="drivers-calendar-title">{selectedDriver.driver}</strong><small>{selectedDriver.plate} · {selectedDriver.model} · {reportMonths[reportMonth]} {reportYear}</small></div>

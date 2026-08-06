@@ -442,7 +442,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .report-driver-avatar { width: 32px; height: 32px; background: #0a9ba5; font-size: 8px; }
 .drivers-page { display: grid; align-content: start; gap: 12px; }
 .drivers-summary-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-.drivers-summary-card { min-width: 0; min-height: 132px; display: grid; gap: 11px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 11px; background: #fff; box-shadow: 0 3px 9px rgba(38,67,58,.07); color: var(--text); text-align: left; cursor: pointer; }
+.drivers-summary-card { min-width: 0; min-height: 94px; display: grid; gap: 6px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 11px; background: #fff; box-shadow: 0 3px 9px rgba(38,67,58,.07); color: var(--text); text-align: left; cursor: pointer; }
 .drivers-summary-card:hover { transform: translateY(-1px); box-shadow: 0 7px 16px rgba(38,67,58,.1); }
 .drivers-summary-card--billing { border-color: var(--billing-line); background: linear-gradient(115deg, #fbfffb, var(--billing-soft)); }
 .drivers-summary-card--fuel { border-color: #f0c7c1; background: linear-gradient(115deg, #fff, #fff5f3); }
@@ -456,28 +456,25 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-summary-card__total { white-space: nowrap; }
 .drivers-summary-card--billing .drivers-summary-card__total { color: var(--billing-strong); font-size: 22px; }
 .drivers-summary-card--fuel .drivers-summary-card__total { color: #c3382f; font-size: 22px; }
-.drivers-summary-card > div { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; padding-top: 10px; border-top: 1px solid rgba(76,130,94,.18); }
+.drivers-summary-card > div { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; padding-top: 6px; border-top: 1px solid rgba(76,130,94,.18); }
 .drivers-summary-card > div > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .drivers-summary-card > div small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .drivers-summary-card > div strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .drivers-summary-card--billing > div strong { color: var(--billing-strong); }
 .drivers-summary-card--fuel > div strong { color: #c3382f; }
 .drivers-summary-card > footer { color: #a34239; font-size: 6.5px; text-align: right; }
-.drivers-list { display: grid; grid-template-columns: 1fr; gap: 10px; scroll-margin-top: 78px; }
-.driver-list-card { min-width: 0; min-height: 82px; display: grid; grid-template-columns: 42px minmax(220px,1fr) minmax(130px,180px) minmax(110px,150px) 22px; align-items: center; gap: 14px; padding: 14px 18px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--text); text-align: left; cursor: pointer; box-shadow: 0 2px 7px rgba(38,67,58,.05); }
-.driver-list-card:hover, .driver-list-card--active { border-color: #a8cfbb; background: #f3fbf6; box-shadow: 0 5px 13px rgba(38,67,58,.08); }
-.driver-list-card__avatar { width: 42px; height: 42px; background: var(--green-800); color: #fff; font-size: 10px; }
+.drivers-list { display: grid; grid-template-columns: 1fr; gap: 0; scroll-margin-top: 78px; }
+.driver-list-card { min-width: 0; min-height: 58px; display: grid; grid-template-columns: minmax(0,1fr) minmax(190px,250px) minmax(160px,220px); align-items: center; gap: 18px; padding: 6px 0; border: 0; border-radius: 0; background: transparent; color: var(--text); text-align: left; cursor: pointer; box-shadow: none; }
+.driver-list-card:hover, .driver-list-card--active { background: #f3fbf6; box-shadow: none; }
 .driver-list-card__identity { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.driver-list-card__identity strong { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
-.driver-list-card__identity small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.driver-list-card__metric { min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-left: 12px; border-left: 1px solid var(--line); }
-.driver-list-card__metric small { color: var(--muted); font-size: 8px; }
-.driver-list-card__metric strong { font-size: 12px; white-space: nowrap; }
-.driver-list-card__metric--billing strong { font-size: 21px; }
+.driver-list-card__identity strong { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-list-card__identity small { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-list-card__metric { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-left: 16px; border-left: 1px solid var(--line); }
+.driver-list-card__metric small { color: var(--muted); font-size: 9px; }
+.driver-list-card__metric strong { font-size: 17px; white-space: nowrap; }
+.driver-list-card__metric--billing strong { font-size: 24px; }
 .driver-list-card__metric--billing strong { color: var(--billing-strong); }
 .driver-list-card__metric--fuel strong { color: #c3382f; }
-.driver-list-card > svg { color: #7c8c85; }
-.driver-list-card--active > svg { color: var(--green-800); }
 .drivers-calendar-card, .driver-day-detail { overflow: hidden; border: 1px solid var(--billing-line); border-radius: 12px; background: #fff; box-shadow: 0 4px 12px rgba(38,67,58,.07); }
 .drivers-calendar-card__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid var(--billing-line); background: linear-gradient(90deg, var(--billing-soft), #fff); }
 .drivers-calendar-card__header > div:nth-child(2) { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
@@ -1191,23 +1188,22 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .report-period-trigger { width: 100%; min-width: 0; }
   .report-chart { height: 235px; }
   .report-section-card, .report-table-card, .report-driver-vehicle { border-radius: 11px; }
-  .drivers-summary-card { min-height: 118px; padding: 13px 12px; }
-  .drivers-summary-card > header { grid-template-columns: 30px minmax(0,1fr) auto; gap: 7px; }
-  .drivers-summary-card__icon { width: 30px; height: 30px; }
-  .drivers-summary-card > header strong { font-size: 13px; }
-  .drivers-summary-card > header small { font-size: 7px; }
-  .drivers-summary-card--billing .drivers-summary-card__total, .drivers-summary-card--fuel .drivers-summary-card__total { font-size: 18px; }
-  .drivers-summary-card > div { grid-template-columns: 1fr; gap: 3px; }
-  .drivers-summary-card > div > span { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: baseline; }
+  .drivers-summary-card { min-height: 94px; padding: 8px 10px; gap: 5px; }
+  .drivers-summary-card > header { grid-template-columns: 34px minmax(0,1fr) auto; gap: 7px; }
+  .drivers-summary-card__icon { width: 34px; height: 34px; }
+  .drivers-summary-card > header strong { font-size: 15px; }
+  .drivers-summary-card > header small { font-size: 8px; }
+  .drivers-summary-card--billing .drivers-summary-card__total, .drivers-summary-card--fuel .drivers-summary-card__total { font-size: 22px; }
+  .drivers-summary-card > div { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; padding-top: 5px; }
+  .drivers-summary-card > div > span { display: flex; flex-direction: column; align-items: initial; }
   .drivers-summary-card > footer { font-size: 5.5px; }
-  .driver-list-card { min-height: 70px; grid-template-columns: 34px minmax(0,1fr) 82px 82px 17px; gap: 6px; padding: 11px 10px; }
-  .driver-list-card__avatar { width: 34px; height: 34px; font-size: 8px; }
-  .driver-list-card__identity strong { font-size: 11px; }
-  .driver-list-card__identity small { font-size: 6.5px; }
+  .driver-list-card { min-height: 52px; grid-template-columns: minmax(0,1fr) minmax(102px,124px) minmax(94px,114px); gap: 6px; padding: 5px 0; }
+  .driver-list-card__identity strong { font-size: 12px; }
+  .driver-list-card__identity small { font-size: 7px; }
   .driver-list-card__metric { min-width: 0; padding-left: 6px; }
-  .driver-list-card__metric small { font-size: 5.5px; }
-  .driver-list-card__metric strong { font-size: 8px; }
-  .driver-list-card__metric--billing strong { font-size: 14px; }
+  .driver-list-card__metric small { font-size: 6.5px; }
+  .driver-list-card__metric strong { font-size: 12px; }
+  .driver-list-card__metric--billing strong { font-size: 18px; }
   .drivers-calendar-card__header { padding: 9px; }
   .drivers-calendar-card__header > div:nth-child(2) strong { font-size: 12px; }
   .drivers-calendar-legend { padding-inline: 9px; }
@@ -1294,7 +1290,6 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .fuel-vehicle-summary small { font-size: 5.5px; }
   .fuel-vehicle-summary strong { font-size: 8px; }
   .fuel-vehicle-summary > span > span { display: none; }
-  .drivers-summary-card > div { grid-template-columns: 1fr; }
   .driver-list-card__metric--fuel { display: flex; }
   .drivers-calendar-card__header > div:nth-child(2) > span { font-size: 5.5px; }
   .drivers-calendar-card__header > div:nth-child(2) strong { font-size: 10px; }
