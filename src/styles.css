@@ -31,6 +31,10 @@
   --billing-blue-strong: #146bb5;
   --billing-blue-soft: #edf5ff;
   --billing-blue-line: #cbdff4;
+  --maintenance-orange: #f39c12;
+  --maintenance-orange-strong: #d87900;
+  --maintenance-orange-soft: #fff4df;
+  --maintenance-orange-line: #f1d29a;
   --shadow: 0 10px 30px rgba(25, 55, 45, .08);
 }
 
@@ -75,16 +79,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
 .topbar-actions > .install-app-button, .topbar-actions > .date, .topbar-actions > .profile { display: none; }
 .topbar-shortcuts { display: flex; align-items: center; gap: 6px; }
-.topbar-route-button { min-height: 35px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: #43564f; font-size: 8px; font-weight: 650; cursor: pointer; }
+.topbar-route-button { min-height: 30px; display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: #43564f; font-size: 7.5px; font-weight: 650; cursor: pointer; }
 .topbar-route-button:hover { border-color: #a9c7be; background: var(--green-50); color: var(--green-900); }
 .topbar-route-button--active { border-color: #78a99a; background: var(--green-50); color: var(--green-900); }
 .install-app-button { min-height: 35px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid #a9c7be; border-radius: 8px; background: var(--green-50); color: var(--green-900); font: inherit; font-size: 8px; font-weight: 750; cursor: pointer; }
 .install-app-button:hover { border-color: #6fa492; background: #e1f2ec; }
 .date { display: flex; align-items: center; gap: 7px; color: #4f5e58; font-size: 10px; white-space: nowrap; }
-.bell-button { position: relative; width: 38px; height: 38px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; }
+.bell-button { position: relative; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; }
 .bell-button:hover { background: var(--green-50); }
-.bell-button i { position: absolute; top: -5px; right: -4px; width: 17px; height: 17px; display: grid; place-items: center; border: 2px solid #fff; border-radius: 50%; background: var(--amber); color: #fff; font-size: 8px; font-style: normal; font-weight: 700; }
-.topbar-menu-button { width: 38px; height: 38px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.32); border-radius: 10px; background: rgba(255,255,255,.1); color: #fff; cursor: pointer; }
+.bell-button i { position: absolute; top: -5px; right: -4px; width: 15px; height: 15px; display: grid; place-items: center; border: 2px solid #fff; border-radius: 50%; background: var(--amber); color: #fff; font-size: 7px; font-style: normal; font-weight: 700; }
+.topbar-menu-button { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.32); border-radius: 8px; background: rgba(255,255,255,.1); color: #fff; cursor: pointer; }
 .topbar-menu-button:hover { background: rgba(255,255,255,.2); }
 .profile { display: flex; align-items: center; gap: 9px; padding: 4px 6px 4px 4px; border: 0; border-radius: 10px; background: transparent; text-align: left; cursor: pointer; }
 .profile:hover { background: #f4f7f6; }
@@ -101,7 +105,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .topbar .install-app-button:hover, .topbar .topbar-route-button:hover, .topbar .bell-button:hover, .topbar .profile:hover { background: rgba(255,255,255,.2); }
 .topbar .avatar { background: rgba(255,255,255,.16); }
 .topbar-route-button { position: relative; }
-.topbar-route-button i { position: absolute; top: -6px; right: -5px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 3px; border: 2px solid #050505; border-radius: 999px; background: var(--green-900); color: #fff; font-size: 7px; font-style: normal; font-weight: 750; }
+.topbar-route-button i { position: absolute; top: -5px; right: -4px; min-width: 14px; height: 14px; display: grid; place-items: center; padding: 0 2px; border: 2px solid #050505; border-radius: 999px; background: var(--green-900); color: #fff; font-size: 6.5px; font-style: normal; font-weight: 750; }
 .topbar-route-button--facturas svg { color: #bfe8ff; }
 .topbar-management-menu { position: absolute; top: 62px; right: 22px; z-index: 30; width: 240px; display: grid; gap: 4px; padding: 8px; border: 1px solid #343434; border-radius: 12px; background: #0b0b0b; box-shadow: 0 16px 32px rgba(0,0,0,.35); }
 .topbar-management-menu__item { min-height: 42px; display: flex; align-items: center; gap: 10px; width: 100%; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; color: #fff; font-size: 9px; font-weight: 650; text-align: left; cursor: pointer; }
@@ -129,7 +133,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .page-scroll--dashboard .fuel-reports-page { height: 100%; min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; overflow: hidden; }
 .page-scroll--dashboard .fuel-report-canvas { height: 100%; min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; }
 .page-scroll--dashboard .report-general-grid { min-height: 0; display: flex; flex: 1; flex-direction: column; margin-bottom: 0; }
-.page-scroll--dashboard .report-stat-grid { flex: 0 0 auto; gap: 8px; margin-bottom: 8px; }
+.page-scroll--dashboard .report-stat-grid { width: 50%; flex: 0 0 auto; gap: 8px; margin-inline: auto; margin-bottom: 8px; }
 .page-scroll--dashboard .report-stat-card--fleet { min-height: 100px; padding-block: 10px; }
 .page-scroll--dashboard .report-stat-card--wide { min-height: 86px; padding-block: 9px; }
 .page-scroll--dashboard .report-chart-card { min-height: 0; display: flex; flex: 1; flex-direction: column; }
@@ -258,6 +262,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-stat-card--red .report-stat-value { color: #d43b30; }
 .report-stat-card--green .report-stat-card__header > span { background: #28923c; }
 .report-stat-card--green .report-stat-value { color: #278c3b; }
+.report-stat-card--orange.report-stat-card--active { border-color: var(--maintenance-orange); box-shadow: inset 0 0 0 1px var(--maintenance-orange), 0 8px 20px rgba(243,156,18,.15); }
+.report-stat-card--orange .report-stat-card__header > span { background: var(--maintenance-orange); }
+.report-stat-card--orange .report-stat-value { color: var(--maintenance-orange-strong); }
 .report-chart-card { min-width: 0; min-height: 322px; padding: 15px 16px 10px; border: 1px solid #dae3e0; border-radius: 13px; background: #fff; box-shadow: 0 3px 8px rgba(38,67,58,.09); }
 .report-chart-card > header { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; color: #078d97; }
 .report-chart-card > header strong { color: #1c332b; font-size: 10px; }
@@ -281,6 +288,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .report-period-menu { position: absolute; z-index: 30; top: calc(100% + 5px); right: 0; padding: 6px; border: 1px solid #d5e0dc; border-radius: 9px; background: #fff; box-shadow: 0 12px 28px rgba(20,55,45,.16); text-transform: none; }
 .report-period-menu--months { right: 0; left: auto; width: max-content; max-width: calc(100vw - 24px); max-height: min(420px, calc(100vh - 150px)); display: grid; grid-template-columns: max-content; gap: 3px; overflow-y: auto; overscroll-behavior: contain; }
 .report-period-menu--years { width: 86px; display: grid; gap: 3px; }
+.report-period-menu--wheel { min-width: 104px; max-height: 196px; padding: 62px 6px; overflow-y: auto; border-color: #c5dcd2; border-radius: 15px; background: linear-gradient(90deg, #f3f8f6 0%, #fff 28%, #fff 72%, #f3f8f6 100%); box-shadow: 0 15px 30px rgba(20,55,45,.2), inset 0 0 0 1px rgba(255,255,255,.72); scroll-padding-block: 62px; scroll-snap-type: y mandatory; scrollbar-width: thin; }
+.report-period-menu--wheel::before, .report-period-menu--wheel::after { position: absolute; right: 6px; left: 6px; z-index: 2; height: 34px; pointer-events: none; content: ""; }
+.report-period-menu--wheel::before { top: 0; border-bottom: 1px solid rgba(100,145,127,.22); background: linear-gradient(#fff 20%, rgba(255,255,255,.82) 68%, rgba(255,255,255,0)); }
+.report-period-menu--wheel::after { bottom: 0; border-top: 1px solid rgba(100,145,127,.22); background: linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.82) 32%, #fff 80%); }
+.report-period-menu--wheel.report-period-menu--years { min-width: 86px; width: 86px; }
+.report-period-menu--wheel button { position: relative; z-index: 1; min-height: 34px; justify-content: center; padding: 0 12px; border-radius: 9px; color: #8d9c95; font-size: 8.5px; text-align: center; scroll-snap-align: center; }
+.report-period-menu--wheel button:hover { background: #edf7f3; color: var(--green-800); }
+.report-period-menu--wheel button.selected { background: #e0f1e9; color: var(--green-900); box-shadow: inset 0 0 0 1px #afd4c3, 0 3px 9px rgba(42,111,86,.14); font-weight: 750; transform: scale(1.02); }
+.report-period-menu--wheel button svg { flex: 0 0 auto; color: var(--green-700); }
 .report-period-menu button { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 7px; border: 0; border-radius: 6px; background: transparent; color: #586660; font-size: 7.5px; text-align: left; cursor: pointer; }
 .report-period-menu--months button { white-space: nowrap; }
 .report-period-menu button:hover, .report-period-menu button.selected { background: #eaf5f1; color: var(--green-900); font-weight: 700; }
@@ -953,7 +969,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .fuel-vehicle-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .report-general-grid { grid-template-columns: 1fr; }
   .report-drivers-grid { grid-template-columns: 1fr 1fr; }
-  .topbar-route-button { width: 36px; justify-content: center; padding: 0; }
+  .topbar-route-button { width: 30px; justify-content: center; padding: 0; }
   .topbar-route-button span { display: none; }
 }
 
@@ -968,6 +984,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .topbar-management-menu { position: fixed; top: 58px; right: 12px; width: min(240px, calc(100vw - 24px)); }
   .page-scroll { overflow: visible; }
   .page-scroll--dashboard { height: calc(100vh - 70px); overflow: hidden; }
+  .page-scroll--dashboard .report-stat-grid { width: 100%; }
   .module-page { padding: 16px; }
   .fuel-report-canvas { padding: 10px 12px 24px; }
   .report-quick-actions { display: flex; overflow-x: auto; padding-bottom: 3px; scroll-snap-type: x mandatory; }

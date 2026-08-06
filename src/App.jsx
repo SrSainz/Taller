@@ -665,9 +665,9 @@ export function App() {
           {!compactDetailHeader && <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             <span className="date"><IconCalendar size={18} />28 jul 2026</span>
-            <button type="button" className={`topbar-route-button topbar-route-button--facturas${activeNav === "Facturas" ? " topbar-route-button--active" : ""}`} onClick={() => navigate(navItems[3])} aria-label="Abrir Facturas" aria-current={activeNav === "Facturas" ? "page" : undefined} title="Facturas"><IconFileInvoice size={17} /><span>Facturas</span><i>3</i></button>
-            <button className="bell-button" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setTopbarMenuOpen(false); }}><IconBell size={20} /><i>2</i></button>
-            <button className="topbar-menu-button" aria-label="Abrir accesos de gestión" aria-expanded={topbarMenuOpen} aria-controls="topbar-management-menu" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }} title="Accesos de gestión"><IconMenu2 size={22} /></button>
+            <button type="button" className={`topbar-route-button topbar-route-button--facturas${activeNav === "Facturas" ? " topbar-route-button--active" : ""}`} onClick={() => navigate(navItems[3])} aria-label="Abrir Facturas" aria-current={activeNav === "Facturas" ? "page" : undefined} title="Facturas"><IconFileInvoice size={14} /><span>Facturas</span><i>3</i></button>
+            <button className="bell-button" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setTopbarMenuOpen(false); }}><IconBell size={17} /><i>2</i></button>
+            <button className="topbar-menu-button" aria-label="Abrir accesos de gestión" aria-expanded={topbarMenuOpen} aria-controls="topbar-management-menu" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }} title="Accesos de gestión"><IconMenu2 size={18} /></button>
             <button className="profile" onClick={() => notify("Perfil de Ana García")}><span className="avatar">AG</span><span><strong>Ana García</strong><small>Gestora de flota</small></span><IconChevronDown size={17} /></button>
           </div>}
           {!compactDetailHeader && topbarMenuOpen && (
@@ -914,6 +914,16 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     ? activeChart.data.some((item) => [item.billing, item.maintenance, item.fuel, item.net].some((value) => value !== 0))
     : activeChart.data.some((item) => item.value !== 0);
 
+  useEffect(() => {
+    if (!periodMenu) return;
+    const menu = document.querySelector(".report-period-menu--wheel");
+    const selectedOption = menu?.querySelector("button.selected");
+    if (!menu || !selectedOption) return;
+    const maxScroll = menu.scrollHeight - menu.clientHeight;
+    const targetScroll = selectedOption.offsetTop - (menu.clientHeight - selectedOption.offsetHeight) / 2;
+    menu.scrollTop = Math.max(0, Math.min(maxScroll, targetScroll));
+  }, [periodMenu]);
+
   if (mode === "vehicles") {
     return (
       <section className="fuel-reports-page vehicle-workspace-page">
@@ -942,7 +952,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
             />
             {selectedBillingVehicle ? <VehicleBillingSummary vehicle={selectedBillingVehicle} rows={selectedBillingVehicleRows} month={reportMonth} year={reportYear} /> : null}
             {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} month={reportMonth} year={reportYear} onClose={() => setBillingDriverKey("")} /> : null}
-            <FuelDriversReport vehicles={vehicles} selectedDriverKey={billingDriverKey} onSelectDriver={setBillingDriverKey} />
+
           </section>
         </div>
       </section>
@@ -957,7 +967,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
             <div className="report-general-grid">
               <div className="report-stat-grid">
                 <ReportFleetSummaryCard vehicleCount={vehicles.length} billing={formatCurrency(periodTotals.billing)} fuel={formatCurrency(periodTotals.fuel)} onClick={() => onNavigate(navItems[1])} />
-                <ReportStatCard wide icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="slate" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
+                <ReportStatCard wide icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
                 <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
               </div>
               <section className="report-chart-card">
@@ -968,12 +978,12 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                     <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
                       <span>Mes</span>
                       <button type="button" className="report-period-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
-                      {periodMenu === "month" && <div className="report-period-menu report-period-menu--months" role="listbox" aria-label="Seleccionar mes">{reportMonths.map((month, index) => <button type="button" role="option" aria-selected={reportMonth === index} className={reportMonth === index ? "selected" : ""} onClick={() => { setReportMonth(index); setPeriodMenu(""); }} key={month}>{month}{reportMonth === index && <IconCheck size={12} />}</button>)}</div>}
+                      {periodMenu === "month" && <div className="report-period-menu report-period-menu--months report-period-menu--wheel" role="listbox" aria-label="Seleccionar mes">{reportMonths.map((month, index) => <button type="button" role="option" aria-selected={reportMonth === index} className={reportMonth === index ? "selected" : ""} onClick={() => { setReportMonth(index); setPeriodMenu(""); }} key={month}>{month}{reportMonth === index && <IconCheck size={12} />}</button>)}</div>}
                     </div>
                     <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
                       <span>Año</span>
                       <button type="button" className="report-period-trigger report-period-trigger--year" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
-                      {periodMenu === "year" && <div className="report-period-menu report-period-menu--years" role="listbox" aria-label="Seleccionar año">{reportYears.map((year) => <button type="button" role="option" aria-selected={reportYear === year} className={reportYear === year ? "selected" : ""} onClick={() => { setReportYear(year); setPeriodMenu(""); }} key={year}>{year}{reportYear === year && <IconCheck size={12} />}</button>)}</div>}
+                      {periodMenu === "year" && <div className="report-period-menu report-period-menu--years report-period-menu--wheel" role="listbox" aria-label="Seleccionar año">{reportYears.map((year) => <button type="button" role="option" aria-selected={reportYear === year} className={reportYear === year ? "selected" : ""} onClick={() => { setReportYear(year); setPeriodMenu(""); }} key={year}>{year}{reportYear === year && <IconCheck size={12} />}</button>)}</div>}
                     </div>
                   </div>
                 </header>
@@ -1079,7 +1089,7 @@ function FuelVehicleOverview({ stats, billingRows = [], selected, onSelectVehicl
         <div className="report-period-dropdown fuel-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onCloseMenu(); }}>
           <span>Mes</span>
           <button type="button" className="report-period-trigger fuel-period-trigger" aria-haspopup="listbox" aria-expanded={menuOpen} onClick={onToggleMonth}><IconCalendar size={14} /><span>{reportMonths[month]}</span><IconChevronDown size={13} /></button>
-          {menuOpen && <div className="report-period-menu report-period-menu--months" role="listbox" aria-label={`Seleccionar mes de ${unified ? "Vehículos" : "Combustible"}`}>{reportMonths.map((monthLabel, index) => <button type="button" role="option" aria-selected={month === index} className={month === index ? "selected" : ""} onClick={() => onSelectMonth(index)} key={monthLabel}>{monthLabel}{month === index && <IconCheck size={12} />}</button>)}</div>}
+          {menuOpen && <div className="report-period-menu report-period-menu--months report-period-menu--wheel" role="listbox" aria-label={`Seleccionar mes de ${unified ? "Vehículos" : "Combustible"}`}>{reportMonths.map((monthLabel, index) => <button type="button" role="option" aria-selected={month === index} className={month === index ? "selected" : ""} onClick={() => onSelectMonth(index)} key={monthLabel}>{monthLabel}{month === index && <IconCheck size={12} />}</button>)}</div>}
           <small>{periodLabel}</small>
         </div>
       </header>
@@ -1174,12 +1184,12 @@ function FuelIncomeReport({ rows, total, month, year, periodMenu, selectedDriver
             <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onTogglePeriodMenu(""); }}>
               <span>Mes</span>
               <button type="button" className="report-period-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "billing-month"} onClick={() => onTogglePeriodMenu(periodMenu === "billing-month" ? "" : "billing-month")}><span>{reportMonths[month]}</span><IconChevronDown size={13} /></button>
-              {periodMenu === "billing-month" ? <div className="report-period-menu report-period-menu--months" role="listbox" aria-label="Seleccionar mes de Facturación">{reportMonths.map((monthLabel, index) => <button type="button" role="option" aria-selected={month === index} className={month === index ? "selected" : ""} onClick={() => onSelectMonth(index)} key={monthLabel}>{monthLabel}{month === index ? <IconCheck size={12} /> : null}</button>)}</div> : null}
+              {periodMenu === "billing-month" ? <div className="report-period-menu report-period-menu--months report-period-menu--wheel" role="listbox" aria-label="Seleccionar mes de Facturación">{reportMonths.map((monthLabel, index) => <button type="button" role="option" aria-selected={month === index} className={month === index ? "selected" : ""} onClick={() => onSelectMonth(index)} key={monthLabel}>{monthLabel}{month === index ? <IconCheck size={12} /> : null}</button>)}</div> : null}
             </div>
             <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onTogglePeriodMenu(""); }}>
               <span>Año</span>
               <button type="button" className="report-period-trigger report-period-trigger--year" aria-haspopup="listbox" aria-expanded={periodMenu === "billing-year"} onClick={() => onTogglePeriodMenu(periodMenu === "billing-year" ? "" : "billing-year")}><span>{year}</span><IconChevronDown size={13} /></button>
-              {periodMenu === "billing-year" ? <div className="report-period-menu report-period-menu--years" role="listbox" aria-label="Seleccionar año de Facturación">{reportYears.map((yearOption) => <button type="button" role="option" aria-selected={year === yearOption} className={year === yearOption ? "selected" : ""} onClick={() => onSelectYear(yearOption)} key={yearOption}>{yearOption}{year === yearOption ? <IconCheck size={12} /> : null}</button>)}</div> : null}
+              {periodMenu === "billing-year" ? <div className="report-period-menu report-period-menu--years report-period-menu--wheel" role="listbox" aria-label="Seleccionar año de Facturación">{reportYears.map((yearOption) => <button type="button" role="option" aria-selected={year === yearOption} className={year === yearOption ? "selected" : ""} onClick={() => onSelectYear(yearOption)} key={yearOption}>{yearOption}{year === yearOption ? <IconCheck size={12} /> : null}</button>)}</div> : null}
             </div>
           </div>
           <strong className="report-header-total report-header-total--green">{formatCurrency(total)}</strong>
