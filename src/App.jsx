@@ -45,6 +45,7 @@ import {
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const BILLING_COLOR = "#7bc887";
+const MAINTENANCE_COLOR = "#f39c12";
 
 const navItems = [
   { label: "Informes", slug: "informes", icon: IconChartBar },
@@ -720,7 +721,7 @@ export function App() {
   };
 
   return (
-    <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}`}>
+    <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}${activeNav === "Informes" && homeReportTab === "General" ? " app-shell--dashboard" : ""}`}>
       <main className="workspace">
           <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}`}>
           <div className="topbar-title">
@@ -967,7 +968,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const chartOptions = {
     summary: { title: "Resumen general por coche", description: "", color: "#079ea7", data: summaryChartData },
     billing: { title: "Facturación por conductor", description: "Ingresos mensuales de los seis conductores profesionales.", color: BILLING_COLOR, data: billingChartData },
-    maintenance: { title: "Mantenimiento por coche", description: "Importe de las actuaciones registradas en cada vehículo.", color: "#607d89", data: maintenanceChartData },
+    maintenance: { title: "Mantenimiento por coche", description: "Importe de las actuaciones registradas en cada vehículo.", color: MAINTENANCE_COLOR, data: maintenanceChartData },
     fuel: { title: "Combustible por coche", description: "Gasto mensual de combustible de los cinco vehículos.", color: "#df4538", data: fuelChartData },
     net: { title: "Beneficio neto por coche", description: "Facturación menos todos los gastos asignados a cada vehículo.", color: "#28923c", data: netChartData },
   };
@@ -1064,7 +1065,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                       {(chartMetric === "net" || chartMetric === "summary") && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
                         <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill={BILLING_COLOR} maxBarSize={58} minPointSize={2} isAnimationActive={false} />
-                        <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill="#607d89" maxBarSize={58} minPointSize={2} isAnimationActive={false} />
+                        <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill={MAINTENANCE_COLOR} maxBarSize={58} minPointSize={2} isAnimationActive={false} />
                         <Bar dataKey="fuel" name="fuel" stackId="vehicle-summary" fill="#df4538" maxBarSize={58} minPointSize={2} isAnimationActive={false} />
                         <Bar dataKey="net" name="net" stackId="vehicle-summary" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={58} minPointSize={2} isAnimationActive={false} />
                       </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={52} isAnimationActive={false}>
@@ -1128,7 +1129,6 @@ function ReportFleetSummaryCard({ billing, fuel, onClick }) {
         <span className="report-stat-fleet__metric"><span><IconFileInvoice size={14} />Facturación</span><strong>{billing}</strong></span>
         <span className="report-stat-fleet__metric"><span><IconGasStation size={14} />Consumo</span><strong>{fuel}</strong></span>
       </span>
-      <IconChevronRight className="report-stat-fleet__arrow" size={18} aria-hidden="true" />
     </button>
   );
 }
@@ -1136,10 +1136,16 @@ function ReportFleetSummaryCard({ billing, fuel, onClick }) {
 function ReportStatCard({ wide = false, icon: Icon, label, value, daily, perKm, tone, active, actionLabel, onClick }) {
   return (
     <button type="button" className={`report-stat-card report-stat-card--${tone}${wide ? " report-stat-card--wide" : ""}${active ? " report-stat-card--active" : ""}`} onClick={onClick} aria-label={actionLabel ?? `Mostrar gráfico de ${label}`} aria-pressed={active}>
-      <span className="report-stat-card__header"><span className="report-stat-card__icon"><Icon size={18} /></span><strong>{label}</strong></span>
-      <small>Total</small>
-      <strong className="report-stat-value">{value}</strong>
-      <span className="report-stat-card__footer"><span><small>Por día</small><strong>{daily}</strong></span><span><small>Por km</small><strong>{perKm}</strong></span></span>
+      <span className="report-stat-card__header"><span className="report-stat-card__icon"><Icon size={18} /></span><strong>{wide ? label.toLocaleUpperCase("es") : label}</strong></span>
+      {wide ? <span className="report-stat-card__inline-metrics">
+        <span><small>Total</small><strong>{value}</strong></span>
+        <span><small>Por día</small><strong>{daily}</strong></span>
+        <span><small>Por km</small><strong>{perKm}</strong></span>
+      </span> : <>
+        <small>Total</small>
+        <strong className="report-stat-value">{value}</strong>
+        <span className="report-stat-card__footer"><span><small>Por día</small><strong>{daily}</strong></span><span><small>Por km</small><strong>{perKm}</strong></span></span>
+      </>}
     </button>
   );
 }
