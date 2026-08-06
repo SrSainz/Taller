@@ -1,4 +1,4 @@
-const cacheName = "sobre-ruedas-shell-v14";
+const cacheName = "sobre-ruedas-shell-v15";
 const appShell = [
   "/",
   "/index.html",
@@ -23,6 +23,10 @@ const cacheAppShell = async () => {
 
 self.addEventListener("install", (event) => {
   event.waitUntil(cacheAppShell().then(() => self.skipWaiting()));
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -54,12 +58,11 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request).then((response) => {
+    caches.match(request).then((cached) => fetch(request)
+      .then((response) => {
         if (response.ok) caches.open(cacheName).then((cache) => cache.put(request, response.clone()));
         return response;
-      });
-      return cached ?? network;
-    }),
+      })
+      .catch(() => cached)),
   );
 });

@@ -73,6 +73,8 @@ pnpm install
 pnpm run dev
 ```
 
+The development server listens on port `5174` and is exposed to the local network. To test on a phone connected to the same Wi-Fi, open `http://<IP-DEL-ORDENADOR>:5174/#/informes`; `127.0.0.1` only works on the device where the server is running. The PWA unregisters stale development service workers and production builds check for a new version when the app is opened or returns to the foreground.
+
 Production build:
 
 ```bash

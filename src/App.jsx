@@ -26,6 +26,7 @@ import {
   IconHome,
   IconKey,
   IconMail,
+  IconMenu2,
   IconMessageCircle,
   IconPlus,
   IconRefresh,
@@ -42,9 +43,11 @@ import {
 } from "@tabler/icons-react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
+const BILLING_COLOR = "#7bc887";
+
 const navItems = [
   { label: "Informes", slug: "informes", icon: IconChartBar },
-  { label: "Flota", slug: "flota", icon: IconCar },
+  { label: "Vehículos", slug: "flota", icon: IconCar },
   { label: "Lecturas", slug: "lecturas", icon: IconGauge, badge: 2 },
   { label: "Facturas", slug: "facturas", icon: IconFileInvoice, badge: 3 },
   { label: "Automatizaciones", slug: "automatizaciones", icon: IconRobot },
@@ -398,6 +401,7 @@ const getFuelAssignment = (vehicle, entry) => {
 
 const navFromHash = () => {
   const slug = window.location.hash.replace(/^#\/?/, "");
+  if (slug === "gasolina") return "Vehículos";
   return [...navItems, ...fleetSubItems, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Informes";
 };
 
@@ -463,6 +467,7 @@ export function App() {
   const [modal, setModal] = useState(null);
   const [photoInvoices, setPhotoInvoices] = useState(loadPhotoInvoices);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
   const [settings, setSettings] = useState({ company: "SOBRE RUEDAS", email: "flota@sobreruedas.es", serviceWarning: "5000", lowConfidence: "94" });
@@ -476,6 +481,7 @@ export function App() {
     const handleHash = () => {
       const nextNav = navFromHash();
       setActiveNav(nextNav);
+      setTopbarMenuOpen(false);
       if (nextNav === "Gasolina") {
         setInspectorTab("Gasolina");
         setInspectorOpen(false);
@@ -490,6 +496,7 @@ export function App() {
       if (event.key === "Escape") {
         setModal(null);
         setNotificationsOpen(false);
+        setTopbarMenuOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -540,7 +547,7 @@ export function App() {
   const selected = vehicles.find((vehicle) => vehicle.plate === selectedPlate) ?? vehicles[0];
   const selectedDriver = selectedDrivers[selected.plate] ?? selected.drivers[0];
   const selectedActivity = getDriverDay(selected, selectedDriver);
-  const showInspector = activeNav === "Flota" && inspectorOpen;
+  const showInspector = activeNav === "Vehículos" && inspectorOpen;
   const detailHeaderTitle = activeNav === "Mantenimiento"
     ? "Mantenimiento"
     : activeNav === "Informes" && homeReportTab === "Facturación"
@@ -588,6 +595,7 @@ export function App() {
   const navigate = (item) => {
     setActiveNav(item.label);
     setNotificationsOpen(false);
+    setTopbarMenuOpen(false);
     if (window.location.hash !== `#/${item.slug}`) window.location.hash = `/${item.slug}`;
   };
 
@@ -600,7 +608,9 @@ export function App() {
   const navigateFleetSubItem = (item) => {
     if (item.label === "Gasolina") {
       setInspectorTab("Gasolina");
-      setInspectorOpen(false);
+      setInspectorOpen(window.innerWidth > 820);
+      navigate(navItems[1]);
+      return;
     }
     navigate(item);
   };
@@ -638,24 +648,31 @@ export function App() {
   return (
     <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}`}>
       <main className="workspace">
-        <header className={`${["Informes", "Gasolina"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}`}>
+          <header className={`${["Informes", "Gasolina", "Vehículos"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}`}>
           <div className="topbar-title">
             <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
-            <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : "Gestión centralizada de vehículos"}</small>}</div>
+            <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : "Gestión centralizada de vehículos"}</small>}</div>
           </div>
           {!compactDetailHeader && <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             <span className="date"><IconCalendar size={18} />28 jul 2026</span>
-            <div className="topbar-shortcuts" aria-label="Accesos de gestión">
+            <button className="bell-button" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setTopbarMenuOpen(false); }}><IconBell size={20} /><i>2</i></button>
+            <button className="topbar-menu-button" aria-label="Abrir accesos de gestión" aria-expanded={topbarMenuOpen} aria-controls="topbar-management-menu" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }} title="Accesos de gestión"><IconMenu2 size={22} /></button>
+            <button className="profile" onClick={() => notify("Perfil de Ana García")}><span className="avatar">AG</span><span><strong>Ana García</strong><small>Gestora de flota</small></span><IconChevronDown size={17} /></button>
+          </div>}
+          {!compactDetailHeader && topbarMenuOpen && (
+            <aside id="topbar-management-menu" className="topbar-management-menu" aria-label="Accesos de gestión">
+              {!isStandalone && <button className="topbar-management-menu__item" onClick={installApplication}><IconDownload size={18} /><span>Instalar app</span></button>}
+              <div className="topbar-management-menu__meta"><IconCalendar size={18} /><span>28 jul 2026</span></div>
+              <button className="topbar-management-menu__item" onClick={() => notify("Perfil de Ana García")}><span className="avatar">AG</span><span><strong>Ana García</strong><small>Gestora de flota</small></span><IconChevronDown className="topbar-management-menu__chevron" size={17} /></button>
+              <div className="topbar-management-menu__divider" />
               {topbarItems.map((item) => {
                 const Icon = item.icon;
                 const active = activeNav === item.label;
-                return <button className={active ? "topbar-route-button topbar-route-button--active" : "topbar-route-button"} key={item.label} onClick={() => navigate(item)} aria-label={item.label} aria-current={active ? "page" : undefined} title={item.label}><Icon size={17} /><span>{item.label}</span></button>;
+                return <button className={active ? "topbar-management-menu__item topbar-management-menu__item--active" : "topbar-management-menu__item"} key={item.label} onClick={() => navigate(item)} aria-current={active ? "page" : undefined}><Icon size={18} /><span>{item.label}</span></button>;
               })}
-            </div>
-            <button className="bell-button" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((value) => !value)}><IconBell size={20} /><i>2</i></button>
-            <button className="profile" onClick={() => notify("Perfil de Ana García")}><span className="avatar">AG</span><span><strong>Ana García</strong><small>Gestora de flota</small></span><IconChevronDown size={17} /></button>
-          </div>}
+            </aside>
+          )}
           {!compactDetailHeader && notificationsOpen && (
             <aside className="notification-popover" aria-label="Notificaciones recientes">
               <header><strong>Notificaciones</strong><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></header>
@@ -666,21 +683,7 @@ export function App() {
         </header>
 
         <div className="page-scroll">
-          {activeNav === "Flota" && (
-            <FleetView
-              filtered={filtered}
-              filter={filter}
-              query={query}
-              selected={selected}
-              selectedDrivers={selectedDrivers}
-              setFilter={setFilter}
-              setQuery={setQuery}
-              selectVehicle={selectVehicle}
-              selectDriver={selectDriver}
-              openWorkshop={openWorkshop}
-              setModal={setModal}
-            />
-          )}
+          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" vehicles={vehicles} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
           {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
@@ -715,21 +718,22 @@ export function App() {
   );
 }
 
-function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, setModal }) {
+function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, setModal, compact = false }) {
   return (
-    <section className="module-page fleet-page">
-      <PageIntro
+    <section className={compact ? "vehicle-workspace-fleet" : "module-page fleet-page"}>
+      {!compact && <PageIntro
         eyebrow="Flota"
         title="Vehículos"
         description="Kilómetros, facturación, combustible y mantenimiento en una única vista."
         action={<button className="primary-button" onClick={() => setModal({ type: "reading" })}><IconPlus size={18} />Registrar lectura</button>}
-      />
-      <div className="metric-cards">
+      />}
+      {!compact && <div className="metric-cards">
         <MetricCard icon={IconBriefcase} label="Vehículos profesionales" value="3" detail="6 turnos recibidos hoy" />
         <MetricCard icon={IconGasStation} label="Repostaje de hoy" value="177,31 €" detail="6 conductores profesionales" />
         <MetricCard icon={IconTools} label="Próxima revisión" value="4.160 km" detail="Peugeot 2008 · 6 ago" tone="amber" />
-      </div>
-      <section className="content-card fleet-card">
+      </div>}
+      <section className={`content-card fleet-card${compact ? " vehicle-workspace-fleet-card report-section-card" : ""}`}>
+        {compact && <header className="vehicle-workspace-section-heading vehicle-workspace-section-heading--fleet"><div><span>Operativa</span><h2>Vehículos y actividad diaria</h2><p>Conductores, facturación, kilómetros, repostaje y taller en una sola tabla.</p></div><button type="button" className="secondary-button" onClick={() => setModal({ type: "reading" })}><IconPlus size={16} />Registrar lectura</button></header>}
         <header className="fleet-toolbar" aria-label="Filtros de vehículos">
           <label className="search"><IconSearch size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar matrícula, conductor o trabajo" /></label>
           <div className="filters">
@@ -775,7 +779,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
   );
 }
 
-function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange }) {
+function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;
@@ -886,7 +890,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   };
   const chartOptions = {
     summary: { title: "Resumen general por coche", description: "", color: "#079ea7", data: summaryChartData },
-    billing: { title: "Facturación por conductor", description: "Ingresos mensuales de los seis conductores profesionales.", color: "#1976c9", data: billingChartData },
+    billing: { title: "Facturación por conductor", description: "Ingresos mensuales de los seis conductores profesionales.", color: BILLING_COLOR, data: billingChartData },
     maintenance: { title: "Mantenimiento por coche", description: "Importe de las actuaciones registradas en cada vehículo.", color: "#607d89", data: maintenanceChartData },
     fuel: { title: "Combustible por coche", description: "Gasto mensual de combustible de los cinco vehículos.", color: "#df4538", data: fuelChartData },
     net: { title: "Beneficio neto por coche", description: "Facturación menos todos los gastos asignados a cada vehículo.", color: "#28923c", data: netChartData },
@@ -900,6 +904,41 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     ? activeChart.data.some((item) => [item.billing, item.maintenance, item.fuel, item.net].some((value) => value !== 0))
     : activeChart.data.some((item) => item.value !== 0);
 
+  if (mode === "vehicles") {
+    return (
+      <section className="fuel-reports-page vehicle-workspace-page">
+        <div className="fuel-report-canvas">
+          <FuelVehicleOverview mode="vehicles" stats={vehicleStats} billingRows={billingRows} selected={selected} onSelectVehicle={onSelectVehicle} month={reportMonth} year={reportYear} menuOpen={periodMenu === "fuel-month"} onToggleMonth={() => setPeriodMenu((current) => current === "fuel-month" ? "" : "fuel-month")} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onCloseMenu={() => setPeriodMenu("")} />
+          <FuelLedgerDetail selected={selected} entries={selectedFuelStats.entries} periodLabel={selectedPeriodLabel} onOpenInvoice={(item) => setModal({ type: "invoice", item })} />
+          <FleetView compact filtered={filtered} filter={filter} query={query} selected={selected} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} setModal={setModal} />
+          <section className="vehicle-workspace-billing report-billing-stack" aria-labelledby="vehicle-workspace-billing-title">
+            <header className="vehicle-workspace-section-heading">
+              <div><span>Facturación</span><h2 id="vehicle-workspace-billing-title">Facturación mensual por conductor</h2><p>Ingresos, viajes y calendario diario integrados en Vehículos.</p></div>
+              <strong>{formatCurrency(periodTotals.billing)}</strong>
+            </header>
+            <FuelIncomeReport
+              rows={billingRows}
+              total={periodTotals.billing}
+              month={reportMonth}
+              year={reportYear}
+              periodMenu={periodMenu}
+              selectedDriverKey={billingDriverKey}
+              selectedVehiclePlate={billingVehiclePlate}
+              onSelectDriver={setBillingDriverKey}
+              onSelectVehicle={(plate) => setBillingVehiclePlate((current) => current === plate ? "" : plate)}
+              onTogglePeriodMenu={setPeriodMenu}
+              onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }}
+              onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }}
+            />
+            {selectedBillingVehicle ? <VehicleBillingSummary vehicle={selectedBillingVehicle} rows={selectedBillingVehicleRows} month={reportMonth} year={reportYear} /> : null}
+            {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} month={reportMonth} year={reportYear} onClose={() => setBillingDriverKey("")} /> : null}
+            <FuelDriversReport vehicles={vehicles} selectedDriverKey={billingDriverKey} onSelectDriver={setBillingDriverKey} />
+          </section>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="fuel-reports-page">
       <div className="fuel-report-canvas">
@@ -911,9 +950,9 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
             </nav>
             <div className="report-general-grid">
               <div className="report-stat-grid">
-                <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(periodTotals.billing)} daily={formatCurrency(periodTotals.billing / periodDays)} perKm={formatCurrency(periodTotals.billing / totalDistance)} tone="blue" active={false} actionLabel="Abrir Facturación y Conductores" onClick={() => setReportTab("Facturación")} />
+                <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(periodTotals.billing)} daily={formatCurrency(periodTotals.billing / periodDays)} perKm={formatCurrency(periodTotals.billing / totalDistance)} tone="billing" active={false} actionLabel="Abrir Vehículos con facturación" onClick={() => onNavigate(navItems[1])} />
                 <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="slate" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
-                <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(periodTotals.fuel)} daily={formatCurrency(periodTotals.fuel / periodDays)} perKm={formatCurrency(periodTotals.fuel / totalDistance)} tone="red" active={false} actionLabel="Abrir detalle de Combustible" onClick={() => setReportTab("Repostaje")} />
+                <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(periodTotals.fuel)} daily={formatCurrency(periodTotals.fuel / periodDays)} perKm={formatCurrency(periodTotals.fuel / totalDistance)} tone="red" active={false} actionLabel="Abrir Vehículos con combustible" onClick={() => onNavigate(navItems[1])} />
                 <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
               </div>
               <section className="report-chart-card">
@@ -943,7 +982,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                       <Tooltip formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || chartMetric === "summary") && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
-                        <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill="#1976c9" maxBarSize={58} minPointSize={2} isAnimationActive={false} />
+                        <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill={BILLING_COLOR} maxBarSize={58} minPointSize={2} isAnimationActive={false} />
                         <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill="#607d89" maxBarSize={58} minPointSize={2} isAnimationActive={false} />
                         <Bar dataKey="fuel" name="fuel" stackId="vehicle-summary" fill="#df4538" maxBarSize={58} minPointSize={2} isAnimationActive={false} />
                         <Bar dataKey="net" name="net" stackId="vehicle-summary" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={58} minPointSize={2} isAnimationActive={false} />
@@ -962,7 +1001,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 </div>
               </section>
             </div>
-            <FuelVehicleOverview stats={vehicleStats} selected={selected} onSelectVehicle={onSelectVehicle} month={reportMonth} year={reportYear} menuOpen={periodMenu === "fuel-month"} onToggleMonth={() => setPeriodMenu((current) => current === "fuel-month" ? "" : "fuel-month")} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onCloseMenu={() => setPeriodMenu("")} />
           </>
         )}
 
@@ -1009,30 +1047,37 @@ function ReportStatCard({ icon: Icon, label, value, daily, perKm, tone, active, 
   );
 }
 
-function FuelVehicleOverview({ stats, selected, onSelectVehicle, month, year, menuOpen, onToggleMonth, onSelectMonth, onCloseMenu }) {
+function FuelVehicleOverview({ stats, billingRows = [], selected, onSelectVehicle, month, year, menuOpen, onToggleMonth, onSelectMonth, onCloseMenu, mode = "fuel" }) {
+  const unified = mode === "vehicles";
   const periodLabel = `${reportMonths[month]} ${year}`;
   return (
     <section className="content-card fuel-overview report-section-card">
       <header className="card-header">
-        <div><h2>Consumo mensual por vehículo</h2><p>Selecciona un coche para consultar sus datos.</p></div>
+        <div><h2>{unified ? "Vehículos" : "Consumo mensual por vehículo"}</h2><p>{unified ? "Flota, facturación y consumo mensual reunidos en una sola vista." : "Selecciona un coche para consultar sus datos."}</p></div>
         <div className="report-period-dropdown fuel-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onCloseMenu(); }}>
           <span>Mes</span>
           <button type="button" className="report-period-trigger fuel-period-trigger" aria-haspopup="listbox" aria-expanded={menuOpen} onClick={onToggleMonth}><IconCalendar size={14} /><span>{reportMonths[month]}</span><IconChevronDown size={13} /></button>
-          {menuOpen && <div className="report-period-menu report-period-menu--months" role="listbox" aria-label="Seleccionar mes de Combustible">{reportMonths.map((monthLabel, index) => <button type="button" role="option" aria-selected={month === index} className={month === index ? "selected" : ""} onClick={() => onSelectMonth(index)} key={monthLabel}>{monthLabel}{month === index && <IconCheck size={12} />}</button>)}</div>}
+          {menuOpen && <div className="report-period-menu report-period-menu--months" role="listbox" aria-label={`Seleccionar mes de ${unified ? "Vehículos" : "Combustible"}`}>{reportMonths.map((monthLabel, index) => <button type="button" role="option" aria-selected={month === index} className={month === index ? "selected" : ""} onClick={() => onSelectMonth(index)} key={monthLabel}>{monthLabel}{month === index && <IconCheck size={12} />}</button>)}</div>}
           <small>{periodLabel}</small>
         </div>
       </header>
-      <nav className="fuel-vehicle-banners" aria-label={`Vehículos con consumo de ${periodLabel.toLocaleLowerCase("es")}`}>
+      <nav className="fuel-vehicle-banners" aria-label={unified ? `Vehículos de la flota en ${periodLabel.toLocaleLowerCase("es")}` : `Vehículos con consumo de ${periodLabel.toLocaleLowerCase("es")}`}>
         {stats.map(({ vehicle, liters, cost, refuels }, index) => {
           const active = selected.plate === vehicle.plate;
           const brand = getVehicleBrand(vehicle);
+          const monthlyBilling = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0);
+          const serviceRemaining = vehicle.nextServiceKm - vehicle.odometer;
           return (
-            <button className={`fuel-vehicle-banner ${active ? "active" : ""}`} key={vehicle.plate} onClick={() => onSelectVehicle(vehicle)} aria-pressed={active} aria-label={`Ver repostajes de ${vehicle.plate}, ${vehicle.model}`}>
+            <button className={`fuel-vehicle-banner${unified ? " fuel-vehicle-banner--unified" : ""} ${active ? "active" : ""}`} key={vehicle.plate} onClick={() => onSelectVehicle(vehicle)} aria-pressed={active} aria-label={`${unified ? "Ver detalle de" : "Ver repostajes de"} ${vehicle.plate}, ${vehicle.model}`}>
               <span className="fuel-vehicle-number">{index + 1}</span>
               <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
               <span className="fuel-vehicle-identity"><small>{brand}</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></span>
               <span className="fuel-vehicle-type"><UseBadge value={vehicle.use} /></span>
-              <span className="fuel-vehicle-consumption"><small>Consumo · {reportMonths[month]}</small><strong>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong><span>{formatCurrency(cost)} · {refuels} repostajes</span></span>
+              {unified ? <span className="fuel-vehicle-summary">
+                <span><small>Facturación mensual</small><strong>{formatCurrency(monthlyBilling)}</strong><span>{vehicle.use === "Profesional" ? "2 conductores" : "Sin actividad comercial"}</span></span>
+                <span><small>Km totales</small><strong>{formatKm(vehicle.odometer)}</strong><span>{formatKm(serviceRemaining)} para revisión</span></span>
+                <span><small>Consumo · {reportMonths[month]}</small><strong>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong><span>{formatCurrency(cost)} · {refuels} repostajes</span></span>
+              </span> : <span className="fuel-vehicle-consumption"><small>Consumo · {reportMonths[month]}</small><strong>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong><span>{formatCurrency(cost)} · {refuels} repostajes</span></span>}
               <IconChevronRight className="fuel-vehicle-chevron" size={21} />
             </button>
           );

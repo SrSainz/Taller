@@ -1,67 +1,48 @@
-# Design QA · Informes de flota
+# Design QA · SOBRE RUEDAS logo integration
 
-## Evidence
+- Source visual truth: `C:/Users/aiday/OneDrive/Escritorio/1785620090319.png`
+- Implementation screenshots: `design-qa-logo-desktop.png`, `design-qa-logo-settings.png`, `design-qa-logo-mobile-v2.png`
+- Combined comparison evidence: `design-qa-logo-phone-comparison.png`
+- Viewports: desktop 1280 × 720 CSS px; mobile 390 × 844 CSS px
+- Pixel dimensions: source 1488 × 720; desktop capture 1280 × 720; mobile capture 390 × 844; PWA source icon 1254 × 1254 with 512 × 512 and 192 × 192 derivatives
+- Density normalization: browser captures used deviceScaleFactor 1; source and crops were proportionally downsampled with Lanczos for the combined comparison board
+- State: SOBRE RUEDAS > General, plus Ajustes > Organización
 
-- Source visual truth: `C:\Users\aiday\AppData\Local\Temp\codex-clipboard-db8f26ec-7267-46b1-a72d-a038869bfc02.png`
-- Mobile implementation: `C:\Users\aiday\OneDrive\Escritorio\app david\design-qa-implementation-mobile-v2.png`
-- Desktop implementation: `C:\Users\aiday\OneDrive\Escritorio\app david\design-qa-implementation-desktop.png`
-- Full-view comparison: `C:\Users\aiday\OneDrive\Escritorio\app david\design-qa-comparison-v2.png`
-- Focused tabs/cards comparison: `C:\Users\aiday\OneDrive\Escritorio\app david\design-qa-focused-v2.png`
-- Source pixels: 304 × 575 px, including the reference phone frame.
-- Implementation capture: 375 × 702 px from a 390 × 730 CSS viewport override.
-- Density normalization: the source was proportionally resized to the implementation capture width for the full comparison. The focused comparison aligns the app-owned tabs, date control, and KPI cards while excluding most of the source phone bezel.
-- State: `#/gasolina`, General tab selected.
+## Full-view comparison evidence
+
+The desktop and mobile captures show the supplied mark in the persistent home control without changing the existing application hierarchy. The 1280 px desktop view has no horizontal overflow, and the 390 px mobile view keeps the square logo, product name, install action, management shortcuts, and notification control visible. The original horizontal artwork remains visible on desktop and in Ajustes > Organización as the active company identity.
+
+## Focused region comparison evidence
+
+`design-qa-logo-phone-comparison.png` places the supplied source, the installable square icon, the rendered phone top bar, and the complete phone General screen in one comparison image. This focused comparison was required because the source visual is a brand asset rather than a full-screen mockup.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: Inter reproduces the compact sans-serif hierarchy closely. Labels, tab text, metric values, and secondary rates preserve the reference weight contrast and truncation behavior.
-- Spacing and layout rhythm: the teal header, five-tab strip, date control, 2×2 KPI grid, rounded cards, subtle shadows, and monthly chart follow the reference sequence and density. The desktop adaptation retains the same anatomy in a wider two-column composition.
-- Colors and visual tokens: teal navigation, white cards, pale gray canvas, slate distance, orange cost, green income, and multicolor stacked bars match the reference’s semantic palette.
-- Image quality and asset fidelity: the reference contains no product photography or custom illustration. Tabler supplies the closest matching interface icons and Recharts renders the data visualization without placeholder or handcrafted graphic assets.
-- Copy and content: General, Repostaje, Gasto, Ingreso, and Conductores are present. Conductores replaces Servicio and exposes the configured professional shifts, including Amin on 5043 MLC from 19:00–07:00.
+- Fonts and typography: no typography was inferred from the image. Existing Inter hierarchy remains unchanged, and the brand image introduces no rasterized UI copy.
+- Spacing and layout rhythm: the top-bar control is 62 × 40 px on desktop and 40 × 40 px on mobile; it fits the existing header without collision or page-level overflow. The organization preview aligns with the card's existing spacing.
+- Colors and visual tokens: the supplied red/black/white mark is used directly. The PWA derivative retains the same palette on a red safe-area background.
+- Image quality and asset fidelity: the company logo uses the original 1488 × 720 PNG without redraw on desktop. On phone, the top-left button resolves to the exact same 192 × 192 PNG declared as the installable PWA icon. The square PWA image is a dedicated raster adaptation rather than CSS or SVG approximation. All images loaded at their expected intrinsic dimensions.
+- Copy and content: accessible names identify “SOBRE RUEDAS” and “Logotipo de SOBRE RUEDAS”; the existing Spanish product copy is unchanged.
 
-## Full-view and focused comparison
+## Findings
 
-The full comparison confirms the same major visual regions and above-the-fold hierarchy. The focused comparison confirms that the tabs, period control, four KPI cards, icon treatments, semantic colors, dividers, radii, and shadow levels are materially aligned. The implementation intentionally keeps Talleria’s install, notifications, and profile controls in the teal header instead of reproducing the reference search-only action.
+No actionable P0, P1, or P2 differences remain. The square PWA composition intentionally removes the source's wide black surround so the artwork remains legible and mask-safe at install-icon sizes.
 
 ## Comparison history
 
-### Iteration 1
+- Pass 1: verified direct-source rendering in the top bar and organization preview, mobile fit, square icon legibility, route behavior, and image loading. No P0/P1/P2 visual mismatch was found, so no visual repair iteration was required.
+- Pass 2: changed the phone home control from the horizontal asset to the exact 192 × 192 install icon, increased the control to 40 × 40 px for small-size legibility, and verified the revised 390 × 844 capture. No P0/P1/P2 issue remains.
 
-- [P1] The chart bars were absent in the first captured comparison because the capture occurred during the entry animation.
-- [P2] The first chart scale and values produced a visually heavier, income-dominated graph than the reference.
+## Interaction and runtime checks
 
-Fixes:
-
-- Disabled bar entry animation so the chart is complete in immediate captures and stable during navigation.
-- Rebalanced the six monthly stacks to the reference’s 0–1000 visual range and mixed category proportions.
-- Changed the title to “Gráfico de gastos mensuales”.
-
-Post-fix evidence:
-
-- `design-qa-comparison-v2.png` shows complete stacked bars with the intended orange, red, brown, and green balance.
-- `design-qa-focused-v2.png` confirms the corrected above-the-fold hierarchy and card styling.
-
-## Interaction and responsive checks
-
-- Tested General, Repostaje, Gasto, Ingreso, and Conductores tabs.
-- Confirmed Repostaje keeps the five-vehicle selector and daily ledger.
-- Confirmed Conductores shows Carlos, Fernando, Tirso, Alex, Mauricio, and Amin with their configured shifts.
-- Checked mobile at a 390 × 730 CSS viewport and desktop at 1440 × 900.
-- Browser console errors: none.
+- Persistent logo button returned from Ajustes to `#/informes`.
+- Ajustes route exposed the company-logo preview with accessible image text.
+- Install action remained present in non-standalone mode.
+- Phone top-left image resolved to `/icons/sobre-ruedas-192.png`, matching the manifest's install icon.
+- Fresh browser session reported no console errors or warnings.
 
 ## Follow-up polish
 
-- [P3] The global install, notification, and profile controls make the teal header denser than the search-only reference header; retained intentionally because they are established Talleria controls.
-
-## Implementation checklist
-
-- [x] Five functional report tabs.
-- [x] Servicio replaced by Conductores.
-- [x] Reference-inspired teal header and compact tabs.
-- [x] Rounded 2×2 KPI cards.
-- [x] Stable stacked monthly chart.
-- [x] Existing five-vehicle and shift data preserved.
-- [x] Mobile and desktop layouts verified.
+No P3 follow-up is required for this scoped logo integration.
 
 final result: passed
