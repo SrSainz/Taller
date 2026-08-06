@@ -1114,6 +1114,7 @@ function FuelVehicleOverview({ stats, billingRows = [], selected, onSelectVehicl
             </button>
           );
         })}
+        {unified && <div className="fuel-vehicle-banners__divider" aria-hidden="true" />}
       </nav>
     </section>
   );
