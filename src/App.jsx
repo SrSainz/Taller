@@ -1100,7 +1100,8 @@ function FuelVehicleOverview({ stats, billingRows = [], selected, onSelectVehicl
           const monthlyBilling = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0);
           const serviceRemaining = vehicle.nextServiceKm - vehicle.odometer;
           return (
-            <button className={`fuel-vehicle-banner${unified ? " fuel-vehicle-banner--unified" : ""} ${active ? "active" : ""}`} key={vehicle.plate} onClick={() => onSelectVehicle(vehicle)} aria-pressed={active} aria-label={`${unified ? "Ver detalle de" : "Ver repostajes de"} ${vehicle.plate}, ${vehicle.model}`}>
+            <div className={`fuel-vehicle-entry${active ? " fuel-vehicle-entry--active" : ""}`} key={vehicle.plate}>
+              <button className={`fuel-vehicle-banner${unified ? " fuel-vehicle-banner--unified" : ""} ${active ? "active" : ""}`} onClick={() => onSelectVehicle(vehicle)} aria-pressed={active} aria-label={`${unified ? "Ver detalle de" : "Ver repostajes de"} ${vehicle.plate}, ${vehicle.model}`}>
               <span className="fuel-vehicle-number">{index + 1}</span>
               <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
               <span className="fuel-vehicle-identity"><small>{brand}</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></span>
@@ -1111,7 +1112,9 @@ function FuelVehicleOverview({ stats, billingRows = [], selected, onSelectVehicl
                 <span><small>Consumo · {reportMonths[month]}</small><strong>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong><span>{formatCurrency(cost)} · {refuels} repostajes</span></span>
               </span> : <span className="fuel-vehicle-consumption"><small>Consumo · {reportMonths[month]}</small><strong>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong><span>{formatCurrency(cost)} · {refuels} repostajes</span></span>}
               <IconChevronRight className="fuel-vehicle-chevron" size={21} />
-            </button>
+              </button>
+              {unified && active && vehicle.use === "Profesional" && <div className="fuel-vehicle-driver-row" aria-label={`Conductores de ${vehicle.plate}`}><small>Conductores</small>{vehicle.drivers.map((driver) => <span className="fuel-vehicle-driver-chip" key={driver}>{driver}</span>)}</div>}
+            </div>
           );
         })}
         {unified && <div className="fuel-vehicle-banners__divider" aria-hidden="true" />}
