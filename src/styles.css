@@ -192,21 +192,39 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 
 .fuel-reports-page { min-height: 100%; background: #f2f5f4; }
 .fuel-report-canvas { width: min(1240px, 100%); padding: 14px 22px 28px; margin: 0 auto; }
-.report-quick-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-bottom: 12px; }
+.report-quick-actions { display: grid; grid-template-columns: minmax(180px, 240px); gap: 8px; margin-bottom: 12px; }
 .report-quick-actions button { position: relative; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 11px; border: 1px solid #d7e4df; border-radius: 10px; background: #fff; color: #315148; font-size: 9px; font-weight: 650; cursor: pointer; box-shadow: 0 2px 7px rgba(35,64,55,.05); }
 .report-quick-actions button:hover { border-color: #83b4a4; background: #eef8f4; color: var(--green-900); transform: translateY(-1px); }
 .report-quick-actions button svg { color: #0a8d78; }
 .report-quick-actions button i { min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 5px; border-radius: 999px; background: var(--green-900); color: #fff; font-size: 7px; font-style: normal; }
-.report-general-grid { display: grid; grid-template-columns: minmax(360px,.9fr) minmax(430px,1.1fr); gap: 12px; margin-bottom: 14px; }
-.report-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.report-general-grid { display: block; margin-bottom: 14px; }
+.report-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
 .report-stat-card { min-width: 0; min-height: 156px; padding: 14px; border: 1px solid #dae3e0; border-radius: 13px; background: #fff; color: var(--text); text-align: left; cursor: pointer; box-shadow: 0 3px 8px rgba(38,67,58,.09); transition: border-color .15s, box-shadow .15s, transform .15s; }
 .report-stat-card:hover { border-color: #9bbfb2; box-shadow: 0 8px 20px rgba(38,67,58,.12); transform: translateY(-1px); }
+.report-stat-card--fleet, .report-stat-card--wide { grid-column: 1 / -1; }
+.report-stat-card--fleet { min-height: 118px; display: grid; grid-template-columns: minmax(190px,.55fr) minmax(0,1.45fr) 22px; align-items: center; gap: 18px; padding: 15px 18px; border-color: #b7dbc0; background: linear-gradient(115deg, #fff 0%, #f8fff9 100%); }
+.report-stat-card--fleet:hover { border-color: var(--billing-strong); }
+.report-stat-card--fleet .report-stat-card__header { margin-bottom: 0; }
+.report-stat-card--fleet .report-stat-card__icon { background: var(--billing-light); color: var(--billing-strong); }
+.report-stat-card__heading { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.report-stat-card__heading small { overflow: hidden; color: #6e8275; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.report-stat-fleet__metrics { min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+.report-stat-fleet__metric { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding-left: 13px; border-left: 1px solid #dcebe0; }
+.report-stat-fleet__metric > span { display: inline-flex; align-items: center; gap: 5px; color: #718078; font-size: 8px; font-weight: 650; white-space: nowrap; }
+.report-stat-fleet__metric > span svg { color: var(--billing-strong); }
+.report-stat-fleet__metric strong { overflow: hidden; color: #2e6f3d; font-size: 16px; letter-spacing: -.25px; text-overflow: ellipsis; white-space: nowrap; }
+.report-stat-fleet__arrow { color: var(--billing-strong); }
+.report-stat-card--wide { min-height: 112px; display: grid; grid-template-columns: minmax(190px,.55fr) minmax(0,1.45fr); grid-template-rows: auto auto auto; column-gap: 18px; align-items: center; padding-block: 13px; }
+.report-stat-card--wide .report-stat-card__header { grid-row: 1 / -1; margin-bottom: 0; }
+.report-stat-card--wide > small { grid-column: 2; align-self: end; margin-bottom: 0; }
+.report-stat-card--wide > .report-stat-value { grid-column: 2; margin: 1px 0 7px; }
+.report-stat-card--wide > .report-stat-card__footer { grid-column: 2; }
 .report-stat-card--billing.report-stat-card--active { border-color: var(--billing-strong); box-shadow: inset 0 0 0 1px var(--billing-strong), 0 8px 20px rgba(63,150,80,.12); }
 .report-stat-card--slate.report-stat-card--active { border-color: #607d89; box-shadow: inset 0 0 0 1px #607d89, 0 8px 20px rgba(96,125,137,.12); }
 .report-stat-card--red.report-stat-card--active { border-color: #df4538; box-shadow: inset 0 0 0 1px #df4538, 0 8px 20px rgba(223,69,56,.12); }
 .report-stat-card--green.report-stat-card--active { border-color: #28923c; box-shadow: inset 0 0 0 1px #28923c, 0 8px 20px rgba(40,146,60,.12); }
 .report-stat-card__header { display: flex; align-items: center; gap: 8px; margin-bottom: 11px; }
-.report-stat-card__header > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 7px; color: #fff; }
+.report-stat-card__header > .report-stat-card__icon { width: 30px; height: 30px; display: grid; flex: 0 0 30px; place-items: center; border-radius: 7px; color: #fff; }
 .report-stat-card__header strong { font-size: 9px; }
 .report-stat-card > small { display: block; margin-bottom: 4px; color: #9aa4a0; font-size: 7px; }
 .report-stat-value { display: block; overflow: hidden; margin-bottom: 11px; font-size: 18px; letter-spacing: -.4px; text-overflow: ellipsis; white-space: nowrap; }
@@ -995,10 +1013,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .topbar--reports { height: 64px; }
   .fuel-report-canvas { padding: 9px 9px 22px; }
   .report-quick-actions button { min-width: 118px; min-height: 44px; padding-inline: 8px; font-size: 8px; }
-  .report-stat-grid { gap: 8px; }
+  .report-stat-grid { grid-template-columns: 1fr; gap: 8px; }
   .report-stat-card { min-height: 145px; padding: 11px; border-radius: 11px; }
+  .report-stat-card--fleet { min-height: 138px; grid-template-columns: minmax(0,1fr) 20px; gap: 9px; padding: 11px; }
+  .report-stat-card--wide { min-height: 112px; grid-template-columns: minmax(105px,.75fr) minmax(0,1.25fr); column-gap: 10px; padding: 11px; }
+  .report-stat-fleet__metrics { grid-column: 1 / -1; gap: 6px; }
+  .report-stat-fleet__metric { padding-left: 7px; }
+  .report-stat-fleet__metric > span { font-size: 7px; }
+  .report-stat-fleet__metric strong { font-size: 13px; }
   .report-stat-card__header { margin-bottom: 8px; }
-  .report-stat-card__header > span { width: 28px; height: 28px; }
+  .report-stat-card__header > .report-stat-card__icon { width: 28px; height: 28px; flex-basis: 28px; }
   .report-stat-value { margin-bottom: 9px; font-size: 15px; }
   .report-stat-card__footer { gap: 4px; }
   .report-stat-card__footer strong { font-size: 7px; }

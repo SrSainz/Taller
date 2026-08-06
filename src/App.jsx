@@ -945,15 +945,13 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
         {reportTab === "General" && (
           <>
             <nav className="report-quick-actions" aria-label="Accesos de SOBRE RUEDAS">
-              <button onClick={() => onNavigate(navItems[1])}><IconCar size={18} /><span>Vehículos</span></button>
               <button onClick={() => onNavigate(navItems[3])}><IconFileInvoice size={18} /><span>Facturas</span><i>3</i></button>
             </nav>
             <div className="report-general-grid">
               <div className="report-stat-grid">
-                <ReportStatCard icon={IconFileInvoice} label="Facturación" value={formatCurrency(periodTotals.billing)} daily={formatCurrency(periodTotals.billing / periodDays)} perKm={formatCurrency(periodTotals.billing / totalDistance)} tone="billing" active={false} actionLabel="Abrir Vehículos con facturación" onClick={() => onNavigate(navItems[1])} />
-                <ReportStatCard icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="slate" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
-                <ReportStatCard icon={IconGasStation} label="Combustible" value={formatCurrency(periodTotals.fuel)} daily={formatCurrency(periodTotals.fuel / periodDays)} perKm={formatCurrency(periodTotals.fuel / totalDistance)} tone="red" active={false} actionLabel="Abrir Vehículos con combustible" onClick={() => onNavigate(navItems[1])} />
-                <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
+                <ReportFleetSummaryCard vehicleCount={vehicles.length} billing={formatCurrency(periodTotals.billing)} fuel={formatCurrency(periodTotals.fuel)} onClick={() => onNavigate(navItems[1])} />
+                <ReportStatCard wide icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="slate" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
+                <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
               </div>
               <section className="report-chart-card">
                 <header className="report-chart-card__top">
@@ -1036,10 +1034,27 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   );
 }
 
-function ReportStatCard({ icon: Icon, label, value, daily, perKm, tone, active, actionLabel, onClick }) {
+function ReportFleetSummaryCard({ vehicleCount, billing, fuel, onClick }) {
   return (
-    <button type="button" className={`report-stat-card report-stat-card--${tone}${active ? " report-stat-card--active" : ""}`} onClick={onClick} aria-label={actionLabel ?? `Mostrar gráfico de ${label}`} aria-pressed={active}>
-      <span className="report-stat-card__header"><span><Icon size={18} /></span><strong>{label}</strong></span>
+    <button type="button" className="report-stat-card report-stat-card--fleet" onClick={onClick} aria-label="Abrir Vehículos, Facturación y Combustible">
+      <span className="report-stat-card__header">
+        <span className="report-stat-card__icon"><IconCar size={18} /></span>
+        <span className="report-stat-card__heading"><strong>Vehículos</strong><small>Facturación y Combustible</small></span>
+      </span>
+      <span className="report-stat-fleet__metrics">
+        <span className="report-stat-fleet__metric"><span><IconFileInvoice size={14} />Facturación</span><strong>{billing}</strong></span>
+        <span className="report-stat-fleet__metric"><span><IconGasStation size={14} />Combustible</span><strong>{fuel}</strong></span>
+        <span className="report-stat-fleet__metric"><span><IconCar size={14} />Vehículos</span><strong>{vehicleCount}</strong></span>
+      </span>
+      <IconChevronRight className="report-stat-fleet__arrow" size={18} aria-hidden="true" />
+    </button>
+  );
+}
+
+function ReportStatCard({ wide = false, icon: Icon, label, value, daily, perKm, tone, active, actionLabel, onClick }) {
+  return (
+    <button type="button" className={`report-stat-card report-stat-card--${tone}${wide ? " report-stat-card--wide" : ""}${active ? " report-stat-card--active" : ""}`} onClick={onClick} aria-label={actionLabel ?? `Mostrar gráfico de ${label}`} aria-pressed={active}>
+      <span className="report-stat-card__header"><span className="report-stat-card__icon"><Icon size={18} /></span><strong>{label}</strong></span>
       <small>Total</small>
       <strong className="report-stat-value">{value}</strong>
       <span className="report-stat-card__footer"><span><small>Por día</small><strong>{daily}</strong></span><span><small>Por km</small><strong>{perKm}</strong></span></span>
