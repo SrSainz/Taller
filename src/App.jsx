@@ -46,6 +46,13 @@ import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer,
 
 const BILLING_COLOR = "#7bc887";
 const MAINTENANCE_COLOR = "#f39c12";
+const chartMetricOptions = [
+  { value: "summary", label: "Resumen" },
+  { value: "billing", label: "Facturación" },
+  { value: "maintenance", label: "Mantenimiento" },
+  { value: "fuel", label: "Combustible" },
+  { value: "net", label: "Neto" },
+];
 
 const navItems = [
   { label: "Informes", slug: "informes", icon: IconChartBar },
@@ -1040,8 +1047,11 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
               <section className="report-chart-card">
                 <header className="report-chart-card__top">
                   <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
-                  <div className="report-chart-filters" role="group" aria-label="Periodo del gráfico">
-                    <button type="button" className={chartMetric === "summary" ? "report-summary-button report-summary-button--active" : "report-summary-button"} onClick={() => setChartMetric("summary")} aria-pressed={chartMetric === "summary"}><IconChartBar size={14} />Resumen</button>
+                  <div className="report-chart-filters" role="group" aria-label="Filtros del gráfico">
+                    <div className="report-chart-metric-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
+                      <button type="button" className="report-summary-button report-chart-metric-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "chart-metric"} onClick={() => setPeriodMenu((current) => current === "chart-metric" ? "" : "chart-metric")}><IconChartBar size={14} /><span>{chartMetricOptions.find((option) => option.value === chartMetric)?.label}</span><IconChevronDown size={13} /></button>
+                      {periodMenu === "chart-metric" && <div className="report-period-menu report-chart-metric-menu" role="listbox" aria-label="Seleccionar información del gráfico">{chartMetricOptions.map((option) => <button type="button" role="option" aria-selected={chartMetric === option.value} className={chartMetric === option.value ? "selected" : ""} onClick={() => { setChartMetric(option.value); setPeriodMenu(""); }} key={option.value}>{option.label}{chartMetric === option.value && <IconCheck size={12} />}</button>)}</div>}
+                    </div>
                     <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
                       <span>Mes</span>
                       <button type="button" className="report-period-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
@@ -1646,7 +1656,6 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
 
   return (
     <section className="module-page">
-      <PageIntro eyebrow="Plan preventivo" title="Mantenimiento" description="Selecciona un coche para consultar sus revisiones, abrir el detalle de cada fecha o ver la factura del taller." action={<button className="primary-button" onClick={() => setModal({ type: "invoice-upload", plate: workshopVehicle.plate })}><IconCamera size={17} />Factura desde foto</button>} />
       <nav className="maintenance-vehicle-banners" aria-label="Vehículos de la flota">
         {vehicles.map((vehicle, index) => {
           const brand = getVehicleBrand(vehicle);

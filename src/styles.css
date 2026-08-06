@@ -290,6 +290,10 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .report-chart-filters { display: flex; align-items: center; gap: 7px; }
 .report-summary-button { align-self: flex-end; min-height: 29px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #d6e1dd; border-radius: 7px; background: #fff; color: #586660; font-size: 8px; font-weight: 650; cursor: pointer; }
 .report-summary-button:hover, .report-summary-button--active { border-color: #75aa98; background: #edf7f3; color: var(--green-900); }
+.report-chart-metric-dropdown { position: relative; align-self: flex-end; }
+.report-chart-metric-trigger { min-width: 126px; justify-content: space-between; }
+.report-chart-metric-menu { right: auto; left: 0; min-width: 156px; display: grid; gap: 3px; }
+.report-chart-metric-menu button { min-height: 30px; font-size: 8px; }
 .report-period-dropdown { position: relative; display: flex; flex-direction: column; gap: 3px; color: #586660; font-size: 7px; font-weight: 650; text-transform: uppercase; }
 .report-period-trigger { min-width: 92px; min-height: 29px; display: flex; align-items: center; justify-content: space-between; gap: 7px; padding: 0 7px 0 9px; border: 1px solid #d6e1dd; border-radius: 7px; background: #fff; color: #263b34; font-size: 8px; font-weight: 650; cursor: pointer; }
 .report-period-trigger:hover, .report-period-trigger[aria-expanded="true"] { border-color: #75aa98; background: #f5faf8; }
@@ -1184,6 +1188,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .report-chart-card { min-height: 292px; padding-inline: 11px; border-radius: 11px; }
   .report-chart-card__top { align-items: flex-start; flex-direction: column; }
   .report-chart-filters { width: 100%; }
+  .report-chart-metric-dropdown { flex: 1; }
+  .report-chart-metric-trigger { width: 100%; min-width: 0; }
   .report-period-dropdown { flex: 1; }
   .report-period-trigger { width: 100%; min-width: 0; }
   .report-chart { height: 235px; }
