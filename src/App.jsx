@@ -1046,7 +1046,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
               </div>
               <section className="report-chart-card">
                 <header className="report-chart-card__top">
-                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
+                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
                   <div className="report-chart-filters" role="group" aria-label="Filtros del gráfico">
                     <div className="report-chart-metric-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
                       <button type="button" className="report-summary-button report-chart-metric-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "chart-metric"} onClick={() => setPeriodMenu((current) => current === "chart-metric" ? "" : "chart-metric")}><IconChartBar size={14} /><span>{chartMetricOptions.find((option) => option.value === chartMetric)?.label}</span><IconChevronDown size={13} /></button>
