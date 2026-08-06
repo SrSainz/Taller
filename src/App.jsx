@@ -1032,7 +1032,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
           <>
             <div className="report-general-grid">
               <div className="report-stat-grid">
-                <ReportFleetSummaryCard driverCount={billingRows.length} billing={formatCurrency(periodTotals.billing)} fuel={formatCurrency(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
+                <ReportFleetSummaryCard billing={formatCurrency(periodTotals.billing)} fuel={formatCurrency(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
                 <ReportStatCard wide icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
                 <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
               </div>
@@ -1117,7 +1117,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   );
 }
 
-function ReportFleetSummaryCard({ driverCount, billing, fuel, onClick }) {
+function ReportFleetSummaryCard({ billing, fuel, onClick }) {
   return (
     <button type="button" className="report-stat-card report-stat-card--fleet" onClick={onClick} aria-label="Abrir Conductores, Facturación y Consumo">
       <span className="report-stat-card__header">
@@ -1127,7 +1127,6 @@ function ReportFleetSummaryCard({ driverCount, billing, fuel, onClick }) {
       <span className="report-stat-fleet__metrics">
         <span className="report-stat-fleet__metric"><span><IconFileInvoice size={14} />Facturación</span><strong>{billing}</strong></span>
         <span className="report-stat-fleet__metric"><span><IconGasStation size={14} />Consumo</span><strong>{fuel}</strong></span>
-        <span className="report-stat-fleet__metric"><span><IconUsers size={14} />Conductores</span><strong>{driverCount}</strong></span>
       </span>
       <IconChevronRight className="report-stat-fleet__arrow" size={18} aria-hidden="true" />
     </button>
@@ -1441,7 +1440,6 @@ function DriversView({ vehicles, setModal }) {
 
   return (
     <section className="module-page drivers-page">
-      <div className="drivers-page__context"><span>3 coches profesionales · 6 conductores</span><small>Selecciona un conductor para consultar su mes. El calendario también admite deslizamiento lateral.</small></div>
       <div className="drivers-summary-grid">
         <button type="button" className="drivers-summary-card drivers-summary-card--billing" onClick={scrollToDrivers}>
           <header><span className="drivers-summary-card__icon"><IconFileInvoice size={16} /></span><span><strong>Facturación</strong><small>{reportMonths[reportMonth]} {reportYear} · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalBilling)}</strong></header>
