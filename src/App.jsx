@@ -1398,7 +1398,6 @@ function DriversView({ vehicles, setModal }) {
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;
   const totalBilling = billingRows.reduce((sum, row) => sum + row.revenue, 0);
   const totalFuel = fuelSummaries.reduce((sum, summary) => sum + summary.cost, 0);
-  const totalLiters = fuelSummaries.reduce((sum, summary) => sum + summary.liters, 0);
 
   useEffect(() => {
     if (!selectedDriver) {
@@ -1467,18 +1466,17 @@ function DriversView({ vehicles, setModal }) {
       <div className="drivers-summary-grid">
         <button type="button" className="drivers-summary-card drivers-summary-card--billing" onClick={scrollToDrivers}>
           <header><span className="drivers-summary-card__icon"><IconFileInvoice size={16} /></span><span><strong>Facturación</strong><small>{reportMonths[reportMonth]} {reportYear} · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalBilling)}</strong></header>
-          <div>{professionalVehicles.map((vehicle) => { const total = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0); return <span key={vehicle.plate}><small>{vehicle.plate}</small><strong>{formatCurrency(total)}</strong></span>; })}</div>
+          <div>{professionalVehicles.map((vehicle) => { const total = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0); return <span key={vehicle.plate}><small className="drivers-summary-card__vehicle-plate">{vehicle.plate}</small><strong className="drivers-summary-card__vehicle-total">{formatCurrency(total)}</strong></span>; })}</div>
         </button>
         <button type="button" className="drivers-summary-card drivers-summary-card--fuel" onClick={scrollToDrivers}>
           <header><span className="drivers-summary-card__icon"><IconGasStation size={16} /></span><span><strong>Consumo</strong><small>{reportMonths[reportMonth]} {reportYear} · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalFuel)}</strong></header>
-          <div>{fuelSummaries.map((summary) => <span key={summary.vehicle.plate}><small>{summary.vehicle.plate}</small><strong>{summary.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L · {formatCurrency(summary.cost)}</strong></span>)}</div>
-          <footer>{totalLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L · {fuelSummaries.reduce((sum, summary) => sum + summary.refuels, 0)} repostajes</footer>
+          <div>{fuelSummaries.map((summary) => <span key={summary.vehicle.plate}><small className="drivers-summary-card__vehicle-plate">{summary.vehicle.plate}</small><strong className="drivers-summary-card__vehicle-total">{formatCurrency(summary.cost)}</strong></span>)}</div>
         </button>
       </div>
 
       <div ref={driverGridRef} className="drivers-list" aria-label="Seis conductores profesionales">
         {driverRows.map((row) => <button type="button" className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key} onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}>
-          <span className="driver-list-card__identity"><strong>{row.driver}</strong><small>{row.plate} · {row.model}</small></span>
+          <span className="driver-list-card__identity"><strong>{row.driver}</strong><small><strong className="driver-list-card__plate">{row.plate}</strong><span> · {row.model}</span></small></span>
           <span className="driver-list-card__metric driver-list-card__metric--billing"><small>Facturación</small><strong>{formatCurrency(row.revenue)}</strong></span>
           <span className="driver-list-card__metric driver-list-card__metric--fuel"><small>Consumo</small><strong>{formatCurrency(row.fuelCost)}</strong></span>
         </button>)}
@@ -1487,7 +1485,7 @@ function DriversView({ vehicles, setModal }) {
       {selectedDriver && <section ref={calendarRef} className="drivers-calendar-card" aria-labelledby="drivers-calendar-title">
         <header className="drivers-calendar-card__header">
           <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(-1)} aria-label="Mes anterior"><IconChevronLeft size={18} /></button>
-          <div><span>Calendario de facturación y consumo</span><strong id="drivers-calendar-title">{selectedDriver.driver}</strong><small>{selectedDriver.plate} · {selectedDriver.model} · {reportMonths[reportMonth]} {reportYear}</small></div>
+          <div><strong id="drivers-calendar-title">{selectedDriver.driver}</strong><small>{reportMonths[reportMonth]} {reportYear}</small></div>
           <div className="drivers-calendar-card__actions"><button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><IconChevronRight size={18} /></button><button type="button" className="icon-button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar calendario de ${selectedDriver.driver}`}><IconX size={17} /></button></div>
         </header>
         <div className="drivers-calendar-surface" onTouchStart={onCalendarTouchStart} onTouchEnd={onCalendarTouchEnd}>
@@ -1501,8 +1499,7 @@ function DriversView({ vehicles, setModal }) {
         </div>
       </section>}
 
-      {selectedDriver && selectedDayDetail && <section className="driver-day-detail" aria-labelledby="driver-day-detail-title">
-        <header><div><span>Detalle diario</span><h2 id="driver-day-detail-title">{selectedDayDetail.day} {reportMonths[reportMonth]} {reportYear}</h2><small>{selectedDriver.driver} · {selectedDriver.plate}</small></div><strong>{selectedDayDetail.active ? "Datos registrados" : "Sin actividad registrada"}</strong></header>
+      {selectedDriver && selectedDayDetail && <section className="driver-day-detail" aria-label={`Detalle de ${selectedDriver.driver}`}>
         <div className="driver-day-detail__columns">
           <article className="driver-day-panel driver-day-panel--billing"><header><IconFileInvoice size={17} /><strong>Facturación</strong></header><div className="driver-day-panel__metrics"><span><small>Ingreso del día</small><strong>{formatCurrency(selectedDayDetail.billing)}</strong></span><span><small>Viajes</small><strong>{selectedDayDetail.trips}</strong></span><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Km totales</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div></article>
           <article className="driver-day-panel driver-day-panel--fuel"><header><IconGasStation size={17} /><strong>Repostaje</strong></header><div className="driver-day-panel__metrics"><span><small>Consumo diario</small><strong>{selectedDayDetail.fuelLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Importe</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div><div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.length > 0 ? selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}`}><span><strong>{entry.time}</strong><small>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L · {formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>) : <small>Sin repostaje registrado este día.</small>}</div></article>

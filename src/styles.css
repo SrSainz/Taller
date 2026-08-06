@@ -462,29 +462,32 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-summary-card--fuel .drivers-summary-card__total { color: #c3382f; font-size: 22px; }
 .drivers-summary-card > div { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; padding-top: 6px; border-top: 1px solid rgba(76,130,94,.18); }
 .drivers-summary-card > div > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.drivers-summary-card > div small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.drivers-summary-card > div strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.drivers-summary-card > div small { overflow: hidden; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .02em; text-overflow: ellipsis; white-space: nowrap; }
+.drivers-summary-card > div strong { overflow: hidden; font-size: 14px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.drivers-summary-card__vehicle-plate { color: var(--text) !important; }
+.drivers-summary-card__vehicle-total { letter-spacing: -.02em; }
 .drivers-summary-card--billing > div strong { color: var(--billing-strong); }
 .drivers-summary-card--fuel > div strong { color: #c3382f; }
 .drivers-summary-card > footer { color: #a34239; font-size: 6.5px; text-align: right; }
 .drivers-list { display: grid; grid-template-columns: 1fr; gap: 0; scroll-margin-top: 78px; }
-.driver-list-card { min-width: 0; min-height: 58px; display: grid; grid-template-columns: minmax(0,1fr) minmax(190px,250px) minmax(160px,220px); align-items: center; gap: 18px; padding: 6px 0; border: 0; border-radius: 0; background: transparent; color: var(--text); text-align: left; cursor: pointer; box-shadow: none; }
+.driver-list-card { min-width: 0; min-height: 58px; display: grid; grid-template-columns: minmax(0,1fr) minmax(210px,250px) minmax(180px,220px); align-items: center; gap: 12px; padding: 6px 0; border: 0; border-radius: 0; background: transparent; color: var(--text); text-align: left; cursor: pointer; box-shadow: none; }
 .driver-list-card:hover, .driver-list-card--active { background: #f3fbf6; box-shadow: none; }
 .driver-list-card__identity { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.driver-list-card__identity strong { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
-.driver-list-card__identity small { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.driver-list-card__metric { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-left: 16px; border-left: 1px solid var(--line); }
-.driver-list-card__metric small { color: var(--muted); font-size: 9px; }
-.driver-list-card__metric strong { font-size: 17px; white-space: nowrap; }
-.driver-list-card__metric--billing strong { font-size: 24px; }
+.driver-list-card__identity > strong { overflow: visible; font-size: 17px; font-weight: 800; white-space: normal; }
+.driver-list-card__identity small { display: flex; align-items: baseline; gap: 4px; overflow: visible; color: var(--muted); font-size: 10px; white-space: nowrap; }
+.driver-list-card__plate { color: var(--text); font-size: 11px; font-weight: 800; }
+.driver-list-card__metric { min-width: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding-left: 12px; border-left: 1px solid var(--line); text-align: right; }
+.driver-list-card__metric small { color: var(--muted); font-size: 10px; font-weight: 800; }
+.driver-list-card__metric strong { font-size: 19px; font-weight: 800; white-space: nowrap; }
+.driver-list-card__metric--billing strong { font-size: 26px; }
 .driver-list-card__metric--billing strong { color: var(--billing-strong); }
-.driver-list-card__metric--fuel strong { color: #c3382f; }
+.driver-list-card__metric--fuel strong { color: #c3382f; font-size: 21px; }
 .drivers-calendar-card, .driver-day-detail { overflow: hidden; border: 1px solid var(--billing-line); border-radius: 12px; background: #fff; box-shadow: 0 4px 12px rgba(38,67,58,.07); }
 .drivers-calendar-card__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid var(--billing-line); background: linear-gradient(90deg, var(--billing-soft), #fff); }
 .drivers-calendar-card__header > div:nth-child(2) { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
 .drivers-calendar-card__header > div:nth-child(2) > span { color: var(--billing-strong); font-size: 6.5px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
-.drivers-calendar-card__header > div:nth-child(2) strong { color: var(--text); font-size: 14px; }
-.drivers-calendar-card__header > div:nth-child(2) small { overflow: hidden; color: var(--muted); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.drivers-calendar-card__header > div:nth-child(2) strong { color: var(--text); font-size: 17px; font-weight: 800; }
+.drivers-calendar-card__header > div:nth-child(2) small { overflow: hidden; color: var(--muted); font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .drivers-calendar-card__actions { display: flex; align-items: center; gap: 5px; }
 .drivers-calendar-nav { width: 29px; height: 29px; display: grid; place-items: center; padding: 0; border: 1px solid #b8d9c3; border-radius: 8px; background: #fff; color: var(--billing-strong); cursor: pointer; }
 .drivers-calendar-nav:hover { background: var(--billing-soft); }
@@ -499,11 +502,11 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-calendar-weekdays { padding: 0 10px; border-bottom: 1px solid #e1eee4; background: #fbfefb; }
 .drivers-calendar-weekdays span { padding: 7px 3px; color: #74847a; font-size: 6.5px; font-weight: 750; text-align: center; text-transform: uppercase; }
 .drivers-calendar-grid { gap: 5px; padding: 9px 10px 11px; }
-.drivers-calendar-day { min-width: 0; min-height: 58px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px; border: 1px solid #e0e9e2; border-radius: 7px; background: #fff; color: #7a8780; text-align: left; cursor: pointer; }
+.drivers-calendar-day { min-width: 0; min-height: 72px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px; border: 1px solid #e0e9e2; border-radius: 7px; background: #fff; color: #7a8780; text-align: left; cursor: pointer; }
 .drivers-calendar-day:hover { border-color: #7eb68e; }
-.drivers-calendar-day > span:first-child { font-size: 8px; font-weight: 750; }
+.drivers-calendar-day > span:first-child { font-size: 10px; font-weight: 800; }
 .drivers-calendar-day__values { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.drivers-calendar-day__values small { overflow: hidden; font-size: 6px; font-weight: 700; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+.drivers-calendar-day__values small { overflow: visible; font-size: 12px; font-weight: 800; line-height: 1.05; text-overflow: clip; white-space: nowrap; }
 .drivers-calendar-day__billing { color: var(--billing-strong); }
 .drivers-calendar-day__fuel { color: #c3382f; }
 .drivers-calendar-day--billing { border-color: #c3e1c9; background: #f6fcf6; }
@@ -520,7 +523,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .driver-day-detail > header > strong { color: var(--green-800); font-size: 7px; }
 .driver-day-detail__columns { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; padding: 9px; }
 .driver-day-panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; }
-.driver-day-panel > header { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 9px; }
+.driver-day-panel > header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 18px; font-weight: 800; }
+.driver-day-panel > header svg { width: 20px; height: 20px; }
 .driver-day-panel--billing > header { color: var(--billing-strong); background: var(--billing-soft); }
 .driver-day-panel--fuel > header { color: #c3382f; background: #fff3f1; }
 .driver-day-panel__metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); }
@@ -1202,16 +1206,20 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .drivers-summary-card--billing .drivers-summary-card__total, .drivers-summary-card--fuel .drivers-summary-card__total { font-size: 22px; }
   .drivers-summary-card > div { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; padding-top: 5px; }
   .drivers-summary-card > div > span { display: flex; flex-direction: column; align-items: initial; }
-  .drivers-summary-card > footer { font-size: 5.5px; }
-  .driver-list-card { min-height: 52px; grid-template-columns: minmax(0,1fr) minmax(102px,124px) minmax(94px,114px); gap: 6px; padding: 5px 0; }
-  .driver-list-card__identity strong { font-size: 12px; }
-  .driver-list-card__identity small { font-size: 7px; }
+  .drivers-summary-card > div small { font-size: 9px; }
+  .drivers-summary-card > div strong { font-size: 13px; }
+  .driver-list-card { min-height: 58px; grid-template-columns: minmax(0,1fr) minmax(112px,128px) minmax(100px,116px); gap: 6px; padding: 5px 0; }
+  .driver-list-card__identity > strong { font-size: 14px; }
+  .driver-list-card__identity small { font-size: 8.5px; }
+  .driver-list-card__plate { font-size: 9px; }
   .driver-list-card__metric { min-width: 0; padding-left: 6px; }
-  .driver-list-card__metric small { font-size: 6.5px; }
-  .driver-list-card__metric strong { font-size: 12px; }
-  .driver-list-card__metric--billing strong { font-size: 18px; }
+  .driver-list-card__metric small { font-size: 8px; }
+  .driver-list-card__metric strong { font-size: 16px; }
+  .driver-list-card__metric--billing strong { font-size: 20px; }
+  .driver-list-card__metric--fuel strong { font-size: 17px; }
   .drivers-calendar-card__header { padding: 9px; }
-  .drivers-calendar-card__header > div:nth-child(2) strong { font-size: 12px; }
+  .drivers-calendar-card__header > div:nth-child(2) strong { font-size: 15px; }
+  .drivers-calendar-card__header > div:nth-child(2) small { font-size: 10px; }
   .drivers-calendar-legend { padding-inline: 9px; }
   .drivers-calendar-grid { gap: 3px; padding: 7px; }
   .drivers-calendar-day { min-height: 50px; padding: 5px; }
@@ -1298,14 +1306,15 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .fuel-vehicle-summary > span > span { display: none; }
   .driver-list-card__metric--fuel { display: flex; }
   .drivers-calendar-card__header > div:nth-child(2) > span { font-size: 5.5px; }
-  .drivers-calendar-card__header > div:nth-child(2) strong { font-size: 10px; }
-  .drivers-calendar-card__header > div:nth-child(2) small { font-size: 6px; }
+  .drivers-calendar-card__header > div:nth-child(2) strong { font-size: 15px; }
+  .drivers-calendar-card__header > div:nth-child(2) small { font-size: 10px; }
   .drivers-calendar-nav { width: 26px; height: 26px; }
   .drivers-calendar-weekdays span { font-size: 5.5px; }
-  .drivers-calendar-day { min-height: 44px; padding: 4px; }
-  .drivers-calendar-day > span:first-child { font-size: 7px; }
-  .drivers-calendar-day__values small { font-size: 5px; }
-  .driver-day-detail > header { padding: 9px 10px; }
+  .drivers-calendar-day { min-height: 62px; padding: 5px 4px; }
+  .drivers-calendar-day > span:first-child { font-size: 9px; }
+  .drivers-calendar-day__values small { font-size: 10px; letter-spacing: -.04em; }
+  .driver-day-panel > header { padding: 9px 10px; font-size: 15px; }
+  .driver-day-panel > header svg { width: 18px; height: 18px; }
   .driver-day-panel__metrics > span { padding: 7px 6px; }
   .driver-day-panel__metrics small { font-size: 5.5px; }
   .driver-day-panel__metrics strong { font-size: 7.5px; }
