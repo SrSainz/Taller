@@ -58,6 +58,7 @@ const chartMetricOptions = [
 
 const selectableChartMetrics = chartMetricOptions.filter((option) => option.value !== "summary");
 const allChartMetricValues = selectableChartMetrics.map((option) => option.value);
+const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c" };
 
 const navItems = [
   { label: "Informes", slug: "informes", icon: IconChartBar },
@@ -1063,7 +1064,7 @@ function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }
 }
 
 function ChartMetricMenu({ selectedMetrics, onToggleMetric, onSelectSummary }) {
-  const summarySelected = selectedMetrics.length === allChartMetricValues.length;
+  const summarySelected = selectedMetrics.length === 0;
   return (
     <div className="report-period-menu report-chart-metric-menu report-chart-metric-menu--checklist" role="listbox" aria-label="Seleccionar información del gráfico">
       <button type="button" role="option" aria-selected={summarySelected} className={`report-chart-metric-menu__summary${summarySelected ? " selected" : ""}`} onClick={onSelectSummary}>
@@ -1089,7 +1090,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [internalChartMetric, setInternalChartMetric] = useState("summary");
   const chartMetric = controlledChartMetric ?? internalChartMetric;
   const setChartMetric = onChartMetricChange ?? setInternalChartMetric;
-  const [selectedChartMetrics, setSelectedChartMetrics] = useState(() => chartMetric === "summary" ? allChartMetricValues : [chartMetric]);
+  const [selectedChartMetrics, setSelectedChartMetrics] = useState(() => chartMetric === "summary" ? [] : [chartMetric]);
   const pendingChartMetricsRef = useRef(null);
   const [reportMonth, setReportMonth] = useState(6);
   const [reportYear, setReportYear] = useState(2026);
@@ -1106,7 +1107,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
         setSelectedChartMetrics(pendingChartMetricsRef.current);
         pendingChartMetricsRef.current = null;
       } else if (selectedChartMetrics.length === 1) {
-        setSelectedChartMetrics(allChartMetricValues);
+        setSelectedChartMetrics([]);
       }
     } else if (allChartMetricValues.includes(chartMetric)) {
       pendingChartMetricsRef.current = null;
@@ -1219,19 +1220,23 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     net: "Neto",
   };
   const chartOptions = {
-    summary: { title: "Resumen general por coche", description: "", color: "#079ea7", data: summaryChartData },
-    billing: { title: "Facturación por conductor", description: "Ingresos mensuales de los seis conductores profesionales.", color: BILLING_COLOR, data: billingChartData },
-    maintenance: { title: "Mantenimiento por coche", description: "Importe de las actuaciones registradas en cada vehículo.", color: MAINTENANCE_COLOR, data: maintenanceChartData },
-    fuel: { title: "Combustible por coche", description: "Gasto mensual de combustible de los cinco vehículos.", color: "#df4538", data: fuelChartData },
-    net: { title: "Beneficio neto por coche", description: "Facturación menos todos los gastos asignados a cada vehículo.", color: "#28923c", data: netChartData },
+    summary: { title: "RESUMEN GENERAL POR COCHE", description: "", color: "#079ea7", data: summaryChartData },
+    billing: { title: "FACTURACIÓN POR CONDUCTOR", description: "", color: BILLING_COLOR, data: billingChartData },
+    maintenance: { title: "MANTENIMIENTO POR COCHE", description: "", color: MAINTENANCE_COLOR, data: maintenanceChartData },
+    fuel: { title: "COMBUSTIBLE POR COCHE", description: "", color: "#df4538", data: fuelChartData },
+    net: { title: "BENEFICIO NETO POR COCHE", description: "", color: "#28923c", data: netChartData },
   };
   const activeChart = chartOptions[chartMetric];
+  const visibleChartMetrics = selectedChartMetrics.length > 0 ? selectedChartMetrics : allChartMetricValues;
+  const chartIconBackground = visibleChartMetrics.length === 1
+    ? chartMetricColors[visibleChartMetrics[0]]
+    : `conic-gradient(from 45deg, ${visibleChartMetrics.map((metric, index) => `${chartMetricColors[metric]} ${index * 100 / visibleChartMetrics.length}% ${(index + 1) * 100 / visibleChartMetrics.length}%`).join(", ")})`;
   const selectedFuelStats = vehicleStats.find(({ vehicle }) => vehicle.plate === selected.plate) ?? vehicleStats[0];
   const selectedBillingDriver = billingRows.find((row) => row.key === billingDriverKey) ?? null;
   const selectedBillingVehicle = vehicles.find((vehicle) => vehicle.plate === billingVehiclePlate) ?? null;
   const selectedBillingVehicleRows = billingRows.filter((row) => row.plate === billingVehiclePlate);
   const hasChartData = chartMetric === "summary"
-    ? selectedChartMetrics.some((metric) => activeChart.data.some((item) => item[metric] !== 0))
+    ? visibleChartMetrics.some((metric) => activeChart.data.some((item) => item[metric] !== 0))
     : activeChart.data.some((item) => item.value !== 0);
   const selectChartBar = (entry) => {
     const label = entry?.payload?.label ?? entry?.label;
@@ -1239,9 +1244,9 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   };
   const selectChartMetrics = (nextMetrics) => {
     const normalized = allChartMetricValues.filter((metric) => nextMetrics.includes(metric));
-    if (!normalized.length || normalized.length === allChartMetricValues.length) {
+    if (!normalized.length) {
       pendingChartMetricsRef.current = null;
-      setSelectedChartMetrics(allChartMetricValues);
+      setSelectedChartMetrics([]);
       if (chartMetric !== "summary") setChartMetric("summary");
       return;
     }
@@ -1256,7 +1261,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
       pendingChartMetricsRef.current = null;
     }
   };
-  const chartMetricTriggerLabel = selectedChartMetrics.length === allChartMetricValues.length
+  const chartMetricTriggerLabel = selectedChartMetrics.length === 0
     ? "Resumen"
     : selectedChartMetrics.length === 1
       ? chartMetricOptions.find((option) => option.value === selectedChartMetrics[0])?.label
@@ -1321,11 +1326,11 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
               </div>
               <section className="report-chart-card">
                 <header className="report-chart-card__top">
-                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
+                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong></span></div>
                   <div className="report-chart-filters" role="group" aria-label="Filtros del gráfico">
                     <div className="report-chart-metric-dropdown">
                       <button type="button" className="report-summary-button report-chart-metric-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "chart-metric"} onClick={() => setPeriodMenu((current) => current === "chart-metric" ? "" : "chart-metric")}><IconChartBar size={14} /><span>{chartMetricTriggerLabel}</span><IconChevronDown size={13} /></button>
-                      {periodMenu === "chart-metric" && <ChartMetricMenu selectedMetrics={selectedChartMetrics} onSelectSummary={() => { selectChartMetrics(allChartMetricValues); setPeriodMenu(""); }} onToggleMetric={(metric) => selectChartMetrics(selectedChartMetrics.includes(metric) ? selectedChartMetrics.filter((candidate) => candidate !== metric) : [...selectedChartMetrics, metric])} />}
+                      {periodMenu === "chart-metric" && <ChartMetricMenu selectedMetrics={selectedChartMetrics} onSelectSummary={() => { selectChartMetrics([]); setPeriodMenu(""); }} onToggleMetric={(metric) => selectChartMetrics(selectedChartMetrics.includes(metric) ? selectedChartMetrics.filter((candidate) => candidate !== metric) : [...selectedChartMetrics, metric])} />}
                     </div>
                     <div className="report-period-dropdown">
                       <span>Mes</span>
@@ -1339,7 +1344,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                     </div>
                   </div>
                 </header>
-                <div className={chartMetric === "summary" ? "report-chart report-chart--summary" : "report-chart"}>
+                <div className="report-chart report-chart--summary">
                   {hasChartData ? <>
                     <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 4 }} barCategoryGap="16%" onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
@@ -1348,24 +1353,24 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                       <XAxis dataKey="label" interval={0} tick={{ fontSize: 8, fontWeight: chartMetric === "billing" ? 400 : 700, fill: "#75817d" }} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
-                      {(chartMetric === "net" || (chartMetric === "summary" && selectedChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
+                      {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
-                        {selectedChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill={BILLING_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {selectedChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill={MAINTENANCE_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {selectedChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" stackId="vehicle-summary" fill="#df4538" maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {selectedChartMetrics.includes("net") && <Bar dataKey="net" name="net" stackId="vehicle-summary" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill={BILLING_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill={MAINTENANCE_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" stackId="vehicle-summary" fill="#df4538" maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" stackId="vehicle-summary" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
                       </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} isAnimationActive={false} activeBar={false} onClick={selectChartBar}>
                         {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
                       </Bar>}
                     </BarChart>
                     </ResponsiveContainer>
-                    {chartMetric === "summary" && <div className="report-chart-legend" aria-label="Leyenda del resumen general">
-                      {selectedChartMetrics.includes("billing") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--billing" />Facturación</span>}
-                      {selectedChartMetrics.includes("maintenance") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--maintenance" />Mantenimiento</span>}
-                      {selectedChartMetrics.includes("fuel") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--fuel" />Combustible</span>}
-                      {selectedChartMetrics.includes("net") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--net" />Neto</span>}
-                    </div>}
-                  </> : <div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div>}
+                    {chartMetric === "summary" ? <div className="report-chart-legend" aria-label="Leyenda del resumen general">
+                      {visibleChartMetrics.includes("billing") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--billing" />Facturación</span>}
+                      {visibleChartMetrics.includes("maintenance") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--maintenance" />Mantenimiento</span>}
+                      {visibleChartMetrics.includes("fuel") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--fuel" />Combustible</span>}
+                      {visibleChartMetrics.includes("net") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--net" />Neto</span>}
+                    </div> : <div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" />}
+                  </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
             </div>
