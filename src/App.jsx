@@ -1358,7 +1358,9 @@ function DriversView({ vehicles, setModal }) {
   const [calendarSwipeTransition, setCalendarSwipeTransition] = useState(false);
   const driverGridRef = useRef(null);
   const calendarRef = useRef(null);
+  const calendarSurfaceRef = useRef(null);
   const touchStartX = useRef(null);
+  const calendarSwipeWidth = useRef(0);
   const swipeResetTimer = useRef(null);
   const professionalVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.use === "Profesional"), [vehicles]);
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
@@ -1400,6 +1402,23 @@ function DriversView({ vehicles, setModal }) {
   const selectedDriver = driverRows.find((row) => row.key === selectedDriverKey) ?? null;
   const calendarRows = useMemo(() => selectedDriver ? getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, reportMonth, reportYear) : [], [selectedDriver, reportMonth, reportYear]);
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;
+  const calendarPeriods = useMemo(() => {
+    if (!selectedDriver) return [];
+    return [-1, 0, 1].map((delta) => {
+      const date = new Date(reportYear, reportMonth + delta, 1);
+      const month = date.getMonth();
+      const year = date.getFullYear();
+      const rows = getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, month, year);
+      const leadingDays = (new Date(year, month, 1).getDay() + 6) % 7;
+      return {
+        key: `${year}-${month}`,
+        delta,
+        month,
+        year,
+        cells: [...Array.from({ length: leadingDays }, (_, index) => ({ key: `leading-${year}-${month}-${index}`, empty: true })), ...rows.map((row) => ({ ...row, key: `day-${year}-${month}-${row.day}` }))],
+      };
+    });
+  }, [selectedDriver, reportMonth, reportYear]);
   const totalBilling = billingRows.reduce((sum, row) => sum + row.revenue, 0);
   const totalFuel = fuelSummaries.reduce((sum, summary) => sum + summary.cost, 0);
 
@@ -1434,32 +1453,51 @@ function DriversView({ vehicles, setModal }) {
     setReportYear(next.getFullYear());
     setSelectedDay(null);
   };
-  const onCalendarTouchStart = (event) => {
-    touchStartX.current = event.touches[0]?.clientX ?? null;
+  const getCalendarSwipeWidth = () => {
+    const width = calendarSurfaceRef.current?.clientWidth ?? 360;
+    calendarSwipeWidth.current = width;
+    return width;
+  };
+  const beginCalendarSwipe = (clientX) => {
+    touchStartX.current = clientX ?? null;
+    getCalendarSwipeWidth();
     setCalendarSwipeTransition(false);
     setCalendarSwipeOffset(0);
   };
-  const onCalendarTouchMove = (event) => {
+  const moveCalendarSwipe = (clientX) => {
     if (touchStartX.current === null) return;
-    const currentX = event.touches[0]?.clientX ?? touchStartX.current;
-    const delta = currentX - touchStartX.current;
-    setCalendarSwipeOffset(Math.max(-96, Math.min(96, delta)));
+    const delta = (clientX ?? touchStartX.current) - touchStartX.current;
+    const width = calendarSwipeWidth.current || 360;
+    setCalendarSwipeOffset(Math.max(-width, Math.min(width, delta)));
   };
-  const onCalendarTouchEnd = (event) => {
+  const endCalendarSwipe = (clientX) => {
     if (touchStartX.current === null) return;
-    const delta = (event.changedTouches[0]?.clientX ?? touchStartX.current) - touchStartX.current;
+    const delta = (clientX ?? touchStartX.current) - touchStartX.current;
+    const width = calendarSwipeWidth.current || 360;
     touchStartX.current = null;
     if (swipeResetTimer.current) window.clearTimeout(swipeResetTimer.current);
-    if (Math.abs(delta) >= 50) {
+    if (Math.abs(delta) >= Math.min(80, Math.max(46, width * .14))) {
       setCalendarSwipeTransition(true);
-      setCalendarSwipeOffset(delta < 0 ? -96 : 96);
+      setCalendarSwipeOffset(delta < 0 ? -width : width);
       swipeResetTimer.current = window.setTimeout(() => {
         shiftMonth(delta < 0 ? 1 : -1);
         setCalendarSwipeOffset(0);
         setCalendarSwipeTransition(false);
-      }, 180);
+      }, 220);
       return;
     }
+    setCalendarSwipeTransition(true);
+    setCalendarSwipeOffset(0);
+  };
+  const onCalendarPointerDown = (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    beginCalendarSwipe(event.clientX);
+  };
+  const onCalendarPointerMove = (event) => moveCalendarSwipe(event.clientX);
+  const onCalendarPointerUp = (event) => endCalendarSwipe(event.clientX);
+  const onCalendarPointerCancel = () => {
+    touchStartX.current = null;
     setCalendarSwipeTransition(true);
     setCalendarSwipeOffset(0);
   };
@@ -1483,14 +1521,21 @@ function DriversView({ vehicles, setModal }) {
       },
     });
   };
-  const daysInMonth = new Date(reportYear, reportMonth + 1, 0).getDate();
-  const leadingDays = selectedDriver ? (new Date(reportYear, reportMonth, 1).getDay() + 6) % 7 : 0;
-  const calendarCells = selectedDriver
-    ? [...Array.from({ length: leadingDays }, (_, index) => ({ key: `leading-${index}`, empty: true })), ...calendarRows.map((row) => ({ ...row, key: `day-${row.day}` }))]
-    : [];
+  const renderCalendarPage = (period) => (
+    <div className="drivers-calendar-page" key={period.key}>
+      {period.delta !== 0 && <div className="drivers-calendar-page__period">{reportMonths[period.month]} {period.year}</div>}
+      <div className="drivers-calendar-legend"><span><i className="drivers-calendar-legend__swatch drivers-calendar-legend__swatch--billing" />Facturación</span><span><i className="drivers-calendar-legend__swatch drivers-calendar-legend__swatch--fuel" />Repostaje</span><small>Desliza para cambiar de mes</small></div>
+      <div className="drivers-calendar-weekdays" aria-hidden="true">{calendarWeekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
+      <div className="drivers-calendar-grid" role="grid" aria-label={`Facturación y consumo de ${selectedDriver.driver} en ${reportMonths[period.month]} de ${period.year}`}>
+        {period.cells.map((cell) => cell.empty
+          ? <span className="drivers-calendar-day drivers-calendar-day--empty" aria-hidden="true" key={cell.key} />
+          : <button type="button" className={`drivers-calendar-day${cell.billing > 0 ? " drivers-calendar-day--billing" : ""}${cell.fuelCost > 0 ? " drivers-calendar-day--fuel" : ""}${period.delta === 0 && selectedDay === cell.day ? " drivers-calendar-day--selected" : ""}`} role="gridcell" tabIndex={period.delta === 0 ? 0 : -1} onClick={() => period.delta === 0 && setSelectedDay(cell.day)} aria-label={`${cell.day} de ${reportMonths[period.month]}: ${formatCurrency(cell.billing)} de facturación y ${formatCurrency(cell.fuelCost)} de repostaje`} key={cell.key}><span>{cell.day}</span><span className="drivers-calendar-day__values">{cell.billing > 0 && <small className="drivers-calendar-day__billing">{formatShortCurrency(cell.billing)}</small>}{cell.fuelCost > 0 && <small className="drivers-calendar-day__fuel">-{formatShortCurrency(cell.fuelCost)}</small>}</span></button>)}
+      </div>
+    </div>
+  );
 
   return (
-    <section className="module-page drivers-page">
+    <section className={`module-page drivers-page${selectedDriver ? " drivers-page--calendar-open" : ""}`}>
       <div className="drivers-summary-grid">
         <button type="button" className="drivers-summary-card drivers-summary-card--billing" onClick={scrollToDrivers}>
           <header><span className="drivers-summary-card__icon"><IconFileInvoice size={16} /></span><span><strong>Facturación</strong><small>{reportMonths[reportMonth]} {reportYear} · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalBilling)}</strong></header>
@@ -1516,13 +1561,9 @@ function DriversView({ vehicles, setModal }) {
           <div><strong id="drivers-calendar-title">{selectedDriver.driver}</strong><small>{reportMonths[reportMonth]} {reportYear}</small></div>
           <div className="drivers-calendar-card__actions"><button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><IconChevronRight size={18} /></button><button type="button" className="icon-button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar calendario de ${selectedDriver.driver}`}><IconX size={17} /></button></div>
         </header>
-        <div className="drivers-calendar-surface" style={{ transform: `translate3d(${calendarSwipeOffset}px, 0, 0)`, transition: calendarSwipeTransition ? "transform 180ms cubic-bezier(.22,.75,.3,1)" : "none" }} onTouchStart={onCalendarTouchStart} onTouchMove={onCalendarTouchMove} onTouchEnd={onCalendarTouchEnd} onTouchCancel={onCalendarTouchEnd}>
-          <div className="drivers-calendar-legend"><span><i className="drivers-calendar-legend__swatch drivers-calendar-legend__swatch--billing" />Facturación</span><span><i className="drivers-calendar-legend__swatch drivers-calendar-legend__swatch--fuel" />Repostaje</span><small>Desliza para cambiar de mes</small></div>
-          <div className="drivers-calendar-weekdays" aria-hidden="true">{calendarWeekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
-          <div className="drivers-calendar-grid" role="grid" aria-label={`Facturación y consumo de ${selectedDriver.driver} en ${reportMonths[reportMonth]} de ${reportYear}`}>
-            {calendarCells.map((cell) => cell.empty
-              ? <span className="drivers-calendar-day drivers-calendar-day--empty" aria-hidden="true" key={cell.key} />
-              : <button type="button" className={`drivers-calendar-day${cell.billing > 0 ? " drivers-calendar-day--billing" : ""}${cell.fuelCost > 0 ? " drivers-calendar-day--fuel" : ""}${selectedDay === cell.day ? " drivers-calendar-day--selected" : ""}`} role="gridcell" onClick={() => setSelectedDay(cell.day)} aria-label={`${cell.day} de ${reportMonths[reportMonth]}: ${formatCurrency(cell.billing)} de facturación y ${formatCurrency(cell.fuelCost)} de repostaje`} key={cell.key}><span>{cell.day}</span><span className="drivers-calendar-day__values">{cell.billing > 0 && <small className="drivers-calendar-day__billing">{formatShortCurrency(cell.billing)}</small>}{cell.fuelCost > 0 && <small className="drivers-calendar-day__fuel">-{formatShortCurrency(cell.fuelCost)}</small>}</span></button>)}
+        <div ref={calendarSurfaceRef} className="drivers-calendar-surface" onPointerDown={onCalendarPointerDown} onPointerMove={onCalendarPointerMove} onPointerUp={onCalendarPointerUp} onPointerCancel={onCalendarPointerCancel}>
+          <div className="drivers-calendar-track" style={{ transform: `translate3d(calc(-33.333333% + ${calendarSwipeOffset}px), 0, 0)`, transition: calendarSwipeTransition ? "transform 220ms cubic-bezier(.22,.75,.3,1)" : "none" }}>
+            {calendarPeriods.map(renderCalendarPage)}
           </div>
         </div>
       </section>}
