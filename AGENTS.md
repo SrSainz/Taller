@@ -90,4 +90,6 @@ When implementing from a selected generated mock, treat that image as the source
 
 - General summary, month, and year selectors use a cyclic three-copy wheel picker with a centered snap row and blurred adjacent choices; the fixed bottom bar centers the home and profile icons within their thirds without a normal button box, and maintenance history omits its helper instruction line.
 
+- General home KPI cards use subtle flat fills without gradients. Tapping a chart bar adds only a pale gray category backdrop with no focus outline or active-bar highlight. The fixed bottom plus opens a horizontal Facturacion/Consumo choice, then a vertical Camara/Subir archivo source choice.
+
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.

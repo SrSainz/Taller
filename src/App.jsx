@@ -44,7 +44,7 @@ import {
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const BILLING_COLOR = "#7bc887";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -532,6 +532,43 @@ function BottomNavigation({ onHome, onProfile, homeActive }) {
   );
 }
 
+function QuickActionMenu({ step, category, onCategory, onBack, onAction }) {
+  const cameraInputRef = useRef(null);
+  const uploadInputRef = useRef(null);
+  const handleSource = (source) => {
+    const input = source === "camera" ? cameraInputRef.current : uploadInputRef.current;
+    if (input) {
+      input.value = "";
+      input.click();
+    }
+  };
+  const handleFile = (event, source) => {
+    const file = event.target.files?.[0];
+    if (file) onAction({ category, source, file });
+    event.target.value = "";
+  };
+
+  if (!step) return null;
+  return (
+    <div className={`bottom-navigation__quick-menu bottom-navigation__quick-menu--${step}`} role="menu" aria-label={step === "categories" ? "Seleccionar tipo de registro" : "Seleccionar origen del archivo"}>
+      {step === "categories" ? (
+        <div className="bottom-navigation__quick-options bottom-navigation__quick-options--categories">
+          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--billing" onClick={() => onCategory("billing")}><IconFileInvoice size={21} /><span>Facturación</span></button>
+          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--fuel" onClick={() => onCategory("consumption")}><IconGasStation size={21} /><span>Consumo</span></button>
+        </div>
+      ) : (
+        <div className="bottom-navigation__quick-options bottom-navigation__quick-options--sources">
+          <div className="bottom-navigation__quick-heading"><button type="button" aria-label="Volver a seleccionar tipo de registro" onClick={onBack}><IconChevronLeft size={15} /></button><strong>{category === "billing" ? "Facturación" : "Consumo"}</strong></div>
+          <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("camera")}><IconCamera size={19} /><span>Cámara</span></button>
+          <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("upload")}><IconUpload size={19} /><span>Subir archivo</span></button>
+        </div>
+      )}
+      <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event) => handleFile(event, "camera")} />
+      <input ref={uploadInputRef} className="sr-only" type="file" accept="image/*,.pdf" onChange={(event) => handleFile(event, "upload")} />
+    </div>
+  );
+}
+
 export function App() {
   const [activeNav, setActiveNav] = useState(initialAppNav);
   const [selectedPlate, setSelectedPlate] = useState("5043 MLC");
@@ -560,7 +597,23 @@ export function App() {
   const [isStandalone, setIsStandalone] = useState(isStandaloneApp);
   const [homeReportTab, setHomeReportTab] = useState("General");
   const [homeChartMetric, setHomeChartMetric] = useState("summary");
+  const [quickMenuStep, setQuickMenuStep] = useState("");
+  const [quickMenuCategory, setQuickMenuCategory] = useState("");
   const toastTimer = useRef();
+
+  useEffect(() => {
+    const onBottomNavigationClick = (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest(".bottom-navigation__add")) {
+        setQuickMenuStep((current) => current ? "" : "categories");
+        setQuickMenuCategory("");
+        return;
+      }
+      if (quickMenuStep && !event.target.closest(".bottom-navigation__quick-menu")) setQuickMenuStep("");
+    };
+    document.addEventListener("click", onBottomNavigationClick);
+    return () => document.removeEventListener("click", onBottomNavigationClick);
+  }, [quickMenuStep]);
 
   useEffect(() => {
     const handleHash = () => {
@@ -582,6 +635,7 @@ export function App() {
         setModal(null);
         setNotificationsOpen(false);
         setTopbarMenuOpen(false);
+        setQuickMenuStep("");
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -809,6 +863,13 @@ export function App() {
       )}
 
       <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} onHome={openGeneral} onProfile={() => notify("Perfil de Ana García")} />
+      <QuickActionMenu
+        step={quickMenuStep}
+        category={quickMenuCategory}
+        onCategory={(category) => { setQuickMenuCategory(category); setQuickMenuStep("sources"); }}
+        onBack={() => setQuickMenuStep("categories")}
+        onAction={({ category, source, file }) => { setQuickMenuStep(""); notify(`${source === "camera" ? "Cámara" : "Archivo"} listo para ${category === "billing" ? "facturación" : "consumo"}${file ? ` · ${file.name}` : ""}`); }}
+      />
       {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
     </div>
@@ -991,8 +1052,12 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [reportMonth, setReportMonth] = useState(6);
   const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
+  const [selectedChartBar, setSelectedChartBar] = useState("");
   const [billingDriverKey, setBillingDriverKey] = useState("");
   const [billingVehiclePlate, setBillingVehiclePlate] = useState("");
+  useEffect(() => {
+    setSelectedChartBar("");
+  }, [chartMetric, reportMonth, reportYear]);
   useEffect(() => {
     if (!periodMenu) return undefined;
     const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
@@ -1113,6 +1178,10 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const hasChartData = chartMetric === "summary"
     ? activeChart.data.some((item) => [item.billing, item.maintenance, item.fuel, item.net].some((value) => value !== 0))
     : activeChart.data.some((item) => item.value !== 0);
+  const selectChartBar = (entry) => {
+    const label = entry?.payload?.label ?? entry?.label;
+    if (label) setSelectedChartBar(label);
+  };
 
   useEffect(() => {
     if (!periodMenu) return;
@@ -1194,18 +1263,19 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 <div className={chartMetric === "summary" ? "report-chart report-chart--summary" : "report-chart"}>
                   {hasChartData ? <>
                     <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 4 }} barCategoryGap="16%">
+                    <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 4 }} barCategoryGap="16%" onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
+                      {selectedChartBar && <ReferenceArea x1={selectedChartBar} x2={selectedChartBar} fill="#edf0ee" fillOpacity={0.9} stroke="none" ifOverflow="extendDomain" zIndex={-20} />}
                       <CartesianGrid stroke="#e9efed" vertical={false} />
                       <XAxis dataKey="label" interval={0} tick={{ fontSize: 8, fontWeight: chartMetric === "billing" ? 400 : 700, fill: "#75817d" }} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || chartMetric === "summary") && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
-                        <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill={BILLING_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} />
-                        <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill={MAINTENANCE_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} />
-                        <Bar dataKey="fuel" name="fuel" stackId="vehicle-summary" fill="#df4538" maxBarSize={82} minPointSize={2} isAnimationActive={false} />
-                        <Bar dataKey="net" name="net" stackId="vehicle-summary" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={82} minPointSize={2} isAnimationActive={false} />
-                      </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} isAnimationActive={false}>
+                        <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill={BILLING_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />
+                        <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill={MAINTENANCE_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />
+                        <Bar dataKey="fuel" name="fuel" stackId="vehicle-summary" fill="#df4538" maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />
+                        <Bar dataKey="net" name="net" stackId="vehicle-summary" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />
+                      </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} isAnimationActive={false} activeBar={false} onClick={selectChartBar}>
                         {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
                       </Bar>}
                     </BarChart>
