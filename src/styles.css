@@ -486,6 +486,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .driver-list-card__metric--billing strong { color: var(--billing-strong); }
 .driver-list-card__metric--fuel strong { color: #c3382f; font-size: 21px; }
 .drivers-calendar-card, .driver-day-detail { overflow: hidden; border: 1px solid var(--billing-line); border-radius: 12px; background: #fff; box-shadow: 0 4px 12px rgba(38,67,58,.07); }
+.drivers-calendar-card { scroll-margin-top: 76px; }
 .drivers-calendar-card__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid var(--billing-line); background: linear-gradient(90deg, var(--billing-soft), #fff); }
 .drivers-calendar-card__header > div:nth-child(2) { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
 .drivers-calendar-card__header > div:nth-child(2) > span { color: var(--billing-strong); font-size: 6.5px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
@@ -494,7 +495,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-calendar-card__actions { display: flex; align-items: center; gap: 5px; }
 .drivers-calendar-nav { width: 29px; height: 29px; display: grid; place-items: center; padding: 0; border: 1px solid #b8d9c3; border-radius: 8px; background: #fff; color: var(--billing-strong); cursor: pointer; }
 .drivers-calendar-nav:hover { background: var(--billing-soft); }
-.drivers-calendar-surface { touch-action: pan-y; }
+.drivers-calendar-surface { touch-action: pan-y; will-change: transform; }
 .drivers-calendar-legend { display: flex; align-items: center; gap: 12px; padding: 8px 13px 5px; color: var(--muted); font-size: 6.5px; }
 .drivers-calendar-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .drivers-calendar-legend small { margin-left: auto; color: #88958f; font-size: 6px; }
@@ -505,7 +506,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-calendar-weekdays { padding: 0 10px; border-bottom: 1px solid #e1eee4; background: #fbfefb; }
 .drivers-calendar-weekdays span { padding: 7px 3px; color: #74847a; font-size: 6.5px; font-weight: 750; text-align: center; text-transform: uppercase; }
 .drivers-calendar-grid { gap: 5px; padding: 9px 10px 11px; }
-.drivers-calendar-day { min-width: 0; min-height: 72px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px; border: 1px solid #e0e9e2; border-radius: 7px; background: #fff; color: #7a8780; text-align: left; cursor: pointer; }
+.drivers-calendar-day { width: 100%; min-width: 0; height: clamp(48px, 5.2vw, 66px); min-height: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 6px; border: 1px solid #e0e9e2; border-radius: 7px; background: #fff; color: #7a8780; text-align: left; cursor: pointer; }
 .drivers-calendar-day:hover { border-color: #7eb68e; }
 .drivers-calendar-day > span:first-child { font-size: 10px; font-weight: 800; }
 .drivers-calendar-day__values { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -534,8 +535,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .driver-day-panel--fuel .driver-day-panel__metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
 .driver-day-panel__metrics > span { min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 8px 9px; }
 .driver-day-panel__metrics > span + span { border-left: 1px solid var(--line); }
-.driver-day-panel__metrics small { color: var(--muted); font-size: 6px; }
-.driver-day-panel__metrics strong { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-day-panel__metrics small { color: var(--muted); font-size: 9px; }
+.driver-day-panel__metrics strong { overflow: visible; font-size: 13px; line-height: 1.15; white-space: normal; }
 .driver-day-panel--billing .driver-day-panel__metrics strong { color: var(--billing-strong); }
 .driver-day-panel--fuel .driver-day-panel__metrics strong { color: #c3382f; }
 .driver-day-fuel-list { display: grid; gap: 4px; padding: 7px 9px 9px; border-top: 1px solid #f0d0cb; background: #fffaf9; }
@@ -1314,14 +1315,15 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .drivers-calendar-card__header > div:nth-child(2) small { font-size: 10px; }
   .drivers-calendar-nav { width: 26px; height: 26px; }
   .drivers-calendar-weekdays span { font-size: 5.5px; }
-  .drivers-calendar-day { min-height: 62px; padding: 5px 4px; }
+  .drivers-calendar-day { height: clamp(46px, 12vw, 54px); min-height: 0; padding: 4px; }
   .drivers-calendar-day > span:first-child { font-size: 9px; }
-  .drivers-calendar-day__values small { font-size: 10px; letter-spacing: -.04em; }
+  .drivers-calendar-day__values small { font-size: 10px; line-height: 1; letter-spacing: -.04em; }
   .driver-day-panel > header { padding: 9px 10px; font-size: 15px; }
   .driver-day-panel > header svg { width: 18px; height: 18px; }
-  .driver-day-panel__metrics > span { padding: 7px 6px; }
-  .driver-day-panel__metrics small { font-size: 5.5px; }
-  .driver-day-panel__metrics strong { font-size: 7.5px; }
+  .driver-day-panel__metrics, .driver-day-panel--fuel .driver-day-panel__metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .driver-day-panel__metrics > span { padding: 10px 9px; gap: 4px; }
+  .driver-day-panel__metrics small { font-size: 9px; }
+  .driver-day-panel__metrics strong { font-size: 12px; }
   .vehicle-workspace-section-heading { padding: 13px; }
   .fuel-detail__header { padding: 14px; }
   .fuel-detail__totals { gap: 7px; }
