@@ -40,6 +40,7 @@ import {
   IconTools,
   IconTrash,
   IconUpload,
+  IconUserCircle,
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
@@ -521,6 +522,16 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "green" }) {
   );
 }
 
+function BottomNavigation({ onHome, onProfile, homeActive }) {
+  return (
+    <nav className="bottom-navigation" aria-label="Navegación inferior">
+      <button type="button" className={`bottom-navigation__item${homeActive ? " bottom-navigation__item--active" : ""}`} onClick={onHome} aria-label="Ir a la página principal" aria-current={homeActive ? "page" : undefined} title="Página principal"><IconHome size={21} /></button>
+      <button type="button" className="bottom-navigation__add" aria-label="Añadir" title="Añadir"><IconPlus size={24} /></button>
+      <button type="button" className="bottom-navigation__item" onClick={onProfile} aria-label="Abrir perfil de usuario" title="Perfil de usuario"><IconUserCircle size={21} /></button>
+    </nav>
+  );
+}
+
 export function App() {
   const [activeNav, setActiveNav] = useState(initialAppNav);
   const [selectedPlate, setSelectedPlate] = useState("5043 MLC");
@@ -797,6 +808,7 @@ export function App() {
         />
       )}
 
+      <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} onHome={openGeneral} onProfile={() => notify("Perfil de Ana García")} />
       {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
     </div>
