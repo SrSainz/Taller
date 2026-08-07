@@ -92,4 +92,6 @@ When implementing from a selected generated mock, treat that image as the source
 
 - General home KPI cards use subtle flat fills without gradients. Tapping a chart bar adds only a pale gray category backdrop with no focus outline or active-bar highlight. The fixed bottom plus opens a horizontal Facturacion/Consumo choice, then a vertical Camara/Subir archivo source choice.
 
+- The General chart's first menu is a flat uppercase checklist: Resumen restores all four series without a checkbox, while Facturación, Mantenimiento, Combustible, and Neto can be toggled in combination; month and year menus stay narrow and line-free.
+
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.

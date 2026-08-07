@@ -319,6 +319,31 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .report-period-menu button { min-height: 30px; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: #586660; font-size: 10px; text-align: left; text-transform: uppercase; cursor: pointer; }
 .report-period-menu--months button { white-space: nowrap; }
 .report-period-menu button:hover, .report-period-menu button.selected { background: #eaf5f1; color: var(--green-900); font-weight: 700; }
+.report-chart-metric-menu--checklist { width: 208px; min-width: 208px; padding: 7px; gap: 3px; }
+.report-chart-metric-menu--checklist button { min-height: 32px; padding: 0 8px; border-radius: 7px; font-size: 9px; font-weight: 800; letter-spacing: .025em; text-transform: uppercase; }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__summary { justify-content: flex-start; color: var(--green-900); background: #eef8f4; }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__summary.selected { background: #e5f3ed; color: var(--green-900); }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option { justify-content: space-between; background: transparent; }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option:hover, .report-chart-metric-menu--checklist .report-chart-metric-menu__option.selected { background: #f5f8f7; }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option--billing { color: var(--billing-light); }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option--maintenance { color: var(--maintenance-orange-strong); }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option--fuel { color: #d43b30; }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option--net { color: #278c3b; }
+.report-metric-check { width: 16px; height: 16px; display: grid; place-items: center; flex: 0 0 16px; border: 1.5px solid currentColor; border-radius: 50%; background: transparent; }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option.selected .report-metric-check { background: currentColor; color: #fff; }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option--billing.selected .report-metric-check { background: var(--billing-strong); border-color: var(--billing-strong); }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option--maintenance.selected .report-metric-check { background: var(--maintenance-orange-strong); border-color: var(--maintenance-orange-strong); }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option--fuel.selected .report-metric-check { background: #d43b30; border-color: #d43b30; }
+.report-chart-metric-menu--checklist .report-chart-metric-menu__option--net.selected .report-metric-check { background: #278c3b; border-color: #278c3b; }
+.report-period-menu--wheel:not(.report-chart-metric-menu) { width: 94px; min-width: 94px; height: 176px; border-color: #d5e0dc; border-radius: 12px; background: #fff; box-shadow: 0 12px 24px rgba(20,55,45,.16); }
+.report-period-menu--wheel.report-period-menu--years { width: 72px; min-width: 72px; }
+.report-period-menu--wheel:not(.report-chart-metric-menu) .report-wheel-list { padding: 71px 4px; scroll-padding-block: 71px; }
+.report-period-menu--wheel:not(.report-chart-metric-menu)::before, .report-period-menu--wheel:not(.report-chart-metric-menu)::after, .report-period-menu--wheel:not(.report-chart-metric-menu) .report-wheel-focus { display: none; }
+.report-period-menu--wheel:not(.report-chart-metric-menu) button { min-height: 34px; padding: 0 5px; border-radius: 6px; background: transparent; color: #7f8c86; box-shadow: none; filter: none; transform: none; }
+.report-period-menu--wheel:not(.report-chart-metric-menu) button:not(.selected) { opacity: .56; filter: none; transform: none; }
+.report-period-menu--wheel:not(.report-chart-metric-menu) button:hover { background: transparent; color: #263b34; }
+.report-period-menu--wheel:not(.report-chart-metric-menu) button.selected { background: transparent; color: #263b34; box-shadow: none; font-weight: 800; opacity: 1; filter: none; transform: none; }
+.report-period-menu--wheel:not(.report-chart-metric-menu) button svg { display: none; }
 .report-chart { width: 100%; height: 260px; }
 .report-chart .recharts-wrapper, .report-chart .recharts-surface, .report-chart .recharts-bar-rectangle, .report-chart .recharts-tooltip-wrapper, .report-chart .recharts-reference-area-rect { outline: 0 !important; }
 .report-chart .recharts-bar-rectangle:focus, .report-chart .recharts-bar-rectangle:focus-visible { outline: 0 !important; stroke: none !important; }
