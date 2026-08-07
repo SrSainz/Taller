@@ -1130,14 +1130,14 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
 
 function ReportFleetSummaryCard({ billing, fuel, onClick }) {
   return (
-    <button type="button" className="report-stat-card report-stat-card--fleet" onClick={onClick} aria-label="Abrir Conductores, Facturación y Consumo">
+    <button type="button" className="report-stat-card report-stat-card--wide report-stat-card--drivers" onClick={onClick} aria-label="Abrir Conductores, Facturación y Consumo">
       <span className="report-stat-card__header">
         <span className="report-stat-card__icon"><IconUsers size={18} /></span>
-        <span className="report-stat-card__heading"><strong>CONDUCTORES</strong></span>
+        <strong>CONDUCTORES</strong>
       </span>
-      <span className="report-stat-fleet__metrics">
-        <span className="report-stat-fleet__metric"><span><IconFileInvoice size={14} />Facturación</span><strong>{billing}</strong></span>
-        <span className="report-stat-fleet__metric"><span><IconGasStation size={14} />Consumo</span><strong>{fuel}</strong></span>
+      <span className="report-stat-card__inline-metrics">
+        <span><small>Facturación</small><strong>{billing}</strong></span>
+        <span><small>Consumo</small><strong>{fuel}</strong></span>
       </span>
     </button>
   );
@@ -1709,16 +1709,20 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
           <div className="maintenance-history-total"><small>{sortedMaintenance.length} intervenciones</small><strong>{formatCurrency(total)}</strong></div>
         </header>
         <div className="maintenance-timeline" aria-label={`Historial de mantenimiento de ${workshopVehicle.plate}`}>
+          <header className="maintenance-timeline-heading">
+            <span><span className="maintenance-timeline-heading__icon"><IconTools size={14} /></span><strong>INTERVENCIONES REALIZADAS</strong></span>
+            <small>Más recientes primero · pulsa una fecha para ver los trabajos</small>
+          </header>
           {maintenanceRecords.map(({ item, invoice, details }) => {
             const key = `${item.date}-${item.concept}-${item.km}`;
             const isOpen = openMaintenanceKey === key;
             const detailId = `detail-${workshopVehicle.plate.replace(/\s/g, "")}-${item.km}`;
             return (
-              <article className={`maintenance-event ${isOpen ? "is-open" : ""}`} key={key}>
+              <article className={`maintenance-event ${isOpen ? "is-open" : ""} ${invoice ? "has-invoice" : "without-invoice"}`} key={key}>
                 <button className="maintenance-event-date" onClick={() => setOpenMaintenanceKey(isOpen ? "" : key)} aria-expanded={isOpen} aria-controls={detailId}>
                   <IconCalendar size={18} /><span><strong>{formatMaintenanceDate(item)}</strong><small>{formatKm(item.km)}</small></span><IconChevronDown className="maintenance-event-toggle" size={18} />
                 </button>
-                <div className="maintenance-event-summary"><small>Actuación</small><strong>{item.concept}</strong><span>{formatCurrency(item.amount)}</span></div>
+                <div className="maintenance-event-summary"><small>Trabajo realizado</small><strong>{item.concept}</strong><span className="maintenance-event-summary__amount">{formatCurrency(item.amount)}</span></div>
                 <div className="maintenance-event-invoice">
                   {invoice ? <button onClick={() => setModal({ type: "invoice", item: invoice })} aria-label={`Abrir factura ${invoice.id}`}><IconFileInvoice size={18} /><span><strong>Abrir factura</strong><small>{invoice.id}</small></span></button> : <span className="maintenance-invoice-unavailable"><IconFileInvoice size={18} /><span><strong>Sin factura</strong><small>No proporcionada</small></span></span>}
                 </div>
