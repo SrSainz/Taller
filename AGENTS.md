@@ -94,4 +94,6 @@ When implementing from a selected generated mock, treat that image as the source
 
 - The General chart's first menu is a flat uppercase checklist: Resumen restores all four series without a checkbox, while Facturación, Mantenimiento, Combustible, and Neto can be toggled in combination; month and year menus stay narrow and line-free.
 
+- The fixed bottom plus opens the same two source actions for Facturación and Consumo; the source menu has no redundant category heading, and Cámara or Subir archivo first shows an explicit consent prompt before opening the native picker.
+
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.

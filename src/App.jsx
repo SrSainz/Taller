@@ -535,11 +535,20 @@ function BottomNavigation({ onHome, onProfile, homeActive }) {
   );
 }
 
-function QuickActionMenu({ step, category, onCategory, onBack, onAction }) {
+function QuickActionMenu({ step, category, onCategory, onAction }) {
   const cameraInputRef = useRef(null);
   const uploadInputRef = useRef(null);
+  const [permissionSource, setPermissionSource] = useState("");
+  useEffect(() => {
+    if (step !== "sources") setPermissionSource("");
+  }, [step]);
   const handleSource = (source) => {
+    setPermissionSource(source);
+  };
+  const allowSource = () => {
+    const source = permissionSource;
     const input = source === "camera" ? cameraInputRef.current : uploadInputRef.current;
+    setPermissionSource("");
     if (input) {
       input.value = "";
       input.click();
@@ -553,15 +562,24 @@ function QuickActionMenu({ step, category, onCategory, onBack, onAction }) {
 
   if (!step) return null;
   return (
-    <div className={`bottom-navigation__quick-menu bottom-navigation__quick-menu--${step}`} role="menu" aria-label={step === "categories" ? "Seleccionar tipo de registro" : "Seleccionar origen del archivo"}>
+    <div className={`bottom-navigation__quick-menu bottom-navigation__quick-menu--${step}${permissionSource ? " bottom-navigation__quick-menu--permission" : ""}`} role={permissionSource ? "dialog" : "menu"} aria-modal={permissionSource ? "true" : undefined} aria-labelledby={permissionSource ? "quick-permission-title" : undefined} aria-label={permissionSource ? undefined : step === "categories" ? "Seleccionar tipo de registro" : "Seleccionar origen del archivo"}>
       {step === "categories" ? (
         <div className="bottom-navigation__quick-options bottom-navigation__quick-options--categories">
           <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--billing" onClick={() => onCategory("billing")}><IconFileInvoice size={21} /><span>Facturación</span></button>
           <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--fuel" onClick={() => onCategory("consumption")}><IconGasStation size={21} /><span>Consumo</span></button>
         </div>
+      ) : permissionSource ? (
+        <div className="bottom-navigation__permission" aria-live="polite">
+          <span className="bottom-navigation__permission-icon">{permissionSource === "camera" ? <IconCamera size={22} /> : <IconUpload size={22} />}</span>
+          <strong id="quick-permission-title">¿Permites el acceso a {permissionSource === "camera" ? "la cámara" : "tus fotos y archivos"}?</strong>
+          <p>{permissionSource === "camera" ? "Necesitamos la cámara para tomar una foto desde la aplicación." : "Necesitamos acceder al álbum para que puedas elegir una foto o un archivo."}</p>
+          <div className="bottom-navigation__permission-actions">
+            <button type="button" className="secondary-button" onClick={() => setPermissionSource("")}>Cancelar</button>
+            <button type="button" className="primary-button" onClick={allowSource}>Permitir</button>
+          </div>
+        </div>
       ) : (
         <div className="bottom-navigation__quick-options bottom-navigation__quick-options--sources">
-          <div className="bottom-navigation__quick-heading"><button type="button" aria-label="Volver a seleccionar tipo de registro" onClick={onBack}><IconChevronLeft size={15} /></button><strong>{category === "billing" ? "Facturación" : "Consumo"}</strong></div>
           <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("camera")}><IconCamera size={19} /><span>Cámara</span></button>
           <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("upload")}><IconUpload size={19} /><span>Subir archivo</span></button>
         </div>
@@ -870,7 +888,6 @@ export function App() {
         step={quickMenuStep}
         category={quickMenuCategory}
         onCategory={(category) => { setQuickMenuCategory(category); setQuickMenuStep("sources"); }}
-        onBack={() => setQuickMenuStep("categories")}
         onAction={({ category, source, file }) => { setQuickMenuStep(""); notify(`${source === "camera" ? "Cámara" : "Archivo"} listo para ${category === "billing" ? "facturación" : "consumo"}${file ? ` · ${file.name}` : ""}`); }}
       />
       {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} vehicles={vehicles} />}

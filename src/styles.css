@@ -1133,6 +1133,13 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .bottom-navigation__quick-heading button { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #66756f; cursor: pointer; }
 .bottom-navigation__quick-heading button:hover, .bottom-navigation__quick-heading button:focus-visible { background: #eef5f2; color: #1c5e4b; outline: none; }
 .bottom-navigation__quick-menu--sources { width: min(190px, calc(100vw - 24px)); }
+.bottom-navigation__quick-menu--permission { width: min(286px, calc(100vw - 24px)); }
+.bottom-navigation__permission { display: grid; justify-items: center; gap: 8px; padding: 8px 10px 10px; color: #304a40; text-align: center; }
+.bottom-navigation__permission-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: var(--green-50); color: var(--green-800); }
+.bottom-navigation__permission strong { color: var(--text); font-size: 11px; line-height: 1.25; }
+.bottom-navigation__permission p { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.45; }
+.bottom-navigation__permission-actions { display: flex; justify-content: center; gap: 7px; width: 100%; padding-top: 3px; }
+.bottom-navigation__permission-actions button { min-height: 34px; flex: 1; padding-inline: 9px; font-size: 9px; }
 .toast { position: fixed; z-index: 80; right: 25px; bottom: calc(var(--bottom-navigation-height) + 16px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 9px; max-width: 380px; padding: 12px 15px; border-radius: 9px; background: #153f35; color: #fff; font-size: 9px; box-shadow: var(--shadow); animation: toast-in .2s ease-out; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(7px); } }
 @media (max-width: 1360px) {
