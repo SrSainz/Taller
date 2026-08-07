@@ -82,5 +82,7 @@ When implementing from a selected generated mock, treat that image as the source
 - Month and year are selected through compact anchored in-page menus, never full-screen or browser-native pickers. The month menu shows all 12 months in one vertical column, the year menu uses a short list, and both close after selection, on focus leaving the control, or with Escape.
 - The General Conductores card uses the same stacked layout as Mantenimiento and Neto: the uppercase title sits above full-width Facturación and Consumo metrics separated by vertical dividers.
 - The Mantenimiento history keeps vehicle selection and invoice expansion intact while presenting interventions as a friendly visual timeline with clear dates, work concepts, highlighted amounts, and invoice states.
+- Mantenimiento history headers show only the selected vehicle plate and total; the “Historial seleccionado” label and vehicle model/use line are omitted.
+- General KPI cards keep permanent tone-colored borders: blue for Conductores, orange with a wrench icon for Mantenimiento, and green for Neto. Chart bar tooltips remain non-blocking, hide the active cursor overlay, and leave the other bars visible and tappable.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.

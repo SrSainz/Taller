@@ -241,6 +241,10 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .report-stat-card__inline-metrics strong { min-width: 0; overflow: hidden; color: #45534e; font-size: 14px; letter-spacing: -.2px; text-overflow: ellipsis; white-space: nowrap; }
 .report-stat-card--orange .report-stat-card__inline-metrics strong { color: var(--maintenance-orange-strong); }
 .report-stat-card--green .report-stat-card__inline-metrics strong { color: #278c3b; }
+.report-stat-card--orange { border-color: var(--maintenance-orange-line); background: linear-gradient(115deg, #fff 0%, var(--maintenance-orange-soft) 100%); }
+.report-stat-card--orange:hover { border-color: var(--maintenance-orange); }
+.report-stat-card--green { border-color: #b9d9bf; background: linear-gradient(115deg, #fff 0%, #f4fbf5 100%); }
+.report-stat-card--green:hover { border-color: #28923c; }
 .report-stat-card--billing.report-stat-card--active { border-color: var(--billing-strong); box-shadow: inset 0 0 0 1px var(--billing-strong), 0 8px 20px rgba(63,150,80,.12); }
 .report-stat-card--slate.report-stat-card--active { border-color: #607d89; box-shadow: inset 0 0 0 1px #607d89, 0 8px 20px rgba(96,125,137,.12); }
 .report-stat-card--red.report-stat-card--active { border-color: #df4538; box-shadow: inset 0 0 0 1px #df4538, 0 8px 20px rgba(223,69,56,.12); }
@@ -309,6 +313,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .report-period-menu--months button { white-space: nowrap; }
 .report-period-menu button:hover, .report-period-menu button.selected { background: #eaf5f1; color: var(--green-900); font-weight: 700; }
 .report-chart { width: 100%; height: 260px; }
+.report-chart .recharts-wrapper, .report-chart .recharts-surface, .report-chart .recharts-bar-rectangle, .report-chart .recharts-tooltip-wrapper { outline: 0 !important; }
 .report-chart--summary { display: grid; grid-template-rows: minmax(0,1fr) 24px; }
 .report-chart-legend { display: flex; align-items: center; justify-content: center; gap: 13px; color: #586660; font-size: 8px; }
 .report-chart-legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
@@ -673,7 +678,6 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .maintenance-history-header { min-height: 105px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 20px; border-bottom: 1px solid var(--line); background: #fbfdfc; }
 .maintenance-history-vehicle { display: flex; align-items: center; gap: 13px; }
 .maintenance-history-vehicle h2 { margin: 3px 0; font-size: 18px; }
-.maintenance-history-vehicle p { margin: 0; color: var(--muted); font-size: 9px; }
 .maintenance-history-total { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
 .maintenance-history-total strong { color: var(--green-900); font-size: 20px; }
 .maintenance-timeline { position: relative; display: grid; gap: 12px; padding: 17px 18px 20px 28px; background: linear-gradient(180deg, #f6fbf8 0%, #edf6f2 100%); }

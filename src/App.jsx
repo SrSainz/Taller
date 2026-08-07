@@ -36,6 +36,7 @@ import {
   IconSettings,
   IconShieldCheck,
   IconSparkles,
+  IconTool,
   IconTools,
   IconTrash,
   IconUpload,
@@ -1041,7 +1042,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
             <div className="report-general-grid">
               <div className="report-stat-grid">
                 <ReportFleetSummaryCard billing={formatCurrency(periodTotals.billing)} fuel={formatCurrency(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
-                <ReportStatCard wide icon={IconTools} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
+                <ReportStatCard wide icon={IconTool} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
                 <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
               </div>
               <section className="report-chart-card">
@@ -1067,18 +1068,18 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 <div className={chartMetric === "summary" ? "report-chart report-chart--summary" : "report-chart"}>
                   {hasChartData ? <>
                     <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={activeChart.data} margin={{ top: 12, right: 6, left: 2, bottom: 4 }}>
+                    <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 4 }} barCategoryGap="16%">
                       <CartesianGrid stroke="#e9efed" vertical={false} />
                       <XAxis dataKey="label" interval={0} tick={{ fontSize: 8, fontWeight: chartMetric === "billing" ? 400 : 700, fill: "#75817d" }} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
-                      <Tooltip formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
+                      <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || chartMetric === "summary") && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
-                        <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill={BILLING_COLOR} maxBarSize={58} minPointSize={2} isAnimationActive={false} />
-                        <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill={MAINTENANCE_COLOR} maxBarSize={58} minPointSize={2} isAnimationActive={false} />
-                        <Bar dataKey="fuel" name="fuel" stackId="vehicle-summary" fill="#df4538" maxBarSize={58} minPointSize={2} isAnimationActive={false} />
-                        <Bar dataKey="net" name="net" stackId="vehicle-summary" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={58} minPointSize={2} isAnimationActive={false} />
-                      </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={52} isAnimationActive={false}>
+                        <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill={BILLING_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} />
+                        <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill={MAINTENANCE_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} />
+                        <Bar dataKey="fuel" name="fuel" stackId="vehicle-summary" fill="#df4538" maxBarSize={82} minPointSize={2} isAnimationActive={false} />
+                        <Bar dataKey="net" name="net" stackId="vehicle-summary" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={82} minPointSize={2} isAnimationActive={false} />
+                      </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} isAnimationActive={false}>
                         {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
                       </Bar>}
                     </BarChart>
@@ -1704,7 +1705,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
         <header className="maintenance-history-header">
           <div className="maintenance-history-vehicle">
             <span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt="" /></span>
-            <span><small>Historial seleccionado</small><h2>{workshopVehicle.plate}</h2><p>{workshopVehicle.model} · {workshopVehicle.use}</p></span>
+            <span><h2>{workshopVehicle.plate}</h2></span>
           </div>
           <div className="maintenance-history-total"><small>{sortedMaintenance.length} intervenciones</small><strong>{formatCurrency(total)}</strong></div>
         </header>
