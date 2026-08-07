@@ -876,6 +876,111 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
   );
 }
 
+function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }) {
+  const menuRef = useRef(null);
+  const settleTimerRef = useRef(null);
+  const frameRef = useRef(null);
+  const ignoreScrollRef = useRef(false);
+  const selectedIndex = Math.max(0, options.findIndex((option) => String(option.value) === String(value)));
+  const middleOffset = options.length;
+  const loopedOptions = useMemo(() => [0, 1, 2].flatMap((copy) => options.map((option, index) => ({ ...option, loopIndex: copy * options.length + index }))), [options]);
+  const [activeLoopIndex, setActiveLoopIndex] = useState(middleOffset + selectedIndex);
+
+  const getButtons = () => Array.from(menuRef.current?.querySelectorAll("button[data-wheel-index]") ?? []);
+  const getNearestLoopIndex = () => {
+    const menu = menuRef.current;
+    const buttons = getButtons();
+    if (!menu || !buttons.length) return middleOffset + selectedIndex;
+    const viewportCenter = menu.scrollTop + menu.clientHeight / 2;
+    return Number(buttons.reduce((nearest, button) => {
+      const buttonCenter = button.offsetTop + button.offsetHeight / 2;
+      const nearestCenter = nearest.offsetTop + nearest.offsetHeight / 2;
+      return Math.abs(buttonCenter - viewportCenter) < Math.abs(nearestCenter - viewportCenter) ? button : nearest;
+    }, buttons[0]).dataset.wheelIndex);
+  };
+  const getLoopHeight = () => {
+    const buttons = getButtons();
+    const first = buttons[0];
+    const middle = buttons[options.length];
+    if (!first || !middle) return 0;
+    return middle.offsetTop - first.offsetTop;
+  };
+  const centerOption = (loopIndex, behavior = "auto") => {
+    const menu = menuRef.current;
+    const button = menu?.querySelector(`button[data-wheel-index="${loopIndex}"]`);
+    if (!menu || !button) return;
+    if (behavior === "auto") ignoreScrollRef.current = true;
+    const targetScroll = button.offsetTop - (menu.clientHeight - button.offsetHeight) / 2;
+    menu.scrollTo({ top: Math.max(0, targetScroll), behavior });
+  };
+  const commitLoopIndex = (loopIndex) => {
+    const normalizedIndex = ((loopIndex % options.length) + options.length) % options.length;
+    setActiveLoopIndex(middleOffset + normalizedIndex);
+    onChange(options[normalizedIndex].value);
+  };
+  const handleScroll = () => {
+    const menu = menuRef.current;
+    if (!menu || !options.length || ignoreScrollRef.current) return;
+    const loopHeight = getLoopHeight();
+    if (loopHeight > 0) {
+      if (menu.scrollTop < loopHeight * 0.55) menu.scrollTop += loopHeight;
+      else if (menu.scrollTop > loopHeight * 2.45) menu.scrollTop -= loopHeight;
+    }
+    const nearest = getNearestLoopIndex();
+    setActiveLoopIndex(nearest);
+    window.clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = window.setTimeout(() => commitLoopIndex(getNearestLoopIndex()), 120);
+  };
+  const handleKeyDown = (event) => {
+    if (!options.length || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    ignoreScrollRef.current = false;
+    const current = getNearestLoopIndex();
+    const direction = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+    const next = event.key === "Home" ? middleOffset : event.key === "End" ? middleOffset + options.length - 1 : current + direction;
+    const normalizedIndex = ((next % options.length) + options.length) % options.length;
+    const centeredLoopIndex = middleOffset + normalizedIndex;
+    setActiveLoopIndex(centeredLoopIndex);
+    centerOption(centeredLoopIndex, "smooth");
+    window.clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = window.setTimeout(() => commitLoopIndex(centeredLoopIndex), 180);
+  };
+
+  useEffect(() => {
+    frameRef.current = window.requestAnimationFrame(() => {
+      setActiveLoopIndex(middleOffset + selectedIndex);
+      centerOption(middleOffset + selectedIndex);
+    });
+    return () => {
+      window.cancelAnimationFrame(frameRef.current);
+      window.clearTimeout(settleTimerRef.current);
+    };
+  }, [middleOffset, selectedIndex, options.length]);
+
+  return (
+    <div className={`report-period-menu report-period-menu--wheel ${className}`} role="listbox" aria-label={ariaLabel}>
+      <div className="report-wheel-list" ref={menuRef} onScroll={handleScroll} onPointerDown={() => { ignoreScrollRef.current = false; }} onWheel={() => { ignoreScrollRef.current = false; }} onTouchStart={() => { ignoreScrollRef.current = false; }} onKeyDown={handleKeyDown}>
+        {loopedOptions.map((option) => (
+          <button
+            type="button"
+            role="option"
+            aria-selected={activeLoopIndex === option.loopIndex}
+            tabIndex={activeLoopIndex === option.loopIndex ? 0 : -1}
+            data-wheel-index={option.loopIndex}
+            className={activeLoopIndex === option.loopIndex ? "selected" : ""}
+            onClick={() => commitLoopIndex(option.loopIndex)}
+            key={`${option.loopIndex}-${option.value}`}
+          >
+            {option.label}
+            {activeLoopIndex === option.loopIndex && <IconCheck size={12} />}
+          </button>
+        ))}
+      </div>
+      <span className="report-wheel-focus" aria-hidden="true" />
+    </div>
+  );
+}
+
 function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
@@ -893,6 +998,14 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [periodMenu]);
+  useEffect(() => {
+    if (!periodMenu) return undefined;
+    const closeOnPointerDown = (event) => {
+      if (!event.target.closest(".report-chart-metric-dropdown, .report-period-dropdown, .fuel-period-dropdown")) setPeriodMenu("");
+    };
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    return () => document.removeEventListener("pointerdown", closeOnPointerDown);
   }, [periodMenu]);
   useEffect(() => {
     if (!billingDriverKey) return undefined;
@@ -1005,10 +1118,11 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     if (!periodMenu) return;
     const menu = document.querySelector(".report-period-menu--wheel");
     const selectedOption = menu?.querySelector("button.selected");
-    if (!menu || !selectedOption) return;
-    const maxScroll = menu.scrollHeight - menu.clientHeight;
-    const targetScroll = selectedOption.offsetTop - (menu.clientHeight - selectedOption.offsetHeight) / 2;
-    menu.scrollTop = Math.max(0, Math.min(maxScroll, targetScroll));
+    if (!menu || !selectedOption || menu.querySelector(".report-wheel-list")) return;
+    const scrollContainer = menu.querySelector(".report-wheel-list") ?? menu;
+    const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+    const targetScroll = selectedOption.offsetTop - (scrollContainer.clientHeight - selectedOption.offsetHeight) / 2;
+    scrollContainer.scrollTop = Math.max(0, Math.min(maxScroll, targetScroll));
   }, [periodMenu]);
 
   if (mode === "vehicles") {
@@ -1061,19 +1175,19 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 <header className="report-chart-card__top">
                   <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
                   <div className="report-chart-filters" role="group" aria-label="Filtros del gráfico">
-                    <div className="report-chart-metric-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
+                    <div className="report-chart-metric-dropdown">
                       <button type="button" className="report-summary-button report-chart-metric-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "chart-metric"} onClick={() => setPeriodMenu((current) => current === "chart-metric" ? "" : "chart-metric")}><IconChartBar size={14} /><span>{chartMetricOptions.find((option) => option.value === chartMetric)?.label}</span><IconChevronDown size={13} /></button>
-                      {periodMenu === "chart-metric" && <div className="report-period-menu report-chart-metric-menu" role="listbox" aria-label="Seleccionar información del gráfico">{chartMetricOptions.map((option) => <button type="button" role="option" aria-selected={chartMetric === option.value} className={chartMetric === option.value ? "selected" : ""} onClick={() => { setChartMetric(option.value); setPeriodMenu(""); }} key={option.value}>{option.label}{chartMetric === option.value && <IconCheck size={12} />}</button>)}</div>}
+                      {periodMenu === "chart-metric" && <WheelPickerMenu options={chartMetricOptions} value={chartMetric} onChange={(value) => { setChartMetric(value); setPeriodMenu(""); }} ariaLabel="Seleccionar información del gráfico" className="report-chart-metric-menu" />}
                     </div>
-                    <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
+                    <div className="report-period-dropdown">
                       <span>Mes</span>
                       <button type="button" className="report-period-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
-                      {periodMenu === "month" && <div className="report-period-menu report-period-menu--months report-period-menu--wheel" role="listbox" aria-label="Seleccionar mes">{reportMonths.map((month, index) => <button type="button" role="option" aria-selected={reportMonth === index} className={reportMonth === index ? "selected" : ""} onClick={() => { setReportMonth(index); setPeriodMenu(""); }} key={month}>{month}{reportMonth === index && <IconCheck size={12} />}</button>)}</div>}
+                      {periodMenu === "month" && <WheelPickerMenu options={reportMonths.map((label, index) => ({ value: index, label }))} value={reportMonth} onChange={(value) => { setReportMonth(value); setPeriodMenu(""); }} ariaLabel="Seleccionar mes" className="report-period-menu--months" />}
                     </div>
-                    <div className="report-period-dropdown" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPeriodMenu(""); }}>
+                    <div className="report-period-dropdown">
                       <span>Año</span>
                       <button type="button" className="report-period-trigger report-period-trigger--year" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
-                      {periodMenu === "year" && <div className="report-period-menu report-period-menu--years report-period-menu--wheel" role="listbox" aria-label="Seleccionar año">{reportYears.map((year) => <button type="button" role="option" aria-selected={reportYear === year} className={reportYear === year ? "selected" : ""} onClick={() => { setReportYear(year); setPeriodMenu(""); }} key={year}>{year}{reportYear === year && <IconCheck size={12} />}</button>)}</div>}
+                      {periodMenu === "year" && <WheelPickerMenu options={reportYears.map((year) => ({ value: year, label: String(year) }))} value={reportYear} onChange={(value) => { setReportYear(value); setPeriodMenu(""); }} ariaLabel="Seleccionar año" className="report-period-menu--years" />}
                     </div>
                   </div>
                 </header>
@@ -1765,7 +1879,6 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
         <div className="maintenance-timeline" aria-label={`Historial de mantenimiento de ${workshopVehicle.plate}`}>
           <header className="maintenance-timeline-heading">
             <span><span className="maintenance-timeline-heading__icon"><IconTools size={14} /></span><strong>INTERVENCIONES REALIZADAS</strong></span>
-            <small>Más recientes primero · pulsa una fecha para ver los trabajos</small>
           </header>
           {maintenanceRecords.map(({ item, invoice, details }) => {
             const key = `${item.date}-${item.concept}-${item.km}`;

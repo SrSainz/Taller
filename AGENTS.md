@@ -88,4 +88,6 @@ When implementing from a selected generated mock, treat that image as the source
 - On the General home screen, the Conductores and Neto KPI cards use subtle tone-matched blue and green gradient fills alongside their icon and border colors.
 - When a driver calendar is open on mobile, the previous summaries and driver list are hidden so the compact calendar, FacturaciÃ³n, and Repostaje panels fit together without scrolling; the calendar keeps adjacent-month pages in a finger-following swipe track before committing the new month.
 
+- General summary, month, and year selectors use a cyclic three-copy wheel picker with a centered snap row and blurred adjacent choices; the fixed bottom bar centers the home and profile icons within their thirds without a normal button box, and maintenance history omits its helper instruction line.
+
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
