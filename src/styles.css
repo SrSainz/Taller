@@ -1756,3 +1756,8 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .maintenance-search-suggestions { width: calc(100vw - 24px); }
   .maintenance-page .maintenance-vehicle-banner { grid-template-columns: 46px minmax(0,1fr) auto; }
 }
+
+/* Conductores: usa todo el espacio libre bajo los resúmenes para mantener los seis nombres visibles de un vistazo. */
+.drivers-page:not(.drivers-page--calendar-open) { min-height: calc(100dvh - 70px - var(--bottom-navigation-height) - env(safe-area-inset-bottom)); display: flex; flex-direction: column; }
+.drivers-page:not(.drivers-page--calendar-open) .drivers-list { min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; justify-content: space-between; gap: 0; }
+.drivers-page:not(.drivers-page--calendar-open) .driver-list-card { flex: 0 0 auto; }
