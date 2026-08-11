@@ -1509,3 +1509,88 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 @media (max-width: 520px) and (max-height: 700px) {
   .page-scroll--dashboard .report-chart-card--compact-preview { flex-basis: 205px; height: 205px; }
 }
+
+@media (min-width: 821px) {
+  .page-scroll--dashboard .report-stat-grid { width: min(76%, 920px); }
+  .page-scroll--dashboard .report-stat-card--wide { min-height: 88px; padding-inline: 24px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__header strong { font-size: 15px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__header > .report-stat-card__icon { width: 34px; height: 34px; flex-basis: 34px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics small { font-size: 9px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics strong { font-size: 17px; }
+}
+
+body:has(.drivers-page--calendar-open) { overflow: hidden; }
+body:has(.drivers-page--calendar-open) .app-shell { height: 100dvh; min-height: 0; overflow: hidden; }
+body:has(.drivers-page--calendar-open) .workspace { height: 100%; min-height: 0; overflow: hidden; }
+body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px); min-height: 0; flex: 1 1 auto; overflow: hidden; padding-bottom: 0; }
+.module-page.drivers-page--calendar-open { height: 100%; min-height: 0; align-content: start; gap: 8px; padding: 10px 24px calc(var(--bottom-navigation-height) + 8px); overflow: hidden; }
+.drivers-page--calendar-open .drivers-summary-grid, .drivers-page--calendar-open .drivers-list { display: none; }
+.drivers-page--calendar-open > .drivers-calendar-card, .drivers-page--calendar-open > .driver-day-detail { width: min(100%, 1240px); flex: 0 0 auto; margin-inline: auto; }
+.drivers-page--calendar-open .drivers-calendar-card { scroll-margin-top: 0; }
+.drivers-page--calendar-open .drivers-calendar-day { height: clamp(42px, 4.2vw, 54px); padding: 5px; gap: 3px; }
+.drivers-page--calendar-open .drivers-calendar-grid { gap: 4px; padding: 7px 8px 8px; }
+.drivers-page--calendar-open .drivers-calendar-day > span:first-child { font-size: 9px; }
+.drivers-page--calendar-open .drivers-calendar-day__values small { font-size: 10px; }
+
+@media (max-width: 820px) {
+  body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 64px); }
+  .module-page.drivers-page--calendar-open { padding: 8px 12px calc(var(--bottom-navigation-height) + 8px); }
+  .drivers-page--calendar-open .drivers-calendar-day { height: clamp(34px, 9.6vw, 42px); padding: 3px; gap: 2px; }
+  .drivers-page--calendar-open .drivers-calendar-grid { gap: 2px; padding: 5px 6px 6px; }
+  .drivers-page--calendar-open .drivers-calendar-day > span:first-child { font-size: 8px; }
+  .drivers-page--calendar-open .drivers-calendar-day__values small { font-size: 7px; }
+  .page-scroll--dashboard .report-stat-card--wide { min-height: 84px; padding-inline: 14px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__header strong { font-size: 14px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__header > .report-stat-card__icon { width: 30px; height: 30px; flex-basis: 30px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics small { font-size: 8px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics strong { font-size: 14px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 54px); }
+  .module-page.drivers-page--calendar-open { gap: 6px; padding: 4px 8px calc(var(--bottom-navigation-height) + 4px); }
+  .drivers-page--calendar-open .drivers-calendar-card__header { padding: 5px 6px; }
+  .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) strong { font-size: 13px; }
+  .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) small { font-size: 8px; }
+  .drivers-page--calendar-open .drivers-calendar-nav { width: 24px; height: 24px; }
+  .drivers-page--calendar-open .drivers-calendar-legend { gap: 5px; padding: 2px 5px 2px; font-size: 5px; }
+  .drivers-page--calendar-open .drivers-calendar-legend small { font-size: 4.5px; }
+  .drivers-page--calendar-open .drivers-calendar-weekdays { padding: 0 4px; }
+  .drivers-page--calendar-open .drivers-calendar-weekdays span { padding: 3px 1px; font-size: 5px; }
+  .drivers-page--calendar-open .drivers-calendar-day { height: clamp(28px, 8.8vw, 32px); padding: 2px; gap: 1px; border-radius: 4px; }
+  .drivers-page--calendar-open .drivers-calendar-grid { gap: 1px; padding: 3px 4px 4px; }
+  .drivers-page--calendar-open .drivers-calendar-day > span:first-child { font-size: 6.5px; }
+  .drivers-page--calendar-open .drivers-calendar-day__values small { font-size: 5.5px; letter-spacing: -.04em; }
+  .drivers-page--calendar-open .driver-day-detail__columns { gap: 3px; padding: 3px; }
+  .drivers-page--calendar-open .driver-day-panel > header { gap: 5px; padding: 4px 6px; font-size: 11px; }
+  .drivers-page--calendar-open .driver-day-panel > header svg { width: 14px; height: 14px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics > span { gap: 1px; padding: 4px 5px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics small { font-size: 6px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics strong { font-size: 8px; }
+  .drivers-page--calendar-open .driver-day-fuel-list { gap: 2px; padding: 3px 5px 4px; }
+  .drivers-page--calendar-open .driver-day-fuel-list strong { font-size: 5.5px; }
+  .drivers-page--calendar-open .driver-day-fuel-list small { font-size: 5px; }
+  .drivers-page--calendar-open .drivers-day-invoice-button { min-height: 18px; padding-inline: 5px; font-size: 5px; }
+  .page-scroll--dashboard .report-stat-card--wide { min-height: 54px; padding-inline: 9px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__header strong { font-size: 11px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics small { font-size: 6px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics strong { font-size: 11px; }
+}
+
+.module-page.drivers-page--calendar-open { display: flex; flex-direction: column; }
+.drivers-page--calendar-open > .drivers-calendar-card { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.drivers-page--calendar-open .drivers-calendar-surface { width: 100%; min-height: 0; display: block; flex: 1 1 auto; }
+.drivers-page--calendar-open .drivers-calendar-track, .drivers-page--calendar-open .drivers-calendar-page { height: 100%; }
+.drivers-page--calendar-open .drivers-calendar-page { display: flex; flex-direction: column; }
+.drivers-page--calendar-open .drivers-calendar-grid { min-height: 0; flex: 1 1 auto; grid-auto-rows: minmax(0, 1fr); }
+.drivers-page--calendar-open .drivers-calendar-day { height: 100%; }
+
+@media (max-width: 820px) {
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics > span { gap: 2px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics small { font-size: 7px; }
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics strong { font-size: 13px; letter-spacing: -.35px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics strong { font-size: 11px; }
+}

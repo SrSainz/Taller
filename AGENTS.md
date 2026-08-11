@@ -98,5 +98,6 @@ When implementing from a selected generated mock, treat that image as the source
 
 - The fixed bottom plus opens the same two source actions for Facturación and Consumo; the source menu has no redundant category heading, and Cámara or Subir archivo first shows an explicit consent prompt before opening the native picker.
 - The General “Resumen general por coche” chart is presented as a compact clickable preview; selecting it opens a dialog with independent Facturación, Mantenimiento, Combustible, and Neto charts using their established colors and the active period.
+- The three General KPI buttons use the wider space created by the compact chart preview, with enlarged but non-clipping labels and amounts. When a driver is selected, Conductores switches to a fixed centered calendar view: the active month determines the calendar height, the lower blank area is removed, the driver name and period remain visible, and Facturación/Repostaje fit above the bottom navigation without page scrolling.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.

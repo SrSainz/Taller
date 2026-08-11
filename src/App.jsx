@@ -1715,11 +1715,12 @@ function DriversView({ vehicles, setModal }) {
   const [calendarSwipeOffset, setCalendarSwipeOffset] = useState(0);
   const [calendarSwipeTransition, setCalendarSwipeTransition] = useState(false);
   const driverGridRef = useRef(null);
-  const calendarRef = useRef(null);
   const calendarSurfaceRef = useRef(null);
+  const calendarActivePageRef = useRef(null);
   const touchStartX = useRef(null);
   const calendarSwipeWidth = useRef(0);
   const swipeResetTimer = useRef(null);
+  const [calendarSurfaceHeight, setCalendarSurfaceHeight] = useState(null);
   const professionalVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.use === "Profesional"), [vehicles]);
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
   const billingRows = useMemo(() => professionalVehicles.flatMap((vehicle, vehicleIndex) => vehicle.drivers.map((driver, driverIndex) => {
@@ -1791,10 +1792,16 @@ function DriversView({ vehicles, setModal }) {
   }, [selectedDriver?.key, reportMonth, reportYear]);
 
   useEffect(() => {
-    if (!selectedDriverKey) return undefined;
-    const frame = window.requestAnimationFrame(() => calendarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    if (!selectedDriver) {
+      setCalendarSurfaceHeight(null);
+      return undefined;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const height = calendarActivePageRef.current?.offsetHeight;
+      if (height) setCalendarSurfaceHeight(Math.ceil(height));
+    });
     return () => window.cancelAnimationFrame(frame);
-  }, [selectedDriverKey]);
+  }, [selectedDriver?.key, reportMonth, reportYear]);
 
   useEffect(() => () => {
     if (swipeResetTimer.current) window.clearTimeout(swipeResetTimer.current);
@@ -1880,7 +1887,7 @@ function DriversView({ vehicles, setModal }) {
     });
   };
   const renderCalendarPage = (period) => (
-    <div className="drivers-calendar-page" key={period.key}>
+    <div ref={period.delta === 0 ? calendarActivePageRef : undefined} className="drivers-calendar-page" key={period.key}>
       {period.delta !== 0 && <div className="drivers-calendar-page__period">{reportMonths[period.month]} {period.year}</div>}
       <div className="drivers-calendar-legend"><span><i className="drivers-calendar-legend__swatch drivers-calendar-legend__swatch--billing" />Facturación</span><span><i className="drivers-calendar-legend__swatch drivers-calendar-legend__swatch--fuel" />Repostaje</span><small>Desliza para cambiar de mes</small></div>
       <div className="drivers-calendar-weekdays" aria-hidden="true">{calendarWeekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
@@ -1913,13 +1920,13 @@ function DriversView({ vehicles, setModal }) {
         </button>)}
       </div>
 
-      {selectedDriver && <section ref={calendarRef} className="drivers-calendar-card" aria-labelledby="drivers-calendar-title">
+      {selectedDriver && <section className="drivers-calendar-card" aria-labelledby="drivers-calendar-title">
         <header className="drivers-calendar-card__header">
           <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(-1)} aria-label="Mes anterior"><IconChevronLeft size={18} /></button>
           <div><strong id="drivers-calendar-title">{selectedDriver.driver}</strong><small>{reportMonths[reportMonth]} {reportYear}</small></div>
           <div className="drivers-calendar-card__actions"><button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><IconChevronRight size={18} /></button><button type="button" className="icon-button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar calendario de ${selectedDriver.driver}`}><IconX size={17} /></button></div>
         </header>
-        <div ref={calendarSurfaceRef} className="drivers-calendar-surface" onPointerDown={onCalendarPointerDown} onPointerMove={onCalendarPointerMove} onPointerUp={onCalendarPointerUp} onPointerCancel={onCalendarPointerCancel}>
+        <div ref={calendarSurfaceRef} className="drivers-calendar-surface" style={calendarSurfaceHeight ? { height: `${calendarSurfaceHeight}px` } : undefined} onPointerDown={onCalendarPointerDown} onPointerMove={onCalendarPointerMove} onPointerUp={onCalendarPointerUp} onPointerCancel={onCalendarPointerCancel}>
           <div className="drivers-calendar-track" style={{ transform: `translate3d(calc(-33.333333% + ${calendarSwipeOffset}px), 0, 0)`, transition: calendarSwipeTransition ? "transform 220ms cubic-bezier(.22,.75,.3,1)" : "none" }}>
             {calendarPeriods.map(renderCalendarPage)}
           </div>
