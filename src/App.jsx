@@ -387,6 +387,8 @@ const formatKm = (value) => `${new Intl.NumberFormat("es-ES").format(value)} km`
 const formatCurrency = (value) => `${value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatShortCurrency = (value) => `${Math.round(value).toLocaleString("es-ES")} €`;
 const normalizeText = (value = "") => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
+const getMaintenanceRecordKey = (item, index = 0) => `${item.date}-${item.concept}-${item.km}-${index}`;
+const getMaintenanceEventDomId = (plate, key) => `maintenance-event-${normalizeText(`${plate}-${key}`).replace(/[^a-z0-9]+/g, "-")}`;
 const maintenanceMonths = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
 const getVehicleBrand = (vehicle) => vehicle.model.split(" ")[0];
 const getMaintenanceDateValue = (item) => {
@@ -907,7 +909,7 @@ export function App() {
   const selectedActivity = getDriverDay(selected, selectedDriver);
   const showInspector = activeNav === "Vehículos" && inspectorOpen;
   const detailHeaderTitle = activeNav === "Mantenimiento"
-    ? "Mantenimiento"
+    ? "MANTENIMIENTO"
     : activeNav === "Informes" && homeReportTab === "Facturación"
       ? "Facturación"
       : activeNav === "Informes" && homeReportTab === "Repostaje"
@@ -2270,24 +2272,88 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
+  const [maintenanceSearchQuery, setMaintenanceSearchQuery] = useState("");
+  const [maintenanceSearchOpen, setMaintenanceSearchOpen] = useState(false);
+  const pendingMaintenanceKeyRef = useRef("");
   const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
   const selectedBrand = getVehicleBrand(workshopVehicle);
   const sortedMaintenance = [...workshopVehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a));
-  const maintenanceRecords = sortedMaintenance.map((item) => {
+  const maintenanceRecords = sortedMaintenance.map((item, index) => {
     const invoice = getMaintenanceInvoice(item, workshopVehicle, invoices);
     const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
-    return { item, invoice, details };
+    return { item, invoice, details, key: getMaintenanceRecordKey(item, index) };
   });
   const total = sortedMaintenance.reduce((sum, item) => sum + item.amount, 0);
+  const maintenanceSearchRecords = useMemo(() => vehicles.flatMap((vehicle) => {
+    const records = [...vehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a));
+    const brand = getVehicleBrand(vehicle);
+    return records.map((item, index) => {
+      const invoice = getMaintenanceInvoice(item, vehicle, invoices);
+      const invoiceDetails = invoice?.items?.flatMap((detail) => [detail.concept, detail.amount]) ?? [];
+      const searchableFields = [
+        brand,
+        vehicle.plate,
+        vehicle.model,
+        vehicle.use,
+        item.date,
+        item.dateIso,
+        formatMaintenanceDate(item),
+        item.km,
+        formatKm(item.km),
+        item.concept,
+        item.amount,
+        formatCurrency(item.amount),
+        invoice?.id,
+        invoice?.date,
+        invoice?.provider,
+        invoice?.concept,
+        invoice?.source,
+        invoice?.status,
+        invoice?.amount,
+        ...invoiceDetails,
+      ].filter(Boolean).join(" ");
+      return {
+        plate: vehicle.plate,
+        model: vehicle.model,
+        item,
+        invoice,
+        key: getMaintenanceRecordKey(item, index),
+        searchText: normalizeText(searchableFields),
+      };
+    });
+  }), [invoices, vehicles]);
+  const maintenanceSearchSuggestions = useMemo(() => {
+    const query = normalizeText(maintenanceSearchQuery.trim());
+    if (!query) return [];
+    return maintenanceSearchRecords.filter((record) => record.searchText.includes(query)).slice(0, 5);
+  }, [maintenanceSearchQuery, maintenanceSearchRecords]);
 
   useEffect(() => {
     setWorkshopPlate(initialPlate);
   }, [initialPlate]);
 
   useEffect(() => {
-    setOpenMaintenanceKey("");
+    const pendingKey = pendingMaintenanceKeyRef.current;
+    pendingMaintenanceKeyRef.current = "";
+    setOpenMaintenanceKey(pendingKey);
     setOpenConceptKey("");
   }, [workshopVehicle.plate]);
+
+  useEffect(() => {
+    if (!maintenanceSearchOpen) return undefined;
+    const closeSearch = (event) => {
+      if (!event.target.closest?.("[data-maintenance-search]")) setMaintenanceSearchOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMaintenanceSearchOpen(false);
+    };
+    document.addEventListener("pointerdown", closeSearch);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeSearch);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [maintenanceSearchOpen]);
 
   useEffect(() => {
     if (!openConceptKey) return undefined;
@@ -2301,8 +2367,56 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
     window.setTimeout(() => document.getElementById("historial-mantenimiento")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 40);
   };
 
+  const openMaintenanceSearchRecord = (record) => {
+    setMaintenanceSearchOpen(false);
+    setOpenConceptKey("");
+    setMaintenanceSearchQuery(record.item.concept);
+    const revealRecord = () => {
+      setOpenMaintenanceKey(record.key);
+      window.setTimeout(() => document.getElementById(getMaintenanceEventDomId(record.plate, record.key))?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+    };
+    if (record.plate === workshopVehicle.plate) {
+      revealRecord();
+      return;
+    }
+    pendingMaintenanceKeyRef.current = record.key;
+    setWorkshopPlate(record.plate);
+    window.setTimeout(revealRecord, 80);
+  };
+
   return (
-    <section className="module-page">
+    <section className="module-page maintenance-page">
+      <header className="maintenance-module-banner">
+        <div className="maintenance-module-banner__title">
+          <span className="maintenance-module-banner__icon"><IconTools size={19} /></span>
+          <div>
+            <span>Historial de taller</span>
+            <h1>MANTENIMIENTO</h1>
+          </div>
+        </div>
+        <div className="maintenance-search" data-maintenance-search role="search">
+          <IconSearch size={17} aria-hidden="true" />
+          <input
+            type="search"
+            value={maintenanceSearchQuery}
+            onChange={(event) => { setMaintenanceSearchQuery(event.target.value); setMaintenanceSearchOpen(true); }}
+            onFocus={() => setMaintenanceSearchOpen(Boolean(maintenanceSearchQuery.trim()))}
+            placeholder="Buscar matrícula, concepto, fecha o factura"
+            aria-label="Buscar en Mantenimiento"
+            aria-autocomplete="list"
+            aria-controls="mantenimiento-busqueda-sugerencias"
+            aria-expanded={maintenanceSearchOpen && Boolean(maintenanceSearchQuery.trim())}
+          />
+          {maintenanceSearchQuery && <button type="button" className="maintenance-search__clear" onClick={() => { setMaintenanceSearchQuery(""); setMaintenanceSearchOpen(false); }} aria-label="Limpiar búsqueda"><IconX size={15} /></button>}
+          {maintenanceSearchOpen && maintenanceSearchQuery.trim() && <div className="maintenance-search-suggestions" id="mantenimiento-busqueda-sugerencias" role="listbox" aria-label="Sugerencias de mantenimiento">
+            {maintenanceSearchSuggestions.length > 0 ? maintenanceSearchSuggestions.map((record) => <button type="button" role="option" className="maintenance-search-suggestion" key={`${record.plate}-${record.key}`} onMouseDown={(event) => event.preventDefault()} onClick={() => openMaintenanceSearchRecord(record)}>
+              <span className="maintenance-search-suggestion__main"><strong>{record.item.concept}</strong><small>{record.plate} · {record.model}</small></span>
+              <span className="maintenance-search-suggestion__meta"><strong>{formatMaintenanceDate(record.item)}</strong><small>{formatCurrency(record.item.amount)}</small></span>
+              <span className="maintenance-search-suggestion__source">{record.invoice?.provider ?? record.invoice?.id ?? "Registro de mantenimiento"}</span>
+            </button>) : <p className="maintenance-search-empty">No hay coincidencias en los registros de mantenimiento.</p>}
+          </div>}
+        </div>
+      </header>
       <nav className="maintenance-vehicle-banners" aria-label="Vehículos de la flota">
         {vehicles.map((vehicle, index) => {
           const brand = getVehicleBrand(vehicle);
@@ -2317,7 +2431,6 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
               <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
               <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
               <span className="maintenance-vehicle-service"><small>Próxima revisión</small><strong>{formatKm(remaining)}</strong><span>{vehicle.serviceDate}</span></span>
-              <IconChevronRight className="maintenance-vehicle-chevron" size={21} />
             </button>
           );
         })}
@@ -2335,12 +2448,12 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
           <header className="maintenance-timeline-heading">
             <span><span className="maintenance-timeline-heading__icon"><IconTools size={14} /></span><strong>INTERVENCIONES REALIZADAS</strong></span>
           </header>
-          {maintenanceRecords.map(({ item, invoice, details }) => {
-            const key = `${item.date}-${item.concept}-${item.km}`;
+          {maintenanceRecords.map(({ item, invoice, details, key }) => {
             const isOpen = openMaintenanceKey === key;
-            const detailId = `detail-${workshopVehicle.plate.replace(/\s/g, "")}-${item.km}`;
+            const eventId = getMaintenanceEventDomId(workshopVehicle.plate, key);
+            const detailId = `detail-${eventId}`;
             return (
-              <article className={`maintenance-event ${isOpen ? "is-open" : ""} ${invoice ? "has-invoice" : "without-invoice"}`} key={key}>
+              <article id={eventId} className={`maintenance-event ${isOpen ? "is-open" : ""} ${invoice ? "has-invoice" : "without-invoice"}`} key={key}>
                 <button className="maintenance-event-date" onClick={() => setOpenMaintenanceKey(isOpen ? "" : key)} aria-expanded={isOpen} aria-controls={detailId}>
                   <IconCalendar size={18} /><span><strong>{formatMaintenanceDate(item)}</strong><small>{formatKm(item.km)}</small></span><IconChevronDown className="maintenance-event-toggle" size={18} />
                 </button>
