@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   IconAlertTriangle,
   IconBrandUber,
@@ -45,6 +45,17 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  documentCategoryLabels,
+  documentFieldDefinitions,
+  documentMaxRequestSize,
+  fieldsToRecord,
+  formatFileSize,
+  normalizeDocumentAnalysis,
+  prepareDocumentFile,
+  readFileAsDataUrl,
+  validateDocumentFile,
+} from "./documentAnalysis";
 
 const BILLING_COLOR = "#7bc887";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -282,6 +293,8 @@ const maintenanceConceptRows = [
 ];
 
 const photoInvoiceStorageKey = "talleria:photo-invoices:v1";
+const processedDocumentStorageKey = "talleria:processed-documents:v1";
+const cameraPermissionStorageKey = "talleria:camera-permission:v1";
 const migratedPlates = { "3456 HTR": "0344 LCP", "7890 GYL": "9401 LTG" };
 
 const loadPhotoInvoices = () => {
@@ -344,6 +357,15 @@ const getDriverBillingDays = (driver, plate, month, year, monthlyRevenue) => {
     assignedCents += cents;
     return [day, cents / 100];
   }));
+};
+
+const loadProcessedDocuments = () => {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(processedDocumentStorageKey) ?? "[]");
+    return Array.isArray(stored) ? stored.filter((document) => document?.id && document?.category && document?.fields) : [];
+  } catch {
+    return [];
+  }
 };
 const getMaintenanceAmountForPeriod = (vehicle, month, year) => vehicle.maintenance
   .filter((item) => {
@@ -537,7 +559,7 @@ function BottomNavigation({ onHome, onAdd, onProfile, homeActive }) {
   );
 }
 
-function QuickActionMenu({ step, category, onCategory, onAction }) {
+function LegacyQuickActionMenu({ step, category, onCategory, onAction }) {
   const cameraInputRef = useRef(null);
   const uploadInputRef = useRef(null);
   const [permissionSource, setPermissionSource] = useState("");
@@ -602,6 +624,161 @@ function QuickActionMenu({ step, category, onCategory, onAction }) {
   );
 }
 
+function QuickActionMenu({ step, category, onCategory, onAction, onDocumentAction, onNotice }) {
+  const cameraInputRef = useRef(null);
+  const uploadInputRef = useRef(null);
+  const [permissionSource, setPermissionSource] = useState("");
+  const [permissionBusy, setPermissionBusy] = useState(false);
+  const [permissionMessage, setPermissionMessage] = useState("");
+  const [fileError, setFileError] = useState("");
+
+  useEffect(() => {
+    if (step !== "sources") {
+      setPermissionSource("");
+      setPermissionBusy(false);
+      setPermissionMessage("");
+      setFileError("");
+    }
+  }, [step]);
+
+  const openNativePicker = (input) => {
+    if (!input) return;
+    input.value = "";
+    try {
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+        return;
+      }
+    } catch {
+      // Some mobile browsers expose showPicker but only allow click().
+    }
+    input.click();
+  };
+
+  const handleSource = (source) => {
+    setFileError("");
+    setPermissionMessage("");
+    if (source === "camera" && window.localStorage.getItem(cameraPermissionStorageKey) === "denied") {
+      setPermissionSource("camera-denied");
+      return;
+    }
+    setPermissionSource(source);
+  };
+
+  const requestCameraPermission = async () => {
+    if (permissionBusy) return;
+    setPermissionBusy(true);
+    setPermissionMessage("");
+    try {
+      const canRequestOfficialPermission = window.isSecureContext && navigator.mediaDevices?.getUserMedia;
+      if (canRequestOfficialPermission) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      window.localStorage.removeItem(cameraPermissionStorageKey);
+      setPermissionSource("");
+      window.setTimeout(() => openNativePicker(cameraInputRef.current), 0);
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        setPermissionMessage("La solicitud de cámara se ha cancelado.");
+      } else {
+        window.localStorage.setItem(cameraPermissionStorageKey, "denied");
+        setPermissionSource("camera-denied");
+        setPermissionMessage("El permiso de cámara está bloqueado. Puedes cambiarlo desde los ajustes del dispositivo.");
+      }
+    } finally {
+      setPermissionBusy(false);
+    }
+  };
+
+  const allowSource = () => {
+    if (permissionSource === "camera") {
+      requestCameraPermission();
+      return;
+    }
+    setPermissionSource("");
+    openNativePicker(uploadInputRef.current);
+  };
+
+  const openDeviceSettings = () => {
+    const nativeBridge = window.SobreRuedasNative ?? window.Capacitor?.Plugins?.App;
+    if (typeof nativeBridge?.openSettings === "function") {
+      Promise.resolve(nativeBridge.openSettings()).catch(() => {});
+      return;
+    }
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const settingsUrl = isAndroid
+      ? "intent://settings#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;end"
+      : "app-settings:";
+    const opened = window.open(settingsUrl, "_blank", "noopener,noreferrer");
+    if (!opened) setPermissionMessage("Abre los ajustes del navegador o de la aplicación y activa el permiso de cámara.");
+  };
+
+  const retryCameraPermission = () => {
+    window.localStorage.removeItem(cameraPermissionStorageKey);
+    setPermissionMessage("");
+    setPermissionSource("camera");
+  };
+
+  const handleFile = (event, source) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const validation = validateDocumentFile(file, source);
+      if (!validation.valid) {
+        setFileError(validation.message);
+        onNotice?.(validation.message);
+      } else {
+        (onDocumentAction ?? onAction)({ category, source, file });
+      }
+    }
+    event.target.value = "";
+  };
+
+  if (!step) return null;
+  return (
+    <div className={`bottom-navigation__quick-menu bottom-navigation__quick-menu--${step}${permissionSource ? " bottom-navigation__quick-menu--permission" : ""}`} onClick={(event) => event.stopPropagation()} role={permissionSource ? "dialog" : "menu"} aria-modal={permissionSource ? "true" : undefined} aria-labelledby={permissionSource ? "quick-permission-title" : undefined} aria-label={permissionSource ? undefined : step === "categories" ? "Seleccionar tipo de registro" : "Seleccionar origen del archivo"}>
+      {step === "categories" ? (
+        <div className="bottom-navigation__quick-options bottom-navigation__quick-options--categories">
+          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--billing" onClick={() => onCategory("billing")}><IconFileInvoice size={21} /><span>Facturación</span></button>
+          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--fuel" onClick={() => onCategory("consumption")}><IconGasStation size={21} /><span>Consumo</span></button>
+        </div>
+      ) : permissionSource === "camera-denied" ? (
+        <div className="bottom-navigation__permission bottom-navigation__permission--denied" aria-live="polite">
+          <span className="bottom-navigation__permission-icon"><IconAlertTriangle size={22} /></span>
+          <strong id="quick-permission-title">Permiso de cámara bloqueado</strong>
+          <p>{permissionMessage || "No volveremos a pedirlo automáticamente. Actívalo desde los ajustes del dispositivo para tomar fotos."}</p>
+          <div className="bottom-navigation__permission-actions">
+            <button type="button" className="secondary-button" onClick={() => setPermissionSource("")}>Cerrar</button>
+            <button type="button" className="primary-button" onClick={openDeviceSettings}>Abrir ajustes</button>
+          </div>
+          <button type="button" className="text-button" onClick={retryCameraPermission}>Comprobar permiso de nuevo</button>
+        </div>
+      ) : permissionSource ? (
+        <div className="bottom-navigation__permission" aria-live="polite">
+          <span className="bottom-navigation__permission-icon">{permissionSource === "camera" ? <IconCamera size={22} /> : <IconUpload size={22} />}</span>
+          <strong id="quick-permission-title">{permissionSource === "camera" ? "¿Permites el acceso a la cámara?" : "¿Quieres elegir una imagen o documento?"}</strong>
+          <p>{permissionSource === "camera" ? "Al continuar aparecerá el diálogo oficial de Android o iOS. Solo usaremos la cámara para esta foto." : "Se abrirá el selector oficial del dispositivo, que controla el acceso a tus fotos y documentos."}</p>
+          <div className="bottom-navigation__permission-actions">
+            <button type="button" className="secondary-button" onClick={() => setPermissionSource("")}>Cancelar</button>
+            <button type="button" className="primary-button" onClick={allowSource} disabled={permissionBusy}>{permissionBusy ? "Solicitando…" : "Continuar"}</button>
+          </div>
+          {permissionMessage && <small className="bottom-navigation__permission-message" role="status">{permissionMessage}</small>}
+        </div>
+      ) : (
+        <>
+          <div className="bottom-navigation__quick-options bottom-navigation__quick-options--sources">
+            <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("camera")}><IconCamera size={19} /><span>Cámara</span></button>
+            <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("upload")}><IconUpload size={19} /><span>Subir archivo</span></button>
+          </div>
+          {fileError && <p className="bottom-navigation__file-error" role="alert">{fileError}</p>}
+        </>
+      )}
+      <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" aria-label="Tomar una foto con la cámara" onCancel={() => setFileError("La captura se ha cancelado.")} onChange={(event) => handleFile(event, "camera")} />
+      <input ref={uploadInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Seleccionar una imagen o documento del dispositivo" onCancel={() => setFileError("La selección se ha cancelado.")} onChange={(event) => handleFile(event, "upload")} />
+    </div>
+  );
+}
+
 export function App() {
   const [activeNav, setActiveNav] = useState(initialAppNav);
   const [selectedPlate, setSelectedPlate] = useState("5043 MLC");
@@ -621,6 +798,7 @@ export function App() {
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState(null);
   const [photoInvoices, setPhotoInvoices] = useState(loadPhotoInvoices);
+  const [processedDocuments, setProcessedDocuments] = useState(loadProcessedDocuments);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
@@ -720,6 +898,10 @@ export function App() {
     window.localStorage.setItem(photoInvoiceStorageKey, JSON.stringify(photoInvoices));
   }, [photoInvoices]);
 
+  useEffect(() => {
+    window.localStorage.setItem(processedDocumentStorageKey, JSON.stringify(processedDocuments));
+  }, [processedDocuments]);
+
   const selected = vehicles.find((vehicle) => vehicle.plate === selectedPlate) ?? vehicles[0];
   const selectedDriver = selectedDrivers[selected.plate] ?? selected.drivers[0];
   const selectedActivity = getDriverDay(selected, selectedDriver);
@@ -751,6 +933,33 @@ export function App() {
 
   const savePhotoInvoice = (invoice) => {
     setPhotoInvoices((current) => [invoice, ...current.filter((item) => item.id !== invoice.id)]);
+  };
+
+  const saveProcessedDocument = (document) => {
+    const savedDocument = { ...document, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
+    setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
+    if (savedDocument.category === "billing") {
+      const fields = savedDocument.fields ?? {};
+      const amount = Number(fields.total) || Number(fields.netAmount) || 0;
+      const vehiclePlate = vehicles.some((vehicle) => vehicle.plate === fields.vehicle) ? fields.vehicle : selectedPlate;
+      if (amount > 0 && vehiclePlate) {
+        const dateIso = /^\d{4}-\d{2}-\d{2}$/.test(String(fields.issueDate ?? "")) ? fields.issueDate : new Date().toISOString().slice(0, 10);
+        const displayDate = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateIso}T12:00:00`)).replace(".", "");
+        savePhotoInvoice({
+          id: fields.invoiceNumber || `FAC-IA-${String(Date.now()).slice(-6)}`,
+          date: displayDate,
+          dateIso,
+          provider: fields.company || "Empresa no identificada",
+          plate: vehiclePlate,
+          concept: fields.concept || fields.expenseCategory || "Documento de facturación",
+          amount,
+          source: "IA · Documento",
+          status: savedDocument.lowConfidence ? "Revisar" : "Asociada",
+          items: [{ concept: fields.concept || fields.expenseCategory || "Importe extraído", amount }],
+        });
+      }
+    }
+    notify(savedDocument.lowConfidence ? "Datos guardados; revisa los campos de baja confianza" : "Datos clasificados y guardados correctamente");
   };
 
   const installApplication = async () => {
@@ -895,6 +1104,8 @@ export function App() {
         step={quickMenuStep}
         category={quickMenuCategory}
         onCategory={(category) => { setQuickMenuCategory(category); setQuickMenuStep("sources"); }}
+        onNotice={(message) => notify(message)}
+        onDocumentAction={({ category, source, file }) => { setQuickMenuStep(""); setQuickMenuCategory(""); setModal({ type: "document-processing", category, source, file, selectedPlate }); }}
         onAction={({ category, source, file }) => { setQuickMenuStep(""); notify(`${source === "camera" ? "Cámara" : "Archivo"} listo para ${category === "billing" ? "facturación" : "consumo"}${file ? ` · ${file.name}` : ""}`); }}
       />
       {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} vehicles={vehicles} />}
@@ -2492,25 +2703,205 @@ function VehicleExpenses({ vehicle }) {
   );
 }
 
-function AppModalV2({ modal, onClose, notify, onSaveInvoice, vehicles }) {
+function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, vehicles }) {
   const item = modal.item;
   const isReading = modal.type === "reading-review";
   const isInvoice = modal.type === "invoice";
   const isFuelInvoice = isInvoice && item?.source === "Cuenta Plenergy";
   const isPhotoInvoice = modal.type === "invoice-upload";
+  const isDocumentProcessing = modal.type === "document-processing";
   const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", support: "Contactar con soporte" };
   const complete = (message) => { notify(message); onClose(); };
+  if (isDocumentProcessing) titles[modal.type] = `${documentCategoryLabels[modal.category] ?? "Documento"} · Análisis IA`;
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header><div><span>Acción rápida</span><h2 id="modal-title">{isFuelInvoice ? "Factura Plenergy" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
         {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div><dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div>{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={(invoice) => { onSaveInvoice(invoice); complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
+        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} onCancel={onClose} onSave={(document) => { onSaveDocument(document); complete("Documento procesado y guardado"); }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
-        {!isPhotoInvoice && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Factura Plenergy archivada" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar factura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
+        {!isPhotoInvoice && !isDocumentProcessing && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Factura Plenergy archivada" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar factura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
       </section>
+    </div>
+  );
+}
+
+function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, onCancel, onSave }) {
+  const controllerRef = useRef(null);
+  const [stage, setStage] = useState("processing");
+  const [progress, setProgress] = useState(5);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [preparedFile, setPreparedFile] = useState(file);
+  const [fields, setFields] = useState(() => normalizeDocumentAnalysis(category, null, defaultVehicle));
+  const [analysis, setAnalysis] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const isImage = validateDocumentFile(file, source).kind === "image";
+    if (!isImage) return undefined;
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file, source]);
+
+  const runAnalysis = useCallback(async () => {
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setStage("processing");
+    setProgress(8);
+    setError(null);
+    try {
+      const validation = validateDocumentFile(file, source);
+      if (!validation.valid) {
+        const validationError = new Error(validation.message);
+        validationError.code = "INVALID_DOCUMENT";
+        throw validationError;
+      }
+      if (navigator.onLine === false) {
+        const offlineError = new Error("No hay conexión. Conéctate a internet para enviar el documento a la IA.");
+        offlineError.code = "OFFLINE";
+        throw offlineError;
+      }
+      setProgress(20);
+      const optimized = await prepareDocumentFile(file);
+      if (controller.signal.aborted) return;
+      setPreparedFile(optimized);
+      setProgress(35);
+      const dataUrl = await readFileAsDataUrl(optimized);
+      if (controller.signal.aborted) return;
+      if (new TextEncoder().encode(dataUrl).byteLength > documentMaxRequestSize) {
+        const sizeError = new Error("El documento sigue siendo demasiado grande después de optimizarlo. Usa una imagen más pequeña o un PDF ligero.");
+        sizeError.code = "DOCUMENT_TOO_LARGE";
+        throw sizeError;
+      }
+      setProgress(48);
+      const response = await fetch("/api/analyze-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ category, fileName: optimized.name, fileType: optimized.type || file.type, dataUrl }),
+        signal: controller.signal,
+      });
+      let responseBody = null;
+      try {
+        responseBody = await response.json();
+      } catch {
+        responseBody = null;
+      }
+      if (!response.ok) {
+        const serviceError = new Error(responseBody?.message || "No se ha podido analizar el documento.");
+        serviceError.code = responseBody?.code || `HTTP_${response.status}`;
+        throw serviceError;
+      }
+      if (controller.signal.aborted) return;
+      setProgress(82);
+      setAnalysis(responseBody);
+      setFields(normalizeDocumentAnalysis(category, responseBody, defaultVehicle));
+      setProgress(100);
+      setStage("review");
+    } catch (caughtError) {
+      if (controller.signal.aborted || caughtError?.name === "AbortError") {
+        setStage("cancelled");
+        setError({ code: "CANCELLED", message: "Has cancelado el análisis. No se ha guardado ningún dato." });
+      } else {
+        setStage("error");
+        setError({ code: caughtError?.code || "PROCESSING_ERROR", message: caughtError?.message || "No se ha podido procesar el documento." });
+      }
+    }
+  }, [category, defaultVehicle, file, source]);
+
+  useEffect(() => {
+    runAnalysis();
+    return () => controllerRef.current?.abort();
+  }, [runAnalysis]);
+
+  const lowConfidenceFields = fields.filter((field) => field.confidence < 80);
+  const overallConfidence = Math.round(Number(analysis?.overallConfidence) || (fields.length ? fields.reduce((total, field) => total + field.confidence, 0) / fields.length : 0));
+  const updateField = (key, value) => setFields((current) => current.map((field) => field.key === key ? { ...field, value } : field));
+  const stopAnalysis = () => {
+    controllerRef.current?.abort();
+    setError({ code: "CANCELLED", message: "Has cancelado el análisis. No se ha guardado ningún dato." });
+    setStage("cancelled");
+  };
+  const save = () => {
+    onSave({
+      id: `DOC-${String(Date.now()).slice(-8)}`,
+      category,
+      source,
+      fileName: preparedFile?.name || file.name,
+      fileType: preparedFile?.type || file.type,
+      fields: fieldsToRecord(fields),
+      fieldConfidence: Object.fromEntries(fields.map((field) => [field.key, field.confidence])),
+      overallConfidence,
+      warnings: analysis?.warnings ?? [],
+      lowConfidence: lowConfidenceFields.length > 0,
+    });
+  };
+
+  const renderPreview = () => previewUrl
+    ? <img src={previewUrl} alt={`Vista previa de ${file.name}`} />
+    : <span className="document-processing-preview__file"><IconFileInvoice size={34} /><strong>Documento PDF</strong></span>;
+
+  return (
+    <div className="document-processing-workflow">
+      <header className="document-processing-file">
+        <span className="document-processing-file__icon">{category === "billing" ? <IconFileInvoice size={20} /> : <IconGasStation size={20} />}</span>
+        <span><strong>{file.name}</strong><small>{documentCategoryLabels[category]} · {formatFileSize(file.size)} · {source === "camera" ? "Cámara" : "Selector del dispositivo"}</small></span>
+      </header>
+
+      {stage === "processing" && <section className="document-processing-state" aria-live="polite">
+        <span className="document-processing-state__spinner"><IconSparkles size={26} /></span>
+        <strong>Analizando documento con IA</strong>
+        <p>Preparando la imagen, ejecutando OCR y clasificando los campos de {documentCategoryLabels[category].toLocaleLowerCase("es")}.</p>
+        <div className="document-processing-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></div>
+        <small>{progress < 40 ? "Optimizando archivo…" : progress < 80 ? "Extrayendo información…" : "Preparando la revisión…"} {progress}%</small>
+      </section>}
+
+      {stage === "error" && <section className="document-processing-state document-processing-state--error" role="alert">
+        <span className="document-processing-state__spinner"><IconAlertTriangle size={26} /></span>
+        <strong>{error?.code === "AI_NOT_CONFIGURED" ? "Servicio de IA no configurado" : "No se ha podido procesar"}</strong>
+        <p>{error?.message}</p>
+        {error?.code === "OFFLINE" && <small>Comprueba la conexión antes de volver a intentarlo.</small>}
+        {error?.code === "AI_NOT_CONFIGURED" && <small>El servidor necesita la variable OPENAI_API_KEY para analizar documentos.</small>}
+        <button type="button" className="secondary-button" onClick={runAnalysis}><IconRefresh size={17} />Reintentar</button>
+      </section>}
+
+      {stage === "cancelled" && <section className="document-processing-state document-processing-state--cancelled" role="status">
+        <span className="document-processing-state__spinner"><IconX size={26} /></span>
+        <strong>Análisis cancelado</strong>
+        <p>{error?.message}</p>
+        <button type="button" className="secondary-button" onClick={runAnalysis}><IconRefresh size={17} />Volver a analizar</button>
+      </section>}
+
+      {stage === "review" && <section className="document-review-layout">
+        <aside className="document-review-preview">
+          {renderPreview()}
+          <span><strong>Extracción completada</strong><small>Confianza general {overallConfidence}%</small></span>
+        </aside>
+        <div className="document-review-fields">
+          {lowConfidenceFields.length > 0 && <div className="document-review-warning" role="status"><IconAlertTriangle size={17} /><span><strong>Revisión necesaria</strong><small>Los campos marcados en ámbar tienen una confianza inferior al 80%.</small></span></div>}
+          <div className="document-review-heading"><div><h3>Datos clasificados</h3><p>Revisa y corrige antes de guardarlos en la aplicación.</p></div><span className="document-review-confidence">{overallConfidence}% IA</span></div>
+          <div className="document-fields-grid">
+            {fields.map((field) => {
+              const low = field.confidence < 80;
+              const value = field.value ?? "";
+              return <label className={`document-field${low ? " document-field--low-confidence" : ""}`} key={field.key}>
+                <span><strong>{field.label}</strong><small>{field.confidence}%{low ? " · Revisar" : ""}</small></span>
+                {field.suffix ? <div className="document-field__input"><input type={field.type} step={field.step} value={value} placeholder={field.placeholder} onChange={(event) => updateField(field.key, event.target.value)} /><i>{field.suffix}</i></div> : <input type={field.type} step={field.step} value={value} placeholder={field.placeholder} onChange={(event) => updateField(field.key, event.target.value)} />}
+              </label>;
+            })}
+          </div>
+          {analysis?.warnings?.length > 0 && <div className="document-review-notes"><strong>Avisos de la IA</strong><ul>{analysis.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}</ul></div>}
+        </div>
+      </section>}
+
+      <footer className="document-processing-actions">
+        <button type="button" className="secondary-button" onClick={stage === "processing" ? stopAnalysis : onCancel}>{stage === "processing" ? "Detener análisis" : "Cancelar"}</button>
+        {stage === "review" && <button type="button" className="primary-button" onClick={save}><IconCheck size={18} />Guardar datos</button>}
+        {(stage === "error" || stage === "cancelled") && <button type="button" className="primary-button" onClick={onCancel}>Cerrar</button>}
+      </footer>
     </div>
   );
 }

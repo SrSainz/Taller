@@ -1,5 +1,13 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import analyzeDocument from "./api/analyze-document.js";
+
+const useDocumentAnalysisApi = (server) => {
+  server.middlewares.use("/api/analyze-document", (request, response, next) => {
+    if (!["POST", "OPTIONS"].includes(request.method)) return next();
+    Promise.resolve(analyzeDocument(request, response)).catch(next);
+  });
+};
 
 export default defineConfig({
   build: {
@@ -23,5 +31,9 @@ export default defineConfig({
     port: 4174,
     strictPort: true,
   },
-  plugins: [react()],
+  plugins: [react(), {
+    name: "local-document-analysis-api",
+    configureServer: useDocumentAnalysisApi,
+    configurePreviewServer: useDocumentAnalysisApi,
+  }],
 });

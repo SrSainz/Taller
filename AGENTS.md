@@ -22,7 +22,7 @@ When implementing from a selected generated mock, treat that image as the source
 - The main ledger has no Uso column. Facturación appears immediately after Conductores.
 - Driver selection must update daily billing, monthly accumulated billing, monthly accumulated trips, and the portion collected in cash today. Particular drivers display zero billing and zero trips unless they are later assigned commercial activity.
 - The ledger includes a Taller column with the latest maintenance amount and concept. Selecting it navigates to the selected vehicle's dated workshop history inside Mantenimiento.
-- The first release is a functional front-end prototype with realistic local data; WhatsApp, email, OpenAI extraction, authentication, and persistence remain simulated.
+- The first release is a functional front-end prototype with realistic local data; WhatsApp, email, authentication, and persistence remain simulated. Document capture uses server-side OpenAI structured extraction when `OPENAI_API_KEY` is configured.
 - The web client is an installable PWA. Production must ship a linked manifest, 192px and 512px install icons, maskable icons, `display: standalone`, a root-scoped service worker, and an in-app install action when the browser exposes the install prompt.
 - The product name is SOBRE RUEDAS and the primary interface language is Spanish. Its company/project logo is the exact user-supplied red-and-white wheel artwork stored at `public/brand/sobre-ruedas-logo.png`; the desktop home control uses that image without reinterpretation, while the phone home control and installable PWA icon use a centered square, safe-area adaptation stored at `public/brand/sobre-ruedas-app-icon.png`.
 - The phone launcher, favicon, Apple touch icon, manifest icons, maskable icons, and manifest shortcuts must always use the red SOBRE RUEDAS wheel artwork, never the legacy T icon. Icon URLs are versioned whenever the artwork changes so installed mobile clients fetch the replacement.
@@ -91,6 +91,8 @@ When implementing from a selected generated mock, treat that image as the source
 - General summary, month, and year selectors use a cyclic three-copy wheel picker with a centered snap row and blurred adjacent choices; the fixed bottom bar centers the home and profile icons within their thirds without a normal button box, and maintenance history omits its helper instruction line.
 
 - General home KPI cards use subtle flat fills without gradients. Tapping a chart bar adds only a pale gray category backdrop with no focus outline or active-bar highlight. The fixed bottom plus opens a horizontal Facturacion/Consumo choice, then a vertical Camara/Subir archivo source choice.
+
+- Facturación and Consumo bottom actions use native camera capture and the device file picker, validate and optimize images/PDFs, show cancellable progress/error states, and send documents only through the server-side `/api/analyze-document` endpoint. Structured AI extraction returns editable fields with per-field confidence; low-confidence values are highlighted before saving, and camera denials are remembered without repeated prompts while retaining an explicit settings/retry path.
 
 - The General chart's first menu is a flat uppercase checklist: Resumen restores all four series without a checkbox, while Facturación, Mantenimiento, Combustible, and Neto can be toggled in combination; month and year menus stay narrow and line-free.
 

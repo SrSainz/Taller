@@ -29,11 +29,12 @@ SOBRE RUEDAS is a visual fleet-maintenance prototype for supervising vehicle mil
 - Installable PWA with standalone window mode, 192/512 icons, maskable Android icons, shortcuts, and an offline app shell.
 - Fully connected application windows for Lecturas, Facturas, Mantenimiento, Automatizaciones, Ajustes, and Ayuda.
 - Accessible review dialogs for extracted readings, workshop invoices, uploads, and support requests.
+- Native camera and device-file flows from Facturación and Consumo, with image/PDF validation, client-side image optimization, cancellation, offline handling, and a structured server-side IA review.
 - Hash-based navigation so each section has a stable browser location.
 - SOBRE RUEDAS > General is the named PWA home view and sole navigation hub. Its quick actions open the operational workspaces without a sidebar or hamburger menu.
 - Expandable Flota navigation with nested Mantenimiento and Gasolina destinations.
 
-This first version is intentionally front-end only. WhatsApp, email ingestion, OpenAI image extraction, authentication, persistence, and real invoice matching are represented with realistic mock data.
+WhatsApp, email ingestion, authentication, and real invoice matching remain represented with local prototype data. Documents captured from the bottom action flow are sent server-side to `/api/analyze-document` when `OPENAI_API_KEY` is configured; the browser never receives that secret. The response is structured JSON with per-field confidence, editable review fields, and automatic local classification.
 
 ## Application windows
 
