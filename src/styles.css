@@ -1147,6 +1147,9 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .invoice-preview strong { font-size: 10px; }
 .invoice-preview > strong { color: var(--green-900); font-size: 14px; }
 .invoice-preview small { color: var(--muted); font-size: 8px; }
+.invoice-document-photo { display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 14px 19px 4px; background: #f7faf8; }
+.invoice-document-photo img { display: block; width: 100%; max-height: 340px; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 6px 18px rgba(8,52,42,.08); }
+.invoice-document-photo figcaption { color: var(--muted); font-size: 7px; text-align: right; }
 .modal dl { padding: 4px 19px 14px; margin: 0; }
 .modal dl > div { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 9px; }
 .modal dt { color: var(--muted); }
@@ -1494,6 +1497,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .modal-backdrop { padding: 8px; }
   .modal { max-height: 96vh; }
   .modal--invoice-photo { width: 100%; }
+  .invoice-document-photo { padding-inline: 13px; }
+  .invoice-document-photo img { max-height: 260px; }
   .photo-review-layout { display: block; min-height: 0; }
   .photo-preview { border-right: 0; border-bottom: 1px solid var(--line); }
   .photo-preview img, .photo-preview__placeholder { height: 190px; }
