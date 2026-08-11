@@ -390,6 +390,44 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .chart-detail-card__plot .recharts-bar-rectangle:focus, .chart-detail-card__plot .recharts-bar-rectangle:focus-visible { outline: 0 !important; stroke: none !important; }
 .chart-detail-card__empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 5px; color: #87918d; font-size: 8px; }
 .chart-detail-card__empty svg { color: #9caaa5; }
+.net-detail-backdrop { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: clamp(10px, 2.5vw, 24px); background: rgba(15, 31, 26, .62); }
+.net-detail-modal { width: min(1120px, 100%); max-height: min(96dvh, 920px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #c8ddcf; border-radius: 18px; background: #f7fbf8; box-shadow: 0 24px 70px rgba(10, 39, 29, .3); }
+.net-detail-modal__header { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 17px 11px; border-bottom: 1px solid #dce8e2; background: #fff; }
+.net-detail-modal__header > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.net-detail-modal__header span { color: #238064; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.net-detail-modal__header h2 { margin: 0; color: #278c3b; font-size: 19px; line-height: 1; letter-spacing: .08em; }
+.net-detail-modal__header small { color: #75817d; font-size: 8px; font-weight: 700; text-transform: uppercase; }
+.net-detail-modal__close { flex: 0 0 auto; border: 1px solid #d3e1db; background: #fff; color: #315148; }
+.net-detail-modal__close:hover, .net-detail-modal__close:focus-visible { background: #eef7f2; color: var(--green-900); outline: 2px solid #8cc6ad; outline-offset: 1px; }
+.net-detail-total { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 2px 14px; padding: 12px 17px; border-bottom: 1px solid #dce8e2; background: #edf8ef; }
+.net-detail-total span { color: #357144; font-size: 8px; font-weight: 850; letter-spacing: .08em; }
+.net-detail-total strong { color: #278c3b; font-size: 24px; letter-spacing: -.4px; white-space: nowrap; }
+.net-detail-total small { grid-column: 1 / -1; color: #6d8174; font-size: 7px; }
+.net-detail-grid { min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 11px; overflow: auto; overscroll-behavior: contain; }
+.net-detail-card { min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 11px; border: 1px solid #d8e4dd; border-radius: 12px; background: #fff; box-shadow: 0 4px 13px rgba(38,67,58,.06); }
+.net-detail-card__header { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid #e4ece8; }
+.net-detail-card__header > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.net-detail-card__header small { color: #7a8982; font-size: 6px; font-weight: 800; letter-spacing: .09em; }
+.net-detail-card__header > div > strong { overflow: hidden; color: #1c332b; font-size: 15px; letter-spacing: .03em; text-overflow: ellipsis; white-space: nowrap; }
+.net-detail-card__header > div > span { overflow: hidden; color: #74847c; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.net-detail-card__net { font-size: 15px; letter-spacing: -.2px; white-space: nowrap; }
+.net-detail-card__net--positive { color: #278c3b; }
+.net-detail-card__net--negative { color: #d43b30; }
+.net-detail-card__billing { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 8px; border-radius: 7px; background: #edf8ef; color: #347343; }
+.net-detail-card__billing span { font-size: 8px; font-weight: 750; text-transform: uppercase; }
+.net-detail-card__billing strong { color: #278c3b; font-size: 13px; white-space: nowrap; }
+.net-detail-card__expenses { min-height: 0; display: flex; flex-direction: column; }
+.net-detail-card__expenses-heading, .net-detail-card__expense { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; }
+.net-detail-card__expenses-heading { padding: 2px 1px 5px; border-bottom: 1px solid #dce8e2; color: #52635b; font-size: 7px; letter-spacing: .08em; text-transform: uppercase; }
+.net-detail-card__expenses-heading strong:last-child { text-align: right; }
+.net-detail-card__expense { min-height: 22px; padding: 3px 1px; border-bottom: 1px solid #edf2ef; }
+.net-detail-card__expense > span { min-width: 0; display: flex; flex-direction: column; gap: 1px; color: #405149; font-size: 8px; }
+.net-detail-card__expense > span small { color: #97a39e; font-size: 6px; }
+.net-detail-card__expense > strong { color: #394c43; font-size: 8px; white-space: nowrap; }
+.net-detail-card__result { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 2px 8px; padding: 8px; margin-top: auto; border-radius: 8px; background: #f0f5f2; }
+.net-detail-card__result > span { color: #51635a; font-size: 7px; font-weight: 800; text-transform: uppercase; }
+.net-detail-card__result > strong { font-size: 14px; white-space: nowrap; }
+.net-detail-card__result > small { grid-column: 1 / -1; color: #899790; font-size: 6.5px; }
 .report-section-card { margin-bottom: 14px; border-radius: 13px; box-shadow: 0 3px 8px rgba(38,67,58,.07); }
 .fuel-overview { margin-bottom: 14px; }
 .month-chip { min-height: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #b8d4ca; border-radius: 999px; background: var(--green-50); color: var(--green-900); font-size: 8px; font-weight: 650; white-space: nowrap; }
@@ -1488,6 +1526,18 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .chart-detail-card__header > span:nth-child(2) strong { font-size: 8px; }
   .chart-detail-card__header > span:nth-child(2) small { font-size: 5.5px; }
   .chart-detail-card__total { font-size: 8px; }
+}
+
+@media (max-width: 720px) {
+  .net-detail-backdrop { align-items: stretch; padding: 8px; }
+  .net-detail-modal { max-height: calc(100dvh - 16px); border-radius: 14px; }
+  .net-detail-modal__header { padding: 11px 12px 9px; }
+  .net-detail-modal__header h2 { font-size: 17px; }
+  .net-detail-total { grid-template-columns: minmax(0,1fr) auto; padding: 10px 12px; }
+  .net-detail-total span { font-size: 7px; }
+  .net-detail-total strong { font-size: 18px; }
+  .net-detail-grid { grid-template-columns: 1fr; gap: 8px; padding: 8px; }
+  .net-detail-card { padding: 9px; }
 }
 
 @media (max-width: 520px) {

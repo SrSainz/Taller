@@ -330,6 +330,34 @@ const vehicleExpenseAmounts = {
   "9401 LTG": [0, 310, 142.18, 198.6, 0, 0, 0, 0, 0, 495, 35, 44.9],
 };
 
+const netAdditionalExpenseAmounts = {
+  "5043 MLC": { gestoria: 135, itv: 61.5, circulation: 148, annexInsurance: 38 },
+  "5750 MJV": { gestoria: 135, itv: 61.5, circulation: 148, annexInsurance: 42 },
+  "5754 MJV": { gestoria: 135, itv: 61.5, circulation: 148, annexInsurance: 40 },
+};
+
+const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, periodFactor }) => {
+  const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
+  const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
+  const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
+  return [
+    { key: "workshop", label: "Taller", amount: maintenance, cadence: "Variable" },
+    { key: "fuel", label: "Gasolina", amount: fuel, cadence: "Variable" },
+    { key: "payroll", label: "Nóminas", amount: scale(amounts[5]), cadence: "Mensual" },
+    { key: "driver-commission", label: "Comisiones de conductores", amount: scale(amounts[6]), cadence: "Variable" },
+    { key: "social-security", label: "Seguros sociales", amount: scale(amounts[4]), cadence: "Mensual" },
+    { key: "accounting", label: "Gestoría", amount: scale(additional.gestoria), cadence: "Mensual" },
+    { key: "taxes", label: "Impuestos", amount: scale(amounts[7]), cadence: "Trimestral" },
+    { key: "eu-vat", label: "IVA intracomunitario", amount: scale(amounts[8]), cadence: "Trimestral" },
+    { key: "leasing", label: "Leasing coche", amount: scale(amounts[0]), cadence: "Mensual" },
+    { key: "insurance", label: "Seguro", amount: scale(amounts[9]), cadence: "Anual" },
+    { key: "inspection", label: "ITV", amount: scale(additional.itv), cadence: "Anual" },
+    { key: "road-tax", label: "Impuesto circulación", amount: scale(additional.circulation), cadence: "Anual" },
+    { key: "license-loan", label: "Préstamo licencia", amount: scale(amounts[1]), cadence: "Mensual" },
+    { key: "annex-insurance", label: "Seguros anexos al coche", amount: scale(additional.annexInsurance), cadence: "Mensual" },
+  ];
+};
+
 const reportMonths = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const reportMonthTokens = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const fuelPeriodSuffixPattern = /\b[a-záéíóú]{3}\s+\d{4}$/i;
@@ -1203,6 +1231,40 @@ function ChartDetailModal({ charts, periodLabel, onClose }) {
   );
 }
 
+function NetDetailModal({ details, total, periodLabel, onClose }) {
+  const closeButtonRef = useRef(null);
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+  return (
+    <div className="net-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="net-detail-modal" role="dialog" aria-modal="true" aria-labelledby="net-detail-title" aria-describedby="net-detail-period">
+        <header className="net-detail-modal__header">
+          <div><span>Resultado mensual</span><h2 id="net-detail-title">NETO</h2><small id="net-detail-period">{periodLabel} · 3 coches profesionales</small></div>
+          <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
+        </header>
+        <div className="net-detail-total"><span>NETO TOTAL DE LOS TRES COCHES</span><strong>{formatCurrency(total)}</strong><small>Facturación conjunta menos los gastos detallados</small></div>
+        <div className="net-detail-grid" aria-label="Resultado neto por coche profesional">
+          {details.map(({ vehicle, revenue, expenses, totalExpenses, net }) => (
+            <article className="net-detail-card" key={vehicle.plate}>
+              <header className="net-detail-card__header">
+                <div><small>COCHE PROFESIONAL</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></div>
+                <strong className={net >= 0 ? "net-detail-card__net net-detail-card__net--positive" : "net-detail-card__net net-detail-card__net--negative"}>{formatCurrency(net)}</strong>
+              </header>
+              <div className="net-detail-card__billing"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
+              <div className="net-detail-card__expenses" role="table" aria-label={`Gastos de ${vehicle.plate}`}>
+                <div className="net-detail-card__expenses-heading" role="row"><strong>Gastos</strong><strong>Importe</strong></div>
+                {expenses.map((expense) => <div className="net-detail-card__expense" role="row" key={expense.key}><span role="cell">{expense.label}<small>{expense.cadence}</small></span><strong role="cell">{formatCurrency(expense.amount)}</strong></div>)}
+              </div>
+              <footer className="net-detail-card__result"><span>Facturación − gastos</span><strong className={net >= 0 ? "net-detail-card__net--positive" : "net-detail-card__net--negative"}>{formatCurrency(net)}</strong><small>Gastos totales: {formatCurrency(totalExpenses)}</small></footer>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
@@ -1217,6 +1279,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [periodMenu, setPeriodMenu] = useState("");
   const [selectedChartBar, setSelectedChartBar] = useState("");
   const [chartDetailOpen, setChartDetailOpen] = useState(false);
+  const [netDetailOpen, setNetDetailOpen] = useState(false);
   const [billingDriverKey, setBillingDriverKey] = useState("");
   const [billingVehiclePlate, setBillingVehiclePlate] = useState("");
   useEffect(() => {
@@ -1250,8 +1313,12 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     return () => document.removeEventListener("pointerdown", closeOnPointerDown);
   }, [periodMenu]);
   useEffect(() => {
-    if (!chartDetailOpen) return undefined;
-    const closeOnEscape = (event) => { if (event.key === "Escape") setChartDetailOpen(false); };
+    if (!chartDetailOpen && !netDetailOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape") return;
+      setChartDetailOpen(false);
+      setNetDetailOpen(false);
+    };
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", closeOnEscape);
@@ -1259,7 +1326,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [chartDetailOpen]);
+  }, [chartDetailOpen, netDetailOpen]);
   useEffect(() => {
     if (!billingDriverKey) return undefined;
     const animationFrame = window.requestAnimationFrame(() => {
@@ -1319,17 +1386,24 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     detail: vehicle.model,
     value: getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear),
   }));
-  const netChartData = vehicles.map((vehicle, index) => {
-    const revenue = vehicle.use === "Profesional"
-      ? vehicle.drivers.reduce((sum, driver) => sum + getDriverDay(vehicle, driver).monthRevenue, 0) * periodFactor
-      : 0;
-    const baseExpenses = vehicleExpenseAmounts[vehicle.plate] ?? expenseCategories.map(() => 0);
-    const expenses = baseExpenses.reduce((sum, amount, expenseIndex) => {
-      if (expenseIndex === 2) return sum + fuelChartData[index].value;
-      if (expenseIndex === 3) return sum + maintenanceChartData[index].value;
-      return sum + amount * periodFactor;
-    }, 0);
-    return { label: vehicle.plate, detail: vehicle.model, value: Number((revenue - expenses).toFixed(2)) };
+  const netVehicleDetails = vehicles
+    .filter((vehicle) => vehicle.use === "Profesional")
+    .map((vehicle) => {
+      const vehicleIndex = vehicles.findIndex((candidate) => candidate.plate === vehicle.plate);
+      const revenue = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0);
+      const expenses = buildNetExpenseBreakdown({
+        vehicle,
+        fuel: fuelChartData[vehicleIndex]?.value ?? 0,
+        maintenance: maintenanceChartData[vehicleIndex]?.value ?? 0,
+        periodFactor,
+      });
+      const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+      return { vehicle, revenue, expenses, totalExpenses, net: Number((revenue - totalExpenses).toFixed(2)) };
+    });
+  const netVehicleDetailsByPlate = new Map(netVehicleDetails.map((detail) => [detail.vehicle.plate, detail]));
+  const netChartData = vehicles.map((vehicle) => {
+    const detail = netVehicleDetailsByPlate.get(vehicle.plate);
+    return { label: vehicle.plate, detail: vehicle.model, value: detail?.net ?? 0 };
   });
   const periodTotals = {
     billing: billingChartData.reduce((sum, item) => sum + item.value, 0),
@@ -1470,7 +1544,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
               <div className="report-stat-grid">
                 <ReportFleetSummaryCard billing={formatCurrency(periodTotals.billing)} fuel={formatCurrency(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
                 <ReportStatCard wide icon={IconTool} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
-                <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
+                <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
               </div>
               <section className="report-chart-card report-chart-card--compact-preview" role="button" tabIndex={0} aria-haspopup="dialog" aria-label="Abrir las cuatro gráficas del resumen general por coche" onClick={openChartDetail} onKeyDown={handleChartDetailKeyDown}>
                 <header className="report-chart-card__top">
@@ -1522,6 +1596,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 </div>
               </section>
               {chartDetailOpen && <ChartDetailModal charts={chartDetailSeries} periodLabel={selectedPeriodLabel} onClose={() => setChartDetailOpen(false)} />}
+              {netDetailOpen && <NetDetailModal details={netVehicleDetails} total={netVehicleDetails.reduce((sum, detail) => sum + detail.net, 0)} periodLabel={selectedPeriodLabel} onClose={() => setNetDetailOpen(false)} />}
             </div>
           </>
         )}
