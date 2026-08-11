@@ -1687,8 +1687,8 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .topbar--maintenance { justify-content: flex-start; gap: clamp(12px, 4vw, 48px); }
 .topbar--maintenance .topbar-title { min-width: 0; flex: 1 1 50%; margin: 0; }
 .topbar--maintenance .topbar-title > div { min-width: 0; }
-.topbar--maintenance .maintenance-search { width: min(430px, 50%); flex: 1 1 50%; }
-.maintenance-search { position: relative; width: min(430px, 52%); height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid rgba(255,255,255,.23); border-radius: 9px; background: rgba(255,255,255,.1); color: #d8e1dc; transition: border-color .18s, background .18s, box-shadow .18s; }
+.topbar--maintenance .maintenance-search { width: min(320px, 42%); flex: 0 1 min(320px, 42%); }
+.maintenance-search { position: relative; width: min(320px, 42%); height: 32px; display: flex; align-items: center; gap: 7px; padding: 0 8px; border: 1px solid rgba(255,255,255,.23); border-radius: 8px; background: rgba(255,255,255,.1); color: #d8e1dc; transition: border-color .18s, background .18s, box-shadow .18s; }
 .maintenance-search:focus-within { border-color: rgba(221,241,230,.72); background: rgba(255,255,255,.16); box-shadow: 0 0 0 3px rgba(221,241,230,.1); }
 .maintenance-search > svg { flex: 0 0 auto; color: #cfddd5; }
 .maintenance-search input { min-width: 0; width: 100%; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: #fff; font-size: 9px; }
@@ -1706,18 +1706,18 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .maintenance-search-suggestion__meta strong { color: var(--green-900); font-size: 8px; }
 .maintenance-search-suggestion__source { grid-column: 1 / -1; overflow: hidden; color: #708079; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
 .maintenance-search-empty { margin: 5px 6px; color: var(--muted); font-size: 8px; line-height: 1.35; }
-.maintenance-page .maintenance-vehicle-banner { grid-template-columns: 32px 56px minmax(170px,1.2fr) 100px minmax(160px,1fr) minmax(150px,.9fr); border-color: #424844; background: #292b2a; color: #f5f8f6; box-shadow: 0 5px 16px rgba(12,18,16,.12); }
-.maintenance-page .maintenance-vehicle-banner:hover { border-color: #7f998c; background: #333735; box-shadow: 0 9px 23px rgba(12,18,16,.2); }
-.maintenance-page .maintenance-vehicle-banner.active { border-color: #a8d5bd; background: #3a403c; box-shadow: 0 0 0 2px rgba(168,213,189,.13), 0 10px 25px rgba(12,18,16,.2); }
-.maintenance-page .maintenance-vehicle-number { background: #414944; color: #eaf4ee; }
-.maintenance-page .maintenance-vehicle-banner.active .maintenance-vehicle-number { background: #b9e2cb; color: #1d3b2e; }
+.maintenance-page .maintenance-vehicle-banner { grid-template-columns: 32px 56px minmax(170px,1.2fr) 100px minmax(160px,1fr) minmax(160px,.9fr); border-color: #111; background: #fff; color: var(--text); box-shadow: 0 5px 16px rgba(12,18,16,.08); }
+.maintenance-page .maintenance-vehicle-banner:hover { border-color: #111; background: #fafafa; box-shadow: 0 9px 23px rgba(12,18,16,.12); }
+.maintenance-page .maintenance-vehicle-banner.active { border-color: #111; background: #fff; box-shadow: 0 0 0 2px rgba(17,17,17,.11), 0 10px 25px rgba(12,18,16,.12); }
+.maintenance-page .maintenance-vehicle-number { background: #f0f2f1; color: #111; }
+.maintenance-page .maintenance-vehicle-banner.active .maintenance-vehicle-number { background: #111; color: #fff; }
 .maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-identity small,
 .maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-latest small,
-.maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-service small { color: #aebbb4; }
+.maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-service small { color: var(--muted); }
 .maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-identity > span,
 .maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-latest > span,
-.maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-service > span { color: #b7c3bd; }
-.maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-service strong { color: #b7e6ca; }
+.maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-service > span { color: var(--muted); }
+.maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-service strong { color: #111; font-size: 22px; line-height: 1; white-space: nowrap; }
 .maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-chevron { display: none; }
 .maintenance-page .maintenance-history-header h2,
 .maintenance-page .maintenance-timeline-heading strong { text-transform: uppercase; }
@@ -1731,7 +1731,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .topbar--maintenance { gap: 8px; padding-inline: 8px; }
   .topbar--maintenance .topbar-title { flex: 0 1 48%; gap: 7px; }
   .topbar--maintenance .topbar-title span { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-  .topbar--maintenance .maintenance-search { width: auto; min-width: 0; flex: 1 1 52%; height: 34px; padding-inline: 8px; }
+  .topbar--maintenance .maintenance-search { width: auto; min-width: 0; flex: 0 1 45%; height: 30px; padding-inline: 7px; }
   .topbar--maintenance .maintenance-search input { font-size: 8px; }
   .maintenance-search-suggestions { width: calc(100vw - 24px); }
   .maintenance-page .maintenance-vehicle-banner { grid-template-columns: 46px minmax(0,1fr) auto; }
