@@ -59,6 +59,7 @@ const chartMetricOptions = [
 const selectableChartMetrics = chartMetricOptions.filter((option) => option.value !== "summary");
 const allChartMetricValues = selectableChartMetrics.map((option) => option.value);
 const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c" };
+const chartMetricInitials = { billing: "F", maintenance: "M", fuel: "C", net: "N" };
 
 const navItems = [
   { label: "Informes", slug: "informes", icon: IconChartBar },
@@ -1337,7 +1338,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     ? "Resumen"
     : selectedChartMetrics.length === 1
       ? chartMetricOptions.find((option) => option.value === selectedChartMetrics[0])?.label
-      : `${selectedChartMetrics.length} seleccionados`;
+      : selectedChartMetrics.map((metric) => chartMetricInitials[metric]).join(" / ");
   const openChartDetail = (event) => {
     if (event.target?.closest?.("button, [role='listbox'], .report-period-menu, .report-chart-filters")) return;
     setPeriodMenu("");
