@@ -1613,3 +1613,16 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .page-scroll--dashboard .report-stat-card--wide { min-height: 60px; padding-block: 5px; }
   .drivers-page:not(.drivers-page--calendar-open) .driver-list-card { min-height: 37px; padding-block: 0; }
 }
+
+/* Match the General banner to the permanent bottom navigation tone. */
+.app-shell--dashboard .topbar--reports { background: #292b2a; border-bottom-color: #444744; }
+.app-shell--dashboard .topbar--reports .install-app-button,
+.app-shell--dashboard .topbar--reports .bell-button,
+.app-shell--dashboard .topbar--reports .topbar-route-button,
+.app-shell--dashboard .topbar--reports .topbar-menu-button { border-color: rgba(255,255,255,.42); background: rgba(255,255,255,.16); }
+.app-shell--dashboard .topbar--reports .install-app-button:hover,
+.app-shell--dashboard .topbar--reports .bell-button:hover,
+.app-shell--dashboard .topbar--reports .topbar-route-button:hover,
+.app-shell--dashboard .topbar--reports .topbar-menu-button:hover { background: rgba(255,255,255,.23); }
+.app-shell--dashboard .topbar--reports .topbar-route-button--active { border-color: rgba(255,255,255,.76); background: rgba(255,255,255,.27); }
+.app-shell--dashboard .topbar--reports .topbar-route-button i { border-color: #292b2a; }

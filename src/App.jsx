@@ -2074,8 +2074,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
   }, [initialPlate]);
 
   useEffect(() => {
-    const first = [...workshopVehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a))[0];
-    setOpenMaintenanceKey(first ? `${first.date}-${first.concept}-${first.km}` : "");
+    setOpenMaintenanceKey("");
     setOpenConceptKey("");
   }, [workshopVehicle.plate]);
 
