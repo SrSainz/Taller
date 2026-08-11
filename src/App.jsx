@@ -526,11 +526,11 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "green" }) {
   );
 }
 
-function BottomNavigation({ onHome, onProfile, homeActive }) {
+function BottomNavigation({ onHome, onAdd, onProfile, homeActive }) {
   return (
     <nav className="bottom-navigation" aria-label="Navegación inferior">
       <button type="button" className={`bottom-navigation__item${homeActive ? " bottom-navigation__item--active" : ""}`} onClick={onHome} aria-label="Ir a la página principal" aria-current={homeActive ? "page" : undefined} title="Página principal"><IconHome size={21} /></button>
-      <button type="button" className="bottom-navigation__add" aria-label="Añadir" title="Añadir"><IconPlus size={24} /></button>
+      <button type="button" className="bottom-navigation__add" onClick={onAdd} aria-label="Añadir" title="Añadir"><IconPlus size={24} /></button>
       <button type="button" className="bottom-navigation__item" onClick={onProfile} aria-label="Abrir perfil de usuario" title="Perfil de usuario"><IconUserCircle size={21} /></button>
     </nav>
   );
@@ -546,14 +546,24 @@ function QuickActionMenu({ step, category, onCategory, onAction }) {
   const handleSource = (source) => {
     setPermissionSource(source);
   };
+  const openNativePicker = (input) => {
+    if (!input) return;
+    input.value = "";
+    try {
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+        return;
+      }
+    } catch {
+      // Some mobile browsers expose showPicker but only allow click().
+    }
+    input.click();
+  };
   const allowSource = () => {
     const source = permissionSource;
     const input = source === "camera" ? cameraInputRef.current : uploadInputRef.current;
     setPermissionSource("");
-    if (input) {
-      input.value = "";
-      input.click();
-    }
+    openNativePicker(input);
   };
   const handleFile = (event, source) => {
     const file = event.target.files?.[0];
@@ -563,7 +573,7 @@ function QuickActionMenu({ step, category, onCategory, onAction }) {
 
   if (!step) return null;
   return (
-    <div className={`bottom-navigation__quick-menu bottom-navigation__quick-menu--${step}${permissionSource ? " bottom-navigation__quick-menu--permission" : ""}`} role={permissionSource ? "dialog" : "menu"} aria-modal={permissionSource ? "true" : undefined} aria-labelledby={permissionSource ? "quick-permission-title" : undefined} aria-label={permissionSource ? undefined : step === "categories" ? "Seleccionar tipo de registro" : "Seleccionar origen del archivo"}>
+    <div className={`bottom-navigation__quick-menu bottom-navigation__quick-menu--${step}${permissionSource ? " bottom-navigation__quick-menu--permission" : ""}`} onClick={(event) => event.stopPropagation()} role={permissionSource ? "dialog" : "menu"} aria-modal={permissionSource ? "true" : undefined} aria-labelledby={permissionSource ? "quick-permission-title" : undefined} aria-label={permissionSource ? undefined : step === "categories" ? "Seleccionar tipo de registro" : "Seleccionar origen del archivo"}>
       {step === "categories" ? (
         <div className="bottom-navigation__quick-options bottom-navigation__quick-options--categories">
           <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--billing" onClick={() => onCategory("billing")}><IconFileInvoice size={21} /><span>Facturación</span></button>
@@ -585,8 +595,8 @@ function QuickActionMenu({ step, category, onCategory, onAction }) {
           <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("upload")}><IconUpload size={19} /><span>Subir archivo</span></button>
         </div>
       )}
-      <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event) => handleFile(event, "camera")} />
-      <input ref={uploadInputRef} className="sr-only" type="file" accept="image/*,.pdf" onChange={(event) => handleFile(event, "upload")} />
+      <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" aria-label="Tomar una foto con la cámara" onChange={(event) => handleFile(event, "camera")} />
+      <input ref={uploadInputRef} className="sr-only" type="file" accept="*/*" aria-label="Seleccionar un archivo del dispositivo" onChange={(event) => handleFile(event, "upload")} />
     </div>
   );
 }
@@ -626,12 +636,7 @@ export function App() {
   useEffect(() => {
     const onBottomNavigationClick = (event) => {
       if (!(event.target instanceof Element)) return;
-      if (event.target.closest(".bottom-navigation__add")) {
-        setQuickMenuStep((current) => current ? "" : "categories");
-        setQuickMenuCategory("");
-        return;
-      }
-      if (quickMenuStep && !event.target.closest(".bottom-navigation__quick-menu")) setQuickMenuStep("");
+      if (quickMenuStep && !event.target.closest(".bottom-navigation__quick-menu") && !event.target.closest(".bottom-navigation__add")) setQuickMenuStep("");
     };
     document.addEventListener("click", onBottomNavigationClick);
     return () => document.removeEventListener("click", onBottomNavigationClick);
@@ -884,7 +889,7 @@ export function App() {
         />
       )}
 
-      <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} onHome={openGeneral} onProfile={() => notify("Perfil de Ana García")} />
+      <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} onHome={openGeneral} onAdd={() => { setQuickMenuStep((current) => current ? "" : "categories"); setQuickMenuCategory(""); }} onProfile={() => notify("Perfil de Ana García")} />
       <QuickActionMenu
         step={quickMenuStep}
         category={quickMenuCategory}
