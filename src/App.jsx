@@ -336,6 +336,26 @@ const netAdditionalExpenseAmounts = {
   "5754 MJV": { gestoria: 135, itv: 61.5, circulation: 148, annexInsurance: 40 },
 };
 
+const manualNetExpensesStorageKey = "talleria:manual-net-expenses:v1";
+const loadManualNetExpenses = () => {
+  try {
+    if (typeof window === "undefined") return [];
+    const stored = JSON.parse(window.localStorage.getItem(manualNetExpensesStorageKey) ?? "[]");
+    return Array.isArray(stored)
+      ? stored.filter((expense) => expense?.id && expense?.periodKey && expense?.plate && expense?.label && Number(expense.amount) > 0).map((expense) => ({ ...expense, amount: Number(expense.amount) }))
+      : [];
+  } catch {
+    return [];
+  }
+};
+const saveManualNetExpenses = (expenses) => {
+  try {
+    window.localStorage.setItem(manualNetExpensesStorageKey, JSON.stringify(expenses));
+  } catch {
+    // El detalle sigue funcionando aunque el dispositivo no permita persistencia local.
+  }
+};
+
 const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, periodFactor }) => {
   const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
@@ -1231,11 +1251,46 @@ function ChartDetailModal({ charts, periodLabel, onClose }) {
   );
 }
 
-function NetDetailModal({ details, total, periodLabel, onClose }) {
+function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemoveExpense, onClose }) {
   const closeButtonRef = useRef(null);
+  const [expandedPlates, setExpandedPlates] = useState(() => new Set());
+  const [activeFormPlate, setActiveFormPlate] = useState("");
+  const [formState, setFormState] = useState({ label: "", amount: "" });
+  const [formError, setFormError] = useState("");
   useEffect(() => {
     closeButtonRef.current?.focus();
   }, []);
+  const total = details.reduce((sum, detail) => sum + detail.net, 0);
+  const toggleExpenses = (plate) => {
+    setExpandedPlates((current) => {
+      const next = new Set(current);
+      if (next.has(plate)) next.delete(plate);
+      else next.add(plate);
+      return next;
+    });
+  };
+  const openExpenseForm = (plate) => {
+    setActiveFormPlate(plate);
+    setFormState({ label: "", amount: "" });
+    setFormError("");
+  };
+  const closeExpenseForm = () => {
+    setActiveFormPlate("");
+    setFormState({ label: "", amount: "" });
+    setFormError("");
+  };
+  const handleExpenseSubmit = (event, plate) => {
+    event.preventDefault();
+    const label = formState.label.trim();
+    const amount = Number(String(formState.amount).replace(",", "."));
+    if (!label || !Number.isFinite(amount) || amount <= 0) {
+      setFormError("Indica un concepto y un importe mayor que cero.");
+      return;
+    }
+    onAddExpense({ periodKey, plate, label, amount: Number(amount.toFixed(2)) });
+    setExpandedPlates((current) => new Set(current).add(plate));
+    closeExpenseForm();
+  };
   return (
     <div className="net-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="net-detail-modal" role="dialog" aria-modal="true" aria-labelledby="net-detail-title" aria-describedby="net-detail-period">
@@ -1245,20 +1300,35 @@ function NetDetailModal({ details, total, periodLabel, onClose }) {
         </header>
         <div className="net-detail-total"><span>NETO TOTAL DE LOS TRES COCHES</span><strong>{formatCurrency(total)}</strong><small>Facturación conjunta menos los gastos detallados</small></div>
         <div className="net-detail-grid" aria-label="Resultado neto por coche profesional">
-          {details.map(({ vehicle, revenue, expenses, totalExpenses, net }) => (
-            <article className="net-detail-card" key={vehicle.plate}>
-              <header className="net-detail-card__header">
-                <div><small>COCHE PROFESIONAL</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></div>
-                <strong className={net >= 0 ? "net-detail-card__net net-detail-card__net--positive" : "net-detail-card__net net-detail-card__net--negative"}>{formatCurrency(net)}</strong>
-              </header>
-              <div className="net-detail-card__billing"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
-              <div className="net-detail-card__expenses" role="table" aria-label={`Gastos de ${vehicle.plate}`}>
-                <div className="net-detail-card__expenses-heading" role="row"><strong>Gastos</strong><strong>Importe</strong></div>
-                {expenses.map((expense) => <div className="net-detail-card__expense" role="row" key={expense.key}><span role="cell">{expense.label}<small>{expense.cadence}</small></span><strong role="cell">{formatCurrency(expense.amount)}</strong></div>)}
-              </div>
-              <footer className="net-detail-card__result"><span>Facturación − gastos</span><strong className={net >= 0 ? "net-detail-card__net--positive" : "net-detail-card__net--negative"}>{formatCurrency(net)}</strong><small>Gastos totales: {formatCurrency(totalExpenses)}</small></footer>
-            </article>
-          ))}
+          {details.map(({ vehicle, revenue, expenses, totalExpenses, net }) => {
+            const expanded = expandedPlates.has(vehicle.plate);
+            const adding = activeFormPlate === vehicle.plate;
+            return (
+              <article className="net-detail-card" key={vehicle.plate}>
+                <header className="net-detail-card__header">
+                  <div><small>COCHE PROFESIONAL</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></div>
+                  <strong className={net >= 0 ? "net-detail-card__net net-detail-card__net--positive" : "net-detail-card__net net-detail-card__net--negative"}>{formatCurrency(net)}</strong>
+                </header>
+                <div className="net-detail-card__billing"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
+                <div className="net-detail-card__summary"><div><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div><small>{expenses.length} conceptos</small></div>
+                <div className="net-detail-card__actions">
+                  <button type="button" className="net-detail-card__toggle" onClick={() => toggleExpenses(vehicle.plate)} aria-expanded={expanded} aria-controls={`net-expenses-${vehicle.plate.replace(/\s/g, "-")}`}><span>{expanded ? "Ocultar gastos" : `Ver gastos (${expenses.length})`}</span><IconChevronDown size={14} /></button>
+                  <button type="button" className="net-detail-card__add" onClick={() => openExpenseForm(vehicle.plate)}><IconPlus size={14} />Añadir gasto</button>
+                </div>
+                {adding && <form className="net-detail-card__add-form" onSubmit={(event) => handleExpenseSubmit(event, vehicle.plate)}>
+                  <label><span>Concepto</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Parking" maxLength={42} autoFocus /></label>
+                  <label><span>Importe</span><input type="number" value={formState.amount} onChange={(event) => setFormState((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" min="0.01" step="0.01" inputMode="decimal" /></label>
+                  <div><button type="button" className="net-detail-card__form-cancel" onClick={closeExpenseForm}>Cancelar</button><button type="submit" className="net-detail-card__form-save">Guardar gasto</button></div>
+                  {formError && <p>{formError}</p>}
+                </form>}
+                {expanded && <div className="net-detail-card__expenses" id={`net-expenses-${vehicle.plate.replace(/\s/g, "-")}`} role="table" aria-label={`Gastos de ${vehicle.plate}`}>
+                  <div className="net-detail-card__expenses-heading" role="row"><strong>Gastos</strong><strong>Importe</strong></div>
+                  {expenses.map((expense) => <div className="net-detail-card__expense" role="row" key={expense.key}><span role="cell">{expense.label}<small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manual && <button type="button" onClick={() => onRemoveExpense(expense.id)} aria-label={`Eliminar gasto ${expense.label}`}><IconTrash size={12} /></button>}</span></div>)}
+                </div>}
+                <footer className="net-detail-card__result"><span>Facturación − gastos</span><strong className={net >= 0 ? "net-detail-card__net--positive" : "net-detail-card__net--negative"}>{formatCurrency(net)}</strong><small>Gastos totales: {formatCurrency(totalExpenses)}</small></footer>
+              </article>
+            );
+          })}
         </div>
       </section>
     </div>
@@ -1280,6 +1350,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [selectedChartBar, setSelectedChartBar] = useState("");
   const [chartDetailOpen, setChartDetailOpen] = useState(false);
   const [netDetailOpen, setNetDetailOpen] = useState(false);
+  const [manualNetExpenses, setManualNetExpenses] = useState(() => loadManualNetExpenses());
   const [billingDriverKey, setBillingDriverKey] = useState("");
   const [billingVehiclePlate, setBillingVehiclePlate] = useState("");
   useEffect(() => {
@@ -1327,6 +1398,9 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [chartDetailOpen, netDetailOpen]);
+  useEffect(() => {
+    saveManualNetExpenses(manualNetExpenses);
+  }, [manualNetExpenses]);
   useEffect(() => {
     if (!billingDriverKey) return undefined;
     const animationFrame = window.requestAnimationFrame(() => {
@@ -1386,6 +1460,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     detail: vehicle.model,
     value: getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear),
   }));
+  const netPeriodKey = `${reportYear}-${reportMonth}`;
   const netVehicleDetails = vehicles
     .filter((vehicle) => vehicle.use === "Profesional")
     .map((vehicle) => {
@@ -1397,6 +1472,10 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
         maintenance: maintenanceChartData[vehicleIndex]?.value ?? 0,
         periodFactor,
       });
+      const manualExpenses = manualNetExpenses
+        .filter((expense) => expense.periodKey === netPeriodKey && expense.plate === vehicle.plate)
+        .map((expense) => ({ ...expense, key: `manual-${expense.id}`, cadence: "Manual", manual: true }));
+      expenses.push(...manualExpenses);
       const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
       return { vehicle, revenue, expenses, totalExpenses, net: Number((revenue - totalExpenses).toFixed(2)) };
     });
@@ -1596,7 +1675,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 </div>
               </section>
               {chartDetailOpen && <ChartDetailModal charts={chartDetailSeries} periodLabel={selectedPeriodLabel} onClose={() => setChartDetailOpen(false)} />}
-              {netDetailOpen && <NetDetailModal details={netVehicleDetails} total={netVehicleDetails.reduce((sum, detail) => sum + detail.net, 0)} periodLabel={selectedPeriodLabel} onClose={() => setNetDetailOpen(false)} />}
+              {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(id) => setManualNetExpenses((current) => current.filter((expense) => expense.id !== id))} onClose={() => setNetDetailOpen(false)} />}
             </div>
           </>
         )}

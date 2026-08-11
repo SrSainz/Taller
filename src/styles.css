@@ -416,6 +416,29 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .net-detail-card__billing { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 8px; border-radius: 7px; background: #edf8ef; color: #347343; }
 .net-detail-card__billing span { font-size: 8px; font-weight: 750; text-transform: uppercase; }
 .net-detail-card__billing strong { color: #278c3b; font-size: 13px; white-space: nowrap; }
+.net-detail-card__summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 8px; border: 1px solid #e4ece8; border-radius: 7px; background: #fbfdfc; }
+.net-detail-card__summary > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.net-detail-card__summary span { color: #65756d; font-size: 7px; font-weight: 750; text-transform: uppercase; }
+.net-detail-card__summary strong { color: #44584d; font-size: 12px; }
+.net-detail-card__summary > small { flex: 0 0 auto; color: #8b9992; font-size: 7px; }
+.net-detail-card__actions { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; }
+.net-detail-card__toggle, .net-detail-card__add { min-height: 29px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 7px; border-radius: 7px; font-size: 7px; font-weight: 800; cursor: pointer; }
+.net-detail-card__toggle { border: 1px solid #d6e3dc; background: #f5faf7; color: #347343; }
+.net-detail-card__toggle:hover, .net-detail-card__toggle[aria-expanded="true"] { border-color: #9fcbb0; background: #eaf7ee; }
+.net-detail-card__toggle svg { transition: transform .18s ease; }
+.net-detail-card__toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.net-detail-card__add { border: 1px solid #278c3b; background: #278c3b; color: #fff; white-space: nowrap; }
+.net-detail-card__add:hover { background: #1e7731; }
+.net-detail-card__add-form { display: grid; grid-template-columns: minmax(0,1fr) 88px; gap: 6px; padding: 8px; border: 1px solid #b9d9bf; border-radius: 8px; background: #f1faef; }
+.net-detail-card__add-form label { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.net-detail-card__add-form label span { color: #55715c; font-size: 6px; font-weight: 800; text-transform: uppercase; }
+.net-detail-card__add-form input { min-width: 0; width: 100%; height: 28px; padding: 0 7px; border: 1px solid #c9ddcf; border-radius: 6px; background: #fff; color: #284936; font-size: 8px; outline: 0; }
+.net-detail-card__add-form input:focus { border-color: #63a779; box-shadow: 0 0 0 2px rgba(99,167,121,.13); }
+.net-detail-card__add-form > div { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 5px; }
+.net-detail-card__form-cancel, .net-detail-card__form-save { min-height: 25px; padding: 0 8px; border-radius: 6px; font-size: 7px; font-weight: 800; cursor: pointer; }
+.net-detail-card__form-cancel { border: 1px solid #cbd9d0; background: #fff; color: #66776d; }
+.net-detail-card__form-save { border: 1px solid #278c3b; background: #278c3b; color: #fff; }
+.net-detail-card__add-form p { grid-column: 1 / -1; margin: 0; color: #bd4d3e; font-size: 6.5px; }
 .net-detail-card__expenses { min-height: 0; display: flex; flex-direction: column; }
 .net-detail-card__expenses-heading, .net-detail-card__expense { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; }
 .net-detail-card__expenses-heading { padding: 2px 1px 5px; border-bottom: 1px solid #dce8e2; color: #52635b; font-size: 7px; letter-spacing: .08em; text-transform: uppercase; }
@@ -423,7 +446,10 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .net-detail-card__expense { min-height: 22px; padding: 3px 1px; border-bottom: 1px solid #edf2ef; }
 .net-detail-card__expense > span { min-width: 0; display: flex; flex-direction: column; gap: 1px; color: #405149; font-size: 8px; }
 .net-detail-card__expense > span small { color: #97a39e; font-size: 6px; }
-.net-detail-card__expense > strong { color: #394c43; font-size: 8px; white-space: nowrap; }
+.net-detail-card__expense-value { display: inline-flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.net-detail-card__expense-value > strong { color: #394c43; font-size: 8px; white-space: nowrap; }
+.net-detail-card__expense-value > button { width: 19px; height: 19px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #bd6b61; cursor: pointer; }
+.net-detail-card__expense-value > button:hover { background: #fff0ed; color: #bd3f32; }
 .net-detail-card__result { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 2px 8px; padding: 8px; margin-top: auto; border-radius: 8px; background: #f0f5f2; }
 .net-detail-card__result > span { color: #51635a; font-size: 7px; font-weight: 800; text-transform: uppercase; }
 .net-detail-card__result > strong { font-size: 14px; white-space: nowrap; }
