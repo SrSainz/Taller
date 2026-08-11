@@ -645,6 +645,9 @@ export function App() {
   const [homeChartMetric, setHomeChartMetric] = useState("summary");
   const [quickMenuStep, setQuickMenuStep] = useState("");
   const [quickMenuCategory, setQuickMenuCategory] = useState("");
+  const [maintenanceSearchQuery, setMaintenanceSearchQuery] = useState("");
+  const [maintenanceSearchOpen, setMaintenanceSearchOpen] = useState(false);
+  const [maintenanceSearchSelection, setMaintenanceSearchSelection] = useState(null);
   const toastTimer = useRef();
 
   useEffect(() => {
@@ -729,6 +732,13 @@ export function App() {
     return { ...vehicle, maintenance: [...recordedMaintenance, ...vehicle.maintenance] };
   }).sort((a, b) => vehicleOrder.indexOf(a.plate) - vehicleOrder.indexOf(b.plate)), [photoInvoices]);
 
+  const maintenanceSearchRecords = useMemo(() => buildMaintenanceSearchRecords(vehicles, invoices), [invoices, vehicles]);
+  const maintenanceSearchSuggestions = useMemo(() => {
+    const normalizedQuery = normalizeText(maintenanceSearchQuery.trim());
+    if (!normalizedQuery) return [];
+    return maintenanceSearchRecords.filter((record) => record.searchText.includes(normalizedQuery)).slice(0, 5);
+  }, [maintenanceSearchQuery, maintenanceSearchRecords]);
+
   useEffect(() => {
     window.localStorage.setItem(photoInvoiceStorageKey, JSON.stringify(photoInvoices));
   }, [photoInvoices]);
@@ -736,6 +746,13 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem(processedDocumentStorageKey, JSON.stringify(processedDocuments));
   }, [processedDocuments]);
+
+  useEffect(() => {
+    if (activeNav === "Mantenimiento") return;
+    setMaintenanceSearchQuery("");
+    setMaintenanceSearchOpen(false);
+    setMaintenanceSearchSelection(null);
+  }, [activeNav]);
 
   const selected = vehicles.find((vehicle) => vehicle.plate === selectedPlate) ?? vehicles[0];
   const selectedDriver = selectedDrivers[selected.plate] ?? selected.drivers[0];
@@ -819,6 +836,13 @@ export function App() {
     if (window.location.hash !== `#/${item.slug}`) window.location.hash = `/${item.slug}`;
   };
 
+  const openMaintenanceSearchRecord = (record) => {
+    setMaintenanceSearchOpen(false);
+    setMaintenanceSearchQuery(record.item.concept);
+    setMaintenanceSearchSelection({ plate: record.plate, key: record.key, selectionId: Date.now() });
+    setMaintenancePlate(record.plate);
+  };
+
   const openGeneral = () => {
     setHomeReportTab("General");
     setHomeChartMetric("summary");
@@ -868,11 +892,12 @@ export function App() {
   return (
     <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}${activeNav === "Informes" && homeReportTab === "General" ? " app-shell--dashboard" : ""}`}>
       <main className="workspace">
-          <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}`}>
+          <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}${activeNav === "Mantenimiento" ? " topbar--maintenance" : ""}`}>
           <div className="topbar-title">
             <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
             <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : "Gestión centralizada de vehículos"}</small>}</div>
           </div>
+          {activeNav === "Mantenimiento" && <MaintenanceSearch query={maintenanceSearchQuery} open={maintenanceSearchOpen} suggestions={maintenanceSearchSuggestions} onQueryChange={setMaintenanceSearchQuery} onOpenChange={setMaintenanceSearchOpen} onSelect={openMaintenanceSearchRecord} />}
           {!compactDetailHeader && <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             <span className="date"><IconCalendar size={18} />28 jul 2026</span>
@@ -910,7 +935,7 @@ export function App() {
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
-          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} />}
+          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}
@@ -2100,23 +2125,8 @@ function LegacyMaintenanceView({ initialPlate, setModal, vehicles }) {
   );
 }
 
-function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
-  const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
-  const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
-  const [openConceptKey, setOpenConceptKey] = useState("");
-  const [maintenanceSearchQuery, setMaintenanceSearchQuery] = useState("");
-  const [maintenanceSearchOpen, setMaintenanceSearchOpen] = useState(false);
-  const pendingMaintenanceKeyRef = useRef("");
-  const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
-  const selectedBrand = getVehicleBrand(workshopVehicle);
-  const sortedMaintenance = [...workshopVehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a));
-  const maintenanceRecords = sortedMaintenance.map((item, index) => {
-    const invoice = getMaintenanceInvoice(item, workshopVehicle, invoices);
-    const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
-    return { item, invoice, details, key: getMaintenanceRecordKey(item, index) };
-  });
-  const total = sortedMaintenance.reduce((sum, item) => sum + item.amount, 0);
-  const maintenanceSearchRecords = useMemo(() => vehicles.flatMap((vehicle) => {
+function buildMaintenanceSearchRecords(vehicles, invoices) {
+  return vehicles.flatMap((vehicle) => {
     const records = [...vehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a));
     const brand = getVehicleBrand(vehicle);
     return records.map((item, index) => {
@@ -2153,13 +2163,67 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
         searchText: normalizeText(searchableFields),
       };
     });
-  }), [invoices, vehicles]);
-  const maintenanceSearchSuggestions = useMemo(() => {
-    const query = normalizeText(maintenanceSearchQuery.trim());
-    if (!query) return [];
-    return maintenanceSearchRecords.filter((record) => record.searchText.includes(query)).slice(0, 5);
-  }, [maintenanceSearchQuery, maintenanceSearchRecords]);
+  });
+}
 
+function MaintenanceSearch({ query, open, suggestions, onQueryChange, onOpenChange, onSelect }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeSearch = (event) => {
+      if (!event.target.closest?.("[data-maintenance-search]")) onOpenChange(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") onOpenChange(false);
+    };
+    document.addEventListener("pointerdown", closeSearch);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeSearch);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onOpenChange, open]);
+
+  return (
+    <div className="maintenance-search" data-maintenance-search role="search">
+      <IconSearch size={17} aria-hidden="true" />
+      <input
+        type="search"
+        value={query}
+        onChange={(event) => { onQueryChange(event.target.value); onOpenChange(true); }}
+        onFocus={() => onOpenChange(Boolean(query.trim()))}
+        placeholder="Buscar matrícula, concepto, fecha o factura"
+        aria-label="Buscar en Mantenimiento"
+        aria-autocomplete="list"
+        aria-controls="mantenimiento-busqueda-sugerencias"
+        aria-expanded={open && Boolean(query.trim())}
+      />
+      {query && <button type="button" className="maintenance-search__clear" onClick={() => { onQueryChange(""); onOpenChange(false); }} aria-label="Limpiar búsqueda"><IconX size={15} /></button>}
+      {open && query.trim() && <div className="maintenance-search-suggestions" id="mantenimiento-busqueda-sugerencias" role="listbox" aria-label="Sugerencias de mantenimiento">
+        {suggestions.length > 0 ? suggestions.map((record) => <button type="button" role="option" className="maintenance-search-suggestion" key={`${record.plate}-${record.key}`} onMouseDown={(event) => event.preventDefault()} onClick={() => onSelect(record)}>
+          <span className="maintenance-search-suggestion__main"><strong>{record.item.concept}</strong><small>{record.plate} · {record.model}</small></span>
+          <span className="maintenance-search-suggestion__meta"><strong>{formatMaintenanceDate(record.item)}</strong><small>{formatCurrency(record.item.amount)}</small></span>
+          <span className="maintenance-search-suggestion__source">{record.invoice?.provider ?? record.invoice?.id ?? "Registro de mantenimiento"}</span>
+        </button>) : <p className="maintenance-search-empty">No hay coincidencias en los registros de mantenimiento.</p>}
+      </div>}
+    </div>
+  );
+}
+
+function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenanceSearchSelection }) {
+  const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
+  const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
+  const [openConceptKey, setOpenConceptKey] = useState("");
+  const pendingMaintenanceKeyRef = useRef("");
+  const handledMaintenanceSearchRef = useRef("");
+  const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
+  const selectedBrand = getVehicleBrand(workshopVehicle);
+  const sortedMaintenance = [...workshopVehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a));
+  const maintenanceRecords = sortedMaintenance.map((item, index) => {
+    const invoice = getMaintenanceInvoice(item, workshopVehicle, invoices);
+    const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
+    return { item, invoice, details, key: getMaintenanceRecordKey(item, index) };
+  });
+  const total = sortedMaintenance.reduce((sum, item) => sum + item.amount, 0);
   useEffect(() => {
     setWorkshopPlate(initialPlate);
   }, [initialPlate]);
@@ -2172,20 +2236,21 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
   }, [workshopVehicle.plate]);
 
   useEffect(() => {
-    if (!maintenanceSearchOpen) return undefined;
-    const closeSearch = (event) => {
-      if (!event.target.closest?.("[data-maintenance-search]")) setMaintenanceSearchOpen(false);
+    if (!maintenanceSearchSelection || handledMaintenanceSearchRef.current === maintenanceSearchSelection.selectionId) return;
+    handledMaintenanceSearchRef.current = maintenanceSearchSelection.selectionId;
+    setOpenConceptKey("");
+    const revealRecord = () => {
+      setOpenMaintenanceKey(maintenanceSearchSelection.key);
+      window.setTimeout(() => document.getElementById(getMaintenanceEventDomId(maintenanceSearchSelection.plate, maintenanceSearchSelection.key))?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
     };
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") setMaintenanceSearchOpen(false);
-    };
-    document.addEventListener("pointerdown", closeSearch);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeSearch);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [maintenanceSearchOpen]);
+    if (maintenanceSearchSelection.plate === workshopVehicle.plate) {
+      revealRecord();
+      return;
+    }
+    pendingMaintenanceKeyRef.current = maintenanceSearchSelection.key;
+    setWorkshopPlate(maintenanceSearchSelection.plate);
+    window.setTimeout(revealRecord, 80);
+  }, [maintenanceSearchSelection]);
 
   useEffect(() => {
     if (!openConceptKey) return undefined;
@@ -2199,56 +2264,8 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles }) {
     window.setTimeout(() => document.getElementById("historial-mantenimiento")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 40);
   };
 
-  const openMaintenanceSearchRecord = (record) => {
-    setMaintenanceSearchOpen(false);
-    setOpenConceptKey("");
-    setMaintenanceSearchQuery(record.item.concept);
-    const revealRecord = () => {
-      setOpenMaintenanceKey(record.key);
-      window.setTimeout(() => document.getElementById(getMaintenanceEventDomId(record.plate, record.key))?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
-    };
-    if (record.plate === workshopVehicle.plate) {
-      revealRecord();
-      return;
-    }
-    pendingMaintenanceKeyRef.current = record.key;
-    setWorkshopPlate(record.plate);
-    window.setTimeout(revealRecord, 80);
-  };
-
   return (
     <section className="module-page maintenance-page">
-      <header className="maintenance-module-banner">
-        <div className="maintenance-module-banner__title">
-          <span className="maintenance-module-banner__icon"><IconTools size={19} /></span>
-          <div>
-            <span>Historial de taller</span>
-            <h1>MANTENIMIENTO</h1>
-          </div>
-        </div>
-        <div className="maintenance-search" data-maintenance-search role="search">
-          <IconSearch size={17} aria-hidden="true" />
-          <input
-            type="search"
-            value={maintenanceSearchQuery}
-            onChange={(event) => { setMaintenanceSearchQuery(event.target.value); setMaintenanceSearchOpen(true); }}
-            onFocus={() => setMaintenanceSearchOpen(Boolean(maintenanceSearchQuery.trim()))}
-            placeholder="Buscar matrícula, concepto, fecha o factura"
-            aria-label="Buscar en Mantenimiento"
-            aria-autocomplete="list"
-            aria-controls="mantenimiento-busqueda-sugerencias"
-            aria-expanded={maintenanceSearchOpen && Boolean(maintenanceSearchQuery.trim())}
-          />
-          {maintenanceSearchQuery && <button type="button" className="maintenance-search__clear" onClick={() => { setMaintenanceSearchQuery(""); setMaintenanceSearchOpen(false); }} aria-label="Limpiar búsqueda"><IconX size={15} /></button>}
-          {maintenanceSearchOpen && maintenanceSearchQuery.trim() && <div className="maintenance-search-suggestions" id="mantenimiento-busqueda-sugerencias" role="listbox" aria-label="Sugerencias de mantenimiento">
-            {maintenanceSearchSuggestions.length > 0 ? maintenanceSearchSuggestions.map((record) => <button type="button" role="option" className="maintenance-search-suggestion" key={`${record.plate}-${record.key}`} onMouseDown={(event) => event.preventDefault()} onClick={() => openMaintenanceSearchRecord(record)}>
-              <span className="maintenance-search-suggestion__main"><strong>{record.item.concept}</strong><small>{record.plate} · {record.model}</small></span>
-              <span className="maintenance-search-suggestion__meta"><strong>{formatMaintenanceDate(record.item)}</strong><small>{formatCurrency(record.item.amount)}</small></span>
-              <span className="maintenance-search-suggestion__source">{record.invoice?.provider ?? record.invoice?.id ?? "Registro de mantenimiento"}</span>
-            </button>) : <p className="maintenance-search-empty">No hay coincidencias en los registros de mantenimiento.</p>}
-          </div>}
-        </div>
-      </header>
       <nav className="maintenance-vehicle-banners" aria-label="Vehículos de la flota">
         {vehicles.map((vehicle, index) => {
           const brand = getVehicleBrand(vehicle);
