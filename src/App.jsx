@@ -56,6 +56,7 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
+import { funesmotorsportDocuments, funesmotorsportImportMeta } from "./data/funesmotorsportSummary";
 
 const BILLING_COLOR = "#7bc887";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -275,6 +276,22 @@ const invoiceSeed = [
   { id: "FAC-2026-1761", date: "12 jun 2026", provider: "Lexus Service", plate: "0344 LCP", concept: "Aceite y filtros", amount: 224.8, source: "Manual", status: "Asociada" },
   { id: "FAC-2026-1684", date: "28 may 2026", provider: "Peugeot Madrid", plate: "9401 LTG", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
 ];
+
+const funesmotorsportInvoiceSeed = funesmotorsportDocuments.map((document) => ({
+  id: document.id,
+  date: document.date,
+  dateIso: document.dateIso,
+  provider: "Funes Motorsport",
+  plate: document.plate,
+  concept: document.concept,
+  amount: document.amount,
+  source: "Resumen estructurado autorizado",
+  status: document.typeLabel,
+  documentType: document.type,
+  sourceFile: document.sourceFile,
+  sourceFiles: document.sourceFiles,
+  items: document.items,
+}));
 
 const maintenanceConceptRows = [
   { label: "Aceite y filtro", matches: ["aceite y filtro", "aceite motor", "filtro de aceite"] },
@@ -765,7 +782,7 @@ export function App() {
     };
   }, []);
 
-  const invoices = useMemo(() => [...photoInvoices, ...invoiceSeed], [photoInvoices]);
+  const invoices = useMemo(() => [...photoInvoices, ...funesmotorsportInvoiceSeed, ...invoiceSeed], [photoInvoices]);
   const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
     const recordedMaintenance = photoInvoices
       .filter((invoice) => invoice.plate === vehicle.plate)
@@ -777,7 +794,20 @@ export function App() {
         amount: Number(invoice.amount) || 0,
         invoiceId: invoice.id,
       }));
-    return { ...vehicle, maintenance: [...recordedMaintenance, ...vehicle.maintenance] };
+    const importedMaintenance = funesmotorsportDocuments
+      .filter((document) => document.plate === vehicle.plate)
+      .map((document) => ({
+        date: document.date,
+        dateIso: document.dateIso,
+        km: document.km || vehicle.odometer,
+        concept: document.concept,
+        amount: document.amount,
+        invoiceId: document.id,
+        documentType: document.type,
+        sourceFile: document.sourceFile,
+        sourceFiles: document.sourceFiles,
+      }));
+    return { ...vehicle, maintenance: [...recordedMaintenance, ...importedMaintenance, ...vehicle.maintenance] };
   }).sort((a, b) => vehicleOrder.indexOf(a.plate) - vehicleOrder.indexOf(b.plate)), [photoInvoices]);
 
   const maintenanceSearchRecords = useMemo(() => buildMaintenanceSearchRecords(vehicles, invoices), [invoices, vehicles]);
@@ -2367,6 +2397,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
   const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
   const selectedBrand = getVehicleBrand(workshopVehicle);
   const sortedMaintenance = [...workshopVehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a));
+  const importedDocumentCount = funesmotorsportDocuments.filter((document) => document.plate === workshopVehicle.plate).length;
   const maintenanceRecords = sortedMaintenance.map((item, index) => {
     const invoice = getMaintenanceInvoice(item, workshopVehicle, invoices);
     const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
@@ -2440,7 +2471,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
             <span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt="" /></span>
             <span><h2>{workshopVehicle.plate}</h2></span>
           </div>
-          <div className="maintenance-history-total"><small>{sortedMaintenance.length} intervenciones</small><strong>{formatCurrency(total)}</strong></div>
+          <div className="maintenance-history-total"><small>{sortedMaintenance.length} intervenciones</small><small>{funesmotorsportImportMeta.sourceLabel}: {importedDocumentCount} documentos estructurados</small><strong>{formatCurrency(total)}</strong></div>
         </header>
         <div className="maintenance-timeline" aria-label={`Historial de mantenimiento de ${workshopVehicle.plate}`}>
           <header className="maintenance-timeline-heading">
