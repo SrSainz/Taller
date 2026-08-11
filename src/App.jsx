@@ -294,7 +294,6 @@ const maintenanceConceptRows = [
 
 const photoInvoiceStorageKey = "talleria:photo-invoices:v1";
 const processedDocumentStorageKey = "talleria:processed-documents:v1";
-const cameraPermissionStorageKey = "talleria:camera-permission:v1";
 const migratedPlates = { "3456 HTR": "0344 LCP", "7890 GYL": "9401 LTG" };
 
 const loadPhotoInvoices = () => {
@@ -561,89 +560,15 @@ function BottomNavigation({ onHome, onAdd, onProfile, homeActive }) {
   );
 }
 
-function LegacyQuickActionMenu({ step, category, onCategory, onAction }) {
-  const cameraInputRef = useRef(null);
-  const uploadInputRef = useRef(null);
-  const [permissionSource, setPermissionSource] = useState("");
-  useEffect(() => {
-    if (step !== "sources") setPermissionSource("");
-  }, [step]);
-  const handleSource = (source) => {
-    setPermissionSource(source);
-  };
-  const openNativePicker = (input) => {
-    if (!input) return;
-    input.value = "";
-    try {
-      if (typeof input.showPicker === "function") {
-        input.showPicker();
-        return;
-      }
-    } catch {
-      // Some mobile browsers expose showPicker but only allow click().
-    }
-    input.click();
-  };
-  const allowSource = () => {
-    const source = permissionSource;
-    const input = source === "camera" ? cameraInputRef.current : uploadInputRef.current;
-    setPermissionSource("");
-    openNativePicker(input);
-  };
-  const handleFile = (event, source) => {
-    const file = event.target.files?.[0];
-    if (file) onAction({ category, source, file });
-    event.target.value = "";
-  };
-
-  if (!step) return null;
-  return (
-    <div className={`bottom-navigation__quick-menu bottom-navigation__quick-menu--${step}${permissionSource ? " bottom-navigation__quick-menu--permission" : ""}`} onClick={(event) => event.stopPropagation()} role={permissionSource ? "dialog" : "menu"} aria-modal={permissionSource ? "true" : undefined} aria-labelledby={permissionSource ? "quick-permission-title" : undefined} aria-label={permissionSource ? undefined : step === "categories" ? "Seleccionar tipo de registro" : "Seleccionar origen del archivo"}>
-      {step === "categories" ? (
-        <div className="bottom-navigation__quick-options bottom-navigation__quick-options--categories">
-          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--billing" onClick={() => onCategory("billing")}><IconFileInvoice size={21} /><span>Facturación</span></button>
-          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--fuel" onClick={() => onCategory("consumption")}><IconGasStation size={21} /><span>Consumo</span></button>
-        </div>
-      ) : permissionSource ? (
-        <div className="bottom-navigation__permission" aria-live="polite">
-          <span className="bottom-navigation__permission-icon">{permissionSource === "camera" ? <IconCamera size={22} /> : <IconUpload size={22} />}</span>
-          <strong id="quick-permission-title">¿Permites el acceso a {permissionSource === "camera" ? "la cámara" : "tus fotos y archivos"}?</strong>
-          <p>{permissionSource === "camera" ? "Necesitamos la cámara para tomar una foto desde la aplicación." : "Necesitamos acceder al álbum para que puedas elegir una foto o un archivo."}</p>
-          <div className="bottom-navigation__permission-actions">
-            <button type="button" className="secondary-button" onClick={() => setPermissionSource("")}>Cancelar</button>
-            <button type="button" className="primary-button" onClick={allowSource}>Permitir</button>
-          </div>
-        </div>
-      ) : (
-        <div className="bottom-navigation__quick-options bottom-navigation__quick-options--sources">
-          <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("camera")}><IconCamera size={19} /><span>Cámara</span></button>
-          <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("upload")}><IconUpload size={19} /><span>Subir archivo</span></button>
-        </div>
-      )}
-      <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" aria-label="Tomar una foto con la cámara" onChange={(event) => handleFile(event, "camera")} />
-      <input ref={uploadInputRef} className="sr-only" type="file" accept="*/*" aria-label="Seleccionar un archivo del dispositivo" onChange={(event) => handleFile(event, "upload")} />
-    </div>
-  );
-}
-
-function QuickActionMenu({ step, category, onCategory, onAction, onDocumentAction, onNotice }) {
-  const cameraInputRef = useRef(null);
-  const uploadInputRef = useRef(null);
-  const [permissionSource, setPermissionSource] = useState("");
-  const [permissionBusy, setPermissionBusy] = useState(false);
-  const [permissionMessage, setPermissionMessage] = useState("");
-  const [fileError, setFileError] = useState("");
+function QuickActionMenu({ step, category, onCategory, onDocumentAction, onNotice }) {
+  const nativeInputRef = useRef(null);
+  const categoryRef = useRef(category);
 
   useEffect(() => {
-    if (step !== "sources") {
-      setPermissionSource("");
-      setPermissionBusy(false);
-      setPermissionMessage("");
-      setFileError("");
-    }
-  }, [step]);
+    categoryRef.current = category;
+  }, [category]);
 
-  const openNativePicker = (input) => {
+  const openNativePicker = (input = nativeInputRef.current) => {
     if (!input) return;
     input.value = "";
     try {
@@ -657,127 +582,35 @@ function QuickActionMenu({ step, category, onCategory, onAction, onDocumentActio
     input.click();
   };
 
-  const handleSource = (source) => {
-    setFileError("");
-    setPermissionMessage("");
-    if (source === "camera" && window.localStorage.getItem(cameraPermissionStorageKey) === "denied") {
-      setPermissionSource("camera-denied");
-      return;
-    }
-    setPermissionSource(source);
+  const handleCategory = (nextCategory) => {
+    categoryRef.current = nextCategory;
+    openNativePicker();
+    onCategory(nextCategory);
   };
 
-  const requestCameraPermission = async () => {
-    if (permissionBusy) return;
-    setPermissionBusy(true);
-    setPermissionMessage("");
-    try {
-      const canRequestOfficialPermission = window.isSecureContext && navigator.mediaDevices?.getUserMedia;
-      if (canRequestOfficialPermission) {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
-        stream.getTracks().forEach((track) => track.stop());
-      }
-      window.localStorage.removeItem(cameraPermissionStorageKey);
-      setPermissionSource("");
-      window.setTimeout(() => openNativePicker(cameraInputRef.current), 0);
-    } catch (error) {
-      if (error?.name === "AbortError") {
-        setPermissionMessage("La solicitud de cámara se ha cancelado.");
-      } else {
-        window.localStorage.setItem(cameraPermissionStorageKey, "denied");
-        setPermissionSource("camera-denied");
-        setPermissionMessage("El permiso de cámara está bloqueado. Puedes cambiarlo desde los ajustes del dispositivo.");
-      }
-    } finally {
-      setPermissionBusy(false);
-    }
-  };
-
-  const allowSource = () => {
-    if (permissionSource === "camera") {
-      requestCameraPermission();
-      return;
-    }
-    setPermissionSource("");
-    openNativePicker(uploadInputRef.current);
-  };
-
-  const openDeviceSettings = () => {
-    const nativeBridge = window.SobreRuedasNative ?? window.Capacitor?.Plugins?.App;
-    if (typeof nativeBridge?.openSettings === "function") {
-      Promise.resolve(nativeBridge.openSettings()).catch(() => {});
-      return;
-    }
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    const settingsUrl = isAndroid
-      ? "intent://settings#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;end"
-      : "app-settings:";
-    const opened = window.open(settingsUrl, "_blank", "noopener,noreferrer");
-    if (!opened) setPermissionMessage("Abre los ajustes del navegador o de la aplicación y activa el permiso de cámara.");
-  };
-
-  const retryCameraPermission = () => {
-    window.localStorage.removeItem(cameraPermissionStorageKey);
-    setPermissionMessage("");
-    setPermissionSource("camera");
-  };
-
-  const handleFile = (event, source) => {
+  const handleFile = (event) => {
     const file = event.target.files?.[0];
     if (file) {
-      const validation = validateDocumentFile(file, source);
+      const validation = validateDocumentFile(file, "upload");
       if (!validation.valid) {
-        setFileError(validation.message);
         onNotice?.(validation.message);
       } else {
-        (onDocumentAction ?? onAction)({ category, source, file });
+        onDocumentAction({ category: categoryRef.current, source: "upload", file });
       }
     }
     event.target.value = "";
   };
 
-  if (!step) return null;
   return (
-    <div className={`bottom-navigation__quick-menu bottom-navigation__quick-menu--${step}${permissionSource ? " bottom-navigation__quick-menu--permission" : ""}`} onClick={(event) => event.stopPropagation()} role={permissionSource ? "dialog" : "menu"} aria-modal={permissionSource ? "true" : undefined} aria-labelledby={permissionSource ? "quick-permission-title" : undefined} aria-label={permissionSource ? undefined : step === "categories" ? "Seleccionar tipo de registro" : "Seleccionar origen del archivo"}>
-      {step === "categories" ? (
+    <>
+      {step === "categories" && <div className="bottom-navigation__quick-menu bottom-navigation__quick-menu--categories" onClick={(event) => event.stopPropagation()} role="menu" aria-label="Seleccionar tipo de registro">
         <div className="bottom-navigation__quick-options bottom-navigation__quick-options--categories">
-          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--billing" onClick={() => onCategory("billing")}><IconFileInvoice size={21} /><span>Facturación</span></button>
-          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--fuel" onClick={() => onCategory("consumption")}><IconGasStation size={21} /><span>Consumo</span></button>
+          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--billing" onClick={() => handleCategory("billing")}><IconFileInvoice size={21} /><span>Facturación</span></button>
+          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--fuel" onClick={() => handleCategory("consumption")}><IconGasStation size={21} /><span>Consumo</span></button>
         </div>
-      ) : permissionSource === "camera-denied" ? (
-        <div className="bottom-navigation__permission bottom-navigation__permission--denied" aria-live="polite">
-          <span className="bottom-navigation__permission-icon"><IconAlertTriangle size={22} /></span>
-          <strong id="quick-permission-title">Permiso de cámara bloqueado</strong>
-          <p>{permissionMessage || "No volveremos a pedirlo automáticamente. Actívalo desde los ajustes del dispositivo para tomar fotos."}</p>
-          <div className="bottom-navigation__permission-actions">
-            <button type="button" className="secondary-button" onClick={() => setPermissionSource("")}>Cerrar</button>
-            <button type="button" className="primary-button" onClick={openDeviceSettings}>Abrir ajustes</button>
-          </div>
-          <button type="button" className="text-button" onClick={retryCameraPermission}>Comprobar permiso de nuevo</button>
-        </div>
-      ) : permissionSource ? (
-        <div className="bottom-navigation__permission" aria-live="polite">
-          <span className="bottom-navigation__permission-icon">{permissionSource === "camera" ? <IconCamera size={22} /> : <IconUpload size={22} />}</span>
-          <strong id="quick-permission-title">{permissionSource === "camera" ? "¿Permites el acceso a la cámara?" : "¿Quieres elegir una imagen o documento?"}</strong>
-          <p>{permissionSource === "camera" ? "Al continuar aparecerá el diálogo oficial de Android o iOS. Solo usaremos la cámara para esta foto." : "Se abrirá el selector oficial del dispositivo, que controla el acceso a tus fotos y documentos."}</p>
-          <div className="bottom-navigation__permission-actions">
-            <button type="button" className="secondary-button" onClick={() => setPermissionSource("")}>Cancelar</button>
-            <button type="button" className="primary-button" onClick={allowSource} disabled={permissionBusy}>{permissionBusy ? "Solicitando…" : "Continuar"}</button>
-          </div>
-          {permissionMessage && <small className="bottom-navigation__permission-message" role="status">{permissionMessage}</small>}
-        </div>
-      ) : (
-        <>
-          <div className="bottom-navigation__quick-options bottom-navigation__quick-options--sources">
-            <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("camera")}><IconCamera size={19} /><span>Cámara</span></button>
-            <button type="button" role="menuitem" className="bottom-navigation__quick-option" onClick={() => handleSource("upload")}><IconUpload size={19} /><span>Subir archivo</span></button>
-          </div>
-          {fileError && <p className="bottom-navigation__file-error" role="alert">{fileError}</p>}
-        </>
-      )}
-      <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" aria-label="Tomar una foto con la cámara" onCancel={() => setFileError("La captura se ha cancelado.")} onChange={(event) => handleFile(event, "camera")} />
-      <input ref={uploadInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Seleccionar una imagen o documento del dispositivo" onCancel={() => setFileError("La selección se ha cancelado.")} onChange={(event) => handleFile(event, "upload")} />
-    </div>
+      </div>}
+      <input ref={nativeInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Seleccionar una acción: Cámara o Archivos" onChange={handleFile} />
+    </>
   );
 }
 
@@ -1105,10 +938,9 @@ export function App() {
       <QuickActionMenu
         step={quickMenuStep}
         category={quickMenuCategory}
-        onCategory={(category) => { setQuickMenuCategory(category); setQuickMenuStep("sources"); }}
+        onCategory={(category) => { setQuickMenuCategory(category); setQuickMenuStep(""); }}
         onNotice={(message) => notify(message)}
         onDocumentAction={({ category, source, file }) => { setQuickMenuStep(""); setQuickMenuCategory(""); setModal({ type: "document-processing", category, source, file, selectedPlate }); }}
-        onAction={({ category, source, file }) => { setQuickMenuStep(""); notify(`${source === "camera" ? "Cámara" : "Archivo"} listo para ${category === "billing" ? "facturación" : "consumo"}${file ? ` · ${file.name}` : ""}`); }}
       />
       {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
