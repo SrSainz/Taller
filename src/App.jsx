@@ -1500,7 +1500,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 <div className="report-chart report-chart--summary">
                   {hasChartData ? <>
                     <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 4 }} barCategoryGap="16%" onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
+                    <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 4 }} barCategoryGap="18%" barGap={3} onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
                       {selectedChartBar && <ReferenceArea x1={selectedChartBar} x2={selectedChartBar} fill="#edf0ee" fillOpacity={0.9} stroke="none" ifOverflow="extendDomain" zIndex={-20} />}
                       <CartesianGrid stroke="#e9efed" vertical={false} />
                       <XAxis dataKey="label" interval={0} tick={{ fontSize: 8, fontWeight: chartMetric === "billing" ? 400 : 700, fill: "#75817d" }} axisLine={false} tickLine={false} />
@@ -1508,10 +1508,10 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
-                        {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" stackId="vehicle-summary" fill={BILLING_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" stackId="vehicle-summary" fill={MAINTENANCE_COLOR} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" stackId="vehicle-summary" fill="#df4538" maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" stackId="vehicle-summary" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={82} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" fill={BILLING_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" fill={MAINTENANCE_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill="#df4538" maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
                       </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} isAnimationActive={false} activeBar={false} onClick={selectChartBar}>
                         {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
                       </Bar>}
