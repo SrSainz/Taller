@@ -97,5 +97,6 @@ When implementing from a selected generated mock, treat that image as the source
 - The General chart checklist opens with all individual checks empty while Resumen remains the default combined view; explicitly selected metrics fill their checks, change only the chart data, update the icon composition, and show uppercase titles without explanatory subtitles in a fixed chart layout.
 
 - The fixed bottom plus opens the same two source actions for Facturación and Consumo; the source menu has no redundant category heading, and Cámara or Subir archivo first shows an explicit consent prompt before opening the native picker.
+- The General “Resumen general por coche” chart is presented as a compact clickable preview; selecting it opens a dialog with independent Facturación, Mantenimiento, Combustible, and Neto charts using their established colors and the active period.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.

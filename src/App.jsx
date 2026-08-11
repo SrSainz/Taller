@@ -1083,6 +1083,55 @@ function ChartMetricMenu({ selectedMetrics, onToggleMetric, onSelectSummary }) {
   );
 }
 
+function ChartDetailModal({ charts, periodLabel, onClose }) {
+  const closeButtonRef = useRef(null);
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+  return (
+    <div className="chart-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="chart-detail-modal" role="dialog" aria-modal="true" aria-labelledby="chart-detail-title" aria-describedby="chart-detail-period">
+        <header className="chart-detail-modal__header">
+          <div className="chart-detail-modal__heading">
+            <span>Detalle visual</span>
+            <h2 id="chart-detail-title">Resumen general por coche</h2>
+            <small id="chart-detail-period">{periodLabel}</small>
+          </div>
+          <button ref={closeButtonRef} type="button" className="icon-button chart-detail-modal__close" onClick={onClose} aria-label="Cerrar gráficas"><IconX size={20} /></button>
+        </header>
+        <div className="chart-detail-modal__grid">
+          {charts.map((chart) => {
+            const hasData = chart.data.some((item) => item.value !== 0);
+            return (
+              <article className={`chart-detail-card chart-detail-card--${chart.key}`} key={chart.key}>
+                <header className="chart-detail-card__header">
+                  <span className={`chart-detail-card__icon chart-detail-card__icon--${chart.key}`}><IconChartBar size={17} /></span>
+                  <span><strong>{chart.label}</strong><small>{chart.subtitle}</small></span>
+                  <strong className="chart-detail-card__total">{formatCurrency(chart.total)}</strong>
+                </header>
+                <div className="chart-detail-card__plot">
+                  {hasData ? <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chart.data} margin={{ top: 8, right: 2, left: 0, bottom: 3 }} barCategoryGap="24%">
+                      <CartesianGrid stroke="#e9efed" vertical={false} />
+                      <XAxis dataKey="label" interval={0} tick={{ fontSize: 7, fontWeight: chart.key === "billing" ? 500 : 750, fill: "#75817d" }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 7, fill: "#87918d" }} axisLine={false} tickLine={false} width={26} />
+                      <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => [formatCurrency(Number(value)), chart.label]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 9, borderColor: "#dce5e1", fontSize: 9 }} />
+                      {chart.key === "net" && <ReferenceLine y={0} stroke="#aab5b1" />}
+                      <Bar dataKey="value" fill={chart.color} radius={[4, 4, 0, 0]} maxBarSize={44} minPointSize={2} isAnimationActive={false} activeBar={false}>
+                        {chart.data.map((entry) => <Cell key={`${chart.key}-${entry.label}`} fill={chart.key === "net" && entry.value < 0 ? "#df4538" : chart.color} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer> : <div className="chart-detail-card__empty"><IconChartBar size={20} /><span>Sin datos en este periodo</span></div>}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
@@ -1096,6 +1145,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
   const [selectedChartBar, setSelectedChartBar] = useState("");
+  const [chartDetailOpen, setChartDetailOpen] = useState(false);
   const [billingDriverKey, setBillingDriverKey] = useState("");
   const [billingVehiclePlate, setBillingVehiclePlate] = useState("");
   useEffect(() => {
@@ -1128,6 +1178,17 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     document.addEventListener("pointerdown", closeOnPointerDown);
     return () => document.removeEventListener("pointerdown", closeOnPointerDown);
   }, [periodMenu]);
+  useEffect(() => {
+    if (!chartDetailOpen) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setChartDetailOpen(false); };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [chartDetailOpen]);
   useEffect(() => {
     if (!billingDriverKey) return undefined;
     const animationFrame = window.requestAnimationFrame(() => {
@@ -1205,6 +1266,12 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     fuel: fuelChartData.reduce((sum, item) => sum + item.value, 0),
     net: netChartData.reduce((sum, item) => sum + item.value, 0),
   };
+  const chartDetailSeries = [
+    { key: "billing", label: "FACTURACIÓN", subtitle: "POR CONDUCTOR", data: billingChartData, color: BILLING_COLOR, total: periodTotals.billing },
+    { key: "maintenance", label: "MANTENIMIENTO", subtitle: "POR COCHE", data: maintenanceChartData, color: MAINTENANCE_COLOR, total: periodTotals.maintenance },
+    { key: "fuel", label: "COMBUSTIBLE", subtitle: "POR COCHE", data: fuelChartData, color: "#df4538", total: periodTotals.fuel },
+    { key: "net", label: "NETO", subtitle: "POR COCHE", data: netChartData, color: "#28923c", total: periodTotals.net },
+  ];
   const summaryChartData = vehicles.map((vehicle, index) => ({
     label: vehicle.plate,
     detail: vehicle.model,
@@ -1266,6 +1333,16 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     : selectedChartMetrics.length === 1
       ? chartMetricOptions.find((option) => option.value === selectedChartMetrics[0])?.label
       : `${selectedChartMetrics.length} seleccionados`;
+  const openChartDetail = (event) => {
+    if (event.target?.closest?.("button, [role='listbox'], .report-period-menu, .report-chart-filters")) return;
+    setPeriodMenu("");
+    setChartDetailOpen(true);
+  };
+  const handleChartDetailKeyDown = (event) => {
+    if (event.target !== event.currentTarget || !["Enter", " "].includes(event.key)) return;
+    event.preventDefault();
+    setChartDetailOpen(true);
+  };
 
   useEffect(() => {
     if (!periodMenu) return;
@@ -1324,7 +1401,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 <ReportStatCard wide icon={IconTool} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
                 <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} onClick={() => setChartMetric("net")} />
               </div>
-              <section className="report-chart-card">
+              <section className="report-chart-card report-chart-card--compact-preview" role="button" tabIndex={0} aria-haspopup="dialog" aria-label="Abrir las cuatro gráficas del resumen general por coche" onClick={openChartDetail} onKeyDown={handleChartDetailKeyDown}>
                 <header className="report-chart-card__top">
                   <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong></span></div>
                   <div className="report-chart-filters" role="group" aria-label="Filtros del gráfico">
@@ -1373,6 +1450,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
+              {chartDetailOpen && <ChartDetailModal charts={chartDetailSeries} periodLabel={selectedPeriodLabel} onClose={() => setChartDetailOpen(false)} />}
             </div>
           </>
         )}
