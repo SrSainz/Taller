@@ -1167,14 +1167,9 @@ function ChartDetailModal({ charts, periodLabel, onClose }) {
   return (
     <div className="chart-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="chart-detail-modal" role="dialog" aria-modal="true" aria-labelledby="chart-detail-title" aria-describedby="chart-detail-period">
-        <header className="chart-detail-modal__header">
-          <div className="chart-detail-modal__heading">
-            <span>Detalle visual</span>
-            <h2 id="chart-detail-title">Resumen general por coche</h2>
-            <small id="chart-detail-period">{periodLabel}</small>
-          </div>
-          <button ref={closeButtonRef} type="button" className="icon-button chart-detail-modal__close" onClick={onClose} aria-label="Cerrar gráficas"><IconX size={20} /></button>
-        </header>
+        <h2 id="chart-detail-title" className="sr-only">Resumen general por coche</h2>
+        <p id="chart-detail-period" className="sr-only">{periodLabel}</p>
+        <button ref={closeButtonRef} type="button" className="icon-button chart-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
         <div className="chart-detail-modal__grid">
           {charts.map((chart) => {
             const hasData = chart.data.some((item) => item.value !== 0);

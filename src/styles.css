@@ -366,15 +366,11 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .report-chart-card--compact-preview .report-chart-card__top { cursor: default; }
 .report-chart-card--compact-preview .report-chart { min-height: 0; }
 .chart-detail-backdrop { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: clamp(12px, 3vw, 28px); background: rgba(15, 31, 26, .58); }
-.chart-detail-modal { width: min(980px, 100%); max-height: min(88dvh, 780px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #cbded5; border-radius: 18px; background: #f7fbf8; box-shadow: 0 24px 70px rgba(10, 39, 29, .28); }
-.chart-detail-modal__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid #dce8e2; background: #fff; }
-.chart-detail-modal__heading { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.chart-detail-modal__heading > span { color: #238064; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.chart-detail-modal__heading h2 { margin: 0; color: #1c332b; font-size: 18px; line-height: 1.1; text-transform: uppercase; }
-.chart-detail-modal__heading small { color: #75817d; font-size: 9px; font-weight: 700; text-transform: uppercase; }
-.chart-detail-modal__close { flex: 0 0 auto; }
-.chart-detail-modal__grid { min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; padding: 14px; overflow-y: auto; overscroll-behavior: contain; }
-.chart-detail-card { min-width: 0; min-height: 222px; display: flex; flex-direction: column; gap: 7px; padding: 11px 12px 8px; border: 1px solid #dce8e2; border-radius: 13px; background: #fff; box-shadow: 0 4px 12px rgba(38,67,58,.06); }
+.chart-detail-modal { position: relative; width: min(980px, 100%); height: min(88dvh, 780px); max-height: min(88dvh, 780px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #cbded5; border-radius: 18px; background: #f7fbf8; box-shadow: 0 24px 70px rgba(10, 39, 29, .28); }
+.chart-detail-modal__close { position: absolute; top: 9px; right: 10px; z-index: 3; width: 32px; height: 32px; flex: 0 0 auto; border: 1px solid #d3e1db; border-radius: 9px; background: #fff; color: #315148; box-shadow: 0 3px 10px rgba(20,55,45,.1); pointer-events: auto; }
+.chart-detail-modal__close:hover, .chart-detail-modal__close:focus-visible { background: #eef7f2; color: var(--green-900); outline: 2px solid #8cc6ad; outline-offset: 1px; }
+.chart-detail-modal__grid { min-height: 0; height: 100%; display: grid; flex: 1 1 auto; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 11px; padding: 50px 14px 14px; overflow: hidden; overscroll-behavior: contain; }
+.chart-detail-card { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 7px; padding: 11px 12px 8px; border: 1px solid #dce8e2; border-radius: 13px; background: #fff; box-shadow: 0 4px 12px rgba(38,67,58,.06); }
 .chart-detail-card__header { min-width: 0; display: flex; align-items: center; gap: 8px; }
 .chart-detail-card__icon { width: 28px; height: 28px; display: grid; place-items: center; flex: 0 0 28px; border-radius: 8px; color: #fff; }
 .chart-detail-card__icon--billing { background: var(--billing-light); color: #236b35; }
@@ -389,7 +385,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .chart-detail-card--maintenance .chart-detail-card__total { color: var(--maintenance-orange-strong); }
 .chart-detail-card--fuel .chart-detail-card__total { color: #d43b30; }
 .chart-detail-card--net .chart-detail-card__total { color: #278c3b; }
-.chart-detail-card__plot { min-height: 0; height: 174px; }
+.chart-detail-card__plot { min-height: 0; height: auto; flex: 1 1 auto; }
 .chart-detail-card__plot .recharts-wrapper, .chart-detail-card__plot .recharts-surface, .chart-detail-card__plot .recharts-bar-rectangle, .chart-detail-card__plot .recharts-tooltip-wrapper { outline: 0 !important; }
 .chart-detail-card__plot .recharts-bar-rectangle:focus, .chart-detail-card__plot .recharts-bar-rectangle:focus-visible { outline: 0 !important; stroke: none !important; }
 .chart-detail-card__empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 5px; color: #87918d; font-size: 8px; }
@@ -1481,12 +1477,17 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 
 @media (max-width: 720px) {
   .chart-detail-backdrop { align-items: stretch; padding: 8px; }
-  .chart-detail-modal { max-height: calc(100dvh - 16px); border-radius: 14px; }
-  .chart-detail-modal__header { padding: 12px 13px; }
-  .chart-detail-modal__heading h2 { font-size: 15px; }
-  .chart-detail-modal__grid { grid-template-columns: 1fr; gap: 8px; padding: 9px; }
-  .chart-detail-card { min-height: 181px; padding: 9px 10px 7px; }
-  .chart-detail-card__plot { height: 137px; }
+  .chart-detail-modal { height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); border-radius: 14px; }
+  .chart-detail-modal__close { top: 7px; right: 7px; width: 30px; height: 30px; }
+  .chart-detail-modal__grid { gap: 8px; padding: 46px 8px 8px; }
+  .chart-detail-card { padding: 8px 8px 6px; border-radius: 10px; }
+  .chart-detail-card__header { gap: 5px; }
+  .chart-detail-card__icon { width: 23px; height: 23px; flex-basis: 23px; border-radius: 6px; }
+  .chart-detail-card__icon svg { width: 14px; height: 14px; }
+  .chart-detail-card__header > span:nth-child(2) { gap: 1px; }
+  .chart-detail-card__header > span:nth-child(2) strong { font-size: 8px; }
+  .chart-detail-card__header > span:nth-child(2) small { font-size: 5.5px; }
+  .chart-detail-card__total { font-size: 8px; }
 }
 
 @media (max-width: 520px) {
