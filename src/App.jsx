@@ -526,6 +526,68 @@ const getDriverWeekStart = (date) => {
   return start;
 };
 const getDriverEntryAmount = (entry, key) => Number(entry?.[key]) || 0;
+const getDriverDocumentNumber = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const raw = String(value ?? "").replace(/[^\d,.-]/g, "").trim();
+  if (!raw) return 0;
+  const normalized = raw.includes(",") && raw.includes(".") ? raw.replace(/\./g, "").replace(",", ".") : raw.replace(",", ".");
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : 0;
+};
+const getDriverCalendarDays = (anchor = new Date(), monthSpan = 2) => {
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const end = new Date(start.getFullYear(), start.getMonth() + monthSpan, 0);
+  const days = [];
+  for (const current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
+    days.push({ key: getDriverDateKey(current), date: new Date(current) });
+  }
+  return days;
+};
+const getDriverDayParts = (value) => {
+  const date = parseDriverDateKey(value) ?? new Date();
+  return {
+    weekday: new Intl.DateTimeFormat("es-ES", { weekday: "long" }).format(date).replace(/\./g, ""),
+    day: new Intl.DateTimeFormat("es-ES", { day: "2-digit" }).format(date),
+    month: new Intl.DateTimeFormat("es-ES", { month: "long" }).format(date).replace(/\./g, ""),
+  };
+};
+const formatDriverDateLong = (value) => {
+  const parts = getDriverDayParts(value);
+  return `${parts.weekday} ${parts.day} de ${parts.month}`;
+};
+const formatDriverMonthLong = (value) => {
+  const date = parseDriverDateKey(value) ?? new Date();
+  return new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(date).replace(/\./g, "");
+};
+const normalizeDriverDocumentDate = (value) => {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const iso = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso) return `${iso[1]}-${String(iso[2]).padStart(2, "0")}-${String(iso[3]).padStart(2, "0")}`;
+  const european = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (european) return `${european[3]}-${String(european[2]).padStart(2, "0")}-${String(european[1]).padStart(2, "0")}`;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : getDriverDateKey(parsed);
+};
+const getDriverDocumentDateKey = (document) => {
+  const extracted = document?.extracted_data ?? {};
+  return [extracted.date, extracted.entryDate, extracted.invoiceDate, extracted.serviceDate, extracted.documentDate, extracted.fecha, document?.created_at]
+    .map(normalizeDriverDocumentDate)
+    .find(Boolean) ?? null;
+};
+const getDriverFormValue = (value) => value === null || value === undefined ? "" : String(value);
+const getDriverEntryForm = (date, item) => ({
+  entryDate: date,
+  fuelCost: getDriverFormValue(item?.fuel_cost),
+  fuelLiters: getDriverFormValue(item?.fuel_liters),
+  odometerKm: getDriverFormValue(item?.odometer_km),
+  billing: getDriverFormValue(item?.billing),
+  cashCollected: getDriverFormValue(item?.cash_collected),
+  tips: getDriverFormValue(item?.tips),
+  tolls: getDriverFormValue(item?.tolls),
+  otherExpenses: getDriverFormValue(item?.other_expenses),
+  notes: getDriverFormValue(item?.notes),
+});
 const normalizeText = (value = "") => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
 const getMaintenanceRecordKey = (item, index = 0) => `${item.date}-${item.concept}-${item.km}-${index}`;
 const getMaintenanceEventDomId = (plate, key) => `maintenance-event-${normalizeText(`${plate}-${key}`).replace(/[^a-z0-9]+/g, "-")}`;
@@ -1285,12 +1347,16 @@ function AccessBlockedScreen({ onSignOut }) {
 }
 
 function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview }) {
-  const [entry, setEntry] = useState({ entryDate: getDriverDateKey(), fuelCost: "", fuelLiters: "", odometerKm: "", billing: "", cashCollected: "", tips: "", tolls: "", otherExpenses: "", notes: "" });
+  const [selectedDate, setSelectedDate] = useState(getDriverDateKey());
+  const [entry, setEntry] = useState(() => getDriverEntryForm(getDriverDateKey()));
   const [entries, setEntries] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [documentPreviews, setDocumentPreviews] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(true);
   const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const selectedDayButtonRef = useRef(null);
   const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profile.vehicle_plate);
   const activeProfileId = profile.id ?? session.user.id;
 
@@ -1299,15 +1365,48 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     if (!supabase) return undefined;
     Promise.all([
       supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
-      supabase.from("documents").select("id, category, file_name, file_size, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(6),
+      supabase.from("documents").select("id, category, vehicle_plate, file_path, file_name, mime_type, file_size, extracted_data, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(180),
     ]).then(([entryResult, documentResult]) => {
       if (!mounted) return;
       if (entryResult.error) setMessage(entryResult.error.message);
+      if (documentResult.error) setMessage(documentResult.error.message);
       setEntries(entryResult.data ?? []);
-      setLoading(false);
-    }).catch((error) => { if (mounted) { setMessage(error.message); setLoading(false); } });
+      setDocuments(documentResult.data ?? []);
+      setDocumentsLoading(false);
+    }).catch((error) => { if (mounted) { setMessage(error.message); setDocumentsLoading(false); } });
     return () => { mounted = false; };
   }, [activeProfileId]);
+
+  useEffect(() => {
+    const selectedEntry = entries.find((item) => String(item.entry_date) === selectedDate);
+    setEntry(getDriverEntryForm(selectedDate, selectedEntry));
+    setFile(null);
+  }, [entries, selectedDate]);
+
+  const calendarDays = useMemo(() => getDriverCalendarDays(parseDriverDateKey(selectedDate) ?? new Date(), 2), [selectedDate]);
+  const selectedDayEntry = useMemo(() => entries.find((item) => String(item.entry_date) === selectedDate) ?? null, [entries, selectedDate]);
+  const selectedDayDocuments = useMemo(() => documents.filter((document) => getDriverDocumentDateKey(document) === selectedDate), [documents, selectedDate]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDocumentPreviews([]);
+    if (!supabase || selectedDayDocuments.length === 0) return undefined;
+    Promise.all(selectedDayDocuments.map(async (document) => {
+      if (!document.file_path) return { ...document, signedUrl: "" };
+      const { data, error } = await supabase.storage.from("documents").createSignedUrl(document.file_path, 60 * 60);
+      return { ...document, signedUrl: data?.signedUrl ?? "", urlError: error?.message ?? "" };
+    })).then((result) => {
+      if (!cancelled) setDocumentPreviews(result);
+    }).catch(() => {
+      if (!cancelled) setDocumentPreviews(selectedDayDocuments.map((document) => ({ ...document, signedUrl: "", urlError: "No se ha podido generar la vista previa." })));
+    });
+    return () => { cancelled = true; };
+  }, [selectedDayDocuments]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => selectedDayButtonRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedDate]);
 
   const updateEntry = (key, value) => setEntry((current) => ({ ...current, [key]: value }));
   const saveEntry = async (event) => {
@@ -1338,24 +1437,28 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       return;
     }
     let uploadMessage = "";
+    let savedDocument = null;
     if (file) {
       try {
-        await uploadDocumentRecord({ ownerId: session.user.id, category: "consumption", vehiclePlate: profile.vehicle_plate, file, extractedData: { date: entry.entryDate, cost: values.fuel_cost, consumption: values.fuel_liters, unit: "L", odometerKm: values.odometer_km, billing: values.billing, cashCollected: values.cash_collected, tips: values.tips, tolls: values.tolls, otherExpenses: values.other_expenses }, status: "review" });
+        const extractedData = { date: entry.entryDate, cost: values.fuel_cost, consumption: values.fuel_liters, unit: "L", odometerKm: values.odometer_km, billing: values.billing, cashCollected: values.cash_collected, tips: values.tips, tolls: values.tolls, otherExpenses: values.other_expenses };
+        savedDocument = await uploadDocumentRecord({ ownerId: session.user.id, category: "consumption", vehiclePlate: profile.vehicle_plate, file, extractedData, status: "review" });
+        savedDocument = { ...savedDocument, extracted_data: extractedData };
         uploadMessage = " y el justificante se ha archivado";
       } catch (uploadError) {
         uploadMessage = `, pero el justificante no se ha podido subir: ${uploadError.message}`;
       }
     }
     setEntries((current) => [data, ...current.filter((candidate) => candidate.id !== data.id)]);
+    if (savedDocument) setDocuments((current) => [savedDocument, ...current.filter((document) => document.id !== savedDocument.id)]);
     setFile(null);
     setSaving(false);
     setMessage(`Registro del ${entry.entryDate} guardado${uploadMessage}.`);
   };
 
   const periodSummary = useMemo(() => {
-    const today = new Date();
-    const monthKey = getDriverDateKey(today).slice(0, 7);
-    const weekStart = getDriverWeekStart(today);
+    const periodDate = parseDriverDateKey(selectedDate) ?? new Date();
+    const monthKey = getDriverDateKey(periodDate).slice(0, 7);
+    const weekStart = getDriverWeekStart(periodDate);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
     const monthEntries = entries.filter((item) => String(item.entry_date ?? "").startsWith(monthKey));
@@ -1375,7 +1478,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     weekEndLabel.setDate(weekEndLabel.getDate() - 1);
     const periodFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
     return {
-      monthLabel: new Intl.DateTimeFormat("es-ES", { month: "long" }).format(today),
+      monthLabel: new Intl.DateTimeFormat("es-ES", { month: "long" }).format(periodDate),
       weekLabel: `${periodFormatter.format(weekStart)} · ${periodFormatter.format(weekEndLabel)}`.replace(/\./g, ""),
       monthlyBilling,
       monthlyTips: total(monthEntries, "tips"),
@@ -1391,7 +1494,41 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       weeklyProgress: weeklyCash > 0 ? Math.max(0, Math.min(100, (weeklyNet / weeklyCash) * 100)) : 0,
       weekEntries: weekEntries.length,
     };
-  }, [entries, profile.full_name, vehicle]);
+  }, [entries, profile.full_name, selectedDate, vehicle]);
+
+  const selectedDayDocumentData = useMemo(() => selectedDayDocuments.reduce((summary, document) => {
+    const data = document.extracted_data ?? {};
+    const billing = getDriverDocumentNumber(data.billing ?? data.total ?? data.amount ?? data.netAmount);
+    const fuelCost = getDriverDocumentNumber(data.fuelCost ?? data.fuel_cost ?? data.cost ?? (document.category === "consumption" ? data.amount : 0));
+    const fuelLiters = getDriverDocumentNumber(data.fuelLiters ?? data.fuel_liters ?? data.consumption ?? data.liters);
+    const odometerKm = getDriverDocumentNumber(data.odometerKm ?? data.odometer_km ?? data.kilometres ?? data.km);
+    summary.billing += document.category === "billing" ? billing : getDriverDocumentNumber(data.billing);
+    summary.fuelCost += fuelCost;
+    summary.fuelLiters += fuelLiters;
+    summary.odometerKm = odometerKm || summary.odometerKm;
+    summary.cashCollected += getDriverDocumentNumber(data.cashCollected ?? data.cash_collected);
+    summary.tips += getDriverDocumentNumber(data.tips);
+    summary.tolls += getDriverDocumentNumber(data.tolls);
+    summary.otherExpenses += getDriverDocumentNumber(data.otherExpenses ?? data.other_expenses);
+    return summary;
+  }, { billing: 0, fuelCost: 0, fuelLiters: 0, odometerKm: 0, cashCollected: 0, tips: 0, tolls: 0, otherExpenses: 0 }), [selectedDayDocuments]);
+  const selectedDaySource = selectedDayEntry ?? entry;
+  const selectedDayData = {
+    billing: getDriverEntryAmount(selectedDaySource, "billing") || selectedDayDocumentData.billing,
+    odometer_km: getDriverEntryAmount(selectedDaySource, "odometer_km") || selectedDayDocumentData.odometerKm,
+    fuel_cost: getDriverEntryAmount(selectedDaySource, "fuel_cost") || selectedDayDocumentData.fuelCost,
+    fuel_liters: getDriverEntryAmount(selectedDaySource, "fuel_liters") || selectedDayDocumentData.fuelLiters,
+    cash_collected: getDriverEntryAmount(selectedDaySource, "cash_collected") || selectedDayDocumentData.cashCollected,
+    tips: getDriverEntryAmount(selectedDaySource, "tips") || selectedDayDocumentData.tips,
+    tolls: getDriverEntryAmount(selectedDaySource, "tolls") || selectedDayDocumentData.tolls,
+    other_expenses: getDriverEntryAmount(selectedDaySource, "other_expenses") || selectedDayDocumentData.otherExpenses,
+  };
+  const selectedDayMetrics = [
+    ["Facturación", getDriverEntryAmount(selectedDayData, "billing"), "€"],
+    ["Kilómetros", getDriverEntryAmount(selectedDayData, "odometer_km"), "km"],
+    ["Gasolina", getDriverEntryAmount(selectedDayData, "fuel_cost"), "€"],
+    ["Repostaje", getDriverEntryAmount(selectedDayData, "fuel_liters"), "L"],
+  ];
 
   return (
     <main className={preview ? "driver-app driver-app--preview" : "driver-app"}>
@@ -1402,8 +1539,46 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       <div className="driver-app__body">
         {preview && <div className="driver-preview-banner" role="status"><IconEye size={18} /><span><strong>Vista previa de {profile.full_name}</strong><small>Estás viendo la aplicación tal y como la verá este conductor. Los cambios están desactivados.</small></span><button type="button" className="secondary-button" onClick={onExitPreview}>Volver a administración</button></div>}
         <section className="driver-welcome">
-          <div><span>HOLA, {profile.full_name.toUpperCase()}</span><h1>{vehicle?.plate ?? profile.vehicle_plate ?? "Vehículo pendiente"}</h1><p>{vehicle?.model ?? "Vehículo profesional"} · registra tus datos del día en menos de un minuto.</p></div>
-          <span className="driver-welcome__badge"><IconCar size={20} />Turno activo</span>
+          <div className="driver-welcome__identity"><span>HOLA</span><h1>{profile.full_name.toUpperCase()}</h1></div>
+          <div className="driver-welcome__vehicle"><span>MATRÍCULA</span><strong>{vehicle?.plate ?? profile.vehicle_plate ?? "PENDIENTE"}</strong></div>
+        </section>
+        <section className="driver-day-picker" aria-label="Días del registro del conductor">
+          <header>
+            <div><span>REGISTRO DIARIO</span><strong>{formatDriverMonthLong(selectedDate)}</strong></div>
+            <small>Desliza hacia la derecha para continuar con el siguiente mes</small>
+          </header>
+          <div className="driver-day-picker__scroller" role="list">
+            {calendarDays.map((day) => {
+              const parts = getDriverDayParts(day.key);
+              const isSelected = day.key === selectedDate;
+              const isMonthStart = day.date.getDate() === 1;
+              return <div className={`driver-day-picker__item${isMonthStart ? " driver-day-picker__item--month-start" : ""}`} key={day.key} role="listitem">
+                {isMonthStart && <span className="driver-day-picker__month">{formatDriverMonthLong(day.key)}</span>}
+                <button ref={isSelected ? selectedDayButtonRef : undefined} className={isSelected ? "driver-day-picker__button is-selected" : "driver-day-picker__button"} type="button" aria-pressed={isSelected} aria-label={`Ver ${formatDriverDateLong(day.key)}`} onClick={() => { setSelectedDate(day.key); setMessage(""); }}>
+                  <span>{parts.weekday}</span><strong>{parts.day}</strong><small>{parts.month}</small>
+                </button>
+              </div>;
+            })}
+          </div>
+        </section>
+        <section className="driver-day-detail" aria-live="polite" aria-labelledby="driver-day-detail-title">
+          <header>
+            <div><span>DETALLE DEL DÍA</span><h2 id="driver-day-detail-title">{formatDriverDateLong(selectedDate)}</h2></div>
+            <strong>{documentsLoading ? "Cargando…" : `${selectedDayDocuments.length} ${selectedDayDocuments.length === 1 ? "justificante" : "justificantes"}`}</strong>
+          </header>
+          <div className="driver-day-detail__content">
+            <div className="driver-day-metrics">
+              {selectedDayMetrics.map(([label, value, unit]) => <span key={label}><small>{label}</small><strong>{unit === "€" ? formatCurrency(value) : `${new Intl.NumberFormat("es-ES").format(value)} ${unit}`}</strong></span>)}
+            </div>
+            <div className="driver-day-documents">
+              {documentsLoading ? <span className="driver-day-documents__empty">Buscando fotos y documentos del día…</span> : selectedDayDocuments.length === 0 ? <span className="driver-day-documents__empty"><IconCamera size={16} />Sin fotos o justificantes para este día</span> : documentPreviews.length === 0 ? <span className="driver-day-documents__empty">Preparando las fotos del día…</span> : documentPreviews.map((document) => {
+                const isImage = String(document.mime_type ?? "").startsWith("image/");
+                const label = document.category === "billing" ? "Facturación" : "Repostaje / consumo";
+                const content = isImage && document.signedUrl ? <img src={document.signedUrl} alt={`Foto de ${label} del ${formatDriverDateLong(selectedDate)}`} loading="lazy" /> : <IconFileInvoice size={22} />;
+                return <article className="driver-day-document" key={document.id}><a href={document.signedUrl || undefined} target="_blank" rel="noreferrer" aria-label={`Abrir ${document.file_name}`}>{content}</a><span><strong>{label}</strong><small>{document.file_name}</small><em>{document.status === "approved" ? "Validado" : "Pendiente de revisión"}</em></span></article>;
+              })}
+            </div>
+          </div>
         </section>
         <div className="driver-dashboard-grid">
           <section className="driver-period-overview" aria-label="Resumen mensual y semanal">
@@ -1434,7 +1609,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
             <header><div><span>REGISTRO DIARIO</span><h2>Datos del servicio</h2></div><time dateTime={entry.entryDate}>{entry.entryDate}</time></header>
             <fieldset className="driver-entry-fieldset" disabled={preview}>
               <div className="driver-entry-grid">
-                <label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => updateEntry("entryDate", event.target.value)} required /></label>
+                <label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label>
                 <label>Facturación<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label>
                 <label>Efectivo cobrado<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label>
                 <label>Gasolina<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label>
@@ -1450,10 +1625,6 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
               <footer><span className="driver-entry-status" role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={17} /></button></footer>
             </fieldset>
           </form>
-          <section className="driver-history-card">
-            <header><div><span>HISTORIAL PERSONAL</span><h2>Últimos registros</h2></div><IconHistory size={20} /></header>
-            {loading ? <p className="empty-state">Cargando tus datos…</p> : entries.length === 0 ? <p className="empty-state">Todavía no hay registros guardados.</p> : <div className="driver-history-list">{entries.slice(0, 3).map((item) => <article key={item.id}><time>{item.entry_date}</time><div><strong>{formatCurrency(getDriverEntryAmount(item, "billing"))}</strong><small>{formatCurrency(getDriverEntryAmount(item, "fuel_cost"))} gasolina · {formatCurrency(getDriverEntryAmount(item, "tips"))} propinas</small></div><span>{getDriverEntryAmount(item, "fuel_liters")} L</span></article>)}</div>}
-          </section>
         </div>
       </div>
     </main>

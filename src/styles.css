@@ -2806,3 +2806,170 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .driver-file-input { margin-top: 3px; }
   .driver-entry-card > footer { margin-top: 3px; }
 }
+
+/* Calendario horizontal y justificantes del día seleccionado del conductor. */
+.driver-welcome { min-height: 72px; margin-bottom: 8px; padding: 12px 18px; }
+.driver-welcome__identity { display: grid; gap: 1px; min-width: 0; }
+.driver-welcome__identity > span { color: var(--green-800); font-size: 10px; font-weight: 850; letter-spacing: .18em; }
+.driver-welcome__identity h1 { overflow: hidden; margin: 0; color: var(--text); font-size: clamp(28px, 4vw, 42px); line-height: 1; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.driver-welcome__vehicle { display: grid; gap: 2px; justify-items: end; min-width: 90px; }
+.driver-welcome__vehicle span { color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .14em; }
+.driver-welcome__vehicle strong { color: var(--text); font-size: clamp(16px, 2vw, 22px); letter-spacing: .06em; }
+.driver-day-picker, .driver-day-detail { flex: 0 0 auto; min-width: 0; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); box-shadow: 0 6px 18px rgba(18, 51, 42, .045); }
+.driver-day-picker { margin-bottom: 7px; padding: 8px 10px 9px; }
+.driver-day-picker > header, .driver-day-detail > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.driver-day-picker > header > div, .driver-day-detail > header > div { display: grid; gap: 1px; min-width: 0; }
+.driver-day-picker > header span, .driver-day-detail > header span { color: var(--green-700); font-size: 7px; font-weight: 850; letter-spacing: .14em; }
+.driver-day-picker > header strong, .driver-day-detail > header h2 { overflow: hidden; margin: 0; color: var(--text); font-size: 13px; text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }
+.driver-day-picker > header small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-day-picker__scroller { display: flex; align-items: stretch; gap: 5px; min-width: 0; margin-top: 6px; padding: 2px 1px 3px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; scroll-snap-type: x proximity; }
+.driver-day-picker__item { position: relative; display: flex; flex: 0 0 84px; min-width: 0; padding-top: 11px; }
+.driver-day-picker__item--month-start { margin-left: 5px; padding-left: 6px; border-left: 1px solid var(--line-dark); }
+.driver-day-picker__month { position: absolute; top: 0; left: 7px; overflow: hidden; max-width: calc(100% - 7px); color: var(--muted); font-size: 6px; font-weight: 800; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.driver-day-picker__button { display: grid; width: 100%; min-height: 49px; align-content: center; gap: 1px; padding: 5px 4px; border: 1px solid var(--line); border-radius: 9px; background: #f7fbfa; color: var(--muted); cursor: pointer; scroll-snap-align: center; text-align: center; transition: background .18s ease, border-color .18s ease, transform .18s ease; }
+.driver-day-picker__button:hover { border-color: rgba(20,129,108,.4); background: #eef9f4; }
+.driver-day-picker__button span { overflow: hidden; font-size: 8px; font-weight: 750; text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }
+.driver-day-picker__button strong { color: var(--text); font-size: 17px; line-height: 1; }
+.driver-day-picker__button small { overflow: hidden; font-size: 7px; text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }
+.driver-day-picker__button.is-selected { border-color: var(--green-700); background: var(--green-700); color: #fff; box-shadow: 0 4px 10px rgba(20,129,108,.2); transform: translateY(-1px); }
+.driver-day-picker__button.is-selected strong, .driver-day-picker__button.is-selected small { color: #fff; }
+.driver-day-detail { margin-bottom: 7px; padding: 8px 10px; }
+.driver-day-detail > header { margin-bottom: 5px; }
+.driver-day-detail > header h2 { font-size: 12px; }
+.driver-day-detail > header > strong { flex: 0 0 auto; color: var(--muted); font-size: 8px; font-weight: 750; }
+.driver-day-detail__content { display: grid; grid-template-columns: minmax(230px, .7fr) minmax(0, 1.3fr); align-items: center; gap: 8px; min-width: 0; }
+.driver-day-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; min-width: 0; }
+.driver-day-metrics span { display: grid; min-width: 0; gap: 2px; padding: 4px 5px; border-radius: 7px; background: #f3f9f6; }
+.driver-day-metrics small { overflow: hidden; color: var(--muted); font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-day-metrics strong { overflow: hidden; color: var(--text); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-day-documents { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.driver-day-documents__empty { display: inline-flex; align-items: center; gap: 5px; min-height: 35px; color: var(--muted); font-size: 8px; }
+.driver-day-document { display: flex; flex: 0 0 175px; align-items: center; gap: 6px; min-width: 0; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.driver-day-document > a { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; overflow: hidden; border-radius: 6px; background: #edf6ff; color: #2874ad; }
+.driver-day-document > a img { width: 100%; height: 100%; object-fit: cover; }
+.driver-day-document > span { display: grid; min-width: 0; gap: 1px; }
+.driver-day-document strong, .driver-day-document small, .driver-day-document em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-day-document strong { color: var(--text); font-size: 8px; }
+.driver-day-document small { color: var(--muted); font-size: 7px; }
+.driver-day-document em { color: var(--amber); font-size: 6px; font-style: normal; font-weight: 800; }
+.driver-dashboard-grid { grid-template-columns: minmax(0, 1.08fr) minmax(350px, .92fr); grid-template-rows: minmax(0, 1fr); gap: 8px; overflow: hidden; }
+.driver-period-overview { grid-column: 2; grid-row: 1; gap: 8px; }
+.driver-entry-card { grid-column: 1; grid-row: 1; margin: 0; }
+.driver-history-card { display: none; }
+
+@media (max-width: 760px) {
+  .driver-preview-banner { align-items: center; flex-wrap: nowrap; gap: 5px; margin-bottom: 4px; padding: 5px 7px; border-radius: 8px; }
+  .driver-preview-banner > svg { width: 13px; height: 13px; flex: 0 0 auto; }
+  .driver-preview-banner > span { display: block; overflow: hidden; }
+  .driver-preview-banner strong { display: block; overflow: hidden; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+  .driver-preview-banner small, .driver-preview-banner .secondary-button { display: none; }
+  .driver-app--preview .driver-app__body { padding: 3px 0; }
+  .driver-welcome { min-height: 58px; align-items: center; flex-direction: row; margin-bottom: 5px; padding: 8px 12px; }
+  .driver-welcome__identity > span { font-size: 7px; }
+  .driver-welcome__identity h1 { font-size: 23px; }
+  .driver-welcome__vehicle { min-width: 72px; }
+  .driver-welcome__vehicle span { font-size: 6px; }
+  .driver-welcome__vehicle strong { font-size: 14px; }
+  .driver-day-picker { margin-bottom: 5px; padding: 6px 7px 7px; border-radius: 10px; }
+  .driver-day-picker > header { gap: 5px; }
+  .driver-day-picker > header span, .driver-day-detail > header span { font-size: 5.5px; }
+  .driver-day-picker > header strong { font-size: 10px; }
+  .driver-day-picker > header small { max-width: 48%; font-size: 6px; text-align: right; }
+  .driver-day-picker__scroller { gap: 4px; margin-top: 4px; padding-bottom: 2px; }
+  .driver-day-picker__item { flex-basis: 76px; padding-top: 7px; }
+  .driver-day-picker__month { left: 6px; font-size: 5px; }
+  .driver-day-picker__button { min-height: 36px; padding: 3px; border-radius: 7px; }
+  .driver-day-picker__button span { font-size: 7px; }
+  .driver-day-picker__button strong { font-size: 13px; }
+  .driver-day-picker__button small { font-size: 6px; }
+  .driver-day-detail { margin-bottom: 2px; padding: 5px 7px; border-radius: 10px; }
+  .driver-day-detail > header { margin-bottom: 4px; }
+  .driver-day-detail > header h2 { font-size: 9px; }
+  .driver-day-detail > header > strong { font-size: 6px; }
+  .driver-day-detail__content { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .driver-day-metrics { gap: 3px; }
+  .driver-day-metrics span { padding: 3px 4px; border-radius: 5px; }
+  .driver-day-metrics small { font-size: 5px; }
+  .driver-day-metrics strong { font-size: 7px; }
+  .driver-day-documents { min-height: 23px; }
+  .driver-day-documents__empty { min-height: 20px; font-size: 6px; }
+  .driver-day-document { flex-basis: 160px; padding: 2px 4px; }
+  .driver-day-document > a { width: 26px; height: 26px; }
+  .driver-day-document strong { font-size: 7px; }
+  .driver-day-document small { font-size: 6px; }
+  .driver-day-document em { font-size: 5px; }
+  .driver-dashboard-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 5px; }
+  .driver-entry-card { grid-column: 1; grid-row: 1; }
+  .driver-period-overview { grid-column: 1; grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 5px; }
+  .driver-entry-card { padding: 6px; }
+  .driver-entry-card > header { margin-bottom: 3px; }
+  .driver-entry-card h2 { font-size: 12px; }
+  .driver-entry-card time { font-size: 7px; }
+  .driver-entry-grid { gap: 3px; }
+  .driver-entry-grid input, .driver-entry-grid textarea { min-height: 24px; padding: 4px 5px; font-size: 8px; }
+  .driver-entry-grid__readonly { min-height: 24px; padding: 4px 5px; }
+  .driver-entry-grid__wide textarea { min-height: 25px; }
+  .driver-file-input { margin-top: 3px; padding: 4px 5px; }
+  .driver-entry-card > footer { min-height: 24px; margin-top: 3px; }
+  .driver-entry-card > footer .primary-button { min-height: 24px; }
+  .driver-entry-card--preview .driver-file-input, .driver-entry-card--preview footer, .driver-entry-card--preview .driver-entry-grid__wide { display: none; }
+  .driver-period-card { gap: 3px; padding: 5px; }
+  .driver-period-card__header h2 { font-size: 9px; }
+  .driver-period-card__headline strong { font-size: 13px; }
+  .driver-period-card__headline small, .driver-period-card__target { font-size: 5px; }
+  .driver-period-card__stats small, .driver-period-card__ledger small { font-size: 5px; }
+  .driver-period-card__stats strong, .driver-period-card__ledger strong { font-size: 7px; }
+}
+
+@media (min-width: 761px) and (max-height: 760px) {
+  .driver-app:not(.driver-app--preview) .driver-app__body { padding-top: 8px; padding-bottom: 8px; }
+  .driver-welcome { min-height: 56px; margin-bottom: 5px; padding: 8px 14px; }
+  .driver-welcome__identity h1 { font-size: 30px; }
+  .driver-welcome__identity > span { font-size: 8px; }
+  .driver-welcome__vehicle strong { font-size: 16px; }
+  .driver-day-picker { margin-bottom: 5px; padding: 5px 8px 6px; }
+  .driver-day-picker > header span, .driver-day-detail > header span { font-size: 6px; }
+  .driver-day-picker > header strong { font-size: 11px; }
+  .driver-day-picker > header small { font-size: 7px; }
+  .driver-day-picker__scroller { margin-top: 3px; padding-bottom: 1px; }
+  .driver-day-picker__item { flex-basis: 70px; padding-top: 7px; }
+  .driver-day-picker__button { min-height: 36px; padding: 3px; }
+  .driver-day-picker__button span { font-size: 7px; }
+  .driver-day-picker__button strong { font-size: 13px; }
+  .driver-day-picker__button small { font-size: 6px; }
+  .driver-day-detail { margin-bottom: 5px; padding: 5px 8px; }
+  .driver-day-detail > header { margin-bottom: 3px; }
+  .driver-day-detail > header h2 { font-size: 10px; }
+  .driver-day-detail__content { gap: 5px; }
+  .driver-day-metrics span { padding: 3px 4px; }
+  .driver-day-metrics small { font-size: 6px; }
+  .driver-day-metrics strong { font-size: 8px; }
+  .driver-day-documents__empty { min-height: 28px; font-size: 7px; }
+  .driver-day-document { flex-basis: 155px; }
+  .driver-day-document > a { width: 30px; height: 30px; }
+  .driver-entry-card { padding: 8px; }
+  .driver-entry-card > header { margin-bottom: 5px; }
+  .driver-entry-card h2 { font-size: 14px; }
+  .driver-entry-card time { font-size: 8px; }
+  .driver-entry-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  .driver-entry-grid label { gap: 2px; font-size: 7px; }
+  .driver-entry-grid input, .driver-entry-grid textarea { min-height: 28px; padding: 5px 6px; border-radius: 6px; font-size: 9px; }
+  .driver-entry-grid label > i { right: 7px; bottom: 7px; font-size: 7px; }
+  .driver-entry-grid__readonly { min-height: 28px; padding: 5px 6px; border-radius: 6px; }
+  .driver-entry-grid__readonly span { font-size: 6px; }
+  .driver-entry-grid__readonly strong { font-size: 9px; }
+  .driver-entry-grid__wide textarea { min-height: 31px; }
+  .driver-file-input { margin-top: 4px; padding: 5px 6px; }
+  .driver-file-input > svg { width: 14px; height: 14px; }
+  .driver-file-input > span { font-size: 7px; }
+  .driver-file-input small { font-size: 6px; }
+  .driver-entry-card > footer { min-height: 28px; margin-top: 4px; }
+  .driver-entry-card > footer .primary-button { min-height: 28px; padding: 0 8px; font-size: 8px; }
+  .driver-period-card { gap: 4px; padding: 8px; }
+  .driver-period-card__header span { font-size: 6px; }
+  .driver-period-card__header h2 { font-size: 11px; }
+  .driver-period-card__headline strong { font-size: 17px; }
+  .driver-period-card__headline small, .driver-period-card__target { font-size: 6px; }
+  .driver-period-card__stats small, .driver-period-card__ledger small { font-size: 6px; }
+  .driver-period-card__stats strong, .driver-period-card__ledger strong { font-size: 9px; }
+}
