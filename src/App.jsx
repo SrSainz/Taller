@@ -341,7 +341,7 @@ const expenseCategories = [
   { label: "Taller", cadence: "Variable" },
   { label: "Seguridad Social", cadence: "Mensual" },
   { label: "Nóminas", cadence: "Manual" },
-  { label: "Comisiones conductor", cadence: "Variable" },
+  { label: "Comisiones de conductores", cadence: "Variable" },
   { label: "Impuestos trimestrales", cadence: "Trimestral" },
   { label: "IVA intracomunitario", cadence: "Trimestral" },
   { label: "Seguro", cadence: "Anual" },
@@ -3217,7 +3217,7 @@ function VehicleExpenses({ vehicle }) {
   amounts[6] = Number((vehicle.drivers.reduce((sum, driver) => sum + (getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor * DRIVER_COMMISSION_RATE, 0)).toFixed(2));
   const expenses = expenseCategories.map((category, index) => ({ ...category, amount: amounts[index] ?? 0 }));
   const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const operating = expenses.filter((expense) => ["Gasolina", "Taller", "Comisiones conductor", "Limpieza coche", "Varios"].includes(expense.label)).reduce((sum, expense) => sum + expense.amount, 0);
+  const operating = expenses.filter((expense) => ["Gasolina", "Taller", "Comisiones de conductores", "Limpieza coche", "Varios"].includes(expense.label)).reduce((sum, expense) => sum + expense.amount, 0);
   const fixed = total - operating;
   const driverRevenue = vehicle.drivers.map((driver) => ({ driver, amount: Number(((getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor).toFixed(2)) }));
   const totalRevenue = driverRevenue.reduce((sum, entry) => sum + entry.amount, 0);
