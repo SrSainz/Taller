@@ -148,7 +148,7 @@ const utilityItems = [
 ];
 
 const adminNavItem = { label: "Administraci\u00f3n", slug: "administracion", icon: IconShieldCheck };
-const topbarItems = [navItems[4], adminNavItem, ...utilityItems];
+const topbarItems = [navItems[4], ...utilityItems];
 
 const vehicleOrder = ["5043 MLC", "5750 MJV", "5754 MJV", "0344 LCP", "9401 LTG"];
 const vehicleBrandLogos = {
@@ -1161,9 +1161,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
             <aside id="topbar-management-menu" className="topbar-management-menu" aria-label="Accesos de gestión">
               {!isStandalone && <button className="topbar-management-menu__item" onClick={installApplication}><IconDownload size={18} /><span>Instalar app</span></button>}
               <div className="topbar-management-menu__meta"><IconCalendar size={18} /><span>28 jul 2026</span></div>
-              <button className="topbar-management-menu__item" onClick={() => { if (isAdmin) navigate(adminNavItem); else notify("Tu perfil lo gestiona el administrador"); }}><span className="avatar">{profileInitials}</span><span><strong>{profileName}</strong><small>{isAdmin ? "Administrador" : "Conductor"}</small></span><IconChevronDown className="topbar-management-menu__chevron" size={17} /></button>
               <div className="topbar-management-menu__divider" />
-              {topbarItems.filter((item) => isAdmin || item.slug !== adminNavItem.slug).map((item) => {
+              {topbarItems.map((item) => {
                 const Icon = item.icon;
                 const active = activeNav === item.label;
                 return <button className={active ? "topbar-management-menu__item topbar-management-menu__item--active" : "topbar-management-menu__item"} key={item.label} onClick={() => navigate(item)} aria-current={active ? "page" : undefined}><Icon size={18} /><span>{item.label}</span></button>;
@@ -1734,7 +1733,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
                   <strong className={net >= 0 ? "net-detail-card__net net-detail-card__net--positive" : "net-detail-card__net net-detail-card__net--negative"}>{formatCurrency(net)}</strong>
                 </header>
                 <div className="net-detail-card__billing"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
-                <div className="net-detail-card__summary"><div><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div><small>{expenses.length} conceptos</small></div>
+                <div className="net-detail-card__summary"><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div>
                 <div className="net-detail-card__actions">
                   <button type="button" className="net-detail-card__toggle" onClick={() => toggleExpenses(vehicle.plate)} aria-expanded={expanded} aria-controls={`net-expenses-${vehicle.plate.replace(/\s/g, "-")}`}><span>{expanded ? "Ocultar gastos" : `Ver gastos (${expenses.length})`}</span><IconChevronDown size={14} /></button>
                   <button type="button" className="net-detail-card__add" onClick={() => openExpenseForm(vehicle.plate)}><IconPlus size={14} />Añadir gastos</button>
@@ -1747,7 +1746,9 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
                 </form>}
                 {expanded && <div className="net-detail-card__expenses" id={`net-expenses-${vehicle.plate.replace(/\s/g, "-")}`} role="table" aria-label={`Gastos de ${vehicle.plate}`}>
                   <div className="net-detail-card__expenses-heading" role="row"><strong>Gastos</strong><strong>Importe</strong></div>
-                  {expenses.map((expense) => <div className="net-detail-card__expense" role="row" key={expense.key}><span role="cell">{expense.label}<small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manual && <button type="button" onClick={() => onRemoveExpense(expense.id)} aria-label={`Eliminar gasto ${expense.label}`}><IconTrash size={12} /></button>}</span></div>)}
+                  <div className="net-detail-card__expenses-scroll">
+                    {expenses.map((expense) => <div className="net-detail-card__expense" role="row" key={expense.key}><span role="cell">{expense.label}<small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manual && <button type="button" onClick={() => onRemoveExpense(expense.id)} aria-label={`Eliminar gasto ${expense.label}`}><IconTrash size={12} /></button>}</span></div>)}
+                  </div>
                 </div>}
               </article>
             );

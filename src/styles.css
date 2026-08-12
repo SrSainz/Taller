@@ -1744,6 +1744,21 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .drivers-page--calendar-open .drivers-calendar-card { scroll-margin-top: 0; }
 .drivers-page--calendar-open .drivers-calendar-day { height: clamp(42px, 4.2vw, 54px); padding: 5px; gap: 3px; }
 .drivers-page--calendar-open .drivers-calendar-grid { gap: 4px; padding: 7px 8px 8px; }
+
+/* Neto: el resumen de gastos replica la línea de facturación y solo su detalle se desplaza. */
+.net-detail-card__summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.net-detail-card__summary > span { min-width: 0; color: #65756d; font-weight: 750; text-transform: uppercase; }
+.net-detail-card__summary > strong { flex: 0 0 auto; color: #44584d; white-space: nowrap; }
+.net-detail-card__expenses { min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.net-detail-card__expenses-scroll { min-height: 0; max-height: min(300px, 34dvh); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 720px) {
+  .net-detail-card__expenses-scroll { max-height: min(260px, 32dvh); }
+}
+
+@media (max-width: 520px) {
+  .net-detail-card__expenses-scroll { max-height: min(220px, 30dvh); }
+}
 .drivers-page--calendar-open .drivers-calendar-day > span:first-child { font-size: 9px; }
 .drivers-page--calendar-open .drivers-calendar-day__values small { font-size: 10px; }
 
