@@ -108,7 +108,7 @@ function ChartBarValueLabel({ x, y, width, height, value, textFill = "#fff" }) {
   const centerX = Number(x) + barWidth / 2;
   const centerY = Number(y) + barHeight / 2;
   const vertical = true;
-  const fontSize = Math.max(5.2, Math.min(10, barWidth * 0.34, barHeight * 0.24));
+  const fontSize = Math.max(5.8, Math.min(11.5, barWidth * 0.38, barHeight * 0.28));
   const label = formatShortCurrency(numericValue);
   const stroke = textFill === "#fff" ? "rgba(0,0,0,.2)" : "rgba(255,255,255,.72)";
   return (
