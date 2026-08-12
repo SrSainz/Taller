@@ -2938,7 +2938,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
         </header>
         <div className="maintenance-timeline" aria-label={`Historial de mantenimiento de ${workshopVehicle.plate}`}>
           <header className="maintenance-timeline-heading">
-            <span><span className="maintenance-timeline-heading__icon"><IconTools size={14} /></span><strong>INTERVENCIONES REALIZADAS</strong></span>
+            <span><span className="maintenance-timeline-heading__icon"><IconTool size={14} /></span><strong>INTERVENCIONES REALIZADAS</strong></span>
           </header>
           {maintenanceRecords.map(({ item, invoice, details, key }) => {
             const isOpen = openMaintenanceKey === key;

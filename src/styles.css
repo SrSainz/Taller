@@ -2335,3 +2335,83 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .drivers-page--calendar-open .driver-day-fuel-list small { font-size: clamp(6px, 1.8vw, 8px); }
   .drivers-page--calendar-open .drivers-day-invoice-button { min-height: 21px; padding-inline: 5px; font-size: 6px; }
 }
+
+/* Mantenimiento: historial más compacto, con el naranja del módulo y una entrada negra claramente identificable. */
+.maintenance-page .maintenance-timeline { gap: 6px; padding: 10px 12px 13px 20px; background: linear-gradient(180deg, #fff7e8 0%, #ffefd0 100%); }
+.maintenance-page .maintenance-timeline::before { top: 48px; bottom: 16px; left: 9px; width: 3px; background: linear-gradient(180deg, #f39c12 0%, #e07b00 100%); }
+.maintenance-page .maintenance-timeline-heading { min-height: 34px; padding: 0 9px; border-radius: 8px; background: #111; color: #fff; }
+.maintenance-page .maintenance-timeline-heading > span { gap: 7px; color: #fff; }
+.maintenance-page .maintenance-timeline-heading__icon { width: 24px; height: 24px; border: 1px solid #3d3d3d; border-radius: 7px; background: #111; color: #fff; }
+.maintenance-page .maintenance-timeline-heading strong { font-size: 9px; }
+.maintenance-page .maintenance-event { grid-template-columns: 145px minmax(0,1fr) 122px; border-color: #efc47d; border-radius: 9px; box-shadow: 0 3px 9px rgba(177,104,14,.08); }
+.maintenance-page .maintenance-event::before { width: 3px; background: var(--maintenance-orange); }
+.maintenance-page .maintenance-event:hover { border-color: #e6a42e; box-shadow: 0 5px 12px rgba(177,104,14,.14); transform: translateY(-1px); }
+.maintenance-page .maintenance-event.is-open { border-color: #e6a42e; box-shadow: 0 5px 14px rgba(177,104,14,.15); }
+.maintenance-page .maintenance-event-date { grid-template-columns: 24px minmax(0,1fr) 15px; gap: 7px; padding: 7px 9px 7px 11px; border-right-color: #f0d3a1; background: #fff9ee; color: #8b5400; }
+.maintenance-page .maintenance-event-date:hover { background: #fff0d2; }
+.maintenance-page .maintenance-event-date > svg:first-child { width: 24px; height: 24px; padding: 5px; border-color: #f0c77e; border-radius: 7px; background: #fff0d2; color: #c87500; }
+.maintenance-page .maintenance-event-date > span { gap: 1px; }
+.maintenance-page .maintenance-event-date strong { font-size: 11px; line-height: 1; }
+.maintenance-page .maintenance-event-date small { color: #9a6b27; font-size: 11px; line-height: 1; }
+.maintenance-page .maintenance-event-toggle { width: 15px; height: 15px; color: #b26d00; }
+.maintenance-page .maintenance-event.is-open .maintenance-event-toggle { color: #9a5a00; }
+.maintenance-page .maintenance-event-summary { gap: 2px 9px; padding: 7px 10px; background: #fff; }
+.maintenance-page .maintenance-event-summary small { font-size: 6px; line-height: 1; }
+.maintenance-page .maintenance-event-summary strong { font-size: 10px; line-height: 1.1; }
+.maintenance-page .maintenance-event-summary__amount { padding: 4px 7px; background: #fff0d2; color: #8b5400; font-size: 10px; }
+.maintenance-page .maintenance-event-invoice { border-left-color: #f0d3a1; background: #fff7e8; }
+.maintenance-page .maintenance-event-invoice > button, .maintenance-page .maintenance-invoice-unavailable { gap: 6px; padding: 7px 9px; background: #fff7e8; color: #a86400; }
+.maintenance-page .maintenance-event-invoice > button:hover { background: #ffedc7; }
+.maintenance-page .maintenance-event-invoice > button > svg, .maintenance-page .maintenance-invoice-unavailable > svg { width: 24px; height: 24px; padding: 5px; border-radius: 7px; background: #ffe8bb; color: #bd7100; }
+.maintenance-page .maintenance-event-invoice span > span, .maintenance-page .maintenance-event-invoice button > span { gap: 2px; }
+.maintenance-page .maintenance-event-invoice strong { font-size: 8px; line-height: 1; }
+.maintenance-page .maintenance-event-invoice small { font-size: 6px; line-height: 1.05; }
+.maintenance-page .maintenance-event-detail { padding: 9px 11px 10px; border-top-color: #efc47d; background: #fff0d2; }
+.maintenance-page .maintenance-event-detail > header { margin-bottom: 5px; }
+.maintenance-page .maintenance-event-detail > header strong { font-size: 9px; color: #8b5400; }
+.maintenance-page .maintenance-event-detail > header small { font-size: 7px; }
+.maintenance-page .maintenance-event-detail > div { gap: 4px; }
+.maintenance-page .maintenance-work-item { border-color: #f0d3a1; border-radius: 7px; }
+.maintenance-page .maintenance-work-item.is-open { border-color: #e6a42e; box-shadow: 0 3px 9px rgba(177,104,14,.1); }
+.maintenance-page .maintenance-work-item__trigger { min-height: 30px; gap: 8px; padding: 5px 8px; background: #fffaf2; font-size: 8px; }
+.maintenance-page .maintenance-work-item__trigger:hover { background: #fff1d4; }
+
+/* La escala visible del gráfico se reduce aproximadamente un 20 % para ampliar la fila KPI superior. */
+@media (min-width: 821px) {
+  .page-scroll--dashboard .report-stat-card--wide { min-height: 124px; padding-block: 13px; }
+}
+
+@media (max-width: 820px) {
+  .maintenance-page .maintenance-event { grid-template-columns: minmax(0,1fr) 112px; }
+  .maintenance-page .maintenance-event-date { padding: 6px 8px 6px 9px; }
+  .maintenance-page .maintenance-event-summary { padding: 6px 9px; }
+  .maintenance-page .maintenance-event-invoice { grid-column: 2; grid-row: 1; }
+  .maintenance-page .maintenance-event-detail { grid-column: 1 / -1; }
+  .page-scroll--dashboard .report-stat-card--wide { min-height: 112px; padding-block: 12px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .maintenance-page .maintenance-timeline { gap: 4px; padding: 7px 7px 9px 13px; }
+  .maintenance-page .maintenance-timeline::before { top: 40px; bottom: 11px; left: 5px; width: 2px; }
+  .maintenance-page .maintenance-timeline-heading { min-height: 28px; padding-inline: 6px; }
+  .maintenance-page .maintenance-timeline-heading__icon { width: 20px; height: 20px; }
+  .maintenance-page .maintenance-timeline-heading strong { font-size: 7px; }
+  .maintenance-page .maintenance-event { grid-template-columns: minmax(0,1fr) 94px; }
+  .maintenance-page .maintenance-event-date { grid-template-columns: 20px minmax(0,1fr) 12px; gap: 5px; padding: 4px 6px 4px 7px; }
+  .maintenance-page .maintenance-event-date > svg:first-child { width: 20px; height: 20px; padding: 4px; }
+  .maintenance-page .maintenance-event-date strong, .maintenance-page .maintenance-event-date small { font-size: 9px; }
+  .maintenance-page .maintenance-event-toggle { width: 12px; height: 12px; }
+  .maintenance-page .maintenance-event-summary { padding: 4px 6px; }
+  .maintenance-page .maintenance-event-summary small { font-size: 5px; }
+  .maintenance-page .maintenance-event-summary strong { font-size: 8px; }
+  .maintenance-page .maintenance-event-summary__amount { padding: 3px 5px; font-size: 8px; }
+  .maintenance-page .maintenance-event-invoice > button, .maintenance-page .maintenance-invoice-unavailable { gap: 4px; padding: 4px 6px; }
+  .maintenance-page .maintenance-event-invoice > button > svg, .maintenance-page .maintenance-invoice-unavailable > svg { width: 20px; height: 20px; padding: 4px; }
+  .maintenance-page .maintenance-event-invoice strong { font-size: 6.5px; }
+  .maintenance-page .maintenance-event-invoice small { font-size: 5px; }
+  .maintenance-page .maintenance-event-detail { padding: 6px 7px 7px; }
+  .maintenance-page .maintenance-event-detail > header strong { font-size: 7px; }
+  .maintenance-page .maintenance-event-detail > header small { font-size: 6px; }
+  .maintenance-page .maintenance-work-item__trigger { min-height: 25px; padding: 4px 6px; font-size: 7px; }
+  .page-scroll--dashboard .report-stat-card--wide { min-height: 78px; padding-block: 7px; }
+}
