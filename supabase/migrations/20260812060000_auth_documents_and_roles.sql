@@ -9,7 +9,7 @@ create table if not exists public.profiles (
   email text not null default '',
   vehicle_plate text,
   active boolean not null default true,
-  must_change_password boolean not null default true,
+  must_change_password boolean not null default false,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -50,6 +50,8 @@ create unique index if not exists driver_entries_driver_id_entry_date_key on pub
 create index if not exists driver_entries_driver_date_idx on public.driver_entries (driver_id, entry_date desc);
 create index if not exists documents_owner_created_idx on public.documents (owner_id, created_at desc);
 create index if not exists documents_plate_created_idx on public.documents (vehicle_plate, created_at desc);
+
+update public.profiles set must_change_password = false where role = 'driver';
 
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.profiles to authenticated;

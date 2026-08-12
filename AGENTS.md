@@ -114,5 +114,7 @@ When implementing from a selected generated mock, treat that image as the source
 - Conductores keeps the two summary cards unchanged and distributes the six complete driver rows through the remaining viewport height, with equal vertical spacing and no hidden names or metrics before the fixed bottom navigation.
 
 - Opening the General chart uses a fixed two-by-two detail surface showing only the four chart cards without page scrolling; the previous detail header is hidden and a floating X returns to the General dashboard.
+- The administrator creates each driver's definitive password and is the only in-app actor with a password reset action; drivers do not receive a first-login password-change screen.
+- Administration includes a read-only “Entrar como conductor” preview for every active driver, with a clear return action to the administrator panel; preview mode cannot save driver entries or upload documents.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.

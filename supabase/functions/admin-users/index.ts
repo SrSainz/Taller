@@ -13,7 +13,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 const normalizeEmail = (value: unknown) => String(value ?? "").trim().toLowerCase();
 const normalizeName = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ");
-const validTemporaryPassword = (value: unknown) => {
+const validDriverPassword = (value: unknown) => {
   const password = String(value ?? "");
   return password.length >= 8 && password.length <= 128;
 };
@@ -64,9 +64,9 @@ Deno.serve(async (request) => {
     const email = normalizeEmail(payload.email);
     const fullName = normalizeName(payload.fullName);
     const vehiclePlate = normalizeName(payload.vehiclePlate) || null;
-    const temporaryPassword = String(payload.temporaryPassword ?? "");
-    if (!email || !email.includes("@") || !fullName || !professionalVehicles.has(vehiclePlate ?? "") || !validTemporaryPassword(temporaryPassword)) {
-      return json({ error: "Introduce nombre, email y una contraseña temporal de al menos 8 caracteres." }, 400);
+    const password = String(payload.password ?? "");
+    if (!email || !email.includes("@") || !fullName || !professionalVehicles.has(vehiclePlate ?? "") || !validDriverPassword(password)) {
+      return json({ error: "Introduce nombre, email y una contraseña definitiva de al menos 8 caracteres." }, 400);
     }
     const { count: vehicleCount, error: countError } = await auth.admin
       .from("profiles")
@@ -77,7 +77,7 @@ Deno.serve(async (request) => {
     if ((vehicleCount ?? 0) >= 2) return json({ error: "Ese coche ya tiene dos conductores asignados." }, 400);
     const { data: created, error: createError } = await auth.admin.auth.admin.createUser({
       email,
-      password: temporaryPassword,
+      password,
       email_confirm: true,
       user_metadata: { full_name: fullName },
       app_metadata: { role: "driver" },
@@ -91,26 +91,26 @@ Deno.serve(async (request) => {
       email,
       vehicle_plate: vehiclePlate,
       active: true,
-      must_change_password: true,
+      must_change_password: false,
     }).select(profileFields).single();
     if (profileError) {
       await auth.admin.auth.admin.deleteUser(created.user.id);
       return json({ error: profileError.message }, 400);
     }
-    return json({ profile, temporaryPassword });
+    return json({ profile, password });
   }
 
   const userId = String(payload.userId ?? "");
   if (!userId) return json({ error: "Falta la cuenta que se quiere modificar." }, 400);
 
   if (action === "reset_password") {
-    const temporaryPassword = String(payload.temporaryPassword ?? "");
-    if (!validTemporaryPassword(temporaryPassword)) return json({ error: "La contraseña temporal debe tener al menos 8 caracteres." }, 400);
-    const { error: authError } = await auth.admin.auth.admin.updateUserById(userId, { password: temporaryPassword, app_metadata: { role: "driver" } });
+    const password = String(payload.password ?? "");
+    if (!validDriverPassword(password)) return json({ error: "La contraseña definitiva debe tener al menos 8 caracteres." }, 400);
+    const { error: authError } = await auth.admin.auth.admin.updateUserById(userId, { password, app_metadata: { role: "driver" } });
     if (authError) return json({ error: authError.message }, 400);
-    const { data: profile, error } = await auth.admin.from("profiles").update({ must_change_password: true, active: true, updated_at: new Date().toISOString() }).eq("id", userId).select(profileFields).single();
+    const { data: profile, error } = await auth.admin.from("profiles").update({ must_change_password: false, active: true, updated_at: new Date().toISOString() }).eq("id", userId).select(profileFields).single();
     if (error) return json({ error: error.message }, 400);
-    return json({ profile, temporaryPassword });
+    return json({ profile, password });
   }
 
   if (action === "update") {
