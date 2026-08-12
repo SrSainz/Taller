@@ -1624,9 +1624,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
             <span>MATRÍCULA</span>
             <strong>{vehicle?.plate ?? profile.vehicle_plate ?? "PENDIENTE"}</strong>
             {vehicle?.owner && <>
-              <span className="driver-welcome__owner-label">PROPIETARIO</span>
               <strong className="driver-welcome__owner-name">{vehicle.owner.name}</strong>
-              <small className="driver-welcome__owner-meta">DNI {vehicle.owner.dni}{vehicle.owner.location ? ` · ${vehicle.owner.location}` : ""}</small>
+              <strong className="driver-welcome__owner-dni">{vehicle.owner.dni}</strong>
             </>}
           </div>
         </section>
@@ -2196,6 +2195,9 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   useEffect(() => {
     setSelectedChartBar("");
   }, [chartMetric, reportMonth, reportYear]);
+  useEffect(() => {
+    if (chartMetric !== "net" && netDetailOpen) setNetDetailOpen(false);
+  }, [chartMetric, netDetailOpen]);
   useEffect(() => {
     if (chartMetric === "summary") {
       if (pendingChartMetricsRef.current) {
