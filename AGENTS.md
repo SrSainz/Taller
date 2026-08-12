@@ -122,3 +122,5 @@ When implementing from a selected generated mock, treat that image as the source
 - The Neto detail opens with a black NETO header showing only the total, followed by three vehicle cards with enlarged amounts and prominent “Ver gastos” and “Añadir gastos” actions; expanding expenses reveals every concept.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
+
+The user has granted standing permission for this project to run the normal build and validation checks and, after successful validation, commit, push to the connected GitHub repository, and deploy to the linked Vercel production project without asking for confirmation each time. Destructive actions and work outside the application scope still require confirmation.
