@@ -117,5 +117,7 @@ When implementing from a selected generated mock, treat that image as the source
 - The administrator creates each driver's definitive password and is the only in-app actor with a password reset action; drivers do not receive a first-login password-change screen.
 - Administration includes a read-only “Entrar como conductor” preview for every active driver, with a clear return action to the administrator panel; preview mode cannot save driver entries or upload documents.
 - Administration opens with four accordion access buttons (administrator profile plus each professional vehicle), followed by a fifth create-access button; driver activation, pausing, password reset, and preview actions live inside the selected vehicle section.
+- General summary bars use the Conductores blue as the default visual treatment; individual metric selections keep their established Facturación, Mantenimiento, Combustible, and Neto colors.
+- The Neto detail opens with a black NETO header showing only the total, followed by three vehicle cards with enlarged amounts and prominent “Ver gastos” and “Añadir gastos” actions; expanding expenses reveals every concept.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.

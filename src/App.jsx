@@ -66,6 +66,7 @@ import { getProfile, invokeAdminUsers, isSupabaseConfigured, roleFromUser, supab
 
 const BILLING_COLOR = "#7bc887";
 const MAINTENANCE_COLOR = "#f39c12";
+const SUMMARY_CHART_COLOR = "#1976c9";
 const chartMetricOptions = [
   { value: "summary", label: "Resumen" },
   { value: "billing", label: "Facturación" },
@@ -1643,12 +1644,11 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
   };
   return (
     <div className="net-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`net-detail-modal${hasExpandedDetails ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-labelledby="net-detail-title" aria-describedby="net-detail-period">
+      <section className={`net-detail-modal${hasExpandedDetails ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-labelledby="net-detail-title">
         <header className="net-detail-modal__header">
-          <div><span>Resultado mensual</span><h2 id="net-detail-title">NETO</h2><small id="net-detail-period">{periodLabel} · 3 coches profesionales</small></div>
+          <div className="net-detail-modal__header-content"><h2 id="net-detail-title">NETO</h2><strong aria-label={`Total neto de ${periodLabel}`}>{formatCurrency(total)}</strong></div>
           <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
         </header>
-        <div className="net-detail-total"><span>NETO TOTAL DE LOS TRES COCHES</span><strong>{formatCurrency(total)}</strong><small>Facturación conjunta menos los gastos detallados</small></div>
         <div className="net-detail-grid" aria-label="Resultado neto por coche profesional">
           {details.map(({ vehicle, revenue, expenses, totalExpenses, net }) => {
             const expanded = expandedPlates.has(vehicle.plate);
@@ -1663,7 +1663,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
                 <div className="net-detail-card__summary"><div><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div><small>{expenses.length} conceptos</small></div>
                 <div className="net-detail-card__actions">
                   <button type="button" className="net-detail-card__toggle" onClick={() => toggleExpenses(vehicle.plate)} aria-expanded={expanded} aria-controls={`net-expenses-${vehicle.plate.replace(/\s/g, "-")}`}><span>{expanded ? "Ocultar gastos" : `Ver gastos (${expenses.length})`}</span><IconChevronDown size={14} /></button>
-                  <button type="button" className="net-detail-card__add" onClick={() => openExpenseForm(vehicle.plate)}><IconPlus size={14} />Añadir gasto</button>
+                  <button type="button" className="net-detail-card__add" onClick={() => openExpenseForm(vehicle.plate)}><IconPlus size={14} />Añadir gastos</button>
                 </div>
                 {adding && <form className="net-detail-card__add-form" onSubmit={(event) => handleExpenseSubmit(event, vehicle.plate)}>
                   <label><span>Concepto</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Parking" maxLength={42} autoFocus /></label>
@@ -1861,7 +1861,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     net: "Neto",
   };
   const chartOptions = {
-    summary: { title: "RESUMEN GENERAL POR COCHE", description: "", color: "#079ea7", data: summaryChartData },
+    summary: { title: "RESUMEN GENERAL POR COCHE", description: "", color: SUMMARY_CHART_COLOR, data: summaryChartData },
     billing: { title: "FACTURACIÓN POR CONDUCTOR", description: "", color: BILLING_COLOR, data: billingChartData },
     maintenance: { title: "MANTENIMIENTO POR COCHE", description: "", color: MAINTENANCE_COLOR, data: maintenanceChartData },
     fuel: { title: "COMBUSTIBLE POR COCHE", description: "", color: "#df4538", data: fuelChartData },
@@ -2006,20 +2006,22 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
-                        {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" fill={BILLING_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" fill={MAINTENANCE_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill="#df4538" maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : BILLING_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : MAINTENANCE_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : "#df4538"} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : "#28923c"} radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
                       </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} isAnimationActive={false} activeBar={false} onClick={selectChartBar}>
                         {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
                       </Bar>}
                     </BarChart>
                     </ResponsiveContainer>
                     {chartMetric === "summary" ? <div className="report-chart-legend" aria-label="Leyenda del resumen general">
+                      {selectedChartMetrics.length === 0 ? <span><i className="report-chart-legend__swatch report-chart-legend__swatch--summary" />Resumen general</span> : <>
                       {visibleChartMetrics.includes("billing") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--billing" />Facturación</span>}
                       {visibleChartMetrics.includes("maintenance") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--maintenance" />Mantenimiento</span>}
                       {visibleChartMetrics.includes("fuel") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--fuel" />Combustible</span>}
                       {visibleChartMetrics.includes("net") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--net" />Neto</span>}
+                      </>}
                     </div> : <div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" />}
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>

@@ -1642,6 +1642,95 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .net-detail-card__result small { font-size: 5px !important; }
 }
 
+/* Resumen y Neto: jerarquía visual reforzada sin alterar los cálculos. */
+.report-chart-legend__swatch--summary { background: var(--billing-blue); }
+.net-detail-modal__header { min-height: 76px; padding: 14px 18px; border: 0; background: #0b0d0e; }
+.net-detail-modal__header-content { min-width: 0; display: flex !important; flex: 1 1 auto; flex-direction: row !important; align-items: center; justify-content: space-between; gap: 18px; }
+.net-detail-modal__header h2 { color: #fff; font-size: clamp(22px, 2.6vw, 30px); font-weight: 900; letter-spacing: .12em; }
+.net-detail-modal__header-content > strong { color: #f4d9aa; font-size: clamp(24px, 3vw, 34px); font-weight: 900; letter-spacing: -.04em; line-height: 1; white-space: nowrap; }
+.net-detail-modal__close { border-color: rgba(255,255,255,.25); background: transparent; color: #fff; }
+.net-detail-modal__close:hover, .net-detail-modal__close:focus-visible { border-color: rgba(255,255,255,.6); background: rgba(255,255,255,.1); color: #fff; outline-color: #f4d9aa; }
+.net-detail-card { gap: 12px; padding: 16px; }
+.net-detail-card__header { gap: 12px; padding-bottom: 11px; }
+.net-detail-card__header > div { gap: 4px; }
+.net-detail-card__header small { font-size: 8px; }
+.net-detail-card__header > div > strong { font-size: 21px; }
+.net-detail-card__header > div > span { font-size: 10px; }
+.net-detail-card__net { font-size: 28px; }
+.net-detail-card__billing { padding: 10px 11px; }
+.net-detail-card__billing span { font-size: 10px; }
+.net-detail-card__billing strong { font-size: 23px; }
+.net-detail-card__summary { padding: 10px 11px; }
+.net-detail-card__summary span { font-size: 9px; }
+.net-detail-card__summary strong { font-size: 20px; }
+.net-detail-card__summary > small { font-size: 9px; }
+.net-detail-card__actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.net-detail-card__toggle, .net-detail-card__add { min-height: 46px; padding: 0 11px; border-radius: 9px; font-size: 13px; line-height: 1.15; }
+.net-detail-card__toggle svg, .net-detail-card__add svg { width: 17px; height: 17px; flex: 0 0 auto; }
+.net-detail-card__add { white-space: normal; }
+.net-detail-card__add-form { gap: 9px; padding: 11px; }
+.net-detail-card__add-form label span { font-size: 9px; }
+.net-detail-card__add-form input { height: 38px; padding-inline: 9px; font-size: 12px; }
+.net-detail-card__form-cancel, .net-detail-card__form-save { min-height: 34px; padding-inline: 11px; font-size: 11px; }
+.net-detail-card__expenses-heading { padding-block: 4px 7px; font-size: 10px; }
+.net-detail-card__expense { min-height: 34px; padding-block: 6px; }
+.net-detail-card__expense > span { gap: 2px; font-size: 13px; }
+.net-detail-card__expense > span small { font-size: 9px; }
+.net-detail-card__expense-value { gap: 8px; }
+.net-detail-card__expense-value > strong { font-size: 16px; }
+.net-detail-card__expense-value > button { width: 26px; height: 26px; }
+.net-detail-card__result { gap: 4px 10px; padding: 12px; }
+.net-detail-card__result > span { font-size: 10px; }
+.net-detail-card__result > strong { font-size: 24px; }
+.net-detail-card__result > small { font-size: 9px; }
+.net-detail-modal--expanded .net-detail-grid { align-content: start; grid-auto-rows: max-content; }
+.net-detail-modal--expanded .net-detail-card { height: max-content; }
+.net-detail-modal--expanded .net-detail-card__expenses { min-height: auto; }
+
+@media (max-width: 720px) {
+  .net-detail-modal__header { min-height: 64px; padding: 10px 12px; }
+  .net-detail-modal__header h2 { font-size: 21px; }
+  .net-detail-modal__header-content > strong { font-size: 24px; }
+  .net-detail-grid { grid-template-rows: none; grid-auto-rows: max-content; align-content: start; overflow: auto; }
+  .net-detail-card { gap: 9px; padding: 12px; }
+  .net-detail-card__header { gap: 8px; padding-bottom: 8px; }
+  .net-detail-card__header small { font-size: 7px; }
+  .net-detail-card__header > div > strong { font-size: 18px; }
+  .net-detail-card__header > div > span { font-size: 8px; }
+  .net-detail-card__net { font-size: 24px; }
+  .net-detail-card__billing { padding: 8px 9px; }
+  .net-detail-card__billing span { font-size: 9px; }
+  .net-detail-card__billing strong { font-size: 19px; }
+  .net-detail-card__summary { padding: 8px 9px; }
+  .net-detail-card__summary span { font-size: 8px; }
+  .net-detail-card__summary strong { font-size: 17px; }
+  .net-detail-card__summary > small { font-size: 8px; }
+  .net-detail-card__toggle, .net-detail-card__add { min-height: 42px; padding-inline: 8px; font-size: 11px; }
+  .net-detail-card__toggle svg, .net-detail-card__add svg { width: 15px; height: 15px; }
+  .net-detail-card__expense { min-height: 31px; }
+  .net-detail-card__expense > span { font-size: 11px; }
+  .net-detail-card__expense > span small { font-size: 8px; }
+  .net-detail-card__expense-value > strong { font-size: 14px; }
+  .net-detail-card__result { padding: 9px; }
+  .net-detail-card__result > span { font-size: 8px; }
+  .net-detail-card__result > strong { font-size: 20px; }
+  .net-detail-card__result > small { font-size: 8px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .net-detail-modal__header { min-height: 57px; padding-block: 8px; }
+  .net-detail-modal__header h2 { font-size: 19px; }
+  .net-detail-modal__header-content > strong { font-size: 21px; }
+  .net-detail-card { gap: 6px; padding: 9px; }
+  .net-detail-card__net { font-size: 21px; }
+  .net-detail-card__billing strong { font-size: 17px; }
+  .net-detail-card__summary strong { font-size: 15px; }
+  .net-detail-card__toggle, .net-detail-card__add { min-height: 36px; font-size: 10px; }
+  .net-detail-card__expense > span { font-size: 10px; }
+  .net-detail-card__expense-value > strong { font-size: 13px; }
+  .net-detail-card__result > strong { font-size: 18px; }
+}
+
 body:has(.drivers-page--calendar-open) { overflow: hidden; }
 body:has(.drivers-page--calendar-open) .app-shell { height: 100dvh; min-height: 0; overflow: hidden; }
 body:has(.drivers-page--calendar-open) .workspace { height: 100%; min-height: 0; overflow: hidden; }
