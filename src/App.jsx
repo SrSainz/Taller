@@ -64,7 +64,7 @@ import { funesmotorsportDocuments, funesmotorsportImportMeta } from "./data/fune
 import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
 import { getProfile, invokeAdminUsers, isSupabaseConfigured, roleFromUser, supabase, uploadDocumentRecord } from "./supabase";
 
-const BILLING_COLOR = "#7bc887";
+const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
 const SUMMARY_CHART_COLOR = "#1976c9";
 const DRIVER_COMMISSION_RATE = 0.1;
@@ -80,6 +80,25 @@ const selectableChartMetrics = chartMetricOptions.filter((option) => option.valu
 const allChartMetricValues = selectableChartMetrics.map((option) => option.value);
 const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c" };
 const chartMetricInitials = { billing: "F", maintenance: "M", fuel: "C", net: "N" };
+
+const splitChartAxisLabel = (value) => {
+  const words = String(value ?? "").trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 1) return words;
+  if (words.length === 2) return words;
+  const midpoint = Math.ceil(words.length / 2);
+  return [words.slice(0, midpoint).join(" "), words.slice(midpoint).join(" ")];
+};
+
+function ChartAxisTick({ x, y, payload, fontSize = 8, fontWeight = 700, fill = "#75817d" }) {
+  const lines = splitChartAxisLabel(payload?.value);
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x="0" y="0" dy="9" textAnchor="middle" fill={fill} fontSize={fontSize} fontWeight={fontWeight}>
+        {lines.map((line, index) => <tspan x="0" dy={index === 0 ? 0 : fontSize + 2} key={`${line}-${index}`}>{line}</tspan>)}
+      </text>
+    </g>
+  );
+}
 
 const navItems = [
   { label: "Informes", slug: "informes", icon: IconChartBar },
@@ -1656,9 +1675,9 @@ function ChartDetailModal({ charts, periodLabel, onClose }) {
                 </header>
                 <div className="chart-detail-card__plot">
                   {hasData ? <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chart.data} margin={{ top: 8, right: 2, left: 0, bottom: 3 }} barCategoryGap="24%">
+                    <BarChart data={chart.data} margin={{ top: 8, right: 2, left: 0, bottom: 15 }} barCategoryGap="30%">
                       <CartesianGrid stroke="#e9efed" vertical={false} />
-                      <XAxis dataKey="label" interval={0} tick={{ fontSize: 7, fontWeight: chart.key === "billing" ? 500 : 750, fill: "#75817d" }} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="label" interval={0} height={32} tickMargin={3} tick={<ChartAxisTick fontSize={7} fontWeight={chart.key === "billing" ? 500 : 750} />} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 7, fill: "#87918d" }} axisLine={false} tickLine={false} width={26} />
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => [formatCurrency(Number(value)), chart.label]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 9, borderColor: "#dce5e1", fontSize: 9 }} />
                       {chart.key === "net" && <ReferenceLine y={0} stroke="#aab5b1" />}
@@ -1948,9 +1967,10 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   };
   const activeChart = chartOptions[chartMetric];
   const visibleChartMetrics = selectedChartMetrics.length > 0 ? selectedChartMetrics : allChartMetricValues;
+  const chartIconMetricColors = selectedChartMetrics.length === 0 ? { ...chartMetricColors, billing: SUMMARY_CHART_COLOR } : chartMetricColors;
   const chartIconBackground = visibleChartMetrics.length === 1
-    ? chartMetricColors[visibleChartMetrics[0]]
-    : `conic-gradient(from 45deg, ${visibleChartMetrics.map((metric, index) => `${chartMetricColors[metric]} ${index * 100 / visibleChartMetrics.length}% ${(index + 1) * 100 / visibleChartMetrics.length}%`).join(", ")})`;
+    ? chartIconMetricColors[visibleChartMetrics[0]]
+    : `conic-gradient(from 45deg, ${visibleChartMetrics.map((metric, index) => `${chartIconMetricColors[metric]} ${index * 100 / visibleChartMetrics.length}% ${(index + 1) * 100 / visibleChartMetrics.length}%`).join(", ")})`;
   const selectedFuelStats = vehicleStats.find(({ vehicle }) => vehicle.plate === selected.plate) ?? vehicleStats[0];
   const selectedBillingDriver = billingRows.find((row) => row.key === billingDriverKey) ?? null;
   const selectedBillingVehicle = vehicles.find((vehicle) => vehicle.plate === billingVehiclePlate) ?? null;
@@ -1980,6 +2000,15 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     } else {
       pendingChartMetricsRef.current = null;
     }
+  };
+  const toggleLegendMetric = (event, metric) => {
+    event.stopPropagation();
+    const nextMetrics = selectedChartMetrics.length === 0
+      ? [metric]
+      : selectedChartMetrics.includes(metric)
+        ? selectedChartMetrics.filter((candidate) => candidate !== metric)
+        : [...selectedChartMetrics, metric];
+    selectChartMetrics(nextMetrics);
   };
   const chartMetricTriggerLabel = selectedChartMetrics.length === 0
     ? "Resumen"
@@ -2077,30 +2106,30 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 <div className="report-chart report-chart--summary">
                   {hasChartData ? <>
                     <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 4 }} barCategoryGap="18%" barGap={3} onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
+                    <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 18 }} barCategoryGap="18%" barGap={3} onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
                       {selectedChartBar && <ReferenceArea x1={selectedChartBar} x2={selectedChartBar} fill="#edf0ee" fillOpacity={0.9} stroke="none" ifOverflow="extendDomain" zIndex={-20} />}
                       <CartesianGrid stroke="#e9efed" vertical={false} />
-                      <XAxis dataKey="label" interval={0} tick={{ fontSize: 8, fontWeight: chartMetric === "billing" ? 400 : 700, fill: "#75817d" }} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="label" interval={0} height={34} tickMargin={3} tick={<ChartAxisTick fontSize={8} fontWeight={chartMetric === "billing" ? 500 : 750} />} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
                         {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : BILLING_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : MAINTENANCE_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : "#df4538"} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : "#28923c"} radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" fill={MAINTENANCE_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill="#df4538" maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
+                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
                       </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} isAnimationActive={false} activeBar={false} onClick={selectChartBar}>
                         {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
                       </Bar>}
                     </BarChart>
                     </ResponsiveContainer>
-                    {chartMetric === "summary" ? <div className="report-chart-legend" aria-label="Leyenda del resumen general">
-                      {selectedChartMetrics.length === 0 ? <span><i className="report-chart-legend__swatch report-chart-legend__swatch--summary" />Resumen general</span> : <>
-                      {visibleChartMetrics.includes("billing") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--billing" />Facturación</span>}
-                      {visibleChartMetrics.includes("maintenance") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--maintenance" />Mantenimiento</span>}
-                      {visibleChartMetrics.includes("fuel") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--fuel" />Combustible</span>}
-                      {visibleChartMetrics.includes("net") && <span><i className="report-chart-legend__swatch report-chart-legend__swatch--net" />Neto</span>}
-                      </>}
+                    {chartMetric === "summary" ? <div className="report-chart-legend" aria-label="Seleccionar métricas del resumen general">
+                      {selectableChartMetrics.map((option) => {
+                        const active = visibleChartMetrics.includes(option.value);
+                        return <button type="button" className={`report-chart-legend__button report-chart-legend__button--${option.value}${active ? " report-chart-legend__button--active" : ""}`} aria-pressed={active} aria-label={`${active ? "Ocultar" : "Mostrar"} ${option.label}`} onClick={(event) => toggleLegendMetric(event, option.value)} key={option.value}>
+                          <i className={`report-chart-legend__swatch report-chart-legend__swatch--${option.value}`} aria-hidden="true" /><span>{option.label}</span>
+                        </button>;
+                      })}
                     </div> : <div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" />}
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
