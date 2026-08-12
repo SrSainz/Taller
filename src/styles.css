@@ -634,12 +634,6 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-calendar-track { display: flex; width: 300%; align-items: flex-start; will-change: transform; }
 .drivers-calendar-page { min-width: 0; flex: 0 0 33.333333%; }
 .drivers-calendar-page__period { padding: 4px 13px 0; color: var(--billing-strong); font-size: 7px; font-weight: 800; letter-spacing: .06em; text-align: center; text-transform: uppercase; }
-.drivers-calendar-legend { display: flex; align-items: center; gap: 12px; padding: 8px 13px 5px; color: var(--muted); font-size: 6.5px; }
-.drivers-calendar-legend span { display: inline-flex; align-items: center; gap: 4px; }
-.drivers-calendar-legend small { margin-left: auto; color: #88958f; font-size: 6px; }
-.drivers-calendar-legend__swatch { width: 8px; height: 8px; display: inline-block; border-radius: 3px; }
-.drivers-calendar-legend__swatch--billing { background: var(--billing-light); }
-.drivers-calendar-legend__swatch--fuel { background: #df4538; }
 .drivers-calendar-weekdays, .drivers-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); }
 .drivers-calendar-weekdays { padding: 0 10px; border-bottom: 1px solid #e1eee4; background: #fbfefb; }
 .drivers-calendar-weekdays span { padding: 7px 3px; color: #74847a; font-size: 6.5px; font-weight: 750; text-align: center; text-transform: uppercase; }
@@ -1390,8 +1384,6 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .drivers-calendar-card__header > div:nth-child(2) strong { font-size: 15px; }
   .drivers-calendar-card__header > div:nth-child(2) small { font-size: 10px; }
   .drivers-calendar-page__period { padding: 3px 8px 0; font-size: 6.5px; }
-  .drivers-calendar-legend { gap: 8px; padding: 4px 7px 2px; }
-  .drivers-calendar-legend small { font-size: 5.5px; }
   .drivers-calendar-weekdays { padding: 0 6px; }
   .drivers-calendar-weekdays span { padding: 4px 1px; font-size: 5.5px; }
   .drivers-calendar-grid { gap: 2px; padding: 5px 6px 6px; }
@@ -1776,8 +1768,6 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) strong { font-size: 13px; }
   .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) small { font-size: 8px; }
   .drivers-page--calendar-open .drivers-calendar-nav { width: 24px; height: 24px; }
-  .drivers-page--calendar-open .drivers-calendar-legend { gap: 5px; padding: 2px 5px 2px; font-size: 5px; }
-  .drivers-page--calendar-open .drivers-calendar-legend small { font-size: 4.5px; }
   .drivers-page--calendar-open .drivers-calendar-weekdays { padding: 0 4px; }
   .drivers-page--calendar-open .drivers-calendar-weekdays span { padding: 3px 1px; font-size: 5px; }
   .drivers-page--calendar-open .drivers-calendar-day { height: clamp(28px, 8.8vw, 32px); padding: 2px; gap: 1px; border-radius: 4px; }
@@ -2266,12 +2256,6 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .drivers-page--calendar-open .drivers-calendar-card__header { padding: 10px 14px; }
 .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) strong { font-size: clamp(20px, 2vw, 26px); font-weight: 900; letter-spacing: .02em; line-height: 1; text-transform: uppercase; }
 .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) small { font-size: clamp(13px, 1.3vw, 17px); font-weight: 850; line-height: 1.1; }
-.drivers-page--calendar-open .drivers-calendar-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 8px 10px 5px; font-size: clamp(12px, 1.1vw, 15px); }
-.drivers-page--calendar-open .drivers-calendar-legend > span { min-width: 0; min-height: 36px; justify-content: center; gap: 7px; padding: 6px 8px; border: 1px solid; border-radius: 9px; font-size: inherit; font-weight: 850; }
-.drivers-page--calendar-open .drivers-calendar-legend > span:first-child { border-color: #add4ee; background: #eaf6ff; color: #086aa9; }
-.drivers-page--calendar-open .drivers-calendar-legend > span:nth-child(2) { border-color: #efc2bc; background: #fff3f1; color: #c3382f; }
-.drivers-page--calendar-open .drivers-calendar-legend__swatch { width: 12px; height: 12px; border-radius: 4px; }
-.drivers-page--calendar-open .drivers-calendar-legend small { grid-column: 1 / -1; margin-left: 0; font-size: 8px; font-weight: 750; text-align: center; }
 .drivers-page--calendar-open .drivers-calendar-weekdays span { padding: 6px 3px; font-size: 10px; font-weight: 850; }
 .drivers-page--calendar-open .drivers-calendar-day { padding: 4px; gap: 1px; border-radius: 7px; }
 .drivers-page--calendar-open .drivers-calendar-day > span:first-child { font-size: clamp(12px, 1.2vw, 15px); font-weight: 900; }
@@ -2291,9 +2275,6 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .drivers-page--calendar-open .drivers-calendar-card__header { padding: 7px 8px; }
   .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) strong { font-size: clamp(18px, 5.2vw, 23px); }
   .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) small { font-size: clamp(12px, 3.6vw, 15px); }
-  .drivers-page--calendar-open .drivers-calendar-legend { gap: 5px; padding: 6px 6px 4px; font-size: clamp(11px, 3.2vw, 14px); }
-  .drivers-page--calendar-open .drivers-calendar-legend > span { min-height: 32px; padding: 5px 6px; }
-  .drivers-page--calendar-open .drivers-calendar-legend small { font-size: 7px; }
   .drivers-page--calendar-open .drivers-calendar-weekdays { padding: 0 5px; }
   .drivers-page--calendar-open .drivers-calendar-weekdays span { padding: 5px 1px; font-size: 9px; }
   .drivers-page--calendar-open .drivers-calendar-grid { gap: 2px; padding: 5px 6px 6px; }
@@ -2315,10 +2296,6 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .drivers-page--calendar-open .drivers-calendar-card__header { padding: 5px 6px; }
   .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) strong { font-size: clamp(16px, 4.5vw, 19px); }
   .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) small { font-size: clamp(11px, 3vw, 13px); }
-  .drivers-page--calendar-open .drivers-calendar-legend { gap: 4px; padding: 4px 5px 3px; font-size: clamp(10px, 2.7vw, 12px); }
-  .drivers-page--calendar-open .drivers-calendar-legend > span { min-height: 28px; padding: 4px 5px; }
-  .drivers-page--calendar-open .drivers-calendar-legend__swatch { width: 10px; height: 10px; }
-  .drivers-page--calendar-open .drivers-calendar-legend small { font-size: 6px; }
   .drivers-page--calendar-open .drivers-calendar-weekdays span { padding: 3px 1px; font-size: 8px; }
   .drivers-page--calendar-open .drivers-calendar-grid { gap: 1px; padding: 3px 4px 4px; }
   .drivers-page--calendar-open .drivers-calendar-day { padding: 3px; gap: 1px; border-radius: 5px; }
@@ -2334,6 +2311,54 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .drivers-page--calendar-open .driver-day-fuel-list strong { font-size: clamp(7px, 2.1vw, 9px); }
   .drivers-page--calendar-open .driver-day-fuel-list small { font-size: clamp(6px, 1.8vw, 8px); }
   .drivers-page--calendar-open .drivers-day-invoice-button { min-height: 21px; padding-inline: 5px; font-size: 6px; }
+}
+
+/* Conductores: mas aire para los dias y paneles inferiores compactos con cifras destacadas. */
+.drivers-page--calendar-open .drivers-calendar-day { min-height: 46px; padding: 5px; gap: 2px; overflow: hidden; }
+.drivers-page--calendar-open .drivers-calendar-day > span:first-child { font-size: clamp(13px, 1.35vw, 17px); line-height: 1; }
+.drivers-page--calendar-open .drivers-calendar-day__values { gap: 1px; }
+.drivers-page--calendar-open .drivers-calendar-day__values small { max-width: 100%; font-size: clamp(13px, 1.45vw, 18px); line-height: .92; letter-spacing: -.06em; }
+.drivers-page--calendar-open .driver-day-detail__columns { gap: 5px; padding: 5px; }
+.drivers-page--calendar-open .driver-day-panel > header { min-height: 36px; padding: 5px 8px; font-size: clamp(16px, 1.45vw, 19px); }
+.drivers-page--calendar-open .driver-day-panel > header svg { width: 20px; height: 20px; }
+.drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 5px 6px; gap: 1px; }
+.drivers-page--calendar-open .driver-day-panel__metrics small { font-size: clamp(8px, .72vw, 10px); }
+.drivers-page--calendar-open .driver-day-panel__metrics strong { font-size: clamp(16px, 1.8vw, 23px); line-height: 1; letter-spacing: -.04em; }
+.drivers-page--calendar-open .driver-day-fuel-list { gap: 2px; padding: 4px 6px 5px; }
+.drivers-page--calendar-open .driver-day-fuel-list strong { font-size: clamp(10px, .85vw, 12px); }
+.drivers-page--calendar-open .driver-day-fuel-list small { font-size: clamp(9px, .75vw, 11px); }
+.drivers-page--calendar-open .drivers-day-invoice-button { min-height: 24px; font-size: 7px; }
+
+@media (max-width: 820px) {
+  .drivers-page--calendar-open .drivers-calendar-day { min-height: 38px; padding: 4px; gap: 1px; }
+  .drivers-page--calendar-open .drivers-calendar-day > span:first-child { font-size: clamp(12px, 3.8vw, 16px); }
+  .drivers-page--calendar-open .drivers-calendar-day__values small { font-size: clamp(10px, 2.75vw, 13px); line-height: .9; letter-spacing: -.07em; }
+  .drivers-page--calendar-open .driver-day-detail__columns { gap: 4px; padding: 4px; }
+  .drivers-page--calendar-open .driver-day-panel > header { min-height: 32px; padding: 5px 6px; font-size: clamp(15px, 4vw, 19px); }
+  .drivers-page--calendar-open .driver-day-panel > header svg { width: 20px; height: 20px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 5px 5px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics small { font-size: clamp(7px, 2.3vw, 9px); }
+  .drivers-page--calendar-open .driver-day-panel__metrics strong { font-size: clamp(14px, 3.8vw, 18px); }
+  .drivers-page--calendar-open .driver-day-fuel-list { padding: 3px 5px 4px; }
+  .drivers-page--calendar-open .driver-day-fuel-list strong { font-size: clamp(8px, 2.5vw, 10px); }
+  .drivers-page--calendar-open .driver-day-fuel-list small { font-size: clamp(7px, 2.1vw, 9px); }
+  .drivers-page--calendar-open .drivers-day-invoice-button { min-height: 23px; font-size: 6.5px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .drivers-page--calendar-open .drivers-calendar-day { min-height: 30px; padding: 3px; }
+  .drivers-page--calendar-open .drivers-calendar-day > span:first-child { font-size: clamp(10px, 3.2vw, 13px); }
+  .drivers-page--calendar-open .drivers-calendar-day__values small { font-size: clamp(9px, 2.55vw, 12px); line-height: .84; }
+  .drivers-page--calendar-open .driver-day-detail__columns { gap: 2px; padding: 2px; }
+  .drivers-page--calendar-open .driver-day-panel > header { min-height: 28px; padding: 4px 5px; font-size: clamp(13px, 3.5vw, 16px); }
+  .drivers-page--calendar-open .driver-day-panel > header svg { width: 17px; height: 17px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 4px 4px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics small { font-size: clamp(6.5px, 2vw, 8px); }
+  .drivers-page--calendar-open .driver-day-panel__metrics strong { font-size: clamp(12px, 3.4vw, 15px); }
+  .drivers-page--calendar-open .driver-day-fuel-list { padding: 3px 4px; }
+  .drivers-page--calendar-open .driver-day-fuel-list strong { font-size: clamp(7px, 2.1vw, 9px); }
+  .drivers-page--calendar-open .driver-day-fuel-list small { font-size: clamp(6px, 1.8vw, 8px); }
+  .drivers-page--calendar-open .drivers-day-invoice-button { min-height: 20px; padding-inline: 4px; font-size: 5.5px; }
 }
 
 /* Mantenimiento: historial más compacto, con el naranja del módulo y una entrada negra claramente identificable. */

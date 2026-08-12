@@ -2607,7 +2607,6 @@ function DriversView({ vehicles, setModal }) {
   const renderCalendarPage = (period) => (
     <div ref={period.delta === 0 ? calendarActivePageRef : undefined} className="drivers-calendar-page" key={period.key}>
       {period.delta !== 0 && <div className="drivers-calendar-page__period">{reportMonths[period.month]} {period.year}</div>}
-      <div className="drivers-calendar-legend"><span><i className="drivers-calendar-legend__swatch drivers-calendar-legend__swatch--billing" />Facturación</span><span><i className="drivers-calendar-legend__swatch drivers-calendar-legend__swatch--fuel" />Repostaje</span><small>Desliza para cambiar de mes</small></div>
       <div className="drivers-calendar-weekdays" aria-hidden="true">{calendarWeekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
       <div className="drivers-calendar-grid" role="grid" aria-label={`Facturación y consumo de ${selectedDriver.driver} en ${reportMonths[period.month]} de ${period.year}`}>
         {period.cells.map((cell) => cell.empty
