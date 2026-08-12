@@ -18,6 +18,7 @@ import {
   IconCircleCheck,
   IconClock,
   IconCurrencyEuro,
+  IconDatabase,
   IconDownload,
   IconFileInvoice,
   IconGasStation,
@@ -31,6 +32,7 @@ import {
   IconMessageCircle,
   IconPlus,
   IconRefresh,
+  IconLogout,
   IconRobot,
   IconSearch,
   IconSettings,
@@ -41,6 +43,7 @@ import {
   IconTrash,
   IconUpload,
   IconUserCircle,
+  IconUserPlus,
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
@@ -58,6 +61,7 @@ import {
 } from "./documentAnalysis";
 import { funesmotorsportDocuments, funesmotorsportImportMeta } from "./data/funesmotorsportSummary";
 import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
+import { getProfile, invokeAdminUsers, isSupabaseConfigured, roleFromUser, supabase, uploadDocumentRecord } from "./supabase";
 
 const BILLING_COLOR = "#7bc887";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -94,7 +98,8 @@ const utilityItems = [
   { label: "Ayuda", slug: "ayuda", icon: IconHelpCircle },
 ];
 
-const topbarItems = [navItems[4], ...utilityItems];
+const adminNavItem = { label: "Administraci\u00f3n", slug: "administracion", icon: IconShieldCheck };
+const topbarItems = [navItems[4], adminNavItem, ...utilityItems];
 
 const vehicleOrder = ["5043 MLC", "5750 MJV", "5754 MJV", "0344 LCP", "9401 LTG"];
 const vehicleBrandLogos = {
@@ -572,7 +577,7 @@ const getDriverCalendarRows = (vehicle, row, month, year) => {
 const navFromHash = () => {
   const slug = window.location.hash.replace(/^#\/?/, "");
   if (slug === "gasolina") return "Vehículos";
-  return [...navItems, conductorNavItem, ...fleetSubItems, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Informes";
+  return [...navItems, conductorNavItem, ...fleetSubItems, adminNavItem, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Informes";
 };
 
 const isStandaloneApp = () => window.matchMedia("(display-mode: standalone)").matches || Boolean(window.navigator.standalone);
@@ -682,6 +687,51 @@ function QuickActionMenu({ step, category, onCategory, onDocumentAction, onNotic
 }
 
 export function App() {
+  const [authState, setAuthState] = useState({ loading: true, session: null, profile: null, error: null });
+
+  const applySession = useCallback(async (session) => {
+    if (!session?.user) {
+      setAuthState({ loading: false, session: null, profile: null, error: null });
+      return;
+    }
+    const { data: profile, error } = await getProfile(session.user);
+    setAuthState({ loading: false, session, profile: profile ?? null, error: error ?? null });
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthState({ loading: false, session: null, profile: null, error: new Error("Supabase no está configurado.") });
+      return undefined;
+    }
+    let mounted = true;
+    supabase.auth.getSession().then(({ data: { session } }) => { if (mounted) applySession(session); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(() => { if (mounted) applySession(session); }, 0);
+    });
+    return () => { mounted = false; subscription.unsubscribe(); };
+  }, [applySession]);
+
+  const updateProfile = (profile) => setAuthState((current) => ({ ...current, profile: { ...current.profile, ...profile } }));
+  const signOut = () => supabase?.auth.signOut();
+
+  if (authState.loading) return <AuthLoadingScreen />;
+  if (!isSupabaseConfigured) return <AuthScreen configurationError />;
+  if (!authState.session) return <AuthScreen error={authState.error} />;
+  if (!authState.profile) return <AuthScreen error={authState.error ?? new Error("No se ha encontrado el perfil de esta cuenta.")} />;
+  if (!authState.profile.active) return <AccessBlockedScreen onSignOut={signOut} />;
+  if (authState.profile.must_change_password && roleFromUser(authState.session.user, authState.profile) === "driver") {
+    return <PasswordSetupScreen profile={authState.profile} onComplete={updateProfile} onSignOut={signOut} />;
+  }
+  if (roleFromUser(authState.session.user, authState.profile) === "driver") {
+    return <DriverApp session={authState.session} profile={authState.profile} onSignOut={signOut} />;
+  }
+  return <AuthenticatedApp session={authState.session} profile={authState.profile} onSignOut={signOut} onProfileChange={updateProfile} />;
+}
+
+function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
+  const isAdmin = roleFromUser(session.user, profile) === "admin";
+  const profileName = profile.full_name || (isAdmin ? "David Diaz" : session.user.email);
+  const profileInitials = profileName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U";
   const [activeNav, setActiveNav] = useState(initialAppNav);
   const [selectedPlate, setSelectedPlate] = useState("5043 MLC");
   const [maintenancePlate, setMaintenancePlate] = useState("5043 MLC");
@@ -864,13 +914,32 @@ export function App() {
     toastTimer.current = window.setTimeout(() => setToast(""), 2800);
   };
 
-  const savePhotoInvoice = (invoice) => {
-    setPhotoInvoices((current) => [invoice, ...current.filter((item) => item.id !== invoice.id)]);
+  const savePhotoInvoice = async (invoice) => {
+    const { file, ...localInvoice } = invoice;
+    setPhotoInvoices((current) => [localInvoice, ...current.filter((item) => item.id !== localInvoice.id)]);
+    if (file && supabase && session.user?.id) {
+      try {
+        await uploadDocumentRecord({ ownerId: session.user.id, category: "billing", vehiclePlate: localInvoice.plate, file, extractedData: localInvoice, overallConfidence: 96, status: "review" });
+      } catch (error) {
+        notify(`Factura guardada localmente; no se pudo subir el adjunto: ${error.message}`);
+      }
+    }
   };
 
-  const saveProcessedDocument = (document) => {
-    const savedDocument = { ...document, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
+  const saveProcessedDocument = async (document) => {
+    const { file, ...documentWithoutFile } = document;
+    const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
     setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
+    let cloudSaved = false;
+    if (file && supabase && session.user?.id) {
+      try {
+        const fields = savedDocument.fields ?? {};
+        await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate: fields.vehicle || selectedPlate, file, extractedData: fields, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: savedDocument.lowConfidence ? "review" : "approved" });
+        cloudSaved = true;
+      } catch (error) {
+        notify(`Datos guardados localmente; no se pudo subir el adjunto: ${error.message}`);
+      }
+    }
     if (savedDocument.category === "billing") {
       const fields = savedDocument.fields ?? {};
       const amount = Number(fields.total) || Number(fields.netAmount) || 0;
@@ -892,7 +961,7 @@ export function App() {
         });
       }
     }
-    notify(savedDocument.lowConfidence ? "Datos guardados; revisa los campos de baja confianza" : "Datos clasificados y guardados correctamente");
+    notify(savedDocument.lowConfidence ? `Datos guardados${cloudSaved ? " en Supabase" : ""}; revisa los campos de baja confianza` : `Datos clasificados y guardados${cloudSaved ? " en Supabase" : ""} correctamente`);
   };
 
   const installApplication = async () => {
@@ -973,10 +1042,10 @@ export function App() {
   return (
     <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}${activeNav === "Informes" && homeReportTab === "General" ? " app-shell--dashboard" : ""}`}>
       <main className="workspace">
-          <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}${activeNav === "Mantenimiento" ? " topbar--maintenance" : ""}`}>
+          <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores", "Administración"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}${activeNav === "Mantenimiento" ? " topbar--maintenance" : ""}`}>
           <div className="topbar-title">
             <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
-            <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : "Gestión centralizada de vehículos"}</small>}</div>
+            <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : activeNav === "Administración" ? "Usuarios y permisos" : "Gestión centralizada de vehículos"}</small>}</div>
           </div>
           {activeNav === "Mantenimiento" && <MaintenanceSearch query={maintenanceSearchQuery} open={maintenanceSearchOpen} suggestions={maintenanceSearchSuggestions} onQueryChange={setMaintenanceSearchQuery} onOpenChange={setMaintenanceSearchOpen} onSelect={openMaintenanceSearchRecord} />}
           {!compactDetailHeader && <div className="topbar-actions">
@@ -985,19 +1054,20 @@ export function App() {
             <button type="button" className={`topbar-route-button topbar-route-button--facturas${activeNav === "Facturas" ? " topbar-route-button--active" : ""}`} onClick={() => navigate(navItems[3])} aria-label="Abrir Facturas" aria-current={activeNav === "Facturas" ? "page" : undefined} title="Facturas"><IconFileInvoice size={14} /><span>Facturas</span><i>3</i></button>
             <button className="bell-button" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setTopbarMenuOpen(false); }}><IconBell size={17} /><i>2</i></button>
             <button className="topbar-menu-button" aria-label="Abrir accesos de gestión" aria-expanded={topbarMenuOpen} aria-controls="topbar-management-menu" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }} title="Accesos de gestión"><IconMenu2 size={18} /></button>
-            <button className="profile" onClick={() => notify("Perfil de Ana García")}><span className="avatar">AG</span><span><strong>Ana García</strong><small>Gestora de flota</small></span><IconChevronDown size={17} /></button>
+            <button className="profile" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }}><span className="avatar">{profileInitials}</span><span><strong>{profileName}</strong><small>{isAdmin ? "Administrador" : "Conductor"}</small></span><IconChevronDown size={17} /></button>
           </div>}
           {!compactDetailHeader && topbarMenuOpen && (
             <aside id="topbar-management-menu" className="topbar-management-menu" aria-label="Accesos de gestión">
               {!isStandalone && <button className="topbar-management-menu__item" onClick={installApplication}><IconDownload size={18} /><span>Instalar app</span></button>}
               <div className="topbar-management-menu__meta"><IconCalendar size={18} /><span>28 jul 2026</span></div>
-              <button className="topbar-management-menu__item" onClick={() => notify("Perfil de Ana García")}><span className="avatar">AG</span><span><strong>Ana García</strong><small>Gestora de flota</small></span><IconChevronDown className="topbar-management-menu__chevron" size={17} /></button>
+              <button className="topbar-management-menu__item" onClick={() => { if (isAdmin) navigate(adminNavItem); else notify("Tu perfil lo gestiona el administrador"); }}><span className="avatar">{profileInitials}</span><span><strong>{profileName}</strong><small>{isAdmin ? "Administrador" : "Conductor"}</small></span><IconChevronDown className="topbar-management-menu__chevron" size={17} /></button>
               <div className="topbar-management-menu__divider" />
-              {topbarItems.map((item) => {
+              {topbarItems.filter((item) => isAdmin || item.slug !== adminNavItem.slug).map((item) => {
                 const Icon = item.icon;
                 const active = activeNav === item.label;
                 return <button className={active ? "topbar-management-menu__item topbar-management-menu__item--active" : "topbar-management-menu__item"} key={item.label} onClick={() => navigate(item)} aria-current={active ? "page" : undefined}><Icon size={18} /><span>{item.label}</span></button>;
               })}
+              <button className="topbar-management-menu__item" onClick={onSignOut}><IconLogout size={18} /><span>Cerrar sesión</span></button>
             </aside>
           )}
           {!compactDetailHeader && notificationsOpen && (
@@ -1017,6 +1087,7 @@ export function App() {
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
+          {activeNav === "Administración" && isAdmin && <AdminView profile={profile} session={session} notify={notify} onProfileChange={onProfileChange} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}
@@ -1048,10 +1119,238 @@ export function App() {
         onNotice={(message) => notify(message)}
         onDocumentAction={({ category, source, file }) => { setQuickMenuStep(""); setQuickMenuCategory(""); setModal({ type: "document-processing", category, source, file, selectedPlate }); }}
       />
-      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} vehicles={vehicles} />}
+      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} onSaveDocument={saveProcessedDocument} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
     </div>
   );
+}
+
+function AuthLoadingScreen() {
+  return <main className="auth-screen"><section className="auth-panel auth-panel--loading"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><IconSparkles size={24} /><strong>Preparando tu espacio seguro</strong><small>Conectando con SOBRE RUEDAS…</small></section></main>;
+}
+
+function AuthScreen({ error, configurationError = false }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const submit = async (event) => {
+    event.preventDefault();
+    setFormError("");
+    if (!supabase) {
+      setFormError("La conexión con Supabase todavía no está configurada.");
+      return;
+    }
+    setSubmitting(true);
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setSubmitting(false);
+    if (signInError) setFormError("Usuario o contraseña incorrectos. Si eres conductor, solicita un restablecimiento al administrador.");
+  };
+  return <main className="auth-screen"><section className="auth-panel">
+    <div className="auth-panel__brand"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><div><span>SOBRE RUEDAS</span><small>Gestión de flota</small></div></div>
+    <div className="auth-panel__heading"><span className="auth-eyebrow">ACCESO PRIVADO</span><h1>Entra en tu espacio</h1><p>Usa las credenciales que te ha entregado el administrador.</p></div>
+    {(formError || (error && !configurationError)) && <div className="auth-alert" role="alert"><IconAlertTriangle size={18} /><span>{formError || error.message}</span></div>}
+    {configurationError && <div className="auth-alert auth-alert--info" role="status"><IconDatabase size={18} /><span>La aplicación está pendiente de conectar las variables públicas de Supabase.</span></div>}
+    <form className="auth-form" onSubmit={submit}>
+      <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="tu@email.com" autoComplete="username" required /></label>
+      <label>Contraseña<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Contraseña" autoComplete="current-password" required /></label>
+      <button className="primary-button auth-form__submit" type="submit" disabled={submitting || configurationError}>{submitting ? "Comprobando…" : "Entrar"}<IconChevronRight size={17} /></button>
+    </form>
+    <p className="auth-panel__help">¿No recuerdas la contraseña? Pide al administrador que restablezca tu acceso. No se envían contraseñas por email.</p>
+  </section></main>;
+}
+
+function PasswordSetupScreen({ profile, onComplete, onSignOut }) {
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const submit = async (event) => {
+    event.preventDefault();
+    setError("");
+    if (password.length < 8) return setError("La contraseña debe tener al menos 8 caracteres.");
+    if (password !== confirmation) return setError("Las contraseñas no coinciden.");
+    if (!supabase) return setError("La conexión con Supabase no está disponible.");
+    setSaving(true);
+    const { error: passwordError } = await supabase.auth.updateUser({ password });
+    if (passwordError) {
+      setSaving(false);
+      setError(passwordError.message);
+      return;
+    }
+    const { error: profileError } = await supabase.from("profiles").update({ must_change_password: false, updated_at: new Date().toISOString() }).eq("id", profile.id);
+    setSaving(false);
+    if (profileError) return setError(profileError.message);
+    onComplete({ must_change_password: false });
+  };
+  return <main className="auth-screen"><section className="auth-panel auth-panel--password">
+    <div className="auth-panel__brand"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><div><span>PRIMER ACCESO</span><small>{profile.full_name}</small></div></div>
+    <div className="auth-panel__heading"><span className="auth-eyebrow">NUEVA CONTRASEÑA</span><h1>Protege tu acceso</h1><p>La contraseña temporal ya ha cumplido su función. Elige una personal que solo tú conozcas.</p></div>
+    {error && <div className="auth-alert" role="alert"><IconAlertTriangle size={18} /><span>{error}</span></div>}
+    <form className="auth-form" onSubmit={submit}><label>Nueva contraseña<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" minLength={8} required /></label><label>Repite la contraseña<input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="new-password" minLength={8} required /></label><button className="primary-button auth-form__submit" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar contraseña"}<IconCheck size={17} /></button></form>
+    <button className="text-button auth-signout" type="button" onClick={onSignOut}><IconLogout size={16} />Salir</button>
+  </section></main>;
+}
+
+function AccessBlockedScreen({ onSignOut }) {
+  return <main className="auth-screen"><section className="auth-panel auth-panel--blocked"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><IconShieldCheck size={29} /><h1>Acceso pendiente</h1><p>Esta cuenta está desactivada. Contacta con David Diaz para recuperar el acceso.</p><button className="secondary-button" type="button" onClick={onSignOut}><IconLogout size={17} />Cerrar sesión</button></section></main>;
+}
+
+function DriverApp({ session, profile, onSignOut }) {
+  const [entry, setEntry] = useState({ entryDate: new Date().toISOString().slice(0, 10), fuelCost: "", fuelLiters: "", odometerKm: "", billing: "", notes: "" });
+  const [entries, setEntries] = useState([]);
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profile.vehicle_plate);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!supabase) return undefined;
+    Promise.all([
+      supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, notes, created_at").eq("driver_id", session.user.id).order("entry_date", { ascending: false }).limit(6),
+      supabase.from("documents").select("id, category, file_name, file_size, status, created_at").eq("owner_id", session.user.id).order("created_at", { ascending: false }).limit(6),
+    ]).then(([entryResult, documentResult]) => {
+      if (!mounted) return;
+      if (entryResult.error) setMessage(entryResult.error.message);
+      setEntries(entryResult.data ?? []);
+      setLoading(false);
+    }).catch((error) => { if (mounted) { setMessage(error.message); setLoading(false); } });
+    return () => { mounted = false; };
+  }, [session.user.id]);
+
+  const updateEntry = (key, value) => setEntry((current) => ({ ...current, [key]: value }));
+  const saveEntry = async (event) => {
+    event.preventDefault();
+    setMessage("");
+    if (!supabase) return setMessage("La conexión con Supabase no está disponible.");
+    setSaving(true);
+    const values = {
+      driver_id: session.user.id,
+      vehicle_plate: profile.vehicle_plate,
+      entry_date: entry.entryDate,
+      fuel_cost: Number(entry.fuelCost) || 0,
+      fuel_liters: Number(entry.fuelLiters) || 0,
+      odometer_km: Number(entry.odometerKm) || 0,
+      billing: Number(entry.billing) || 0,
+      notes: entry.notes.trim() || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, notes, created_at").single();
+    if (error) {
+      setSaving(false);
+      setMessage(error.message);
+      return;
+    }
+    let uploadMessage = "";
+    if (file) {
+      try {
+        await uploadDocumentRecord({ ownerId: session.user.id, category: "consumption", vehiclePlate: profile.vehicle_plate, file, extractedData: { date: entry.entryDate, cost: values.fuel_cost, consumption: values.fuel_liters, unit: "L", odometerKm: values.odometer_km, billing: values.billing }, status: "review" });
+        uploadMessage = " y el justificante se ha archivado";
+      } catch (uploadError) {
+        uploadMessage = `, pero el justificante no se ha podido subir: ${uploadError.message}`;
+      }
+    }
+    setEntries((current) => [data, ...current.filter((candidate) => candidate.id !== data.id)]);
+    setFile(null);
+    setSaving(false);
+    setMessage(`Registro del ${entry.entryDate} guardado${uploadMessage}.`);
+  };
+
+  return <main className="driver-app"><header className="driver-app__topbar"><div className="driver-app__brand"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><div><strong>SOBRE RUEDAS</strong><small>Panel de conductor</small></div></div><button className="driver-app__logout" type="button" onClick={onSignOut} aria-label="Cerrar sesión"><IconLogout size={18} /></button></header><div className="driver-app__body"><section className="driver-welcome"><div><span>HOLA, {profile.full_name.toUpperCase()}</span><h1>{vehicle?.plate ?? profile.vehicle_plate ?? "Vehículo pendiente"}</h1><p>{vehicle?.model ?? "Vehículo profesional"} · registra tus datos del día en menos de un minuto.</p></div><span className="driver-welcome__badge"><IconCar size={20} />Turno activo</span></section><form className="driver-entry-card" onSubmit={saveEntry}><header><div><span>REGISTRO DIARIO</span><h2>Datos del servicio</h2></div><time dateTime={entry.entryDate}>{entry.entryDate}</time></header><div className="driver-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => updateEntry("entryDate", event.target.value)} required /></label><label>Facturación diaria<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Precio gasolina<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Kilometraje del día<input type="number" min="0" step="1" placeholder="0" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><label className="driver-entry-grid__wide">Nota opcional<textarea rows={2} value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Incidencias o información útil" /></label></div><label className="driver-file-input"><IconUpload size={18} /><span>{file ? file.name : "Adjuntar justificante de gasolina o facturación"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span className="driver-entry-status" role="status">{message}</span><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar registro"}<IconCheck size={17} /></button></footer></form><section className="driver-history-card"><header><div><span>HISTORIAL PERSONAL</span><h2>Últimos registros</h2></div><IconHistory size={20} /></header>{loading ? <p className="empty-state">Cargando tus datos…</p> : entries.length === 0 ? <p className="empty-state">Todavía no hay registros guardados.</p> : <div className="driver-history-list">{entries.map((item) => <article key={item.id}><time>{item.entry_date}</time><div><strong>{formatCurrency(Number(item.billing) || 0)}</strong><small>{formatCurrency(Number(item.fuel_cost) || 0)} gasolina · {Number(item.odometer_km) || 0} km</small></div><span>{Number(item.fuel_liters) || 0} L</span></article>)}</div>}</section></div></main>;
+}
+
+const driverVehicleOptions = vehicleOrder.map((plate) => vehiclesSeed.find((vehicle) => vehicle.plate === plate)).filter((vehicle) => vehicle?.use === "Profesional");
+const generateTemporaryPassword = () => `Rueda-${Math.random().toString(36).slice(2, 7)}-${new Date().getFullYear()}!`;
+
+function AdminView({ profile, session, notify, onProfileChange }) {
+  const [drivers, setDrivers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [form, setForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", temporaryPassword: "" });
+  const [adminName, setAdminName] = useState(profile.full_name || "David Diaz");
+  const [adminPassword, setAdminPassword] = useState("");
+
+  const loadDrivers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await invokeAdminUsers({ action: "list" });
+      setDrivers(response.profiles ?? []);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { loadDrivers(); }, [loadDrivers]);
+  const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const createDriver = async (event) => {
+    event.preventDefault();
+    setMessage("");
+    setTemporaryPassword("");
+    setSaving(true);
+    try {
+      const response = await invokeAdminUsers({ action: "create", ...form });
+      setDrivers((current) => [...current, response.profile].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+      setTemporaryPassword(response.temporaryPassword);
+      setForm({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", temporaryPassword: "" });
+      notify("Cuenta de conductor creada");
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const resetDriver = async (driver) => {
+    const nextPassword = generateTemporaryPassword();
+    setMessage("");
+    try {
+      const response = await invokeAdminUsers({ action: "reset_password", userId: driver.id, temporaryPassword: nextPassword });
+      setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? response.profile : candidate));
+      setTemporaryPassword(response.temporaryPassword);
+      notify(`Acceso restablecido para ${driver.full_name}`);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+  const updateDriver = async (driver, changes) => {
+    try {
+      const response = await invokeAdminUsers({ action: "update", userId: driver.id, ...changes });
+      setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? response.profile : candidate));
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+  const saveAdminName = async (event) => {
+    event.preventDefault();
+    if (!supabase) return;
+    const { error } = await supabase.from("profiles").update({ full_name: adminName.trim(), updated_at: new Date().toISOString() }).eq("id", session.user.id);
+    if (error) return setMessage(error.message);
+    await supabase.auth.updateUser({ data: { full_name: adminName.trim() } });
+    onProfileChange({ full_name: adminName.trim() });
+    notify("Perfil de administrador actualizado");
+  };
+  const saveAdminPassword = async (event) => {
+    event.preventDefault();
+    if (!adminPassword || adminPassword.length < 8 || !supabase) return setMessage("La contraseña debe tener al menos 8 caracteres.");
+    const { error } = await supabase.auth.updateUser({ password: adminPassword });
+    if (error) return setMessage(error.message);
+    setAdminPassword("");
+    notify("Contraseña de administrador actualizada");
+  };
+  const counts = driverVehicleOptions.map((vehicle) => ({ ...vehicle, count: drivers.filter((driver) => driver.vehicle_plate === vehicle.plate && driver.active).length }));
+
+  return <section className="admin-page"><header className="admin-page__hero"><div><span className="admin-eyebrow">CENTRO DE CONTROL</span><h1>Administración</h1><p>Crea, asigna y restablece los accesos de los seis conductores desde un único lugar.</p></div><span className="admin-page__identity"><span className="avatar">DD</span><span><strong>David Diaz</strong><small>Administrador principal</small></span></span></header>
+    {message && <div className="admin-alert" role="alert"><IconAlertTriangle size={18} />{message}</div>}
+    {temporaryPassword && <div className="admin-temporary-password" role="status"><IconKey size={19} /><div><strong>Contraseña temporal lista</strong><span>Entrégala al conductor de forma segura. Solo se muestra ahora y deberá cambiarla al entrar.</span></div><code>{temporaryPassword}</code><button className="icon-button" type="button" onClick={() => setTemporaryPassword("")} aria-label="Ocultar contraseña temporal"><IconX size={17} /></button></div>}
+    <div className="admin-stats">{counts.map((vehicle) => <article key={vehicle.plate}><span className="admin-stats__icon"><IconCar size={19} /></span><div><strong>{vehicle.plate}</strong><small>{vehicle.count}/2 conductores activos</small></div><i className={vehicle.count >= 2 ? "is-complete" : ""}>{vehicle.count >= 2 ? "Completo" : "Pendiente"}</i></article>)}</div>
+    <div className="admin-layout"><section className="content-card admin-card"><header className="card-header"><div><span>CUENTAS DE CONDUCTOR</span><h2>Crear un nuevo acceso</h2><p>La contraseña temporal se sustituye en el primer inicio de sesión.</p></div><IconUserCircle size={23} /></header><form className="admin-create-form" onSubmit={createDriver}><label>Nombre completo<input value={form.fullName} onChange={(event) => updateForm("fullName", event.target.value)} placeholder="Ej. Ana García" required /></label><label>Email de acceso<input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} placeholder="conductor@email.com" required /></label><label>Vehículo profesional<select value={form.vehiclePlate} onChange={(event) => updateForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((vehicle) => <option key={vehicle.plate} value={vehicle.plate}>{vehicle.plate} · {vehicle.model}</option>)}</select></label><label>Contraseña temporal<input type="text" value={form.temporaryPassword} onChange={(event) => updateForm("temporaryPassword", event.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required /></label><button className="primary-button" type="submit" disabled={saving}><IconUserPlus size={17} />{saving ? "Creando…" : "Crear cuenta"}</button></form></section>
+      <section className="content-card admin-card admin-profile-card"><header className="card-header"><div><span>PERFIL DEL ADMINISTRADOR</span><h2>David Diaz</h2><p>Modifica los datos que aparecen en el acceso de administración.</p></div><IconShieldCheck size={23} /></header><form className="admin-profile-form" onSubmit={saveAdminName}><label>Nombre visible<input value={adminName} onChange={(event) => setAdminName(event.target.value)} required /></label><label>Email<input value={session.user.email ?? ""} disabled /></label><button className="secondary-button" type="submit">Guardar nombre</button></form><form className="admin-profile-form admin-profile-form--password" onSubmit={saveAdminPassword}><label>Nueva contraseña<input type="password" value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} minLength={8} placeholder="Mínimo 8 caracteres" /></label><button className="secondary-button" type="submit"><IconKey size={16} />Cambiar contraseña</button></form></section></div>
+    <section className="content-card admin-card admin-drivers-card"><header className="card-header"><div><span>ACCESOS ACTIVOS</span><h2>Conductores</h2><p>Dos cuentas por coche profesional. Puedes reasignar o restablecer el acceso cuando lo necesites.</p></div><IconUsers size={23} /></header>{loading ? <p className="empty-state">Cargando cuentas…</p> : drivers.length === 0 ? <p className="empty-state">Todavía no hay cuentas creadas.</p> : <div className="admin-drivers-list">{drivers.map((driver) => <article className="admin-driver-row" key={driver.id}><span className="avatar">{driver.full_name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span><div className="admin-driver-row__identity"><strong>{driver.full_name}</strong><small>{driver.email}</small></div><select aria-label={`Vehículo de ${driver.full_name}`} value={driver.vehicle_plate ?? ""} onChange={(event) => updateDriver(driver, { vehiclePlate: event.target.value })}><option value="">Sin asignar</option>{driverVehicleOptions.map((vehicle) => <option key={vehicle.plate} value={vehicle.plate}>{vehicle.plate}</option>)}</select><span className={`admin-driver-status${driver.active ? " is-active" : ""}`}>{driver.active ? "Activo" : "Pausado"}</span><button className="text-button" type="button" onClick={() => updateDriver(driver, { active: !driver.active })}>{driver.active ? "Pausar" : "Activar"}</button><button className="text-button text-button--accent" type="button" onClick={() => resetDriver(driver)}>Restablecer acceso</button></article>)}</div>}</section>
+  </section>;
 }
 
 function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, setModal, compact = false }) {
@@ -1294,6 +1593,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
     closeButtonRef.current?.focus();
   }, []);
   const total = details.reduce((sum, detail) => sum + detail.net, 0);
+  const hasExpandedDetails = expandedPlates.size > 0 || Boolean(activeFormPlate);
   const toggleExpenses = (plate) => {
     setExpandedPlates((current) => {
       const next = new Set(current);
@@ -1326,7 +1626,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
   };
   return (
     <div className="net-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="net-detail-modal" role="dialog" aria-modal="true" aria-labelledby="net-detail-title" aria-describedby="net-detail-period">
+      <section className={`net-detail-modal${hasExpandedDetails ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-labelledby="net-detail-title" aria-describedby="net-detail-period">
         <header className="net-detail-modal__header">
           <div><span>Resultado mensual</span><h2 id="net-detail-title">NETO</h2><small id="net-detail-period">{periodLabel} · 3 coches profesionales</small></div>
           <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
@@ -2975,6 +3275,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, on
       id: `DOC-${String(Date.now()).slice(-8)}`,
       category,
       source,
+      file: preparedFile,
       fileName: preparedFile?.name || file.name,
       fileType: preparedFile?.type || file.type,
       fields: fieldsToRecord(fields),
@@ -3070,6 +3371,7 @@ function InvoicePhotoWorkflow({ initialPlate, vehicles, onCancel, onSave }) {
   const [stage, setStage] = useState("upload");
   const [preview, setPreview] = useState("");
   const [fileName, setFileName] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
   const [date, setDate] = useState("2026-07-28");
   const [provider, setProvider] = useState("Taller AutoRápido S.L.");
   const [plate, setPlate] = useState(initialPlate ?? vehicles[0].plate);
@@ -3085,6 +3387,7 @@ function InvoicePhotoWorkflow({ initialPlate, vehicles, onCancel, onSave }) {
 
   const preparePhoto = (file) => {
     if (!file) return;
+    setSelectedFile(file);
     setFileName(file.name);
     const reader = new FileReader();
     reader.addEventListener("load", () => {
@@ -3114,6 +3417,7 @@ function InvoicePhotoWorkflow({ initialPlate, vehicles, onCancel, onSave }) {
       source: "Foto",
       status: "Revisar",
       items: lines.map(({ concept, amount }) => ({ concept: concept.trim(), amount: Number(amount) })),
+      file: selectedFile,
     });
   };
 
