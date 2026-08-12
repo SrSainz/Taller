@@ -2181,11 +2181,20 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .admin-vehicle-driver__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .admin-vehicle-driver__actions .text-button { display: inline-flex; align-items: center; gap: 5px; min-height: 31px; padding-inline: 9px; white-space: nowrap; }
 .admin-vehicle-driver__actions .text-button--preview { color: var(--green-800); }
+.admin-driver-profile-editor { grid-column: 2 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 9px; margin-top: 3px; padding: 12px; border: 1px solid #cfe2d5; border-radius: 11px; background: #f5fbf6; }
+.admin-driver-profile-editor label { display: grid; gap: 4px; color: var(--muted); font-size: 10px; font-weight: 750; }
+.admin-driver-profile-editor input, .admin-driver-profile-editor select { width: 100%; min-height: 35px; box-sizing: border-box; border: 1px solid var(--line-dark); border-radius: 8px; background: #fff; color: var(--text); padding: 7px 9px; font: inherit; font-size: 11px; outline: none; }
+.admin-driver-profile-editor input:focus, .admin-driver-profile-editor select:focus { border-color: var(--green-700); box-shadow: 0 0 0 3px rgba(20, 129, 108, .12); }
+.admin-driver-profile-editor__active { display: flex !important; align-items: center; gap: 7px; min-height: 35px; }
+.admin-driver-profile-editor__active input { width: 16px; min-height: 16px; accent-color: var(--green-700); }
+.admin-driver-profile-editor__actions { display: flex; justify-content: flex-end; gap: 6px; grid-column: 1 / -1; }
+.admin-driver-profile-editor__actions .primary-button, .admin-driver-profile-editor__actions .text-button { min-height: 31px; padding: 7px 11px; }
 .admin-vehicle-empty { margin: 16px 0 0; padding: 16px; border: 1px dashed var(--line-dark); border-radius: 12px; color: var(--muted); font-size: 11px; text-align: center; }
 
 @media (max-width: 760px) {
   .admin-vehicle-driver { grid-template-columns: auto minmax(0, 1fr); }
   .admin-vehicle-driver__actions { grid-column: 2 / -1; justify-content: flex-start; }
+  .admin-driver-profile-editor { grid-column: 2 / -1; grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 520px) {
@@ -2197,4 +2206,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .admin-vehicle-driver__actions { display: grid; grid-template-columns: 1fr 1fr; }
   .admin-vehicle-driver__actions .text-button { justify-content: center; }
   .admin-vehicle-driver__actions .text-button--accent { grid-column: 1 / -1; }
+  .admin-driver-profile-editor { grid-column: 2 / -1; grid-template-columns: 1fr; }
+  .admin-driver-profile-editor__actions { justify-content: stretch; }
+  .admin-driver-profile-editor__actions > * { flex: 1; justify-content: center; }
 }

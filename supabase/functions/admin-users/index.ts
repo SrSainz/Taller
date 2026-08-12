@@ -114,14 +114,27 @@ Deno.serve(async (request) => {
   }
 
   if (action === "update") {
+    const { data: targetDriver, error: targetError } = await auth.admin.from("profiles").select("id, role, vehicle_plate").eq("id", userId).single();
+    if (targetError || targetDriver?.role !== "driver") return json({ error: "Solo se pueden editar perfiles de conductores." }, 400);
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    if (payload.fullName !== undefined) updates.full_name = normalizeName(payload.fullName);
+    const authUpdates: Record<string, unknown> = {};
+    if (payload.fullName !== undefined) {
+      const fullName = normalizeName(payload.fullName);
+      if (!fullName) return json({ error: "El nombre completo no puede estar vacío." }, 400);
+      updates.full_name = fullName;
+      authUpdates.user_metadata = { full_name: fullName };
+    }
+    if (payload.email !== undefined) {
+      const email = normalizeEmail(payload.email);
+      if (!email || !email.includes("@")) return json({ error: "Introduce un email válido para el acceso." }, 400);
+      updates.email = email;
+      authUpdates.email = email;
+      authUpdates.email_confirm = true;
+    }
     if (payload.vehiclePlate !== undefined) {
       const nextVehicle = normalizeName(payload.vehiclePlate) || null;
       if (nextVehicle && !professionalVehicles.has(nextVehicle)) return json({ error: "Solo puedes asignar uno de los tres coches profesionales." }, 400);
-      const { data: currentDriver, error: currentError } = await auth.admin.from("profiles").select("vehicle_plate").eq("id", userId).eq("role", "driver").single();
-      if (currentError) return json({ error: currentError.message }, 400);
-      if (nextVehicle && nextVehicle !== currentDriver.vehicle_plate) {
+      if (nextVehicle && nextVehicle !== targetDriver.vehicle_plate) {
         const { count: vehicleCount, error: countError } = await auth.admin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "driver").eq("vehicle_plate", nextVehicle).neq("id", userId);
         if (countError) return json({ error: countError.message }, 400);
         if ((vehicleCount ?? 0) >= 2) return json({ error: "Ese coche ya tiene dos conductores asignados." }, 400);
@@ -129,6 +142,10 @@ Deno.serve(async (request) => {
       updates.vehicle_plate = nextVehicle;
     }
     if (payload.active !== undefined) updates.active = Boolean(payload.active);
+    if (Object.keys(authUpdates).length > 0) {
+      const { error: authError } = await auth.admin.auth.admin.updateUserById(userId, authUpdates);
+      if (authError) return json({ error: authError.message }, 400);
+    }
     const { data: profile, error } = await auth.admin.from("profiles").update(updates).eq("id", userId).eq("role", "driver").select(profileFields).single();
     if (error) return json({ error: error.message }, 400);
     return json({ profile });

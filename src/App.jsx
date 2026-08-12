@@ -67,6 +67,7 @@ import { getProfile, invokeAdminUsers, isSupabaseConfigured, roleFromUser, supab
 const BILLING_COLOR = "#7bc887";
 const MAINTENANCE_COLOR = "#f39c12";
 const SUMMARY_CHART_COLOR = "#1976c9";
+const DRIVER_COMMISSION_RATE = 0.1;
 const chartMetricOptions = [
   { value: "summary", label: "Resumen" },
   { value: "billing", label: "Facturación" },
@@ -115,12 +116,12 @@ const vehiclesSeed = [
     plate: "5754 MJV",
     model: "Toyota Corolla",
     use: "Profesional",
-    drivers: ["Carlos", "Fernando"],
+    drivers: ["Andrés", "Fernando"],
     odometer: 128460,
     nextServiceKm: 134000,
     serviceDate: "12 ago 2026",
     fuelSchedule: [
-      { label: "04:00–16:00", driver: "Carlos", start: 4, end: 16 },
+      { label: "04:00–16:00", driver: "Andrés", start: 4, end: 16 },
       { label: "16:00–04:00", driver: "Fernando", start: 16, end: 4 },
     ],
     monthlyFuel: [
@@ -137,7 +138,7 @@ const vehiclesSeed = [
     ],
     shifts: [
       { id: "kxd-t2", label: "Turno 16:00–04:00", driver: "Fernando", time: "16:00–04:00", start: 128310, end: 128460, km: 150, liters: 18.4, cost: 31.28, revenue: 418.2, cash: 76, monthRevenue: 7954.3, monthTrips: 136, sentAt: "04:08", confidence: 98 },
-      { id: "kxd-t1", label: "Turno 04:00–16:00", driver: "Carlos", time: "04:00–16:00", start: 128142, end: 128310, km: 168, liters: 20.1, cost: 34.17, revenue: 462.8, cash: 128.5, monthRevenue: 8240.5, monthTrips: 142, sentAt: "16:05", confidence: 99 },
+      { id: "kxd-t1", label: "Turno 04:00–16:00", driver: "Andrés", time: "04:00–16:00", start: 128142, end: 128310, km: 168, liters: 20.1, cost: 34.17, revenue: 462.8, cash: 128.5, monthRevenue: 8240.5, monthTrips: 142, sentAt: "16:05", confidence: 99 },
     ],
     maintenance: [
       { date: "18 jul 2026", km: 127820, concept: "Aceite y filtros", amount: 286.4 },
@@ -339,7 +340,7 @@ const expenseCategories = [
   { label: "Gasolina", cadence: "Variable" },
   { label: "Taller", cadence: "Variable" },
   { label: "Seguridad Social", cadence: "Mensual" },
-  { label: "Nómina", cadence: "Mensual" },
+  { label: "Nóminas", cadence: "Manual" },
   { label: "Comisiones conductor", cadence: "Variable" },
   { label: "Impuestos trimestrales", cadence: "Trimestral" },
   { label: "IVA intracomunitario", cadence: "Trimestral" },
@@ -382,15 +383,15 @@ const saveManualNetExpenses = (expenses) => {
   }
 };
 
-const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, periodFactor }) => {
+const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor }) => {
   const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
   return [
     { key: "workshop", label: "Taller", amount: maintenance, cadence: "Variable" },
     { key: "fuel", label: "Gasolina", amount: fuel, cadence: "Variable" },
-    { key: "payroll", label: "Nóminas", amount: scale(amounts[5]), cadence: "Mensual" },
-    { key: "driver-commission", label: "Comisiones de conductores", amount: scale(amounts[6]), cadence: "Variable" },
+    { key: "payroll", label: "Nóminas", amount: 0, cadence: "Pendiente · añadir por conductor" },
+    { key: "driver-commission", label: "Comisiones de conductores", amount: commission, cadence: `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual` },
     { key: "social-security", label: "Seguros sociales", amount: scale(amounts[4]), cadence: "Mensual" },
     { key: "accounting", label: "Gestoría", amount: scale(additional.gestoria), cadence: "Mensual" },
     { key: "taxes", label: "Impuestos", amount: scale(amounts[7]), cadence: "Trimestral" },
@@ -452,7 +453,7 @@ const readingSeed = [
   { id: "LEC-4380", time: "Hoy · 07:03", driver: "Amin", plate: "5043 MLC", total: 210735, daily: 121, confidence: 96, status: "Revisar" },
   { id: "LEC-4379", time: "Hoy · 06:05", driver: "Alex", plate: "5750 MJV", total: 142980, daily: 138, confidence: 97, status: "Validada" },
   { id: "LEC-4378", time: "Hoy · 19:05", driver: "David García", plate: "0344 LCP", total: 98215, daily: 13, confidence: 92, status: "Revisar" },
-  { id: "LEC-4377", time: "Hoy · 16:05", driver: "Carlos", plate: "5754 MJV", total: 128310, daily: 168, confidence: 99, status: "Validada" },
+  { id: "LEC-4377", time: "Hoy · 16:05", driver: "Andrés", plate: "5754 MJV", total: 128310, daily: 168, confidence: 99, status: "Validada" },
   { id: "LEC-4376", time: "Hoy · 19:02", driver: "Mauricio", plate: "5043 MLC", total: 210614, daily: 120, confidence: 98, status: "Validada" },
 ];
 
@@ -525,6 +526,11 @@ const getDriverFuelEntriesForPeriod = (vehicle, driver, month, year) => {
       cost: Number(((entry.cost ?? 0) * periodFactor).toFixed(2)),
     }))
     .filter((entry) => getFuelAssignment(vehicle, entry).driver === driver);
+};
+
+const getFuelCostForPeriod = (vehicle, month, year) => {
+  const periodFactor = getReportPeriodFactor(month, year);
+  return Number((vehicle.monthlyFuel ?? []).reduce((sum, entry) => sum + Number(((entry.cost ?? 0) * periodFactor).toFixed(2)), 0).toFixed(2));
 };
 
 const distributeInteger = (total, keys, seed) => {
@@ -732,11 +738,12 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const profileName = profile.full_name || (isAdmin ? "David Diaz" : session.user.email);
   const profileInitials = profileName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U";
   const [previewDriver, setPreviewDriver] = useState(null);
+  const [driverProfiles, setDriverProfiles] = useState([]);
   const [activeNav, setActiveNav] = useState(initialAppNav);
   const [selectedPlate, setSelectedPlate] = useState("5043 MLC");
   const [maintenancePlate, setMaintenancePlate] = useState("5043 MLC");
   const [selectedDrivers, setSelectedDrivers] = useState({
-    "5754 MJV": "Carlos",
+    "5754 MJV": "Andrés",
     "5750 MJV": "Tirso",
     "5043 MLC": "Mauricio",
     "0344 LCP": "Ana García",
@@ -766,6 +773,18 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [maintenanceSearchOpen, setMaintenanceSearchOpen] = useState(false);
   const [maintenanceSearchSelection, setMaintenanceSearchSelection] = useState(null);
   const toastTimer = useRef();
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setDriverProfiles([]);
+      return undefined;
+    }
+    let mounted = true;
+    invokeAdminUsers({ action: "list" })
+      .then((response) => { if (mounted) setDriverProfiles(response.profiles ?? []); })
+      .catch(() => { if (mounted) setDriverProfiles([]); });
+    return () => { mounted = false; };
+  }, [isAdmin]);
 
   useEffect(() => {
     const onBottomNavigationClick = (event) => {
@@ -861,7 +880,39 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         imageSrc: funesmotorsportAssetMap[document.id],
       }));
     return { ...vehicle, maintenance: [...recordedMaintenance, ...importedMaintenance, ...vehicle.maintenance] };
-  }).sort((a, b) => vehicleOrder.indexOf(a.plate) - vehicleOrder.indexOf(b.plate)), [photoInvoices]);
+  }).map((vehicle) => {
+    if (vehicle.use !== "Profesional") return { ...vehicle, driverProfiles: [] };
+    const assignedProfiles = driverProfiles
+      .filter((driver) => driver.vehicle_plate === vehicle.plate)
+      .sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name));
+    if (!assignedProfiles.length) return { ...vehicle, driverProfiles: [] };
+    const resolvedDrivers = vehicle.drivers.map((seedDriver, index) => assignedProfiles[index]?.full_name || seedDriver);
+    const extraDrivers = assignedProfiles.slice(vehicle.drivers.length).map((driver) => driver.full_name);
+    const driverNameMap = new Map(vehicle.drivers.map((seedDriver, index) => [seedDriver, resolvedDrivers[index]]));
+    const resolveDriver = (name) => driverNameMap.get(name) ?? name;
+    return {
+      ...vehicle,
+      drivers: [...resolvedDrivers, ...extraDrivers],
+      driverProfiles: assignedProfiles,
+      shifts: vehicle.shifts.map((shift) => ({ ...shift, driver: resolveDriver(shift.driver) })),
+      fuelSchedule: vehicle.fuelSchedule?.map((shift) => ({ ...shift, driver: resolveDriver(shift.driver) })),
+      monthlyFuel: vehicle.monthlyFuel?.map((entry) => entry.driver ? { ...entry, driver: resolveDriver(entry.driver) } : entry),
+    };
+  }).sort((a, b) => vehicleOrder.indexOf(a.plate) - vehicleOrder.indexOf(b.plate)), [driverProfiles, photoInvoices]);
+
+  useEffect(() => {
+    setSelectedDrivers((current) => {
+      let changed = false;
+      const next = { ...current };
+      vehicles.forEach((vehicle) => {
+        if (vehicle.use === "Profesional" && vehicle.drivers.length > 0 && !vehicle.drivers.includes(next[vehicle.plate])) {
+          next[vehicle.plate] = vehicle.drivers[0];
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [vehicles]);
 
   const maintenanceSearchRecords = useMemo(() => buildMaintenanceSearchRecords(vehicles, invoices), [invoices, vehicles]);
   const maintenanceSearchSuggestions = useMemo(() => {
@@ -1091,7 +1142,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
-          {activeNav === "Administración" && isAdmin && <AdminView profile={profile} session={session} notify={notify} onProfileChange={onProfileChange} onPreviewDriver={setPreviewDriver} />}
+          {activeNav === "Administración" && isAdmin && <AdminView profile={profile} session={session} notify={notify} onProfileChange={onProfileChange} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}
@@ -1238,7 +1289,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
 const driverVehicleOptions = vehicleOrder.map((plate) => vehiclesSeed.find((vehicle) => vehicle.plate === plate)).filter((vehicle) => vehicle?.use === "Profesional");
 const generateDriverPassword = () => `Rueda-${Math.random().toString(36).slice(2, 7)}-${new Date().getFullYear()}!`;
 
-function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver }) {
+function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver, onDriversChange }) {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1246,6 +1297,8 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver 
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [openSection, setOpenSection] = useState("admin");
   const [form, setForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", password: "" });
+  const [editingDriverId, setEditingDriverId] = useState("");
+  const [driverProfileForm, setDriverProfileForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", active: true });
   const [adminName, setAdminName] = useState(profile.full_name || "David Diaz");
   const [adminPassword, setAdminPassword] = useState("");
 
@@ -1261,6 +1314,7 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver 
     }
   }, []);
   useEffect(() => { loadDrivers(); }, [loadDrivers]);
+  useEffect(() => { onDriversChange?.(drivers); }, [drivers, onDriversChange]);
   const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const createDriver = async (event) => {
     event.preventDefault();
@@ -1297,6 +1351,27 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver 
       setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? response.profile : candidate));
     } catch (error) {
       setMessage(error.message);
+    }
+  };
+  const startDriverEdit = (driver) => {
+    setEditingDriverId(driver.id);
+    setDriverProfileForm({ fullName: driver.full_name ?? "", email: driver.email ?? "", vehiclePlate: driver.vehicle_plate ?? driverVehicleOptions[0]?.plate ?? "", active: Boolean(driver.active) });
+    setMessage("");
+  };
+  const updateDriverProfileForm = (key, value) => setDriverProfileForm((current) => ({ ...current, [key]: value }));
+  const saveDriverProfile = async (event, driver) => {
+    event.preventDefault();
+    setMessage("");
+    setSaving(true);
+    try {
+      const response = await invokeAdminUsers({ action: "update", userId: driver.id, ...driverProfileForm });
+      setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? response.profile : candidate));
+      setEditingDriverId("");
+      notify(`Perfil de ${response.profile.full_name} actualizado`);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setSaving(false);
     }
   };
   const saveAdminName = async (event) => {
@@ -1348,11 +1423,12 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver 
            </button>
            {openSection === vehicle.plate && <div className="admin-accordion__panel" id={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>
              <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">CONDUCTORES ASIGNADOS</span><h2>{vehicle.plate}</h2><p>Activa, pausa, restablece o abre la vista de cada cuenta.</p></div><IconUsers size={23} /></header>
-             {loading ? <p className="empty-state">Cargando cuentas…</p> : vehicleDrivers.length === 0 ? <p className="admin-vehicle-empty">Todavía no hay conductores asignados a este coche.</p> : <div className="admin-vehicle-drivers">{vehicleDrivers.map((driver) => <article className="admin-vehicle-driver" key={driver.id}>
-               <span className={`admin-vehicle-driver__status-dot${driver.active ? " is-active" : ""}`} aria-hidden="true" />
-               <div className="admin-vehicle-driver__identity"><strong>{driver.full_name}</strong><small>{driver.email}</small><span className={`admin-driver-status${driver.active ? " is-active" : ""}`}>{driver.active ? "Acceso activo" : "Acceso pausado"}</span></div>
-               <div className="admin-vehicle-driver__actions"><button className="text-button text-button--preview" type="button" onClick={() => onPreviewDriver(driver)} disabled={!driver.active}><IconEye size={15} />Ver aplicación</button><button className="text-button" type="button" onClick={() => updateDriver(driver, { active: !driver.active })}>{driver.active ? "Pausar acceso" : "Activar acceso"}</button><button className="text-button text-button--accent" type="button" onClick={() => resetDriver(driver)}><IconRefresh size={15} />Restablecer contraseña</button></div>
-             </article>)}</div>}
+              {loading ? <p className="empty-state">Cargando cuentas…</p> : vehicleDrivers.length === 0 ? <p className="admin-vehicle-empty">Todavía no hay conductores asignados a este coche.</p> : <div className="admin-vehicle-drivers">{vehicleDrivers.map((driver) => <article className="admin-vehicle-driver" key={driver.id}>
+                <span className={`admin-vehicle-driver__status-dot${driver.active ? " is-active" : ""}`} aria-hidden="true" />
+                <div className="admin-vehicle-driver__identity"><strong>{driver.full_name}</strong><small>{driver.email}</small><span className={`admin-driver-status${driver.active ? " is-active" : ""}`}>{driver.active ? "Acceso activo" : "Acceso pausado"}</span></div>
+                <div className="admin-vehicle-driver__actions"><button className="text-button text-button--preview" type="button" onClick={() => onPreviewDriver(driver)} disabled={!driver.active}><IconEye size={15} />Ver aplicación</button><button className="text-button" type="button" onClick={() => startDriverEdit(driver)} aria-expanded={editingDriverId === driver.id}><IconUserCircle size={15} />Editar perfil</button><button className="text-button" type="button" onClick={() => updateDriver(driver, { active: !driver.active })}>{driver.active ? "Pausar acceso" : "Activar acceso"}</button><button className="text-button text-button--accent" type="button" onClick={() => resetDriver(driver)}><IconRefresh size={15} />Restablecer contraseña</button></div>
+                {editingDriverId === driver.id && <form className="admin-driver-profile-editor" onSubmit={(event) => saveDriverProfile(event, driver)}><label>Nombre completo<input value={driverProfileForm.fullName} onChange={(event) => updateDriverProfileForm("fullName", event.target.value)} required /></label><label>Email de acceso<input type="email" value={driverProfileForm.email} onChange={(event) => updateDriverProfileForm("email", event.target.value)} required /></label><label>Vehículo asignado<select value={driverProfileForm.vehiclePlate} onChange={(event) => updateDriverProfileForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((option) => <option key={option.plate} value={option.plate}>{option.plate} · {option.model}</option>)}</select></label><label className="admin-driver-profile-editor__active"><input type="checkbox" checked={driverProfileForm.active} onChange={(event) => updateDriverProfileForm("active", event.target.checked)} />Acceso activo</label><div className="admin-driver-profile-editor__actions"><button className="text-button" type="button" onClick={() => setEditingDriverId("")}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar perfil"}</button></div></form>}
+              </article>)}</div>}
            </div>}
          </section>;
        })}
@@ -1666,7 +1742,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
                   <button type="button" className="net-detail-card__add" onClick={() => openExpenseForm(vehicle.plate)}><IconPlus size={14} />Añadir gastos</button>
                 </div>
                 {adding && <form className="net-detail-card__add-form" onSubmit={(event) => handleExpenseSubmit(event, vehicle.plate)}>
-                  <label><span>Concepto</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Parking" maxLength={42} autoFocus /></label>
+                  <label><span>Concepto manual</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Nóminas · Andrés" maxLength={42} autoFocus /></label>
                   <label><span>Importe</span><input type="number" value={formState.amount} onChange={(event) => setFormState((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" min="0.01" step="0.01" inputMode="decimal" /></label>
                   <div><button type="button" className="net-detail-card__form-cancel" onClick={closeExpenseForm}>Cancelar</button><button type="submit" className="net-detail-card__form-save">Guardar gasto</button></div>
                   {formError && <p>{formError}</p>}
@@ -1815,11 +1891,14 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     .filter((vehicle) => vehicle.use === "Profesional")
     .map((vehicle) => {
       const vehicleIndex = vehicles.findIndex((candidate) => candidate.plate === vehicle.plate);
-      const revenue = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0);
+      const vehicleBillingRows = billingRows.filter((row) => row.plate === vehicle.plate);
+      const revenue = vehicleBillingRows.reduce((sum, row) => sum + row.revenue, 0);
+      const commission = Number((vehicleBillingRows.reduce((sum, row) => sum + row.revenue * DRIVER_COMMISSION_RATE, 0)).toFixed(2));
       const expenses = buildNetExpenseBreakdown({
         vehicle,
-        fuel: fuelChartData[vehicleIndex]?.value ?? 0,
+        fuel: vehicleStats[vehicleIndex]?.cost ?? 0,
         maintenance: maintenanceChartData[vehicleIndex]?.value ?? 0,
+        commission,
         periodFactor,
       });
       const manualExpenses = manualNetExpenses
@@ -3128,15 +3207,19 @@ function WorkshopHistory({ vehicle, onCreateInvoice }) {
 }
 
 function VehicleExpenses({ vehicle }) {
+  const reportMonth = 6;
+  const reportYear = 2026;
+  const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
   const amounts = [...(vehicleExpenseAmounts[vehicle.plate] ?? expenseCategories.map(() => 0))];
-  amounts[3] = vehicle.maintenance
-    .filter((item) => item.dateIso?.startsWith("2026-07") || item.date.toLocaleLowerCase("es").includes("jul 2026"))
-    .reduce((sum, item) => sum + item.amount, 0);
+  amounts[2] = getFuelCostForPeriod(vehicle, reportMonth, reportYear);
+  amounts[3] = getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear);
+  amounts[5] = 0;
+  amounts[6] = Number((vehicle.drivers.reduce((sum, driver) => sum + (getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor * DRIVER_COMMISSION_RATE, 0)).toFixed(2));
   const expenses = expenseCategories.map((category, index) => ({ ...category, amount: amounts[index] ?? 0 }));
   const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const operating = expenses.filter((expense) => ["Gasolina", "Taller", "Comisiones conductor", "Limpieza coche", "Varios"].includes(expense.label)).reduce((sum, expense) => sum + expense.amount, 0);
   const fixed = total - operating;
-  const driverRevenue = vehicle.drivers.map((driver) => ({ driver, amount: getDriverDay(vehicle, driver).monthRevenue ?? 0 }));
+  const driverRevenue = vehicle.drivers.map((driver) => ({ driver, amount: Number(((getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor).toFixed(2)) }));
   const totalRevenue = driverRevenue.reduce((sum, entry) => sum + entry.amount, 0);
   const profitMargin = totalRevenue - total;
   const marginPercent = totalRevenue > 0 ? (profitMargin / totalRevenue) * 100 : 0;
@@ -3160,7 +3243,7 @@ function VehicleExpenses({ vehicle }) {
       <div className="expense-breakdown"><div><span>Fijos y fiscales</span><strong>{formatCurrency(fixed)}</strong></div><div><span>Operativos</span><strong>{formatCurrency(operating)}</strong></div></div>
       <div className="expense-table" role="table" aria-label={`Gastos de ${vehicle.plate} en julio de 2026`}>
         <div className="expense-row expense-row--header" role="row"><span>Categoría</span><span>Periodo</span><span>Importe</span></div>
-        {expenses.map((expense) => <div className="expense-row" role="row" key={expense.label}><span role="cell"><strong>{expense.label}</strong></span><span role="cell"><small>{expense.amount === 0 ? "No aplica" : expense.cadence}</small></span><strong role="cell" className={expense.amount === 0 ? "expense-zero" : ""}>{formatCurrency(expense.amount)}</strong></div>)}
+        {expenses.map((expense) => <div className="expense-row" role="row" key={expense.label}><span role="cell"><strong>{expense.label}</strong></span><span role="cell"><small>{expense.amount === 0 && expense.label === "Nóminas" ? "Añadir manualmente" : expense.amount === 0 ? "No aplica" : expense.cadence}</small></span><strong role="cell" className={expense.amount === 0 ? "expense-zero" : ""}>{formatCurrency(expense.amount)}</strong></div>)}
       </div>
       <p className="expense-note">Importes asociados únicamente a {vehicle.plate}. Los trimestrales y anuales muestran el pago registrado en el periodo.</p>
     </section>
