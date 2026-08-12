@@ -2570,3 +2570,40 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 
 /* Neto: al no existir la franja duplicada de resultado, el estado cerrado no necesita scroll. */
 .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-grid { overflow: hidden; }
+
+/* Administración: las cuentas se muestran compactas y sus acciones aparecen al seleccionar una. */
+.admin-vehicle-drivers { gap: 6px; margin-top: 12px; }
+.admin-vehicle-driver { display: block; padding: 0; overflow: hidden; border-color: rgba(28, 43, 46, .12); }
+.admin-vehicle-driver__button { display: grid; width: 100%; min-height: 48px; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 11px; border: 0; background: #fff; color: var(--text); text-align: left; cursor: pointer; }
+.admin-vehicle-driver__button:hover, .admin-vehicle-driver.is-focused .admin-vehicle-driver__button { background: #f4faf7; }
+.admin-vehicle-driver__identity { gap: 2px; }
+.admin-vehicle-driver__identity strong { font-size: 12px; }
+.admin-vehicle-driver__identity small { font-size: 9px; }
+.admin-vehicle-driver__identity .admin-driver-status { font-size: 8px; }
+.admin-vehicle-driver__status-dot { width: 8px; height: 8px; box-shadow: 0 0 0 3px #eef1f1; }
+.admin-vehicle-driver__status-dot.is-active { box-shadow: 0 0 0 3px #e6f6ed; }
+.admin-vehicle-driver__chevron { color: var(--muted); transition: transform .18s ease, color .18s ease; }
+.admin-vehicle-driver.is-focused .admin-vehicle-driver__chevron { color: var(--green-800); transform: rotate(180deg); }
+.admin-vehicle-driver__details { display: grid; gap: 8px; padding: 0 11px 10px 29px; border-top: 1px solid var(--line); background: #fbfdfc; }
+.admin-vehicle-driver__actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); justify-content: stretch; gap: 5px; }
+.admin-vehicle-driver__actions .text-button { min-height: 30px; justify-content: center; padding-inline: 6px; font-size: 8px; line-height: 1.1; white-space: normal; }
+.admin-driver-password { grid-column: auto; margin: 0; }
+.admin-driver-profile-editor { grid-column: auto; margin-top: 0; }
+
+@media (max-width: 760px) {
+  .admin-vehicle-driver__actions { grid-column: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-vehicle-driver__details { padding-left: 29px; }
+}
+
+@media (max-width: 520px) {
+  .admin-vehicle-driver__button { min-height: 44px; padding: 7px 9px; }
+  .admin-vehicle-driver__details { padding: 0 9px 9px 25px; }
+  .admin-vehicle-driver__actions { grid-template-columns: 1fr 1fr; }
+  .admin-vehicle-driver__actions .text-button { min-height: 29px; font-size: 7px; }
+  .admin-vehicle-driver__actions .text-button--accent { grid-column: 1 / -1; }
+}
+
+/* Vista de conductor: el total acumulado queda junto al kilometraje diario. */
+.driver-entry-grid__readonly { display: grid; min-width: 0; min-height: 42px; align-content: center; gap: 6px; padding: 10px 12px; border: 1px solid var(--line-dark); border-radius: 10px; background: #f4faf7; color: var(--text); font-size: 12px; font-weight: 700; }
+.driver-entry-grid__readonly span { color: var(--muted); font-size: 10px; font-weight: 700; }
+.driver-entry-grid__readonly strong { color: var(--green-900); font-size: 13px; white-space: nowrap; }
