@@ -79,7 +79,6 @@ const chartMetricOptions = [
 const selectableChartMetrics = chartMetricOptions.filter((option) => option.value !== "summary");
 const allChartMetricValues = selectableChartMetrics.map((option) => option.value);
 const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c" };
-const chartMetricInitials = { billing: "F", maintenance: "M", fuel: "C", net: "N" };
 
 const splitChartAxisLabel = (value) => {
   const words = String(value ?? "").trim().split(/\s+/).filter(Boolean);
@@ -1676,71 +1675,6 @@ function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }
   );
 }
 
-function ChartMetricMenu({ selectedMetrics, onToggleMetric, onSelectSummary }) {
-  const summarySelected = selectedMetrics.length === 0;
-  return (
-    <div className="report-period-menu report-chart-metric-menu report-chart-metric-menu--checklist" role="listbox" aria-label="Seleccionar información del gráfico">
-      <button type="button" role="option" aria-selected={summarySelected} className={`report-chart-metric-menu__summary${summarySelected ? " selected" : ""}`} onClick={onSelectSummary}>
-        <span>Resumen</span>
-      </button>
-      {selectableChartMetrics.map((option) => {
-        const selected = selectedMetrics.includes(option.value);
-        return (
-          <button type="button" role="option" aria-selected={selected} className={`report-chart-metric-menu__option report-chart-metric-menu__option--${option.value}${selected ? " selected" : ""}`} onClick={() => onToggleMetric(option.value)} key={option.value}>
-            <span>{option.label}</span>
-            <span className="report-metric-check" aria-hidden="true">{selected && <IconCheck size={10} stroke={2.5} />}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function ChartDetailModal({ charts, periodLabel, onClose }) {
-  const closeButtonRef = useRef(null);
-  useEffect(() => {
-    closeButtonRef.current?.focus();
-  }, []);
-  return (
-    <div className="chart-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="chart-detail-modal" role="dialog" aria-modal="true" aria-labelledby="chart-detail-title" aria-describedby="chart-detail-period">
-        <h2 id="chart-detail-title" className="sr-only">Resumen general por coche</h2>
-        <p id="chart-detail-period" className="sr-only">{periodLabel}</p>
-        <button ref={closeButtonRef} type="button" className="icon-button chart-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
-        <div className="chart-detail-modal__grid">
-          {charts.map((chart) => {
-            const hasData = chart.data.some((item) => item.value !== 0);
-            return (
-              <article className={`chart-detail-card chart-detail-card--${chart.key}`} key={chart.key}>
-                <header className="chart-detail-card__header">
-                  <span className={`chart-detail-card__icon chart-detail-card__icon--${chart.key}`}><IconChartBar size={17} /></span>
-                  <span><strong>{chart.label}</strong><small>{chart.subtitle}</small></span>
-                  <strong className="chart-detail-card__total">{formatCurrency(chart.total)}</strong>
-                </header>
-                <div className="chart-detail-card__plot">
-                  {hasData ? <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chart.data} margin={{ top: 8, right: 2, left: 0, bottom: 15 }} barCategoryGap="30%">
-                      <CartesianGrid stroke="#e9efed" vertical={false} />
-                      <XAxis dataKey="label" interval={0} height={32} tickMargin={3} tick={<ChartAxisTick fontSize={7} fontWeight={chart.key === "billing" ? 500 : 750} />} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 7, fill: "#87918d" }} axisLine={false} tickLine={false} width={26} />
-                      <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => [formatCurrency(Number(value)), chart.label]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 9, borderColor: "#dce5e1", fontSize: 9 }} />
-                      {chart.key === "net" && <ReferenceLine y={0} stroke="#aab5b1" />}
-                      <Bar dataKey="value" fill={chart.color} radius={[4, 4, 0, 0]} maxBarSize={44} minPointSize={2} isAnimationActive={false} activeBar={false}>
-                        <LabelList dataKey="value" content={<ChartBarValueLabel textFill={chart.key === "billing" ? "#123e5f" : "#fff"} />} />
-                        {chart.data.map((entry) => <Cell key={`${chart.key}-${entry.label}`} fill={chart.key === "net" && entry.value < 0 ? "#df4538" : chart.color} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer> : <div className="chart-detail-card__empty"><IconChartBar size={20} /><span>Sin datos en este periodo</span></div>}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemoveExpense, onClose }) {
   const closeButtonRef = useRef(null);
   const [expandedPlates, setExpandedPlates] = useState(() => new Set());
@@ -1837,7 +1771,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
   const [selectedChartBar, setSelectedChartBar] = useState("");
-  const [chartDetailOpen, setChartDetailOpen] = useState(false);
   const [netDetailOpen, setNetDetailOpen] = useState(false);
   const [manualNetExpenses, setManualNetExpenses] = useState(() => loadManualNetExpenses());
   const [billingDriverKey, setBillingDriverKey] = useState("");
@@ -1867,16 +1800,15 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   useEffect(() => {
     if (!periodMenu) return undefined;
     const closeOnPointerDown = (event) => {
-      if (!event.target.closest(".report-chart-metric-dropdown, .report-period-dropdown, .fuel-period-dropdown")) setPeriodMenu("");
+      if (!event.target.closest(".report-period-dropdown, .fuel-period-dropdown")) setPeriodMenu("");
     };
     document.addEventListener("pointerdown", closeOnPointerDown);
     return () => document.removeEventListener("pointerdown", closeOnPointerDown);
   }, [periodMenu]);
   useEffect(() => {
-    if (!chartDetailOpen && !netDetailOpen) return undefined;
+    if (!netDetailOpen) return undefined;
     const closeOnEscape = (event) => {
       if (event.key !== "Escape") return;
-      setChartDetailOpen(false);
       setNetDetailOpen(false);
     };
     const previousOverflow = document.body.style.overflow;
@@ -1886,7 +1818,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [chartDetailOpen, netDetailOpen]);
+  }, [netDetailOpen]);
   useEffect(() => {
     saveManualNetExpenses(manualNetExpenses);
   }, [manualNetExpenses]);
@@ -1982,12 +1914,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     fuel: fuelChartData.reduce((sum, item) => sum + item.value, 0),
     net: netChartData.reduce((sum, item) => sum + item.value, 0),
   };
-  const chartDetailSeries = [
-    { key: "billing", label: "FACTURACIÓN", subtitle: "POR CONDUCTOR", data: billingChartData, color: BILLING_COLOR, total: periodTotals.billing },
-    { key: "maintenance", label: "MANTENIMIENTO", subtitle: "POR COCHE", data: maintenanceChartData, color: MAINTENANCE_COLOR, total: periodTotals.maintenance },
-    { key: "fuel", label: "COMBUSTIBLE", subtitle: "POR COCHE", data: fuelChartData, color: "#df4538", total: periodTotals.fuel },
-    { key: "net", label: "NETO", subtitle: "POR COCHE", data: netChartData, color: "#28923c", total: periodTotals.net },
-  ];
   const summaryChartData = vehicles.map((vehicle, index) => ({
     label: vehicle.plate,
     detail: vehicle.model,
@@ -2054,22 +1980,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
         : [...selectedChartMetrics, metric];
     selectChartMetrics(nextMetrics);
   };
-  const chartMetricTriggerLabel = selectedChartMetrics.length === 0
-    ? "Resumen"
-    : selectedChartMetrics.length === 1
-      ? chartMetricOptions.find((option) => option.value === selectedChartMetrics[0])?.label
-      : selectedChartMetrics.map((metric) => chartMetricInitials[metric]).join(" / ");
-  const openChartDetail = (event) => {
-    if (event.target?.closest?.("button, [role='listbox'], .report-period-menu, .report-chart-filters")) return;
-    setPeriodMenu("");
-    setChartDetailOpen(true);
-  };
-  const handleChartDetailKeyDown = (event) => {
-    if (event.target !== event.currentTarget || !["Enter", " "].includes(event.key)) return;
-    event.preventDefault();
-    setChartDetailOpen(true);
-  };
-
   useEffect(() => {
     if (!periodMenu) return;
     const menu = document.querySelector(".report-period-menu--wheel");
@@ -2127,14 +2037,10 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                 <ReportStatCard wide icon={IconTool} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
                 <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
               </div>
-              <section className="report-chart-card report-chart-card--compact-preview" role="button" tabIndex={0} aria-haspopup="dialog" aria-label="Abrir las cuatro gráficas del resumen general por coche" onClick={openChartDetail} onKeyDown={handleChartDetailKeyDown}>
+              <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
                 <header className="report-chart-card__top">
                   <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong></span></div>
                   <div className="report-chart-filters" role="group" aria-label="Filtros del gráfico">
-                    <div className="report-chart-metric-dropdown">
-                      <button type="button" className="report-summary-button report-chart-metric-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "chart-metric"} onClick={() => setPeriodMenu((current) => current === "chart-metric" ? "" : "chart-metric")}><IconChartBar size={14} /><span>{chartMetricTriggerLabel}</span><IconChevronDown size={13} /></button>
-                      {periodMenu === "chart-metric" && <ChartMetricMenu selectedMetrics={selectedChartMetrics} onSelectSummary={() => { selectChartMetrics([]); setPeriodMenu(""); }} onToggleMetric={(metric) => selectChartMetrics(selectedChartMetrics.includes(metric) ? selectedChartMetrics.filter((candidate) => candidate !== metric) : [...selectedChartMetrics, metric])} />}
-                    </div>
                     <div className="report-period-dropdown">
                       <span className="sr-only">Mes</span>
                       <button type="button" className="report-period-trigger" aria-label="Seleccionar mes" title="Mes" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
@@ -2179,7 +2085,6 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
-              {chartDetailOpen && <ChartDetailModal charts={chartDetailSeries} periodLabel={selectedPeriodLabel} onClose={() => setChartDetailOpen(false)} />}
               {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(id) => setManualNetExpenses((current) => current.filter((expense) => expense.id !== id))} onClose={() => setNetDetailOpen(false)} />}
             </div>
           </>
@@ -2947,6 +2852,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
           </div>
           <div className="maintenance-history-total"><small>{sortedMaintenance.length} intervenciones</small><small>{funesmotorsportImportMeta.sourceLabel}: {importedDocumentCount} documentos estructurados</small><strong>{formatCurrency(total)}</strong></div>
         </header>
+        <div className="maintenance-history-scroll">
         <div className="maintenance-timeline" aria-label={`Historial de mantenimiento de ${workshopVehicle.plate}`}>
           <header className="maintenance-timeline-heading">
             <span><span className="maintenance-timeline-heading__icon"><IconTool size={14} /></span><strong>INTERVENCIONES REALIZADAS</strong></span>
@@ -2996,6 +2902,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
               </article>
             );
           })}
+        </div>
         </div>
       </section>
     </section>

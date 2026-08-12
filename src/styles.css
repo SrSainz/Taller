@@ -2571,6 +2571,37 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 /* Neto: al no existir la franja duplicada de resultado, el estado cerrado no necesita scroll. */
 .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-grid { overflow: hidden; }
 
+/* General: el grafico permanece en la misma pantalla; Mes y Año ocupan el espacio del selector retirado. */
+.page-scroll--dashboard .report-chart-card--static { cursor: default; }
+.page-scroll--dashboard .report-chart-card--static:hover { border-color: #dae3e0; box-shadow: 0 3px 8px rgba(38, 67, 58, .09); transform: none; }
+.page-scroll--dashboard .report-chart-card--static .report-chart-filters { min-width: 0; flex: 0 1 min(54%, 480px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+.page-scroll--dashboard .report-chart-card--static .report-period-dropdown { min-width: 0; }
+.page-scroll--dashboard .report-chart-card--static .report-period-trigger { width: 100%; min-width: 0; }
+
+/* Mantenimiento: el encabezado queda fuera del scroll interno de facturas y siempre visible. */
+.maintenance-page { --maintenance-history-sticky-top: 0px; }
+.maintenance-page .maintenance-history-panel { display: flex; min-height: 0; max-height: calc(100dvh - 70px - var(--bottom-navigation-height) - 14px); flex-direction: column; scroll-margin-top: var(--maintenance-history-sticky-top); }
+.maintenance-page .maintenance-history-scroll { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.maintenance-page .maintenance-history-scroll > .maintenance-timeline { min-height: 100%; }
+.maintenance-page .maintenance-history-header { top: var(--maintenance-history-sticky-top); }
+.maintenance-page .maintenance-timeline-heading { top: 0; }
+
+@media (max-width: 820px) {
+  .maintenance-page { --maintenance-history-sticky-top: 70px; }
+  .maintenance-page .maintenance-history-panel { max-height: calc(100dvh - 70px - var(--bottom-navigation-height) - 14px); }
+}
+
+@media (max-width: 520px) {
+  .page-scroll--dashboard .report-chart-card--static .report-chart-filters { width: 100%; flex: 1 1 auto; }
+  .maintenance-page { --maintenance-history-sticky-top: 64px; }
+  .maintenance-page .maintenance-history-panel { max-height: calc(100dvh - 64px - var(--bottom-navigation-height) - 12px); }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .maintenance-page { --maintenance-history-sticky-top: 54px; }
+  .maintenance-page .maintenance-history-panel { max-height: calc(100dvh - 54px - var(--bottom-navigation-height) - 10px); }
+}
+
 /* Administración: las cuentas se muestran compactas y sus acciones aparecen al seleccionar una. */
 .admin-vehicle-drivers { gap: 6px; margin-top: 12px; }
 .admin-vehicle-driver { display: block; padding: 0; overflow: hidden; border-color: rgba(28, 43, 46, .12); }
