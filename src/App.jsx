@@ -157,9 +157,16 @@ const vehicleBrandLogos = {
   Peugeot: "/brands/peugeot.svg",
 };
 
+const vehicleOwnerSeed = {
+  "5754 MJV": { name: "Aida Pérez Salt", dni: "500-944-52S" },
+  "5750 MJV": { name: "Aida Díaz Pérez", dni: "01-93-803-7B", location: "Burgos" },
+  "5043 MLC": { name: "David Díaz Muñoz", dni: "504-446-50S", location: "Sevilla" },
+};
+
 const vehiclesSeed = [
   {
     plate: "5754 MJV",
+    owner: vehicleOwnerSeed["5754 MJV"],
     model: "Toyota Corolla",
     use: "Profesional",
     drivers: ["Andrés", "Fernando"],
@@ -194,6 +201,7 @@ const vehiclesSeed = [
   },
   {
     plate: "5750 MJV",
+    owner: vehicleOwnerSeed["5750 MJV"],
     model: "Toyota Corolla",
     use: "Profesional",
     drivers: ["Tirso", "Alex"],
@@ -228,6 +236,7 @@ const vehiclesSeed = [
   },
   {
     plate: "5043 MLC",
+    owner: vehicleOwnerSeed["5043 MLC"],
     model: "Toyota Corolla",
     use: "Profesional",
     drivers: ["Mauricio", "Amin"],
@@ -625,6 +634,10 @@ const getMaintenanceRecordKey = (item, index = 0) => `${item.date}-${item.concep
 const getMaintenanceEventDomId = (plate, key) => `maintenance-event-${normalizeText(`${plate}-${key}`).replace(/[^a-z0-9]+/g, "-")}`;
 const maintenanceMonths = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
 const getVehicleBrand = (vehicle) => vehicle.model.split(" ")[0];
+const getVehicleOwner = (vehicleOrPlate) => {
+  const plate = typeof vehicleOrPlate === "string" ? vehicleOrPlate : vehicleOrPlate?.plate;
+  return vehicleOrPlate?.owner ?? vehicleOwnerSeed[plate] ?? null;
+};
 const getMaintenanceDateValue = (item) => {
   if (item.dateIso) return Date.parse(item.dateIso);
   const [day, month, year] = normalizeText(item.date).split(/\s+/);
@@ -1013,7 +1026,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     };
   }, []);
 
-  const invoices = useMemo(() => [...photoInvoices, ...funesmotorsportInvoiceSeed, ...invoiceSeed], [photoInvoices]);
+  const invoices = useMemo(() => [...photoInvoices, ...funesmotorsportInvoiceSeed, ...invoiceSeed].map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) })), [photoInvoices]);
   const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
     const recordedMaintenance = photoInvoices
       .filter((invoice) => invoice.plate === vehicle.plate)
@@ -1607,7 +1620,15 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         {preview && <div className="driver-preview-banner" role="status"><IconEye size={18} /><span><strong>Vista previa de {profile.full_name}</strong><small>Estás viendo la aplicación tal y como la verá este conductor. Los cambios están desactivados.</small></span><button type="button" className="secondary-button" onClick={onExitPreview}>Volver a administración</button></div>}
         <section className="driver-welcome">
           <div className="driver-welcome__identity"><span>HOLA</span><h1>{profile.full_name.toUpperCase()}</h1></div>
-          <div className="driver-welcome__vehicle"><span>MATRÍCULA</span><strong>{vehicle?.plate ?? profile.vehicle_plate ?? "PENDIENTE"}</strong></div>
+          <div className="driver-welcome__vehicle">
+            <span>MATRÍCULA</span>
+            <strong>{vehicle?.plate ?? profile.vehicle_plate ?? "PENDIENTE"}</strong>
+            {vehicle?.owner && <>
+              <span className="driver-welcome__owner-label">PROPIETARIO</span>
+              <strong className="driver-welcome__owner-name">{vehicle.owner.name}</strong>
+              <small className="driver-welcome__owner-meta">DNI {vehicle.owner.dni}{vehicle.owner.location ? ` · ${vehicle.owner.location}` : ""}</small>
+            </>}
+          </div>
         </section>
         <section className="driver-period-overview driver-period-overview--top" aria-label="Resumen mensual y semanal">
           <article className="driver-period-card driver-period-card--month">
@@ -3016,7 +3037,7 @@ function InvoicesView({ invoices, setModal }) {
         <div className="table-scroll">
           <table className="module-table">
             <thead><tr><th>Factura</th><th>Taller</th><th>Vehículo</th><th>Concepto</th><th>Origen</th><th>Importe</th><th>Estado</th><th /></tr></thead>
-            <tbody>{invoices.map((invoice) => <tr key={invoice.id}><td><strong>{invoice.id}</strong><small>{invoice.date}</small></td><td>{invoice.provider}</td><td><strong>{invoice.plate}</strong></td><td>{invoice.concept}</td><td><span className="source-label">{invoice.source === "Correo" ? <IconMail size={15} /> : invoice.source === "Foto" ? <IconCamera size={15} /> : <IconUpload size={15} />}{invoice.source}</span></td><td><strong>{formatCurrency(invoice.amount)}</strong></td><td><StatusBadge status={invoice.status} /></td><td><button className="table-action" onClick={() => setModal({ type: "invoice", item: invoice })}>Ver factura<IconChevronRight size={16} /></button></td></tr>)}</tbody>
+            <tbody>{invoices.map((invoice) => <tr key={invoice.id}><td><strong>{invoice.id}</strong><small>{invoice.date}</small></td><td>{invoice.provider}</td><td><strong>{invoice.plate}</strong>{invoice.owner && <small>{invoice.owner.name}</small>}</td><td>{invoice.concept}</td><td><span className="source-label">{invoice.source === "Correo" ? <IconMail size={15} /> : invoice.source === "Foto" ? <IconCamera size={15} /> : <IconUpload size={15} />}{invoice.source}</span></td><td><strong>{formatCurrency(invoice.amount)}</strong></td><td><StatusBadge status={invoice.status} /></td><td><button className="table-action" onClick={() => setModal({ type: "invoice", item: invoice })}>Ver factura<IconChevronRight size={16} /></button></td></tr>)}</tbody>
           </table>
         </div>
       </section>
@@ -3632,6 +3653,7 @@ function VehicleExpenses({ vehicle }) {
 
 function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, vehicles }) {
   const item = modal.item;
+  const itemOwner = getVehicleOwner(item);
   const isReading = modal.type === "reading-review";
   const isInvoice = modal.type === "invoice";
   const isFuelInvoice = isInvoice && item?.source === "Cuenta Plenergy";
@@ -3645,7 +3667,7 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, veh
       <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header><div><span>Acción rápida</span><h2 id="modal-title">{isFuelInvoice ? "Factura Plenergy" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
-        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc && <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure>}<dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div>{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
+        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc && <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure>}<dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>DNI {itemOwner.dni}{itemOwner.location ? ` · ${itemOwner.location}` : ""}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={(invoice) => { onSaveInvoice(invoice); complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
         {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} onCancel={onClose} onSave={(document) => { onSaveDocument(document); complete("Documento procesado y guardado"); }} />}

@@ -2844,6 +2844,9 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .driver-welcome__vehicle { display: grid; gap: 2px; justify-items: end; min-width: 90px; }
 .driver-welcome__vehicle span { color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .14em; }
 .driver-welcome__vehicle strong { color: var(--text); font-size: clamp(16px, 2vw, 22px); letter-spacing: .06em; }
+.driver-welcome__vehicle .driver-welcome__owner-label { margin-top: 3px; color: var(--green-800); font-size: 7px; letter-spacing: .12em; }
+.driver-welcome__vehicle .driver-welcome__owner-name { max-width: 220px; color: var(--text); font-size: 12px; letter-spacing: 0; text-align: right; }
+.driver-welcome__vehicle .driver-welcome__owner-meta { color: var(--muted); font-size: 7px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
 .driver-day-picker, .driver-day-detail { flex: 0 0 auto; min-width: 0; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); box-shadow: 0 6px 18px rgba(18, 51, 42, .045); }
 .driver-day-picker { margin-bottom: 7px; padding: 8px 10px 9px; }
 .driver-day-picker > header, .driver-day-detail > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
@@ -2899,6 +2902,9 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .driver-welcome__vehicle { min-width: 72px; }
   .driver-welcome__vehicle span { font-size: 6px; }
   .driver-welcome__vehicle strong { font-size: 14px; }
+  .driver-welcome__vehicle .driver-welcome__owner-label { margin-top: 2px; font-size: 5px; }
+  .driver-welcome__vehicle .driver-welcome__owner-name { max-width: 165px; font-size: 9px; }
+  .driver-welcome__vehicle .driver-welcome__owner-meta { max-width: 165px; overflow: hidden; font-size: 5.5px; text-overflow: ellipsis; }
   .driver-day-picker { margin-bottom: 5px; padding: 6px 7px 7px; border-radius: 10px; }
   .driver-day-picker > header { gap: 5px; }
   .driver-day-picker > header span, .driver-day-detail > header span { font-size: 5.5px; }
