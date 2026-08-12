@@ -506,6 +506,26 @@ const readingSeed = [
 const formatKm = (value) => `${new Intl.NumberFormat("es-ES").format(value)} km`;
 const formatCurrency = (value) => `${value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatShortCurrency = (value) => `${Math.round(value).toLocaleString("es-ES")} €`;
+const getDriverDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+const parseDriverDateKey = (value) => {
+  const [year, month, day] = String(value ?? "").split("-").map(Number);
+  return Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
+    ? new Date(year, month - 1, day)
+    : null;
+};
+const getDriverWeekStart = (date) => {
+  const start = new Date(date);
+  const mondayOffset = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - mondayOffset);
+  start.setHours(0, 0, 0, 0);
+  return start;
+};
+const getDriverEntryAmount = (entry, key) => Number(entry?.[key]) || 0;
 const normalizeText = (value = "") => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
 const getMaintenanceRecordKey = (item, index = 0) => `${item.date}-${item.concept}-${item.km}-${index}`;
 const getMaintenanceEventDomId = (plate, key) => `maintenance-event-${normalizeText(`${plate}-${key}`).replace(/[^a-z0-9]+/g, "-")}`;
@@ -1265,7 +1285,7 @@ function AccessBlockedScreen({ onSignOut }) {
 }
 
 function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview }) {
-  const [entry, setEntry] = useState({ entryDate: new Date().toISOString().slice(0, 10), fuelCost: "", fuelLiters: "", odometerKm: "", billing: "", notes: "" });
+  const [entry, setEntry] = useState({ entryDate: getDriverDateKey(), fuelCost: "", fuelLiters: "", odometerKm: "", billing: "", cashCollected: "", tips: "", tolls: "", otherExpenses: "", notes: "" });
   const [entries, setEntries] = useState([]);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1278,7 +1298,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     let mounted = true;
     if (!supabase) return undefined;
     Promise.all([
-      supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(6),
+      supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
       supabase.from("documents").select("id, category, file_name, file_size, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(6),
     ]).then(([entryResult, documentResult]) => {
       if (!mounted) return;
@@ -1304,10 +1324,14 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       fuel_liters: Number(entry.fuelLiters) || 0,
       odometer_km: Number(entry.odometerKm) || 0,
       billing: Number(entry.billing) || 0,
+      cash_collected: Number(entry.cashCollected) || 0,
+      tips: Number(entry.tips) || 0,
+      tolls: Number(entry.tolls) || 0,
+      other_expenses: Number(entry.otherExpenses) || 0,
       notes: entry.notes.trim() || null,
       updated_at: new Date().toISOString(),
     };
-    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, notes, created_at").single();
+    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, other_expenses, notes, created_at").single();
     if (error) {
       setSaving(false);
       setMessage(error.message);
@@ -1316,7 +1340,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     let uploadMessage = "";
     if (file) {
       try {
-        await uploadDocumentRecord({ ownerId: session.user.id, category: "consumption", vehiclePlate: profile.vehicle_plate, file, extractedData: { date: entry.entryDate, cost: values.fuel_cost, consumption: values.fuel_liters, unit: "L", odometerKm: values.odometer_km, billing: values.billing }, status: "review" });
+        await uploadDocumentRecord({ ownerId: session.user.id, category: "consumption", vehiclePlate: profile.vehicle_plate, file, extractedData: { date: entry.entryDate, cost: values.fuel_cost, consumption: values.fuel_liters, unit: "L", odometerKm: values.odometer_km, billing: values.billing, cashCollected: values.cash_collected, tips: values.tips, tolls: values.tolls, otherExpenses: values.other_expenses }, status: "review" });
         uploadMessage = " y el justificante se ha archivado";
       } catch (uploadError) {
         uploadMessage = `, pero el justificante no se ha podido subir: ${uploadError.message}`;
@@ -1328,7 +1352,112 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     setMessage(`Registro del ${entry.entryDate} guardado${uploadMessage}.`);
   };
 
-  return <main className="driver-app"><header className="driver-app__topbar"><div className="driver-app__brand"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><div><strong>SOBRE RUEDAS</strong><small>{preview ? "Vista de conductor" : "Panel de conductor"}</small></div></div><button className="driver-app__logout" type="button" onClick={preview ? onExitPreview : onSignOut} aria-label={preview ? "Volver a administración" : "Cerrar sesión"}><IconLogout size={18} /></button></header><div className="driver-app__body">{preview && <div className="driver-preview-banner" role="status"><IconEye size={18} /><span><strong>Vista previa de {profile.full_name}</strong><small>Estás viendo la aplicación tal y como la verá este conductor. Los cambios están desactivados.</small></span><button type="button" className="secondary-button" onClick={onExitPreview}>Volver a administración</button></div>}<section className="driver-welcome"><div><span>HOLA, {profile.full_name.toUpperCase()}</span><h1>{vehicle?.plate ?? profile.vehicle_plate ?? "Vehículo pendiente"}</h1><p>{vehicle?.model ?? "Vehículo profesional"} · registra tus datos del día en menos de un minuto.</p></div><span className="driver-welcome__badge"><IconCar size={20} />Turno activo</span></section><form className={`driver-entry-card${preview ? " driver-entry-card--preview" : ""}`} onSubmit={saveEntry}><header><div><span>REGISTRO DIARIO</span><h2>Datos del servicio</h2></div><time dateTime={entry.entryDate}>{entry.entryDate}</time></header><fieldset className="driver-entry-fieldset" disabled={preview}><div className="driver-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => updateEntry("entryDate", event.target.value)} required /></label><label>Facturación diaria<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Precio gasolina<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Kilometraje del día<input type="number" min="0" step="1" placeholder="0" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output className="driver-entry-grid__readonly" aria-label={`Kilómetros totales del coche ${vehicle?.plate ?? "vehículo"}`}><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-entry-grid__wide">Nota opcional<textarea rows={2} value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Incidencias o información útil" /></label></div><label className="driver-file-input"><IconUpload size={18} /><span>{file ? file.name : "Adjuntar justificante de gasolina o facturación"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span className="driver-entry-status" role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={17} /></button></footer></fieldset></form><section className="driver-history-card"><header><div><span>HISTORIAL PERSONAL</span><h2>Últimos registros</h2></div><IconHistory size={20} /></header>{loading ? <p className="empty-state">Cargando tus datos…</p> : entries.length === 0 ? <p className="empty-state">Todavía no hay registros guardados.</p> : <div className="driver-history-list">{entries.map((item) => <article key={item.id}><time>{item.entry_date}</time><div><strong>{formatCurrency(Number(item.billing) || 0)}</strong><small>{formatCurrency(Number(item.fuel_cost) || 0)} gasolina · {Number(item.odometer_km) || 0} km</small></div><span>{Number(item.fuel_liters) || 0} L</span></article>)}</div>}</section></div></main>;
+  const periodSummary = useMemo(() => {
+    const today = new Date();
+    const monthKey = getDriverDateKey(today).slice(0, 7);
+    const weekStart = getDriverWeekStart(today);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const monthEntries = entries.filter((item) => String(item.entry_date ?? "").startsWith(monthKey));
+    const weekEntries = entries.filter((item) => {
+      const date = parseDriverDateKey(item.entry_date);
+      return date && date >= weekStart && date < weekEnd;
+    });
+    const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
+    const monthlyBilling = total(monthEntries, "billing");
+    const billingGoal = Math.max(1, Number(vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name))?.monthRevenue) || 10000);
+    const weeklyCash = total(weekEntries, "cash_collected");
+    const weeklyFuel = total(weekEntries, "fuel_cost");
+    const weeklyTolls = total(weekEntries, "tolls");
+    const weeklyOther = total(weekEntries, "other_expenses");
+    const weeklyNet = weeklyCash - weeklyFuel - weeklyTolls - weeklyOther;
+    const weekEndLabel = new Date(weekEnd);
+    weekEndLabel.setDate(weekEndLabel.getDate() - 1);
+    const periodFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
+    return {
+      monthLabel: new Intl.DateTimeFormat("es-ES", { month: "long" }).format(today),
+      weekLabel: `${periodFormatter.format(weekStart)} · ${periodFormatter.format(weekEndLabel)}`.replace(/\./g, ""),
+      monthlyBilling,
+      monthlyTips: total(monthEntries, "tips"),
+      monthlyTolls: total(monthEntries, "tolls"),
+      monthlyOther: total(monthEntries, "other_expenses"),
+      billingGoal,
+      billingProgress: Math.min(100, (monthlyBilling / billingGoal) * 100),
+      weeklyCash,
+      weeklyFuel,
+      weeklyTolls,
+      weeklyOther,
+      weeklyNet,
+      weeklyProgress: weeklyCash > 0 ? Math.max(0, Math.min(100, (weeklyNet / weeklyCash) * 100)) : 0,
+      weekEntries: weekEntries.length,
+    };
+  }, [entries, profile.full_name, vehicle]);
+
+  return (
+    <main className={preview ? "driver-app driver-app--preview" : "driver-app"}>
+      <header className="driver-app__topbar">
+        <div className="driver-app__brand"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><div><strong>SOBRE RUEDAS</strong><small>{preview ? "Vista de conductor" : "Panel de conductor"}</small></div></div>
+        <button className="driver-app__logout" type="button" onClick={preview ? onExitPreview : onSignOut} aria-label={preview ? "Volver a administración" : "Cerrar sesión"}><IconLogout size={18} /></button>
+      </header>
+      <div className="driver-app__body">
+        {preview && <div className="driver-preview-banner" role="status"><IconEye size={18} /><span><strong>Vista previa de {profile.full_name}</strong><small>Estás viendo la aplicación tal y como la verá este conductor. Los cambios están desactivados.</small></span><button type="button" className="secondary-button" onClick={onExitPreview}>Volver a administración</button></div>}
+        <section className="driver-welcome">
+          <div><span>HOLA, {profile.full_name.toUpperCase()}</span><h1>{vehicle?.plate ?? profile.vehicle_plate ?? "Vehículo pendiente"}</h1><p>{vehicle?.model ?? "Vehículo profesional"} · registra tus datos del día en menos de un minuto.</p></div>
+          <span className="driver-welcome__badge"><IconCar size={20} />Turno activo</span>
+        </section>
+        <div className="driver-dashboard-grid">
+          <section className="driver-period-overview" aria-label="Resumen mensual y semanal">
+            <article className="driver-period-card driver-period-card--month">
+              <header className="driver-period-card__header"><div><span>REGISTRO MENSUAL</span><h2>Facturación · {periodSummary.monthLabel}</h2></div><IconChartBar size={22} /></header>
+              <div className="driver-period-card__headline"><div><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong><small>Facturación mensual acumulada</small></div><span>{Math.round(periodSummary.billingProgress)}%</span></div>
+              <div className="driver-period-progress" role="progressbar" aria-label="Progreso de facturación mensual" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(periodSummary.billingProgress)}><i style={{ width: periodSummary.billingProgress + "%" }} /></div>
+              <div className="driver-period-card__target"><span>Objetivo orientativo</span><strong>{formatCurrency(periodSummary.billingGoal)}</strong></div>
+              <div className="driver-period-card__stats">
+                <span><small>Propinas</small><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></span>
+                <span><small>Peajes</small><strong>{formatCurrency(periodSummary.monthlyTolls)}</strong></span>
+                <span><small>Otros gastos</small><strong>{formatCurrency(periodSummary.monthlyOther)}</strong></span>
+              </div>
+            </article>
+            <article className="driver-period-card driver-period-card--week">
+              <header className="driver-period-card__header"><div><span>REGISTRO SEMANAL</span><h2>Semana en curso</h2><small>{periodSummary.weekLabel} · {periodSummary.weekEntries} registros</small></div><IconCurrencyEuro size={22} /></header>
+              <div className="driver-period-card__headline driver-period-card__headline--week"><div><strong>{formatCurrency(periodSummary.weeklyNet)}</strong><small>Efectivo neto de la semana</small></div><span>{Math.round(periodSummary.weeklyProgress)}%</span></div>
+              <div className="driver-period-progress" role="progressbar" aria-label="Efectivo neto semanal" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(periodSummary.weeklyProgress)}><i style={{ width: periodSummary.weeklyProgress + "%" }} /></div>
+              <div className="driver-period-card__ledger">
+                <span><small>Efectivo cobrado</small><strong>{formatCurrency(periodSummary.weeklyCash)}</strong></span>
+                <span><small>− Gasolina</small><strong>− {formatCurrency(periodSummary.weeklyFuel)}</strong></span>
+                <span><small>− Peajes</small><strong>− {formatCurrency(periodSummary.weeklyTolls)}</strong></span>
+                <span><small>− Otros gastos</small><strong>− {formatCurrency(periodSummary.weeklyOther)}</strong></span>
+              </div>
+            </article>
+          </section>
+          <form className={preview ? "driver-entry-card driver-entry-card--preview" : "driver-entry-card"} onSubmit={saveEntry}>
+            <header><div><span>REGISTRO DIARIO</span><h2>Datos del servicio</h2></div><time dateTime={entry.entryDate}>{entry.entryDate}</time></header>
+            <fieldset className="driver-entry-fieldset" disabled={preview}>
+              <div className="driver-entry-grid">
+                <label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => updateEntry("entryDate", event.target.value)} required /></label>
+                <label>Facturación<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label>
+                <label>Efectivo cobrado<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label>
+                <label>Gasolina<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label>
+                <label>Litros repostados<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label>
+                <label>Propinas<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label>
+                <label>Peajes<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.tolls} onChange={(event) => updateEntry("tolls", event.target.value)} /><i>€</i></label>
+                <label>Otros gastos<input type="number" min="0" step="0.01" placeholder="0,00" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label>
+                <label>Kilometraje del día<input type="number" min="0" step="1" placeholder="0" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label>
+                <output className="driver-entry-grid__readonly" aria-label={"Kilómetros totales del coche " + (vehicle?.plate ?? "vehículo")}><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output>
+                <label className="driver-entry-grid__wide">Nota opcional<textarea rows={2} value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, peaje u otro gasto imputable" /></label>
+              </div>
+              <label className="driver-file-input"><IconUpload size={18} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
+              <footer><span className="driver-entry-status" role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={17} /></button></footer>
+            </fieldset>
+          </form>
+          <section className="driver-history-card">
+            <header><div><span>HISTORIAL PERSONAL</span><h2>Últimos registros</h2></div><IconHistory size={20} /></header>
+            {loading ? <p className="empty-state">Cargando tus datos…</p> : entries.length === 0 ? <p className="empty-state">Todavía no hay registros guardados.</p> : <div className="driver-history-list">{entries.slice(0, 3).map((item) => <article key={item.id}><time>{item.entry_date}</time><div><strong>{formatCurrency(getDriverEntryAmount(item, "billing"))}</strong><small>{formatCurrency(getDriverEntryAmount(item, "fuel_cost"))} gasolina · {formatCurrency(getDriverEntryAmount(item, "tips"))} propinas</small></div><span>{getDriverEntryAmount(item, "fuel_liters")} L</span></article>)}</div>}
+          </section>
+        </div>
+      </div>
+    </main>
+  );
 }
 
 const driverVehicleOptions = vehicleOrder.map((plate) => vehiclesSeed.find((vehicle) => vehicle.plate === plate)).filter((vehicle) => vehicle?.use === "Profesional");

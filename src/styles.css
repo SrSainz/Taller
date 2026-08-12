@@ -2653,3 +2653,156 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .driver-entry-grid__readonly { display: grid; min-width: 0; min-height: 42px; align-content: center; gap: 6px; padding: 10px 12px; border: 1px solid var(--line-dark); border-radius: 10px; background: #f4faf7; color: var(--text); font-size: 12px; font-weight: 700; }
 .driver-entry-grid__readonly span { color: var(--muted); font-size: 10px; font-weight: 700; }
 .driver-entry-grid__readonly strong { color: var(--green-900); font-size: 13px; white-space: nowrap; }
+
+/* Vista del conductor: resumen mensual/semanal y registro diario en una sola pantalla. */
+.driver-app { height: 100dvh; min-height: 0; overflow: hidden; }
+.driver-app:not(.driver-app--preview) .driver-app__body { height: calc(100dvh - 68px); min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 16px 0 20px; }
+.driver-welcome { flex: 0 0 auto; margin-bottom: 12px; padding: 14px 18px; border-radius: 15px; }
+.driver-welcome h1 { font-size: clamp(22px, 3vw, 30px); }
+.driver-welcome p { font-size: 10px; }
+.driver-welcome__badge { padding: 7px 9px; font-size: 9px; }
+.driver-dashboard-grid { min-height: 0; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(350px, .92fr); grid-template-rows: minmax(0, 1fr) minmax(0, auto); gap: 10px; flex: 1 1 auto; }
+.driver-period-overview { min-height: 0; display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.driver-period-card { min-height: 0; display: flex; flex-direction: column; gap: 7px; padding: 13px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: 0 6px 18px rgba(18, 51, 42, .055); overflow: hidden; }
+.driver-period-card--month { border-top: 3px solid var(--billing-strong); background: linear-gradient(135deg, #fff, #f1f8ff); }
+.driver-period-card--week { border-top: 3px solid #df4538; background: linear-gradient(135deg, #fff, #fff7f5); }
+.driver-period-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.driver-period-card__header > div { min-width: 0; display: grid; gap: 2px; }
+.driver-period-card__header span { color: var(--muted); font-size: 8px; font-weight: 850; letter-spacing: .12em; }
+.driver-period-card__header h2 { margin: 0; color: var(--text); font-size: 15px; letter-spacing: -.025em; }
+.driver-period-card__header small { color: var(--muted); font-size: 8px; }
+.driver-period-card__header > svg { flex: 0 0 auto; color: var(--billing-strong); }
+.driver-period-card--week .driver-period-card__header > svg { color: #df4538; }
+.driver-period-card__headline { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.driver-period-card__headline > div { min-width: 0; display: grid; gap: 1px; }
+.driver-period-card__headline strong { color: var(--billing-strong); font-size: clamp(21px, 2.6vw, 28px); letter-spacing: -.04em; line-height: 1; white-space: nowrap; }
+.driver-period-card--week .driver-period-card__headline strong { color: #c3382f; }
+.driver-period-card__headline small { color: var(--muted); font-size: 8px; }
+.driver-period-card__headline > span { color: var(--billing-strong); font-size: 16px; font-weight: 900; }
+.driver-period-card--week .driver-period-card__headline > span { color: #c3382f; }
+.driver-period-progress { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(116, 185, 242, .18); }
+.driver-period-card--week .driver-period-progress { background: rgba(223, 69, 56, .14); }
+.driver-period-progress i { display: block; height: 100%; border-radius: inherit; background: var(--billing-strong); transition: width .35s ease; }
+.driver-period-card--week .driver-period-progress i { background: #df4538; }
+.driver-period-card__target { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 8px; }
+.driver-period-card__target strong { color: var(--text); font-size: 9px; }
+.driver-period-card__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-top: auto; padding-top: 7px; border-top: 1px solid rgba(116, 185, 242, .24); }
+.driver-period-card__stats > span, .driver-period-card__ledger > span { min-width: 0; display: grid; gap: 2px; }
+.driver-period-card__stats small, .driver-period-card__ledger small { overflow: hidden; color: var(--muted); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-period-card__stats strong { overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-period-card__ledger { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 12px; margin-top: auto; padding-top: 7px; border-top: 1px solid rgba(223, 69, 56, .2); }
+.driver-period-card__ledger strong { overflow: hidden; color: var(--text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-period-card__ledger > span:not(:first-child) strong { color: #c3382f; }
+.driver-entry-card { grid-column: 2; grid-row: 1 / span 2; min-height: 0; display: flex; flex-direction: column; margin: 0; padding: 14px; border-radius: 15px; overflow: hidden; }
+.driver-entry-card > header { margin-bottom: 9px; }
+.driver-entry-card > header > div { gap: 2px; }
+.driver-entry-card header span { font-size: 8px; }
+.driver-entry-card h2 { font-size: 17px; }
+.driver-entry-card time { font-size: 10px; }
+.driver-entry-fieldset { min-height: 0; display: flex; flex-direction: column; gap: 0; }
+.driver-entry-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.driver-entry-grid label { display: grid; min-width: 0; gap: 3px; color: var(--text); font-size: 8px; font-weight: 750; }
+.driver-entry-grid input, .driver-entry-grid textarea { min-height: 34px; padding: 7px 8px; border-radius: 8px; font-size: 11px; }
+.driver-entry-grid label > i { right: 9px; bottom: 9px; font-size: 9px; }
+.driver-entry-grid__readonly { min-height: 34px; gap: 2px; padding: 6px 8px; border-radius: 8px; font-size: 9px; }
+.driver-entry-grid__readonly span { font-size: 7px; }
+.driver-entry-grid__readonly strong { font-size: 11px; }
+.driver-entry-grid__wide textarea { min-height: 42px; }
+.driver-file-input { min-height: 0; margin-top: 8px; padding: 8px; border-radius: 9px; }
+.driver-file-input > span { gap: 2px; font-size: 9px; }
+.driver-file-input small { font-size: 7px; }
+.driver-entry-card > footer { min-height: 34px; margin-top: 8px; }
+.driver-entry-status { font-size: 8px; }
+.driver-entry-card > footer .primary-button { min-height: 34px; padding: 0 10px; font-size: 9px; }
+.driver-history-card { grid-column: 1; grid-row: 2; min-height: 0; padding: 10px 13px; border-radius: 13px; overflow: hidden; }
+.driver-history-card > header { margin-bottom: 5px; }
+.driver-history-card > header > div { gap: 1px; }
+.driver-history-card header span { font-size: 7px; }
+.driver-history-card h2 { font-size: 14px; }
+.driver-history-card > header > svg { width: 16px; height: 16px; }
+.driver-history-list { gap: 0; }
+.driver-history-list article { grid-template-columns: 82px 1fr auto; gap: 8px; padding: 5px 0; }
+.driver-history-list time, .driver-history-list article > span { font-size: 8px; }
+.driver-history-list article strong { font-size: 12px; }
+.driver-history-list article small { overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-app--preview { min-height: 100dvh; height: auto; overflow: visible; }
+
+@media (max-width: 760px) {
+  .driver-app:not(.driver-app--preview) .driver-app__body { height: calc(100dvh - 56px); padding: 9px 0 11px; }
+  .driver-app__topbar { min-height: 56px; padding: 8px 12px; }
+  .driver-app__brand .auth-logo { width: 32px; height: 32px; border-radius: 9px; }
+  .driver-app__brand strong { font-size: 10px; }
+  .driver-app__brand small { font-size: 8px; }
+  .driver-app__logout { width: 32px; height: 32px; border-radius: 9px; }
+  .driver-welcome { align-items: center; gap: 8px; margin-bottom: 8px; padding: 10px 12px; border-radius: 12px; }
+  .driver-welcome > div { gap: 2px; min-width: 0; }
+  .driver-welcome span:not(.driver-welcome__badge) { overflow: hidden; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+  .driver-welcome h1 { overflow: hidden; font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
+  .driver-welcome p { display: none; }
+  .driver-welcome__badge { padding: 5px 7px; font-size: 7px; }
+  .driver-welcome__badge svg { width: 14px; height: 14px; }
+  .driver-dashboard-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) minmax(0, 66px); gap: 7px; }
+  .driver-period-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 6px; }
+  .driver-period-card { gap: 5px; padding: 9px; border-radius: 11px; }
+  .driver-period-card__header span { font-size: 6px; }
+  .driver-period-card__header h2 { font-size: 10px; }
+  .driver-period-card__header small { font-size: 6px; }
+  .driver-period-card__header > svg { width: 16px; height: 16px; }
+  .driver-period-card__headline strong { font-size: 15px; }
+  .driver-period-card__headline small { font-size: 6px; }
+  .driver-period-card__headline > span { font-size: 10px; }
+  .driver-period-progress { height: 5px; }
+  .driver-period-card__target { font-size: 6px; }
+  .driver-period-card__target strong { font-size: 7px; }
+  .driver-period-card__stats { gap: 3px; padding-top: 4px; }
+  .driver-period-card__stats small, .driver-period-card__ledger small { font-size: 5.5px; }
+  .driver-period-card__stats strong, .driver-period-card__ledger strong { font-size: 8px; }
+  .driver-period-card__ledger { gap: 3px 5px; padding-top: 4px; }
+  .driver-entry-card { grid-column: 1; grid-row: 2; padding: 9px; border-radius: 11px; }
+  .driver-entry-card > header { margin-bottom: 5px; }
+  .driver-entry-card header span { font-size: 6px; }
+  .driver-entry-card h2 { font-size: 13px; }
+  .driver-entry-card time { font-size: 8px; }
+  .driver-entry-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .driver-entry-grid label { gap: 2px; font-size: 6px; }
+  .driver-entry-grid input, .driver-entry-grid textarea { min-height: 29px; padding: 5px 6px; border-radius: 6px; font-size: 9px; }
+  .driver-entry-grid label > i { right: 6px; bottom: 7px; font-size: 7px; }
+  .driver-entry-grid__readonly { min-height: 29px; padding: 5px 6px; border-radius: 6px; }
+  .driver-entry-grid__readonly span { font-size: 5.5px; }
+  .driver-entry-grid__readonly strong { font-size: 8px; }
+  .driver-entry-grid__wide textarea { min-height: 32px; }
+  .driver-file-input { margin-top: 5px; padding: 5px 6px; border-radius: 7px; }
+  .driver-file-input > svg { width: 13px; height: 13px; }
+  .driver-file-input > span { font-size: 7px; }
+  .driver-file-input small { font-size: 5.5px; }
+  .driver-entry-card > footer { min-height: 29px; margin-top: 5px; }
+  .driver-entry-status { max-width: 58%; font-size: 6px; }
+  .driver-entry-card > footer .primary-button { min-height: 29px; padding: 0 7px; font-size: 7px; }
+  .driver-entry-card > footer .primary-button svg { width: 12px; height: 12px; }
+  .driver-history-card { grid-column: 1; grid-row: 3; padding: 6px 8px; border-radius: 9px; }
+  .driver-history-card > header { margin-bottom: 2px; }
+  .driver-history-card header span { font-size: 5px; }
+  .driver-history-card h2 { font-size: 10px; }
+  .driver-history-card > header > svg { width: 12px; height: 12px; }
+  .driver-history-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .driver-history-list article { grid-template-columns: 1fr; gap: 1px; padding: 2px 4px; border-top: 0; border-left: 1px solid var(--line); }
+  .driver-history-list article:first-child { border-left: 0; }
+  .driver-history-list time, .driver-history-list article > span { font-size: 6px; }
+  .driver-history-list article strong { font-size: 8px; }
+  .driver-history-list article small { font-size: 5.5px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .driver-app:not(.driver-app--preview) .driver-app__body { padding-top: 6px; padding-bottom: 7px; }
+  .driver-welcome { margin-bottom: 5px; padding-block: 7px; }
+  .driver-dashboard-grid { gap: 5px; grid-template-rows: auto minmax(0, 1fr) minmax(0, 54px); }
+  .driver-period-card { padding: 7px; }
+  .driver-period-card__headline strong { font-size: 13px; }
+  .driver-period-card__stats strong, .driver-period-card__ledger strong { font-size: 7px; }
+  .driver-entry-card { padding: 7px; }
+  .driver-entry-grid { gap: 3px; }
+  .driver-entry-grid input, .driver-entry-grid textarea { min-height: 26px; font-size: 8px; }
+  .driver-entry-grid__wide textarea { min-height: 28px; }
+  .driver-file-input { margin-top: 3px; }
+  .driver-entry-card > footer { margin-top: 3px; }
+}
