@@ -1754,7 +1754,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
             return (
               <article className="net-detail-card" key={vehicle.plate}>
                 <header className="net-detail-card__header">
-                  <div><small>COCHE PROFESIONAL</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></div>
+                  <div><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></div>
                   <strong className={net >= 0 ? "net-detail-card__net net-detail-card__net--positive" : "net-detail-card__net net-detail-card__net--negative"}>{formatCurrency(net)}</strong>
                 </header>
                 <div className="net-detail-card__billing"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
@@ -1773,7 +1773,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
                   <div className="net-detail-card__expenses-heading" role="row"><strong>Gastos</strong><strong>Importe</strong></div>
                   {expenses.map((expense) => <div className="net-detail-card__expense" role="row" key={expense.key}><span role="cell">{expense.label}<small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manual && <button type="button" onClick={() => onRemoveExpense(expense.id)} aria-label={`Eliminar gasto ${expense.label}`}><IconTrash size={12} /></button>}</span></div>)}
                 </div>}
-                <footer className="net-detail-card__result"><span>Facturación − gastos</span><strong className={net >= 0 ? "net-detail-card__net--positive" : "net-detail-card__net--negative"}>{formatCurrency(net)}</strong><small>Gastos totales: {formatCurrency(totalExpenses)}</small></footer>
+                <footer className="net-detail-card__result"><strong className={net >= 0 ? "net-detail-card__net--positive" : "net-detail-card__net--negative"}>{formatCurrency(net)}</strong><small>Gastos totales: {formatCurrency(totalExpenses)}</small></footer>
               </article>
             );
           })}
