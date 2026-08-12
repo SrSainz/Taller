@@ -534,8 +534,8 @@ const getDriverDocumentNumber = (value) => {
   const number = Number(normalized);
   return Number.isFinite(number) ? number : 0;
 };
-const getDriverCalendarDays = (anchor = new Date(), monthSpan = 2) => {
-  const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+const getDriverCalendarDays = (anchor = new Date(), monthSpan = 2, monthOffset = 0) => {
+  const start = new Date(anchor.getFullYear(), anchor.getMonth() + monthOffset, 1);
   const end = new Date(start.getFullYear(), start.getMonth() + monthSpan, 0);
   const days = [];
   for (const current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
@@ -1357,6 +1357,9 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const selectedDayButtonRef = useRef(null);
+  const periodPickerOptionRef = useRef(null);
+  const periodPickerRef = useRef(null);
+  const [periodPickerOpen, setPeriodPickerOpen] = useState("");
   const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profile.vehicle_plate);
   const activeProfileId = profile.id ?? session.user.id;
 
@@ -1383,9 +1386,41 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     setFile(null);
   }, [entries, selectedDate]);
 
-  const calendarDays = useMemo(() => getDriverCalendarDays(parseDriverDateKey(selectedDate) ?? new Date(), 2), [selectedDate]);
+  const driverPeriodDate = parseDriverDateKey(selectedDate) ?? new Date();
+  const driverPeriodMonth = driverPeriodDate.getMonth();
+  const driverPeriodYear = driverPeriodDate.getFullYear();
+  const driverPeriodYears = useMemo(() => Array.from({ length: 11 }, (_, index) => new Date().getFullYear() - index), []);
+  const selectDriverPeriod = (year, month) => {
+    const day = Math.min(driverPeriodDate.getDate(), new Date(year, month + 1, 0).getDate());
+    setSelectedDate(getDriverDateKey(new Date(year, month, day)));
+    setPeriodPickerOpen("");
+    setMessage("");
+  };
+  const calendarDays = useMemo(() => getDriverCalendarDays(driverPeriodDate, 13, -6), [selectedDate]);
   const selectedDayEntry = useMemo(() => entries.find((item) => String(item.entry_date) === selectedDate) ?? null, [entries, selectedDate]);
   const selectedDayDocuments = useMemo(() => documents.filter((document) => getDriverDocumentDateKey(document) === selectedDate), [documents, selectedDate]);
+
+  useEffect(() => {
+    if (!periodPickerOpen) return undefined;
+    const closeOnOutsidePointer = (event) => {
+      if (!periodPickerRef.current?.contains(event.target)) setPeriodPickerOpen("");
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setPeriodPickerOpen("");
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [periodPickerOpen]);
+
+  useEffect(() => {
+    if (!periodPickerOpen) return undefined;
+    const frame = window.requestAnimationFrame(() => periodPickerOptionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [periodPickerOpen, driverPeriodMonth, driverPeriodYear]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1566,18 +1601,27 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
             </div>
           </article>
         </section>
-        <section className="driver-day-picker" aria-label="Días del registro del conductor">
-          <header>
-            <div><span>REGISTRO DIARIO</span><strong>{formatDriverMonthLong(selectedDate)}</strong></div>
-            <small>Desliza hacia la derecha para continuar con el siguiente mes</small>
-          </header>
+        <section className="driver-period-picker" ref={periodPickerRef} aria-label="Seleccionar mes y año">
+          <div className="driver-period-picker__fields">
+            <div className="driver-period-picker__field">
+              <span>MES</span>
+              <button type="button" className="driver-period-picker__trigger" aria-label="Seleccionar mes" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "month"} onClick={() => setPeriodPickerOpen((current) => current === "month" ? "" : "month")}><strong>{reportMonths[driverPeriodMonth]}</strong><IconChevronDown size={15} /></button>
+              {periodPickerOpen === "month" && <div className="driver-period-picker__menu" role="listbox" aria-label="Meses disponibles">{reportMonths.map((monthLabel, monthIndex) => <button type="button" role="option" aria-selected={driverPeriodMonth === monthIndex} ref={driverPeriodMonth === monthIndex ? periodPickerOptionRef : undefined} className={driverPeriodMonth === monthIndex ? "is-selected" : ""} onClick={() => selectDriverPeriod(driverPeriodYear, monthIndex)} key={monthLabel}>{monthLabel}</button>)}</div>}
+            </div>
+            <div className="driver-period-picker__field">
+              <span>AÑO</span>
+              <button type="button" className="driver-period-picker__trigger" aria-label="Seleccionar año" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "year"} onClick={() => setPeriodPickerOpen((current) => current === "year" ? "" : "year")}><strong>{driverPeriodYear}</strong><IconChevronDown size={15} /></button>
+              {periodPickerOpen === "year" && <div className="driver-period-picker__menu driver-period-picker__menu--years" role="listbox" aria-label="Años disponibles">{driverPeriodYears.map((yearOption) => <button type="button" role="option" aria-selected={driverPeriodYear === yearOption} ref={driverPeriodYear === yearOption ? periodPickerOptionRef : undefined} className={driverPeriodYear === yearOption ? "is-selected" : ""} onClick={() => selectDriverPeriod(yearOption, driverPeriodMonth)} key={yearOption}>{yearOption}</button>)}</div>}
+            </div>
+          </div>
+        </section>
+        <section className="driver-day-picker" aria-label="Calendario diario">
           <div className="driver-day-picker__scroller" role="list">
             {calendarDays.map((day) => {
               const parts = getDriverDayParts(day.key);
               const isSelected = day.key === selectedDate;
               const isMonthStart = day.date.getDate() === 1;
               return <div className={`driver-day-picker__item${isMonthStart ? " driver-day-picker__item--month-start" : ""}`} key={day.key} role="listitem">
-                {isMonthStart && <span className="driver-day-picker__month">{formatDriverMonthLong(day.key)}</span>}
                 <button ref={isSelected ? selectedDayButtonRef : undefined} className={isSelected ? "driver-day-picker__button is-selected" : "driver-day-picker__button"} type="button" aria-pressed={isSelected} aria-label={`Ver ${formatDriverDateLong(day.key)}`} onClick={() => { setSelectedDate(day.key); setMessage(""); }}>
                   <span>{parts.weekday}</span><strong>{parts.day}</strong><small>{parts.month}</small>
                 </button>

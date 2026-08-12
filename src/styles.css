@@ -3069,3 +3069,46 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .driver-day-workspace .driver-entry-grid input, .driver-day-workspace .driver-entry-grid textarea { min-height: 24px; font-size: 9px; }
   .driver-day-workspace .driver-entry-grid__readonly { min-height: 24px; }
 }
+
+/* Calendario del conductor: solo quedan las celdas desplazables; el periodo se elige fuera de la tira. */
+.driver-period-picker { position: relative; z-index: 12; flex: 0 0 auto; min-width: 0; margin-bottom: 7px; }
+.driver-period-picker__fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.driver-period-picker__field { position: relative; display: grid; gap: 3px; min-width: 0; }
+.driver-period-picker__field > span { color: var(--muted); font-size: 7px; font-weight: 850; letter-spacing: .14em; }
+.driver-period-picker__trigger { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); cursor: pointer; box-shadow: 0 4px 12px rgba(18, 51, 42, .04); }
+.driver-period-picker__trigger:hover, .driver-period-picker__trigger:focus-visible { border-color: var(--green-700); outline: 0; box-shadow: 0 0 0 3px rgba(20, 129, 108, .1); }
+.driver-period-picker__trigger strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.driver-period-picker__trigger svg { flex: 0 0 auto; color: var(--green-700); }
+.driver-period-picker__menu { position: absolute; z-index: 20; top: calc(100% + 5px); left: 0; width: min(180px, 100%); max-height: 202px; display: grid; gap: 2px; padding: 6px; overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, .98); box-shadow: 0 14px 30px rgba(18, 51, 42, .16); scrollbar-width: thin; }
+.driver-period-picker__menu--years { width: 112px; }
+.driver-period-picker__menu button { min-height: 30px; padding: 5px 9px; border: 0; border-radius: 7px; background: transparent; color: var(--text); cursor: pointer; font-size: 10px; font-weight: 750; scroll-snap-align: center; text-align: left; text-transform: uppercase; }
+.driver-period-picker__menu button:hover, .driver-period-picker__menu button:focus-visible { background: var(--green-50); outline: 0; }
+.driver-period-picker__menu button.is-selected { background: var(--green-700); color: #fff; }
+.driver-day-picker { margin-bottom: 7px; padding: 7px 10px 8px; }
+.driver-day-picker__scroller { margin-top: 0; }
+.driver-day-picker__item { padding-top: 0; }
+.driver-day-picker__item--month-start { padding-left: 6px; }
+.driver-day-picker__month { display: none; }
+
+@media (max-width: 760px) {
+  .driver-period-picker { margin-bottom: 5px; }
+  .driver-period-picker__fields { gap: 5px; }
+  .driver-period-picker__field { gap: 2px; }
+  .driver-period-picker__field > span { font-size: 5.5px; }
+  .driver-period-picker__trigger { min-height: 28px; padding: 4px 7px; border-radius: 7px; }
+  .driver-period-picker__trigger strong { font-size: 10px; }
+  .driver-period-picker__trigger svg { width: 12px; height: 12px; }
+  .driver-period-picker__menu { top: calc(100% + 3px); width: min(145px, 100%); max-height: 180px; padding: 4px; border-radius: 8px; }
+  .driver-period-picker__menu--years { width: 92px; }
+  .driver-period-picker__menu button { min-height: 26px; padding: 4px 7px; font-size: 8px; }
+  .driver-day-picker { margin-bottom: 5px; padding: 5px 7px 6px; }
+  .driver-day-picker__scroller { margin-top: 0; }
+  .driver-day-picker__item { padding-top: 0; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .driver-period-picker__trigger { min-height: 26px; }
+  .driver-period-picker__menu { max-height: 158px; }
+  .driver-period-picker__menu button { min-height: 23px; }
+  .driver-day-picker { padding-block: 4px 5px; }
+}
