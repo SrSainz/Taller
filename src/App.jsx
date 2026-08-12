@@ -48,7 +48,7 @@ import {
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   documentCategoryLabels,
   documentFieldDefinitions,
@@ -97,6 +97,34 @@ function ChartAxisTick({ x, y, payload, fontSize = 8, fontWeight = 700, fill = "
         {lines.map((line, index) => <tspan x="0" dy={index === 0 ? 0 : fontSize + 2} key={`${line}-${index}`}>{line}</tspan>)}
       </text>
     </g>
+  );
+}
+
+function ChartBarValueLabel({ x, y, width, height, value, textFill = "#fff" }) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue === 0 || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y)) || !Number.isFinite(Number(width)) || !Number.isFinite(Number(height))) return null;
+  const barWidth = Number(width);
+  const barHeight = Number(height);
+  const centerX = Number(x) + barWidth / 2;
+  const centerY = Number(y) + barHeight / 2;
+  const vertical = barHeight >= 58;
+  const fontSize = vertical ? Math.max(7, Math.min(10, barWidth * 0.34)) : Math.max(5.5, Math.min(7.5, barWidth * 0.25));
+  const label = formatShortCurrency(numericValue);
+  const stroke = textFill === "#fff" ? "rgba(0,0,0,.2)" : "rgba(255,255,255,.72)";
+  return (
+    <text
+      x={centerX}
+      y={centerY}
+      fill={textFill}
+      fontSize={fontSize}
+      fontWeight={850}
+      textAnchor="middle"
+      dominantBaseline="central"
+      transform={vertical ? `rotate(-90 ${centerX} ${centerY})` : undefined}
+      style={{ paintOrder: "stroke", stroke, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }}
+    >
+      {label}
+    </text>
   );
 }
 
@@ -1685,6 +1713,7 @@ function ChartDetailModal({ charts, periodLabel, onClose }) {
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => [formatCurrency(Number(value)), chart.label]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 9, borderColor: "#dce5e1", fontSize: 9 }} />
                       {chart.key === "net" && <ReferenceLine y={0} stroke="#aab5b1" />}
                       <Bar dataKey="value" fill={chart.color} radius={[4, 4, 0, 0]} maxBarSize={44} minPointSize={2} isAnimationActive={false} activeBar={false}>
+                        <LabelList dataKey="value" content={<ChartBarValueLabel textFill={chart.key === "billing" ? "#123e5f" : "#fff"} />} />
                         {chart.data.map((entry) => <Cell key={`${chart.key}-${entry.label}`} fill={chart.key === "net" && entry.value < 0 ? "#df4538" : chart.color} />)}
                       </Bar>
                     </BarChart>
@@ -2117,23 +2146,24 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
-                        {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : BILLING_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" fill={MAINTENANCE_COLOR} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill="#df4538" maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={2} isAnimationActive={false} activeBar={false} onClick={selectChartBar} />}
-                      </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} isAnimationActive={false} activeBar={false} onClick={selectChartBar}>
+                        {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : BILLING_COLOR} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="billing" content={<ChartBarValueLabel textFill={selectedChartMetrics.length === 0 ? "#fff" : "#123e5f"} />} /></Bar>}
+                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" fill={MAINTENANCE_COLOR} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="maintenance" content={<ChartBarValueLabel />} /></Bar>}
+                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill="#df4538" maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="fuel" content={<ChartBarValueLabel />} /></Bar>}
+                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="net" content={<ChartBarValueLabel />} /></Bar>}
+                      </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} minPointSize={10} isAnimationActive={false} activeBar={false} onClick={selectChartBar}>
+                        <LabelList dataKey="value" content={<ChartBarValueLabel textFill={chartMetric === "billing" ? "#123e5f" : "#fff"} />} />
                         {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
                       </Bar>}
                     </BarChart>
                     </ResponsiveContainer>
-                    {chartMetric === "summary" ? <div className="report-chart-legend" aria-label="Seleccionar métricas del resumen general">
+                    <div className="report-chart-legend" aria-label="Seleccionar métricas del resumen general">
                       {selectableChartMetrics.map((option) => {
                         const active = visibleChartMetrics.includes(option.value);
                         return <button type="button" className={`report-chart-legend__button report-chart-legend__button--${option.value}${active ? " report-chart-legend__button--active" : ""}`} aria-pressed={active} aria-label={`${active ? "Ocultar" : "Mostrar"} ${option.label}`} onClick={(event) => toggleLegendMetric(event, option.value)} key={option.value}>
                           <i className={`report-chart-legend__swatch report-chart-legend__swatch--${option.value}`} aria-hidden="true" /><span>{option.label}</span>
                         </button>;
                       })}
-                    </div> : <div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" />}
+                    </div>
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
