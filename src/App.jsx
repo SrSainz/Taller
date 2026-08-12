@@ -409,6 +409,17 @@ const netAdditionalExpenseAmounts = {
   "5754 MJV": { gestoria: 135, itv: 61.5, circulation: 148, annexInsurance: 40 },
 };
 
+const netPayrollAmounts = {
+  "5043 MLC": [1650, 1720],
+  "5750 MJV": [1680, 1640],
+  "5754 MJV": [1700, 1650],
+};
+const netSocialSecurityAmounts = {
+  "5043 MLC": [120, 132, 138],
+  "5750 MJV": [125, 130, 135],
+  "5754 MJV": [118, 130, 142],
+};
+
 const manualNetExpensesStorageKey = "talleria:manual-net-expenses:v1";
 const loadManualNetExpenses = () => {
   try {
@@ -429,16 +440,37 @@ const saveManualNetExpenses = (expenses) => {
   }
 };
 
-const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor }) => {
+const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], reportMonth = 6, reportYear = 2026 }) => {
   const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
+  const vehicleDrivers = vehicle.drivers.slice(0, 2);
+  const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: getDriverDay(vehicle, driver).monthRevenue ?? 0 }));
+  const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
+  const fuelBreakdown = vehicleDrivers.map((driver) => {
+    const refuellings = getDriverFuelEntriesForPeriod(vehicle, driver, reportMonth, reportYear);
+    const liters = refuellings.reduce((sum, entry) => sum + entry.liters, 0);
+    const cost = refuellings.reduce((sum, entry) => sum + entry.cost, 0);
+    return { label: driver, amount: Number(cost.toFixed(2)), meta: `${Number(liters.toFixed(1)).toLocaleString("es-ES")} L · ${refuellings.length} repostajes` };
+  });
+  const payrollBreakdown = vehicleDrivers.map((driver, index) => ({ label: driver, amount: scale(netPayrollAmounts[vehicle.plate]?.[index] ?? 1650), meta: "Nómina mensual" }));
+  const commissionBreakdown = resolvedDriverRows.slice(0, 2).map((row) => ({ label: row.driver, amount: Number((Number(row.revenue) * DRIVER_COMMISSION_RATE).toFixed(2)), meta: `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación` }));
+  const socialBreakdown = [
+    { label: "Autónomo", amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[0] ?? 120), meta: "Cuota mensual" },
+    ...vehicleDrivers.map((driver, index) => ({ label: driver, amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[index + 1] ?? 130), meta: "Seguridad social" })),
+  ];
+  const breakdownTotal = (rows) => rows.reduce((sum, row) => sum + row.amount, 0);
+  const fuelTotal = breakdownTotal(fuelBreakdown);
+  if (fuelBreakdown.length && Math.abs(fuelTotal - fuel) > 0.01) {
+    const adjustment = Number((fuel - fuelTotal).toFixed(2));
+    fuelBreakdown[fuelBreakdown.length - 1].amount = Number((fuelBreakdown[fuelBreakdown.length - 1].amount + adjustment).toFixed(2));
+  }
   return [
     { key: "workshop", label: "Taller", amount: maintenance, cadence: "Variable" },
-    { key: "fuel", label: "Gasolina", amount: fuel, cadence: "Variable" },
-    { key: "payroll", label: "Nóminas", amount: 0, cadence: "Pendiente · añadir por conductor" },
-    { key: "driver-commission", label: "Comisiones de conductores", amount: commission, cadence: `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual` },
-    { key: "social-security", label: "Seguros sociales", amount: scale(amounts[4]), cadence: "Mensual" },
+    { key: "fuel", label: "Gasolina", amount: fuel, cadence: "Por conductor", breakdown: fuelBreakdown },
+    { key: "payroll", label: "Nóminas", amount: breakdownTotal(payrollBreakdown), cadence: "2 conductores", breakdown: payrollBreakdown },
+    { key: "driver-commission", label: "Comisiones de conductores", amount: breakdownTotal(commissionBreakdown) || commission, cadence: `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual`, breakdown: commissionBreakdown },
+    { key: "social-security", label: "Seguros sociales", amount: breakdownTotal(socialBreakdown), cadence: "Autónomo + 2 conductores", breakdown: socialBreakdown },
     { key: "accounting", label: "Gestoría", amount: scale(additional.gestoria), cadence: "Mensual" },
     { key: "taxes", label: "Impuestos", amount: scale(amounts[7]), cadence: "Trimestral" },
     { key: "eu-vat", label: "IVA intracomunitario", amount: scale(amounts[8]), cadence: "Trimestral" },
@@ -2021,6 +2053,7 @@ function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }
 function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemoveExpense, onClose }) {
   const closeButtonRef = useRef(null);
   const [expandedPlates, setExpandedPlates] = useState(() => new Set());
+  const [expandedExpenseRows, setExpandedExpenseRows] = useState(() => new Set());
   const [activeFormPlate, setActiveFormPlate] = useState("");
   const [formState, setFormState] = useState({ label: "", amount: "" });
   const [formError, setFormError] = useState("");
@@ -2034,6 +2067,14 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
       const next = new Set(current);
       if (next.has(plate)) next.delete(plate);
       else next.add(plate);
+      return next;
+    });
+  };
+  const toggleExpenseRow = (rowKey) => {
+    setExpandedExpenseRows((current) => {
+      const next = new Set(current);
+      if (next.has(rowKey)) next.delete(rowKey);
+      else next.add(rowKey);
       return next;
     });
   };
@@ -2091,7 +2132,18 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
                 {expanded && <div className="net-detail-card__expenses" id={`net-expenses-${vehicle.plate.replace(/\s/g, "-")}`} role="table" aria-label={`Gastos de ${vehicle.plate}`}>
                   <div className="net-detail-card__expenses-heading" role="row"><strong>Gastos</strong><strong>Importe</strong></div>
                   <div className="net-detail-card__expenses-scroll">
-                    {expenses.map((expense) => <div className="net-detail-card__expense" role="row" key={expense.key}><span role="cell">{expense.label}<small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manual && <button type="button" onClick={() => onRemoveExpense(expense.id)} aria-label={`Eliminar gasto ${expense.label}`}><IconTrash size={12} /></button>}</span></div>)}
+                    {expenses.map((expense) => {
+                      const rowKey = `${vehicle.plate}-${expense.key}`;
+                      const expandable = Array.isArray(expense.breakdown) && expense.breakdown.length > 0;
+                      const breakdownOpen = expandedExpenseRows.has(rowKey);
+                      const rowClass = `net-detail-card__expense${expandable ? " net-detail-card__expense--expandable" : ""}${breakdownOpen ? " is-expanded" : ""}`;
+                      return <div className="net-detail-card__expense-group" key={expense.key}>
+                        {expandable ? <button type="button" className={rowClass} aria-expanded={breakdownOpen} aria-controls={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} onClick={() => toggleExpenseRow(rowKey)}><span role="cell"><strong>{expense.label}</strong><small>{expense.cadence}</small></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong><IconChevronDown size={13} /></span></button> : <div className={rowClass} role="row"><span role="cell"><strong>{expense.label}</strong><small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manual && <button type="button" onClick={() => onRemoveExpense(expense.id)} aria-label={`Eliminar gasto ${expense.label}`}><IconTrash size={12} /></button>}</span></div>}
+                        {breakdownOpen && <div className="net-detail-card__expense-breakdown" id={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} role="rowgroup" aria-label={`Detalle de ${expense.label}`}>
+                          {expense.breakdown.map((detail) => <div className="net-detail-card__expense-breakdown-row" role="row" key={`${rowKey}-${detail.label}`}><span role="cell"><strong>{detail.label}</strong><small>{detail.meta}</small></span><strong role="cell">{formatCurrency(detail.amount)}</strong></div>)}
+                        </div>}
+                      </div>;
+                    })}
                   </div>
                 </div>}
               </article>
@@ -2240,6 +2292,9 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
         maintenance: maintenanceChartData[vehicleIndex]?.value ?? 0,
         commission,
         periodFactor,
+        driverRows: vehicleBillingRows,
+        reportMonth,
+        reportYear,
       });
       const manualExpenses = manualNetExpenses
         .filter((expense) => expense.periodKey === netPeriodKey && expense.plate === vehicle.plate)

@@ -1730,6 +1730,35 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .net-detail-card__result > strong { font-size: 18px; }
 }
 
+/* Neto: las partidas de personal y gasolina se abren en un detalle por persona. */
+.net-detail-card__expense-group { display: contents; }
+.net-detail-card__expense--expandable { width: 100%; border-top: 0; border-right: 0; border-left: 0; font: inherit; text-align: left; appearance: none; background: transparent; color: inherit; cursor: pointer; }
+.net-detail-card__expense--expandable:hover, .net-detail-card__expense--expandable:focus-visible { background: #f1faf4; outline: 0; }
+.net-detail-card__expense--expandable:focus-visible { box-shadow: inset 0 0 0 2px rgba(39, 140, 59, .22); }
+.net-detail-card__expense--expandable .net-detail-card__expense-value > svg { flex: 0 0 auto; color: #6f8b7b; transition: transform .18s ease; }
+.net-detail-card__expense--expandable.is-expanded .net-detail-card__expense-value > svg { transform: rotate(180deg); color: #278c3b; }
+.net-detail-card__expense-breakdown { margin: 0 0 2px; border-bottom: 1px solid #dcebe1; background: #f5faf7; }
+.net-detail-card__expense-breakdown-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 30px; padding: 5px 8px 5px 15px; border-bottom: 1px dashed #d9e7df; }
+.net-detail-card__expense-breakdown-row:last-child { border-bottom: 0; }
+.net-detail-card__expense-breakdown-row > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.net-detail-card__expense-breakdown-row > span strong { overflow: hidden; color: #345145; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.net-detail-card__expense-breakdown-row > span small { overflow: hidden; color: #789087; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.net-detail-card__expense-breakdown-row > strong { color: #278c3b; font-size: 11px; white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .net-detail-card__expense-breakdown-row { min-height: 28px; padding-left: 13px; }
+  .net-detail-card__expense-breakdown-row > span strong { font-size: 9px; }
+  .net-detail-card__expense-breakdown-row > span small { font-size: 6.5px; }
+  .net-detail-card__expense-breakdown-row > strong { font-size: 10px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .net-detail-card__expense-breakdown-row { min-height: 25px; padding-block: 4px; }
+  .net-detail-card__expense-breakdown-row > span strong { font-size: 8px; }
+  .net-detail-card__expense-breakdown-row > span small { font-size: 6px; }
+  .net-detail-card__expense-breakdown-row > strong { font-size: 9px; }
+}
+
 body:has(.drivers-page--calendar-open) { overflow: hidden; }
 
 /* Neto keeps the result amount and expense total visible without the removed label. */
