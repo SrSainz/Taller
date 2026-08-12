@@ -1,45 +1,38 @@
-# Design QA: barra inferior y tarjetas KPI
+# Design QA — vista móvil del conductor y navegación global
+
+## Referencia e implementación
+
+- Referencia: `C:\Users\aiday\AppData\Local\Temp\codex-clipboard-726b9fb2-6a3f-4694-b173-648ceab490df.png` (1029×1536 px), captura proporcionada por la persona usuaria.
+- Implementación: `src/App.jsx` (`DriverMobileExperience`) y `src/styles.css` (bloque `driver-mobile-*`).
+- Evidencia móvil: `design-qa-driver-mobile.png` (390×844 px).
+- Evidencia escritorio: `design-qa-driver-desktop.png` (1280×900 px, composición centrada a 480 px).
+- Estado revisado: vista previa de AIDA PEREZ / 5754 MJV, agosto de 2026, sin registros remotos cargados.
+
+## Comparación realizada
+
+La referencia se normalizó como una pantalla móvil sin marco de dispositivo. Se compararon la anatomía de la cabecera, el resumen mensual de dos columnas, los cuatro registros circulares, las dos tarjetas de gráficos, la tabla semanal de lunes a domingo y la navegación inferior de cinco acciones. La implementación conserva esa jerarquía y la adapta a los datos reales de Supabase: las imágenes de justificantes se sustituyen por las vistas firmadas disponibles y, cuando no existe una imagen, se usa el recurso local del cuentakilómetros o el icono contextual.
+
+También se comprobó la adaptación en escritorio: la pantalla mantiene un ancho de lectura móvil centrado y no estira la tabla ni los controles fuera de su composición.
+
+## Hallazgos y correcciones
+
+- Primera revisión: las tarjetas de gráficos quedaban visualmente vacías cuando no había registros diarios y la tabla semanal podía recortarse en anchos móviles estrechos.
+- Corrección aplicada: se añadió una serie visual de respaldo basada en el turno configurado para mantener los gráficos legibles durante el estado vacío y se ajustó la tabla a una anchura mínima de 365 px con columna de etiquetas compacta; en 360–380 px se permite el desplazamiento horizontal únicamente dentro de la tabla.
+- Revisión final: los siete días caben en la composición de 390 px, la barra inferior permanece anclada y no aparecen errores de consola.
+
+## Resultado
+
+passed
+
+## Navegación global revisada anteriormente
 
 - Source visual truth: `C:/Users/aiday/OneDrive/Escritorio/IMG_2642.jpeg` (224x431 px, supplied mobile reference).
-- Implementation screenshot: `C:/Users/aiday/OneDrive/Escritorio/app david/design-qa-bottom-nav-mobile.png` (390x843 px capture at a 390x844 CSS viewport, device scale factor 1.25).
-- Additional responsive evidence: `C:/Users/aiday/OneDrive/Escritorio/app david/design-qa-bottom-nav-desktop.png` (1280x720 px capture at a 1280x720 CSS viewport).
-- State: `#/informes`, General dashboard, July 2026, bottom navigation visible.
-- Normalization: the source is a cropped phone reference with a device frame and markup; comparison was focused on the bottom-navigation region. The implementation capture is app content only. No resampling was applied.
+- Implementation evidence: `design-qa-bottom-nav-mobile.png` (390x843 px) and `design-qa-bottom-nav-desktop.png` (1280x720 px).
+- State: `#/informes`, General dashboard, bottom navigation visible.
+- The lower navigation preserves the requested dark bar, three icon controls and centered raised plus treatment. The Conductores and Neto cards retain their tone-matched styling and the dashboard reserves space above the fixed bar.
+- No actionable P0, P1, or P2 findings remain in that surface.
 
-## Findings
-
-No actionable P0, P1, or P2 findings remain.
-
-The lower navigation preserves the reference anatomy: three evenly separated icon controls, a centered raised plus control, and a persistent bottom bar. The requested dark charcoal bar replaces the white source bar intentionally; the red and green markup and the crossed-out source content are omitted as requested. The Conductores and Neto cards now use subtle blue and green tone-matched gradient fills with their existing icon and border colors.
-
-## Open Questions
-
-The reference does not define behavior for the plus control. It remains a visible button without a new workflow, while the home control returns to SOBRE RUEDAS > General and the profile control uses the existing profile feedback.
-
-## Implementation Checklist
-
-- [x] Fixed dark bottom bar is visible across application routes.
-- [x] Home icon navigates to `#/informes` and resets General view.
-- [x] Center plus uses the raised cream treatment from the reference anatomy.
-- [x] User profile icon is present on the right.
-- [x] Conductores and Neto use tone-matched gradient fills.
-- [x] Mobile and desktop layouts reserve space so content is not hidden behind the bar.
-- [x] Mobile Conductores calendar remains above the new bar without overlap.
-
-## Comparison History
-
-- Initial comparison: the bottom bar covered the lower part of the mobile chart because the dashboard workspace still consumed the full viewport. Fixed by reserving the bottom-navigation height on the dashboard workspace.
-- Post-fix comparison: the chart ends above the bar, all three bottom controls remain visible, and the mobile Conductores detail remains above the bar. No P0/P1/P2 issue remained.
-
-## Required Fidelity Surfaces
-
-- Fonts and typography: existing Inter hierarchy is preserved; bottom controls use compact icon-only sizing consistent with the source.
-- Spacing and layout rhythm: the fixed bar spans the viewport, evenly separates the three controls, and centers the raised plus without obscuring content.
-- Colors and visual tokens: charcoal navigation, cream plus, blue Conductores fill, and green Neto fill map to the requested palette.
-- Image quality and asset fidelity: the supplied reference markup is intentionally not reproduced; existing SOBRE RUEDAS logo and Tabler icon assets remain sharp.
-- Copy and content: only the three requested icon controls were added; the home and profile controls retain accessible labels.
-
-## Interaction Checks
+## Prior interaction checks
 
 - Selected the home control from Mantenimiento and confirmed navigation to `#/informes` with `SOBRE RUEDAS` title.
 - Selected the profile control and confirmed the existing profile feedback appears above the bottom bar.

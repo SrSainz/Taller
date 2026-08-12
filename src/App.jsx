@@ -48,7 +48,7 @@ import {
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   documentCategoryLabels,
   documentFieldDefinitions,
@@ -1404,7 +1404,15 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const selectedDayButtonRef = useRef(null);
   const periodPickerOptionRef = useRef(null);
   const periodPickerRef = useRef(null);
+  const driverHomeRef = useRef(null);
+  const driverStatsRef = useRef(null);
+  const driverHistoryRef = useRef(null);
+  const driverEntryRef = useRef(null);
   const [periodPickerOpen, setPeriodPickerOpen] = useState("");
+  const [driverMenuOpen, setDriverMenuOpen] = useState(false);
+  const [driverNoticeOpen, setDriverNoticeOpen] = useState(false);
+  const [driverNavSection, setDriverNavSection] = useState("home");
+  const [entryFormOpen, setEntryFormOpen] = useState(false);
   const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profile.vehicle_plate);
   const activeProfileId = profile.id ?? session.user.id;
 
@@ -1439,6 +1447,18 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const day = Math.min(driverPeriodDate.getDate(), new Date(year, month + 1, 0).getDate());
     setSelectedDate(getDriverDateKey(new Date(year, month, day)));
     setPeriodPickerOpen("");
+    setMessage("");
+  };
+  const scrollDriverSection = (section, ref) => {
+    setDriverNavSection(section);
+    setDriverMenuOpen(false);
+    setDriverNoticeOpen(false);
+    window.requestAnimationFrame(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  const shiftDriverWeek = (offset) => {
+    const nextDate = new Date(driverPeriodDate);
+    nextDate.setDate(nextDate.getDate() + offset * 7);
+    setSelectedDate(getDriverDateKey(nextDate));
     setMessage("");
   };
   const calendarDays = useMemo(() => getDriverCalendarDays(driverPeriodDate, 13, -6), [selectedDate]);
@@ -1564,6 +1584,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       monthlyTips: total(monthEntries, "tips"),
       monthlyTolls: total(monthEntries, "tolls"),
       monthlyOther: total(monthEntries, "other_expenses"),
+      tipsProgress: monthlyBilling > 0 ? Math.min(100, (total(monthEntries, "tips") / monthlyBilling) * 100) : 0,
       billingGoal,
       billingProgress: Math.min(100, (monthlyBilling / billingGoal) * 100),
       weeklyCash,
@@ -1603,12 +1624,102 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     tolls: getDriverEntryAmount(selectedDaySource, "tolls") || selectedDayDocumentData.tolls,
     other_expenses: getDriverEntryAmount(selectedDaySource, "other_expenses") || selectedDayDocumentData.otherExpenses,
   };
+  const driverWeekDays = useMemo(() => {
+    const weekStart = getDriverWeekStart(driverPeriodDate);
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setDate(date.getDate() + index);
+      return { date, key: getDriverDateKey(date) };
+    });
+  }, [selectedDate]);
+  const driverWeekEntries = useMemo(() => driverWeekDays.map(({ key }) => entries.find((item) => String(item.entry_date) === key) ?? null), [driverWeekDays, entries]);
+  const previousDriverEntry = useMemo(() => {
+    const previous = entries
+      .filter((item) => String(item.entry_date ?? "") < selectedDate)
+      .sort((a, b) => String(b.entry_date ?? "").localeCompare(String(a.entry_date ?? "")));
+    return previous[0] ?? null;
+  }, [entries, selectedDate]);
+  const selectedOdometer = Number(selectedDayData.odometer_km) || 0;
+  const previousOdometer = getDriverEntryAmount(previousDriverEntry, "odometer_km");
+  const partialKm2 = Math.max(0, selectedOdometer - previousOdometer);
+  const averageConsumption = partialKm2 > 0 ? (Number(selectedDayData.fuel_liters) || 0) / partialKm2 * 100 : 0;
+  const imageDocument = (predicate) => documentPreviews.find((document) => predicate(document) && document.signedUrl)?.signedUrl ?? "";
+  const driverImages = {
+    fuelReceipt: imageDocument((document) => document.category === "consumption"),
+    partialKm1: imageDocument((document) => getDriverDocumentNumber(document.extracted_data?.odometerKm ?? document.extracted_data?.odometer_km ?? document.extracted_data?.km) > 0) || "/assets/odometer-210735.jpg",
+    partialKm2: imageDocument((document) => getDriverDocumentNumber(document.extracted_data?.odometerKm ?? document.extracted_data?.odometer_km ?? document.extracted_data?.km) > 0) || "/assets/odometer-210735.jpg",
+    totalKm: imageDocument((document) => getDriverDocumentNumber(document.extracted_data?.odometerKm ?? document.extracted_data?.odometer_km ?? document.extracted_data?.km) > 0) || "/assets/odometer-210735.jpg",
+  };
+  const dailyPhotoRecords = [
+    { key: "fuel", label: "Gasolina", value: formatCurrency(selectedDayData.fuel_cost), image: driverImages.fuelReceipt, Icon: IconGasStation, alt: "Justificante de gasolina" },
+    { key: "partial-1", label: "Parcial 1", value: formatKm(selectedOdometer), image: driverImages.partialKm1, Icon: IconGauge, alt: "Lectura parcial 1 del cuentakilómetros" },
+    { key: "partial-2", label: "Parcial 2", value: formatKm(partialKm2), image: driverImages.partialKm2, Icon: IconGauge, alt: "Lectura parcial 2 del cuentakilómetros" },
+    { key: "total", label: "Total", value: formatKm(vehicle?.odometer ?? 0), image: driverImages.totalKm, Icon: IconGauge, alt: "Lectura total del cuentakilómetros" },
+  ];
+  const weeklyRows = [
+    { key: "cash", label: "Efectivo", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "cash_collected")) },
+    { key: "fuel", label: "Repostajes", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "fuel_cost")) },
+    { key: "tolls", label: "Peajes", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "tolls")) },
+    { key: "wash", label: "Lavados", values: driverWeekEntries.map(() => 0) },
+    { key: "other", label: "Varios", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "other_expenses")) },
+    { key: "total", label: "Total", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "cash_collected") - getDriverEntryAmount(item, "fuel_cost") - getDriverEntryAmount(item, "tolls") - getDriverEntryAmount(item, "other_expenses")) },
+  ];
+  const seededDriverShift = vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name)) ?? vehicle?.shifts?.[0] ?? null;
+  const seededChartPattern = [0.38, 0.55, 0.46, 0.72, 0.6, 0.82, 1];
+  const weeklyChartData = driverWeekDays.map(({ date }, index) => ({
+    label: new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", ""),
+    consumption: getDriverEntryAmount(driverWeekEntries[index], "fuel_liters") || Number(((seededDriverShift?.liters ?? 0) * seededChartPattern[index]).toFixed(1)),
+    billing: getDriverEntryAmount(driverWeekEntries[index], "billing") || Number(((seededDriverShift?.revenue ?? 0) * seededChartPattern[index]).toFixed(2)),
+  }));
+
   const selectedDayMetrics = [
     ["Facturación", getDriverEntryAmount(selectedDayData, "billing"), "€"],
     ["Kilómetros", getDriverEntryAmount(selectedDayData, "odometer_km"), "km"],
     ["Gasolina", getDriverEntryAmount(selectedDayData, "fuel_cost"), "€"],
     ["Repostaje", getDriverEntryAmount(selectedDayData, "fuel_liters"), "L"],
   ];
+
+  return <DriverMobileExperience
+    preview={preview}
+    onExitPreview={onExitPreview}
+    onSignOut={onSignOut}
+    profile={profile}
+    vehicle={vehicle}
+    periodSummary={periodSummary}
+    driverPeriodMonth={driverPeriodMonth}
+    driverPeriodYear={driverPeriodYear}
+    driverPeriodYears={driverPeriodYears}
+    reportMonths={reportMonths}
+    periodPickerOpen={periodPickerOpen}
+    setPeriodPickerOpen={setPeriodPickerOpen}
+    periodPickerRef={periodPickerRef}
+    periodPickerOptionRef={periodPickerOptionRef}
+    selectDriverPeriod={selectDriverPeriod}
+    driverWeekDays={driverWeekDays}
+    weeklyRows={weeklyRows}
+    weeklyChartData={weeklyChartData}
+    dailyPhotoRecords={dailyPhotoRecords}
+    averageConsumption={averageConsumption}
+    selectedDate={selectedDate}
+    setSelectedDate={setSelectedDate}
+    driverPeriodDate={driverPeriodDate}
+    shiftDriverWeek={shiftDriverWeek}
+    message={message}
+    entryFormOpen={entryFormOpen}
+    setEntryFormOpen={setEntryFormOpen}
+    entry={entry}
+    updateEntry={updateEntry}
+    saveEntry={saveEntry}
+    saving={saving}
+    file={file}
+    setFile={setFile}
+    driverMenuOpen={driverMenuOpen}
+    setDriverMenuOpen={setDriverMenuOpen}
+    driverNoticeOpen={driverNoticeOpen}
+    setDriverNoticeOpen={setDriverNoticeOpen}
+    driverNavSection={driverNavSection}
+    setDriverNavSection={setDriverNavSection}
+  />;
 
   return (
     <main className={preview ? "driver-app driver-app--preview" : "driver-app"}>
@@ -1723,6 +1834,76 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
           </form>
         </section>
       </div>
+    </main>
+  );
+}
+
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, weeklyRows, weeklyChartData, dailyPhotoRecords, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection }) {
+  const homeRef = useRef(null);
+  const statsRef = useRef(null);
+  const historyRef = useRef(null);
+  const entryRef = useRef(null);
+  const scrollTo = (section, ref) => {
+    setDriverNavSection(section);
+    setDriverMenuOpen(false);
+    setDriverNoticeOpen(false);
+    window.requestAnimationFrame(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  const openEntry = () => {
+    setEntryFormOpen(true);
+    setDriverNavSection("home");
+    window.requestAnimationFrame(() => entryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  const moveDay = (offset) => {
+    const date = new Date(driverPeriodDate);
+    date.setDate(date.getDate() + offset);
+    setSelectedDate(getDriverDateKey(date));
+  };
+  const weekLabel = `${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" }).format(driverWeekDays[0].date).replace(".", "")} – ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(driverWeekDays[6].date).replace(" de ", " ")}`;
+
+  return (
+    <main className={`driver-app driver-mobile-app${preview ? " driver-app--preview" : ""}`}>
+      <header className="driver-mobile-topbar">
+        <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir menú del conductor" aria-expanded={driverMenuOpen} onClick={() => { setDriverMenuOpen((current) => !current); setDriverNoticeOpen(false); }}><IconMenu2 size={23} /></button>
+        <div className="driver-mobile-topbar__title"><strong>{profile.full_name.toUpperCase()}</strong><small>{vehicle?.plate ?? profile.vehicle_plate ?? "PENDIENTE"}</small></div>
+        <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir notificaciones" aria-expanded={driverNoticeOpen} onClick={() => { setDriverNoticeOpen((current) => !current); setDriverMenuOpen(false); }}><IconBell size={23} /></button>
+        {driverMenuOpen && <aside className="driver-mobile-topbar__popover driver-mobile-topbar__popover--menu" aria-label="Menú del conductor">
+          <button type="button" onClick={() => scrollTo("home", homeRef)}><IconHome size={16} />Inicio</button>
+          <button type="button" onClick={() => scrollTo("history", historyRef)}><IconHistory size={16} />Historial semanal</button>
+          <button type="button" onClick={openEntry}><IconPlus size={16} />Añadir registro</button>
+          <button type="button" onClick={preview ? onExitPreview : onSignOut}><IconLogout size={16} />{preview ? "Volver a administración" : "Cerrar sesión"}</button>
+        </aside>}
+        {driverNoticeOpen && <aside className="driver-mobile-topbar__popover driver-mobile-topbar__popover--notice" role="status"><IconBell size={16} /><span><strong>Notificaciones</strong><small>No hay avisos nuevos.</small></span></aside>}
+      </header>
+      <div className="driver-mobile-body">
+        {message && <div className="driver-mobile-message" role="status">{message}</div>}
+        <section ref={homeRef} className="driver-mobile-section driver-mobile-section--home" aria-label="Resumen del conductor">
+          <article className="driver-mobile-month-summary">
+            <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{vehicle?.owner?.dni ?? ""}</b></span></div>
+            <div className="driver-mobile-month-summary__columns">
+              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing"><span>Facturación</span><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong><div className="driver-mobile-progress"><i style={{ width: `${periodSummary.billingProgress}%` }} /><small>{Math.round(periodSummary.billingProgress)}%</small></div></div>
+              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--tips"><span>Propinas</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong><div className="driver-mobile-progress"><i style={{ width: `${periodSummary.tipsProgress}%` }} /><small>{Math.round(periodSummary.tipsProgress)}%</small></div></div>
+            </div>
+          </article>
+        </section>
+        <section ref={statsRef} className="driver-mobile-section driver-mobile-section--today" aria-labelledby="driver-mobile-today-title">
+          <header className="driver-mobile-section__heading"><h2 id="driver-mobile-today-title">REGISTROS DE HOY · {new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }).format(driverPeriodDate)}</h2><div className="driver-mobile-section__actions"><button type="button" aria-label="Día anterior" onClick={() => moveDay(-1)}><IconChevronLeft size={15} /></button><button type="button" aria-label="Día siguiente" onClick={() => moveDay(1)}><IconChevronRight size={15} /></button></div></header>
+          <div className="driver-mobile-record-grid">
+            {dailyPhotoRecords.map(({ key, label, value, image, Icon: RecordIcon, alt }) => <article className={`driver-mobile-record-card driver-mobile-record-card--${key}`} key={key}><span>{label}</span><strong>{value}</strong><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}</div></article>)}
+          </div>
+          <div className="driver-mobile-mini-grid">
+            <article className="driver-mobile-mini-card"><div><strong>Consumo medio</strong><span>{averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</span></div><ResponsiveContainer width="100%" height={62}><BarChart data={weeklyChartData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Bar dataKey="consumption" fill="#74b9f2" radius={[2, 2, 0, 0]} /></BarChart></ResponsiveContainer></article>
+            <article className="driver-mobile-mini-card"><div><strong>Facturación</strong><span>{formatCurrency(periodSummary.monthlyBilling)}</span></div><ResponsiveContainer width="100%" height={62}><LineChart data={weeklyChartData} margin={{ top: 5, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="billing" stroke="#2c6de9" strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer></article>
+          </div>
+        </section>
+        <section ref={historyRef} className="driver-mobile-section driver-mobile-section--history" aria-labelledby="driver-mobile-week-title">
+          <header className="driver-mobile-section__heading driver-mobile-section__heading--week"><div><h2 id="driver-mobile-week-title">SEMANA {weekLabel}</h2><small>Selecciona un día para revisar sus registros</small></div><div className="driver-mobile-week-actions"><button type="button" aria-label="Semana anterior" onClick={() => shiftDriverWeek(-1)}><IconChevronLeft size={16} /></button><button type="button" aria-label="Semana siguiente" onClick={() => shiftDriverWeek(1)}><IconChevronRight size={16} /></button></div></header>
+          <div className="driver-mobile-period-control" ref={periodPickerRef}><button type="button" className="driver-mobile-period-trigger" aria-label="Seleccionar mes" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "month"} onClick={() => setPeriodPickerOpen((current) => current === "month" ? "" : "month")}><span>{reportMonths[driverPeriodMonth]}</span><IconChevronDown size={14} /></button><button type="button" className="driver-mobile-period-year" aria-label="Seleccionar año" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "year"} onClick={() => setPeriodPickerOpen((current) => current === "year" ? "" : "year")}>{driverPeriodYear}</button>{periodPickerOpen === "month" && <div className="driver-period-picker__menu driver-mobile-period-menu" role="listbox" aria-label="Meses disponibles">{reportMonths.map((monthLabel, monthIndex) => <button type="button" role="option" aria-selected={driverPeriodMonth === monthIndex} ref={driverPeriodMonth === monthIndex ? periodPickerOptionRef : undefined} className={driverPeriodMonth === monthIndex ? "is-selected" : ""} onClick={() => selectDriverPeriod(driverPeriodYear, monthIndex)} key={monthLabel}>{monthLabel}</button>)}</div>}{periodPickerOpen === "year" && <div className="driver-period-picker__menu driver-period-picker__menu--years driver-mobile-period-menu" role="listbox" aria-label="Años disponibles">{driverPeriodYears.map((yearOption) => <button type="button" role="option" aria-selected={driverPeriodYear === yearOption} ref={driverPeriodYear === yearOption ? periodPickerOptionRef : undefined} className={driverPeriodYear === yearOption ? "is-selected" : ""} onClick={() => selectDriverPeriod(yearOption, driverPeriodMonth)} key={yearOption}>{yearOption}</button>)}</div>}</div>
+          <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={row.key}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{formatCurrency(value)}</td>)}</tr>)}</tbody></table></div>
+        </section>
+        {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Facturación<input type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Peajes<input type="number" min="0" step="0.01" value={entry.tolls} onChange={(event) => updateEntry("tolls", event.target.value)} /><i>€</i></label><label>Otros gastos<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, peaje u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
+      </div>
+      <nav className="driver-mobile-bottom-nav" aria-label="Navegación del conductor"><button type="button" className={driverNavSection === "home" ? "is-active" : ""} onClick={() => scrollTo("home", homeRef)}><IconHome size={21} /><span>Inicio</span></button><button type="button" className={driverNavSection === "history" ? "is-active" : ""} onClick={() => scrollTo("history", historyRef)}><IconHistory size={21} /><span>Historial</span></button><button type="button" className="driver-mobile-bottom-nav__add" aria-label="Añadir registro" onClick={openEntry}><IconPlus size={30} /></button><button type="button" className={driverNavSection === "stats" ? "is-active" : ""} onClick={() => scrollTo("stats", statsRef)}><IconChartBar size={21} /><span>Estadísticas</span></button><button type="button" className={driverNavSection === "settings" ? "is-active" : ""} onClick={() => { setDriverNavSection("settings"); setDriverMenuOpen(true); setDriverNoticeOpen(false); }}><IconSettings size={21} /><span>Ajustes</span></button></nav>
     </main>
   );
 }
