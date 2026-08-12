@@ -2973,3 +2973,99 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .driver-period-card__stats small, .driver-period-card__ledger small { font-size: 6px; }
   .driver-period-card__stats strong, .driver-period-card__ledger strong { font-size: 9px; }
 }
+
+/* Navegación global: la casita, el más y el perfil permanecen anclados en todos los módulos. */
+.app-shell > .bottom-navigation { position: fixed !important; z-index: 200; visibility: visible; opacity: 1; }
+.bottom-navigation__quick-menu { z-index: 210; }
+.toast { z-index: 220; }
+
+/* Calendario de Conductores: el día arriba y los importes apoyados en la base de cada celda. */
+.drivers-page--calendar-open .drivers-calendar-day { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; }
+.drivers-page--calendar-open .drivers-calendar-day > span:first-child { flex: 0 0 auto; }
+.drivers-page--calendar-open .drivers-calendar-day__values { margin-top: auto; padding-top: clamp(5px, .55vw, 9px); align-content: end; gap: clamp(2px, .25vw, 4px); }
+.drivers-page--calendar-open .drivers-calendar-day__values small { line-height: 1; }
+
+/* Vista del conductor: progresión mensual, resumen semanal y ficha diaria unificados. */
+.driver-period-overview--top { grid-column: auto; grid-row: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: 7px; margin-bottom: 7px; }
+.driver-period-overview--top .driver-period-card { min-height: 0; gap: 6px; padding: 10px 14px; border-radius: 14px; }
+.driver-period-overview--top .driver-period-card__header h2 { font-size: 16px; }
+.driver-period-overview--top .driver-period-card__header span { font-size: 8px; }
+.driver-period-overview--top .driver-period-card__headline strong { font-size: clamp(22px, 2.8vw, 30px); }
+.driver-period-overview--top .driver-period-card__headline small { font-size: 8px; }
+.driver-period-overview--top .driver-period-card__headline > span { font-size: 17px; }
+.driver-period-overview--top .driver-period-progress { height: 8px; }
+.driver-period-overview--top .driver-period-card__target { font-size: 8px; }
+.driver-period-overview--top .driver-period-card__target strong { font-size: 10px; }
+.driver-period-overview--top .driver-period-card__stats { margin-top: 0; padding-top: 6px; }
+.driver-period-overview--top .driver-period-card__stats small, .driver-period-overview--top .driver-period-card__ledger small { font-size: 7px; }
+.driver-period-overview--top .driver-period-card__stats strong, .driver-period-overview--top .driver-period-card__ledger strong { font-size: 12px; }
+.driver-period-overview--top .driver-period-card__ledger { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 12px; margin-top: 0; padding-top: 6px; }
+
+.driver-day-workspace { min-width: 0; display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column; overflow: hidden; padding: 10px 12px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: 0 7px 20px rgba(18, 51, 42, .055); }
+.driver-day-workspace > .driver-day-detail { min-width: 0; flex: 0 0 auto; margin: 0; padding: 0 0 8px; overflow: visible; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; }
+.driver-day-workspace > .driver-day-detail > header { margin-bottom: 8px; padding: 0 0 6px; border-bottom: 0; background: transparent; }
+.driver-day-workspace > .driver-day-detail > header span { color: var(--green-800); font-size: 8px; }
+.driver-day-workspace > .driver-day-detail > header h2 { font-size: 17px; font-weight: 900; }
+.driver-day-workspace > .driver-day-detail > header > strong { color: var(--muted); font-size: 8px; }
+.driver-day-workspace .driver-day-detail__content { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 0; }
+.driver-day-workspace .driver-day-metrics { gap: 6px; }
+.driver-day-workspace .driver-day-metrics span { min-height: 48px; align-content: center; padding: 7px 8px; border-radius: 9px; }
+.driver-day-workspace .driver-day-metrics small { font-size: 8px; font-weight: 800; }
+.driver-day-workspace .driver-day-metrics strong { font-size: clamp(14px, 1.8vw, 20px); font-weight: 900; }
+.driver-day-workspace .driver-day-documents { min-height: 36px; }
+.driver-day-workspace > .driver-entry-card { flex: 0 0 auto; min-height: 0; margin: 0; padding: 8px 0 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.driver-day-workspace > .driver-entry-card > header { display: none; }
+.driver-day-workspace .driver-entry-fieldset { overflow: visible; }
+.driver-day-workspace .driver-entry-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.driver-day-workspace .driver-entry-grid label { font-size: 8px; }
+.driver-day-workspace .driver-entry-grid input, .driver-day-workspace .driver-entry-grid textarea { min-height: 35px; font-size: 12px; }
+.driver-day-workspace .driver-entry-grid__readonly { min-height: 35px; }
+
+@media (max-width: 760px) {
+  .driver-period-overview--top { gap: 5px; margin-bottom: 5px; }
+  .driver-period-overview--top .driver-period-card { gap: 4px; padding: 6px 8px; border-radius: 10px; }
+  .driver-period-overview--top .driver-period-card__header h2 { font-size: 11px; }
+  .driver-period-overview--top .driver-period-card__header span { font-size: 6px; }
+  .driver-period-overview--top .driver-period-card__header small { font-size: 6px; }
+  .driver-period-overview--top .driver-period-card__header > svg { width: 15px; height: 15px; }
+  .driver-period-overview--top .driver-period-card__headline strong { font-size: 17px; }
+  .driver-period-overview--top .driver-period-card__headline small { font-size: 6px; }
+  .driver-period-overview--top .driver-period-card__headline > span { font-size: 11px; }
+  .driver-period-overview--top .driver-period-progress { height: 6px; }
+  .driver-period-overview--top .driver-period-card__target { font-size: 6px; }
+  .driver-period-overview--top .driver-period-card__target strong { font-size: 8px; }
+  .driver-period-overview--top .driver-period-card__stats { gap: 3px; padding-top: 4px; }
+  .driver-period-overview--top .driver-period-card__stats small, .driver-period-overview--top .driver-period-card__ledger small { font-size: 5.5px; }
+  .driver-period-overview--top .driver-period-card__stats strong, .driver-period-overview--top .driver-period-card__ledger strong { font-size: 9px; }
+  .driver-period-overview--top .driver-period-card__ledger { gap: 3px 6px; padding-top: 4px; }
+  .driver-day-workspace { padding: 6px 7px; border-radius: 10px; }
+  .driver-day-workspace > .driver-day-detail { padding-bottom: 5px; }
+  .driver-day-workspace > .driver-day-detail > header { margin-bottom: 5px; padding-bottom: 3px; }
+  .driver-day-workspace > .driver-day-detail > header span { font-size: 6px; }
+  .driver-day-workspace > .driver-day-detail > header h2 { font-size: 12px; }
+  .driver-day-workspace > .driver-day-detail > header > strong { font-size: 6px; }
+  .driver-day-workspace .driver-day-detail__content { gap: 5px; }
+  .driver-day-workspace .driver-day-metrics { gap: 3px; }
+  .driver-day-workspace .driver-day-metrics span { min-height: 35px; padding: 4px 5px; border-radius: 6px; }
+  .driver-day-workspace .driver-day-metrics small { font-size: 6px; }
+  .driver-day-workspace .driver-day-metrics strong { font-size: 11px; }
+  .driver-day-workspace .driver-day-documents { min-height: 23px; }
+  .driver-day-workspace .driver-day-documents__empty { min-height: 20px; font-size: 6px; }
+  .driver-day-workspace > .driver-entry-card { padding-top: 5px; }
+  .driver-day-workspace .driver-entry-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; }
+  .driver-day-workspace .driver-entry-grid label { font-size: 7px; }
+  .driver-day-workspace .driver-entry-grid input, .driver-day-workspace .driver-entry-grid textarea { min-height: 27px; padding: 4px 5px; font-size: 10px; }
+  .driver-day-workspace .driver-entry-grid__readonly { min-height: 27px; padding: 4px 5px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .driver-period-overview--top .driver-period-card { gap: 3px; padding-block: 5px; }
+  .driver-period-overview--top .driver-period-card__headline strong { font-size: 16px; }
+  .driver-period-overview--top .driver-period-card__stats strong, .driver-period-overview--top .driver-period-card__ledger strong { font-size: 8px; }
+  .driver-period-overview--top .driver-period-card__target { display: none; }
+  .driver-day-workspace { padding: 5px 6px; }
+  .driver-day-workspace .driver-day-metrics span { min-height: 31px; }
+  .driver-day-workspace .driver-day-metrics strong { font-size: 10px; }
+  .driver-day-workspace .driver-entry-grid input, .driver-day-workspace .driver-entry-grid textarea { min-height: 24px; font-size: 9px; }
+  .driver-day-workspace .driver-entry-grid__readonly { min-height: 24px; }
+}

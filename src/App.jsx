@@ -1542,6 +1542,30 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
           <div className="driver-welcome__identity"><span>HOLA</span><h1>{profile.full_name.toUpperCase()}</h1></div>
           <div className="driver-welcome__vehicle"><span>MATRÍCULA</span><strong>{vehicle?.plate ?? profile.vehicle_plate ?? "PENDIENTE"}</strong></div>
         </section>
+        <section className="driver-period-overview driver-period-overview--top" aria-label="Resumen mensual y semanal">
+          <article className="driver-period-card driver-period-card--month">
+            <header className="driver-period-card__header"><div><span>REGISTRO MENSUAL</span><h2>Facturación · {periodSummary.monthLabel}</h2></div><IconChartBar size={22} /></header>
+            <div className="driver-period-card__headline"><div><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong><small>Facturación mensual acumulada</small></div><span>{Math.round(periodSummary.billingProgress)}%</span></div>
+            <div className="driver-period-progress" role="progressbar" aria-label="Progreso de facturación mensual" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(periodSummary.billingProgress)}><i style={{ width: periodSummary.billingProgress + "%" }} /></div>
+            <div className="driver-period-card__target"><span>Objetivo orientativo</span><strong>{formatCurrency(periodSummary.billingGoal)}</strong></div>
+            <div className="driver-period-card__stats">
+              <span><small>Propinas</small><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></span>
+              <span><small>Peajes</small><strong>{formatCurrency(periodSummary.monthlyTolls)}</strong></span>
+              <span><small>Otros gastos</small><strong>{formatCurrency(periodSummary.monthlyOther)}</strong></span>
+            </div>
+          </article>
+          <article className="driver-period-card driver-period-card--week">
+            <header className="driver-period-card__header"><div><span>REGISTRO SEMANAL</span><h2>Semana en curso</h2><small>{periodSummary.weekLabel} · {periodSummary.weekEntries} registros</small></div><IconCurrencyEuro size={22} /></header>
+            <div className="driver-period-card__headline driver-period-card__headline--week"><div><strong>{formatCurrency(periodSummary.weeklyNet)}</strong><small>Efectivo neto de la semana</small></div><span>{Math.round(periodSummary.weeklyProgress)}%</span></div>
+            <div className="driver-period-progress" role="progressbar" aria-label="Efectivo neto semanal" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(periodSummary.weeklyProgress)}><i style={{ width: periodSummary.weeklyProgress + "%" }} /></div>
+            <div className="driver-period-card__ledger">
+              <span><small>Efectivo cobrado</small><strong>{formatCurrency(periodSummary.weeklyCash)}</strong></span>
+              <span><small>− Gasolina</small><strong>− {formatCurrency(periodSummary.weeklyFuel)}</strong></span>
+              <span><small>− Peajes</small><strong>− {formatCurrency(periodSummary.weeklyTolls)}</strong></span>
+              <span><small>− Otros gastos</small><strong>− {formatCurrency(periodSummary.weeklyOther)}</strong></span>
+            </div>
+          </article>
+        </section>
         <section className="driver-day-picker" aria-label="Días del registro del conductor">
           <header>
             <div><span>REGISTRO DIARIO</span><strong>{formatDriverMonthLong(selectedDate)}</strong></div>
@@ -1561,9 +1585,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
             })}
           </div>
         </section>
-        <section className="driver-day-detail" aria-live="polite" aria-labelledby="driver-day-detail-title">
+        <section className="driver-day-workspace" aria-live="polite" aria-labelledby="driver-day-detail-title">
+          <section className="driver-day-detail">
           <header>
-            <div><span>DETALLE DEL DÍA</span><h2 id="driver-day-detail-title">{formatDriverDateLong(selectedDate)}</h2></div>
+            <div><span>DETALLE Y REGISTRO DIARIO</span><h2 id="driver-day-detail-title">{formatDriverDateLong(selectedDate)}</h2></div>
             <strong>{documentsLoading ? "Cargando…" : `${selectedDayDocuments.length} ${selectedDayDocuments.length === 1 ? "justificante" : "justificantes"}`}</strong>
           </header>
           <div className="driver-day-detail__content">
@@ -1580,31 +1605,6 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
             </div>
           </div>
         </section>
-        <div className="driver-dashboard-grid">
-          <section className="driver-period-overview" aria-label="Resumen mensual y semanal">
-            <article className="driver-period-card driver-period-card--month">
-              <header className="driver-period-card__header"><div><span>REGISTRO MENSUAL</span><h2>Facturación · {periodSummary.monthLabel}</h2></div><IconChartBar size={22} /></header>
-              <div className="driver-period-card__headline"><div><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong><small>Facturación mensual acumulada</small></div><span>{Math.round(periodSummary.billingProgress)}%</span></div>
-              <div className="driver-period-progress" role="progressbar" aria-label="Progreso de facturación mensual" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(periodSummary.billingProgress)}><i style={{ width: periodSummary.billingProgress + "%" }} /></div>
-              <div className="driver-period-card__target"><span>Objetivo orientativo</span><strong>{formatCurrency(periodSummary.billingGoal)}</strong></div>
-              <div className="driver-period-card__stats">
-                <span><small>Propinas</small><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></span>
-                <span><small>Peajes</small><strong>{formatCurrency(periodSummary.monthlyTolls)}</strong></span>
-                <span><small>Otros gastos</small><strong>{formatCurrency(periodSummary.monthlyOther)}</strong></span>
-              </div>
-            </article>
-            <article className="driver-period-card driver-period-card--week">
-              <header className="driver-period-card__header"><div><span>REGISTRO SEMANAL</span><h2>Semana en curso</h2><small>{periodSummary.weekLabel} · {periodSummary.weekEntries} registros</small></div><IconCurrencyEuro size={22} /></header>
-              <div className="driver-period-card__headline driver-period-card__headline--week"><div><strong>{formatCurrency(periodSummary.weeklyNet)}</strong><small>Efectivo neto de la semana</small></div><span>{Math.round(periodSummary.weeklyProgress)}%</span></div>
-              <div className="driver-period-progress" role="progressbar" aria-label="Efectivo neto semanal" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(periodSummary.weeklyProgress)}><i style={{ width: periodSummary.weeklyProgress + "%" }} /></div>
-              <div className="driver-period-card__ledger">
-                <span><small>Efectivo cobrado</small><strong>{formatCurrency(periodSummary.weeklyCash)}</strong></span>
-                <span><small>− Gasolina</small><strong>− {formatCurrency(periodSummary.weeklyFuel)}</strong></span>
-                <span><small>− Peajes</small><strong>− {formatCurrency(periodSummary.weeklyTolls)}</strong></span>
-                <span><small>− Otros gastos</small><strong>− {formatCurrency(periodSummary.weeklyOther)}</strong></span>
-              </div>
-            </article>
-          </section>
           <form className={preview ? "driver-entry-card driver-entry-card--preview" : "driver-entry-card"} onSubmit={saveEntry}>
             <header><div><span>REGISTRO DIARIO</span><h2>Datos del servicio</h2></div><time dateTime={entry.entryDate}>{entry.entryDate}</time></header>
             <fieldset className="driver-entry-fieldset" disabled={preview}>
@@ -1625,7 +1625,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
               <footer><span className="driver-entry-status" role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={17} /></button></footer>
             </fieldset>
           </form>
-        </div>
+        </section>
       </div>
     </main>
   );
