@@ -1243,7 +1243,7 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState("");
-  const [previewDriverId, setPreviewDriverId] = useState("");
+  const [openSection, setOpenSection] = useState("admin");
   const [form, setForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", password: "" });
   const [adminName, setAdminName] = useState(profile.full_name || "David Diaz");
   const [adminPassword, setAdminPassword] = useState("");
@@ -1315,23 +1315,59 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver 
     setAdminPassword("");
     notify("Contraseña de administrador actualizada");
   };
-  const counts = driverVehicleOptions.map((vehicle) => ({ ...vehicle, count: drivers.filter((driver) => driver.vehicle_plate === vehicle.plate && driver.active).length }));
-  const selectedPreviewDriver = drivers.find((driver) => driver.id === previewDriverId);
-  const startPreview = () => {
-    if (!selectedPreviewDriver) return setMessage("Selecciona primero un conductor activo.");
-    if (!selectedPreviewDriver.active) return setMessage("Activa la cuenta antes de abrir su vista previa.");
-    onPreviewDriver(selectedPreviewDriver);
-  };
+  const driversForVehicle = (vehicle) => drivers
+    .filter((driver) => driver.vehicle_plate === vehicle.plate)
+    .sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name));
+  const toggleSection = (section) => setOpenSection((current) => current === section ? "" : section);
 
   return <section className="admin-page"><header className="admin-page__hero"><div><span className="admin-eyebrow">CENTRO DE CONTROL</span><h1>Administración</h1><p>Crea, asigna y restablece los accesos de los seis conductores desde un único lugar.</p></div><span className="admin-page__identity"><span className="avatar">DD</span><span><strong>David Diaz</strong><small>Administrador principal</small></span></span></header>
-    {message && <div className="admin-alert" role="alert"><IconAlertTriangle size={18} />{message}</div>}
-    {generatedPassword && <div className="admin-generated-password" role="status"><IconKey size={19} /><div><strong>Contraseña definitiva lista</strong><span>Entrégala al conductor de forma segura. Solo el administrador puede cambiarla después.</span></div><code>{generatedPassword}</code><button className="icon-button" type="button" onClick={() => setGeneratedPassword("")} aria-label="Ocultar contraseña"><IconX size={17} /></button></div>}
-    <section className="admin-preview-card"><div><span className="admin-eyebrow">MODO DE VISTA</span><h2>Entrar como conductor</h2><p>Consulta la interfaz y los datos que verá cualquier conductor sin modificar sus registros.</p></div><div className="admin-preview-card__controls"><label>Conductor<select value={previewDriverId} onChange={(event) => setPreviewDriverId(event.target.value)} disabled={drivers.length === 0}><option value="">Selecciona un conductor</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.full_name} · {driver.vehicle_plate ?? "Sin coche"}{driver.active ? "" : " · pausado"}</option>)}</select></label><button type="button" className="secondary-button" onClick={startPreview} disabled={!selectedPreviewDriver || !selectedPreviewDriver.active}><IconEye size={17} />Ver aplicación</button></div></section>
-    <div className="admin-stats">{counts.map((vehicle) => <article key={vehicle.plate}><span className="admin-stats__icon"><IconCar size={19} /></span><div><strong>{vehicle.plate}</strong><small>{vehicle.count}/2 conductores activos</small></div><i className={vehicle.count >= 2 ? "is-complete" : ""}>{vehicle.count >= 2 ? "Completo" : "Pendiente"}</i></article>)}</div>
-    <div className="admin-layout"><section className="content-card admin-card"><header className="card-header"><div><span>CUENTAS DE CONDUCTOR</span><h2>Crear un nuevo acceso</h2><p>La contraseña que introduzcas será definitiva. Solo podrás cambiarla desde este panel.</p></div><IconUserCircle size={23} /></header><form className="admin-create-form" onSubmit={createDriver}><label>Nombre completo<input value={form.fullName} onChange={(event) => updateForm("fullName", event.target.value)} placeholder="Ej. Ana García" required /></label><label>Email de acceso<input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} placeholder="conductor@email.com" required /></label><label>Vehículo profesional<select value={form.vehiclePlate} onChange={(event) => updateForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((vehicle) => <option key={vehicle.plate} value={vehicle.plate}>{vehicle.plate} · {vehicle.model}</option>)}</select></label><label>Contraseña definitiva<input type="text" value={form.password} onChange={(event) => updateForm("password", event.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required /></label><button className="primary-button" type="submit" disabled={saving}><IconUserPlus size={17} />{saving ? "Creando…" : "Crear cuenta"}</button></form></section>
-      <section className="content-card admin-card admin-profile-card"><header className="card-header"><div><span>PERFIL DEL ADMINISTRADOR</span><h2>David Diaz</h2><p>Modifica los datos que aparecen en el acceso de administración.</p></div><IconShieldCheck size={23} /></header><form className="admin-profile-form" onSubmit={saveAdminName}><label>Nombre visible<input value={adminName} onChange={(event) => setAdminName(event.target.value)} required /></label><label>Email<input value={session.user.email ?? ""} disabled /></label><button className="secondary-button" type="submit">Guardar nombre</button></form><form className="admin-profile-form admin-profile-form--password" onSubmit={saveAdminPassword}><label>Nueva contraseña<input type="password" value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} minLength={8} placeholder="Mínimo 8 caracteres" /></label><button className="secondary-button" type="submit"><IconKey size={16} />Cambiar contraseña</button></form></section></div>
-    <section className="content-card admin-card admin-drivers-card"><header className="card-header"><div><span>ACCESOS ACTIVOS</span><h2>Conductores</h2><p>Dos cuentas por coche profesional. Puedes reasignar o restablecer el acceso cuando lo necesites.</p></div><IconUsers size={23} /></header>{loading ? <p className="empty-state">Cargando cuentas…</p> : drivers.length === 0 ? <p className="empty-state">Todavía no hay cuentas creadas.</p> : <div className="admin-drivers-list">{drivers.map((driver) => <article className="admin-driver-row" key={driver.id}><span className="avatar">{driver.full_name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span><div className="admin-driver-row__identity"><strong>{driver.full_name}</strong><small>{driver.email}</small></div><select aria-label={`Vehículo de ${driver.full_name}`} value={driver.vehicle_plate ?? ""} onChange={(event) => updateDriver(driver, { vehiclePlate: event.target.value })}><option value="">Sin asignar</option>{driverVehicleOptions.map((vehicle) => <option key={vehicle.plate} value={vehicle.plate}>{vehicle.plate}</option>)}</select><span className={`admin-driver-status${driver.active ? " is-active" : ""}`}>{driver.active ? "Activo" : "Pausado"}</span><button className="text-button" type="button" onClick={() => updateDriver(driver, { active: !driver.active })}>{driver.active ? "Pausar" : "Activar"}</button><button className="text-button text-button--accent" type="button" onClick={() => resetDriver(driver)}>Cambiar contraseña</button><button className="text-button text-button--preview" type="button" onClick={() => onPreviewDriver(driver)} disabled={!driver.active}><IconEye size={15} />Ver como conductor</button></article>)}</div>}</section>
-  </section>;
+     {message && <div className="admin-alert" role="alert"><IconAlertTriangle size={18} />{message}</div>}
+     {generatedPassword && <div className="admin-generated-password" role="status"><IconKey size={19} /><div><strong>Contraseña definitiva lista</strong><span>Entrégala al conductor de forma segura. Solo el administrador puede cambiarla después.</span></div><code>{generatedPassword}</code><button className="icon-button" type="button" onClick={() => setGeneratedPassword("")} aria-label="Ocultar contraseña"><IconX size={17} /></button></div>}
+     <div className="admin-access-stack">
+       <section className="admin-accordion admin-accordion--admin">
+         <button className={`admin-accordion__button${openSection === "admin" ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection("admin")} aria-expanded={openSection === "admin"} aria-controls="admin-profile-panel">
+           <span className="admin-accordion__icon"><IconShieldCheck size={21} /></span>
+           <span className="admin-accordion__copy"><strong>ADMINISTRADOR</strong><small>{adminName || "David Diaz"} · perfil y seguridad</small></span>
+           <IconChevronDown className="admin-accordion__chevron" size={19} />
+         </button>
+         {openSection === "admin" && <div className="admin-accordion__panel" id="admin-profile-panel">
+           <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">PERFIL PRINCIPAL</span><h2>David Diaz</h2><p>Gestiona el nombre visible y la contraseña exclusiva del administrador.</p></div><IconUserCircle size={23} /></header>
+           <form className="admin-profile-form" onSubmit={saveAdminName}><label>Nombre visible<input value={adminName} onChange={(event) => setAdminName(event.target.value)} required /></label><label>Email<input value={session.user.email ?? ""} disabled /></label><button className="secondary-button" type="submit">Guardar nombre</button></form>
+           <form className="admin-profile-form admin-profile-form--password" onSubmit={saveAdminPassword}><label>Nueva contraseña<input type="password" value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} minLength={8} placeholder="Mínimo 8 caracteres" /></label><button className="secondary-button" type="submit"><IconKey size={16} />Cambiar contraseña</button></form>
+         </div>}
+       </section>
+       {driverVehicleOptions.map((vehicle) => {
+         const vehicleDrivers = driversForVehicle(vehicle);
+         const activeCount = vehicleDrivers.filter((driver) => driver.active).length;
+         return <section className="admin-accordion" key={vehicle.plate}>
+           <button className={`admin-accordion__button${openSection === vehicle.plate ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection(vehicle.plate)} aria-expanded={openSection === vehicle.plate} aria-controls={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>
+             <span className="admin-accordion__icon admin-accordion__icon--vehicle"><IconCar size={21} /></span>
+             <span className="admin-accordion__copy"><strong>{vehicle.plate}</strong><small>{vehicle.model} · {activeCount} activos de {vehicleDrivers.length}</small></span>
+             <IconChevronDown className="admin-accordion__chevron" size={19} />
+           </button>
+           {openSection === vehicle.plate && <div className="admin-accordion__panel" id={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>
+             <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">CONDUCTORES ASIGNADOS</span><h2>{vehicle.plate}</h2><p>Activa, pausa, restablece o abre la vista de cada cuenta.</p></div><IconUsers size={23} /></header>
+             {loading ? <p className="empty-state">Cargando cuentas…</p> : vehicleDrivers.length === 0 ? <p className="admin-vehicle-empty">Todavía no hay conductores asignados a este coche.</p> : <div className="admin-vehicle-drivers">{vehicleDrivers.map((driver) => <article className="admin-vehicle-driver" key={driver.id}>
+               <span className={`admin-vehicle-driver__status-dot${driver.active ? " is-active" : ""}`} aria-hidden="true" />
+               <div className="admin-vehicle-driver__identity"><strong>{driver.full_name}</strong><small>{driver.email}</small><span className={`admin-driver-status${driver.active ? " is-active" : ""}`}>{driver.active ? "Acceso activo" : "Acceso pausado"}</span></div>
+               <div className="admin-vehicle-driver__actions"><button className="text-button text-button--preview" type="button" onClick={() => onPreviewDriver(driver)} disabled={!driver.active}><IconEye size={15} />Ver aplicación</button><button className="text-button" type="button" onClick={() => updateDriver(driver, { active: !driver.active })}>{driver.active ? "Pausar acceso" : "Activar acceso"}</button><button className="text-button text-button--accent" type="button" onClick={() => resetDriver(driver)}><IconRefresh size={15} />Restablecer contraseña</button></div>
+             </article>)}</div>}
+           </div>}
+         </section>;
+       })}
+       <section className="admin-accordion admin-accordion--create">
+         <button className={`admin-accordion__button${openSection === "create" ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection("create")} aria-expanded={openSection === "create"} aria-controls="admin-create-panel">
+           <span className="admin-accordion__icon admin-accordion__icon--create"><IconUserPlus size={21} /></span>
+           <span className="admin-accordion__copy"><strong>CREAR NUEVO ACCESO</strong><small>Añade una cuenta y asigna su coche profesional</small></span>
+           <IconChevronDown className="admin-accordion__chevron" size={19} />
+         </button>
+         {openSection === "create" && <div className="admin-accordion__panel" id="admin-create-panel">
+           <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">CUENTAS DE CONDUCTOR</span><h2>Nuevo acceso</h2><p>La contraseña que introduzcas será definitiva. Solo el administrador podrá cambiarla después.</p></div><IconKey size={23} /></header>
+           <form className="admin-create-form" onSubmit={createDriver}><label>Nombre completo<input value={form.fullName} onChange={(event) => updateForm("fullName", event.target.value)} placeholder="Ej. Ana García" required /></label><label>Email de acceso<input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} placeholder="conductor@email.com" required /></label><label>Vehículo profesional<select value={form.vehiclePlate} onChange={(event) => updateForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((vehicle) => <option key={vehicle.plate} value={vehicle.plate}>{vehicle.plate} · {vehicle.model}</option>)}</select></label><label>Contraseña definitiva<input type="text" value={form.password} onChange={(event) => updateForm("password", event.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required /></label><button className="primary-button" type="submit" disabled={saving}><IconUserPlus size={17} />{saving ? "Creando…" : "Crear cuenta"}</button></form>
+         </div>}
+       </section>
+     </div>
+   </section>;
 }
 
 function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, setModal, compact = false }) {
