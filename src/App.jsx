@@ -1313,8 +1313,8 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [generatedPassword, setGeneratedPassword] = useState("");
-  const [openSection, setOpenSection] = useState("admin");
+  const [generatedPassword, setGeneratedPassword] = useState(null);
+  const [openSection, setOpenSection] = useState("");
   const [form, setForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", password: "" });
   const [editingDriverId, setEditingDriverId] = useState("");
   const [driverProfileForm, setDriverProfileForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", active: true });
@@ -1338,12 +1338,13 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
   const createDriver = async (event) => {
     event.preventDefault();
     setMessage("");
-    setGeneratedPassword("");
+    setGeneratedPassword(null);
     setSaving(true);
     try {
       const response = await invokeAdminUsers({ action: "create", ...form });
       setDrivers((current) => [...current, response.profile].sort((a, b) => a.full_name.localeCompare(b.full_name)));
-      setGeneratedPassword(response.password);
+      setGeneratedPassword({ driverId: response.profile?.id, value: response.password });
+      setOpenSection(response.profile?.vehicle_plate ?? form.vehiclePlate);
       setForm({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", password: "" });
       notify("Cuenta de conductor creada");
     } catch (error) {
@@ -1355,10 +1356,12 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
   const resetDriver = async (driver) => {
     const nextPassword = generateDriverPassword();
     setMessage("");
+    setGeneratedPassword(null);
     try {
       const response = await invokeAdminUsers({ action: "reset_password", userId: driver.id, password: nextPassword });
       setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? response.profile : candidate));
-      setGeneratedPassword(response.password);
+      setGeneratedPassword({ driverId: driver.id, value: response.password });
+      setOpenSection(driver.vehicle_plate);
       notify(`Acceso restablecido para ${driver.full_name}`);
     } catch (error) {
       setMessage(error.message);
@@ -1415,18 +1418,17 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
     .sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name));
   const toggleSection = (section) => setOpenSection((current) => current === section ? "" : section);
 
-  return <section className="admin-page"><header className="admin-page__hero"><div><span className="admin-eyebrow">CENTRO DE CONTROL</span><h1>Administración</h1><p>Crea, asigna y restablece los accesos de los seis conductores desde un único lugar.</p></div><span className="admin-page__identity"><span className="avatar">DD</span><span><strong>David Diaz</strong><small>Administrador principal</small></span></span></header>
+  return <section className="admin-page">
      {message && <div className="admin-alert" role="alert"><IconAlertTriangle size={18} />{message}</div>}
-     {generatedPassword && <div className="admin-generated-password" role="status"><IconKey size={19} /><div><strong>Contraseña definitiva lista</strong><span>Entrégala al conductor de forma segura. Solo el administrador puede cambiarla después.</span></div><code>{generatedPassword}</code><button className="icon-button" type="button" onClick={() => setGeneratedPassword("")} aria-label="Ocultar contraseña"><IconX size={17} /></button></div>}
      <div className="admin-access-stack">
        <section className="admin-accordion admin-accordion--admin">
          <button className={`admin-accordion__button${openSection === "admin" ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection("admin")} aria-expanded={openSection === "admin"} aria-controls="admin-profile-panel">
            <span className="admin-accordion__icon"><IconShieldCheck size={21} /></span>
-           <span className="admin-accordion__copy"><strong>ADMINISTRADOR</strong><small>{adminName || "David Diaz"} · perfil y seguridad</small></span>
+           <span className="admin-accordion__copy"><strong>ADMINISTRADOR</strong><strong className="admin-accordion__admin-name">{(adminName || "David Diaz").toLocaleUpperCase("es")}</strong></span>
            <IconChevronDown className="admin-accordion__chevron" size={19} />
          </button>
          {openSection === "admin" && <div className="admin-accordion__panel" id="admin-profile-panel">
-           <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">PERFIL PRINCIPAL</span><h2>David Diaz</h2><p>Gestiona el nombre visible y la contraseña exclusiva del administrador.</p></div><IconUserCircle size={23} /></header>
+           <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">PERFIL PRINCIPAL</span><h2>DAVID DIAZ</h2><p>Gestiona el nombre visible y la contraseña exclusiva del administrador.</p></div><IconUserCircle size={23} /></header>
            <form className="admin-profile-form" onSubmit={saveAdminName}><label>Nombre visible<input value={adminName} onChange={(event) => setAdminName(event.target.value)} required /></label><label>Email<input value={session.user.email ?? ""} disabled /></label><button className="secondary-button" type="submit">Guardar nombre</button></form>
            <form className="admin-profile-form admin-profile-form--password" onSubmit={saveAdminPassword}><label>Nueva contraseña<input type="password" value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} minLength={8} placeholder="Mínimo 8 caracteres" /></label><button className="secondary-button" type="submit"><IconKey size={16} />Cambiar contraseña</button></form>
          </div>}
@@ -1446,6 +1448,7 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
                 <span className={`admin-vehicle-driver__status-dot${driver.active ? " is-active" : ""}`} aria-hidden="true" />
                 <div className="admin-vehicle-driver__identity"><strong>{driver.full_name}</strong><small>{driver.email}</small><span className={`admin-driver-status${driver.active ? " is-active" : ""}`}>{driver.active ? "Acceso activo" : "Acceso pausado"}</span></div>
                 <div className="admin-vehicle-driver__actions"><button className="text-button text-button--preview" type="button" onClick={() => onPreviewDriver(driver)} disabled={!driver.active}><IconEye size={15} />Ver aplicación</button><button className="text-button" type="button" onClick={() => startDriverEdit(driver)} aria-expanded={editingDriverId === driver.id}><IconUserCircle size={15} />Editar perfil</button><button className="text-button" type="button" onClick={() => updateDriver(driver, { active: !driver.active })}>{driver.active ? "Pausar acceso" : "Activar acceso"}</button><button className="text-button text-button--accent" type="button" onClick={() => resetDriver(driver)}><IconRefresh size={15} />Restablecer contraseña</button></div>
+                {generatedPassword?.driverId === driver.id && <div className="admin-driver-password" role="status"><IconKey size={13} /><span>CONTRASEÑA</span><code>{generatedPassword.value}</code><button className="icon-button" type="button" onClick={() => setGeneratedPassword(null)} aria-label="Ocultar contraseña"><IconX size={13} /></button></div>}
                 {editingDriverId === driver.id && <form className="admin-driver-profile-editor" onSubmit={(event) => saveDriverProfile(event, driver)}><label>Nombre completo<input value={driverProfileForm.fullName} onChange={(event) => updateDriverProfileForm("fullName", event.target.value)} required /></label><label>Email de acceso<input type="email" value={driverProfileForm.email} onChange={(event) => updateDriverProfileForm("email", event.target.value)} required /></label><label>Vehículo asignado<select value={driverProfileForm.vehiclePlate} onChange={(event) => updateDriverProfileForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((option) => <option key={option.plate} value={option.plate}>{option.plate} · {option.model}</option>)}</select></label><label className="admin-driver-profile-editor__active"><input type="checkbox" checked={driverProfileForm.active} onChange={(event) => updateDriverProfileForm("active", event.target.checked)} />Acceso activo</label><div className="admin-driver-profile-editor__actions"><button className="text-button" type="button" onClick={() => setEditingDriverId("")}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar perfil"}</button></div></form>}
               </article>)}</div>}
            </div>}
