@@ -132,7 +132,9 @@ When implementing from a selected generated mock, treat that image as the source
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
 
-- La vista móvil de conductor sigue el modelo de referencia: cabecera azul marino con menú y notificaciones, acumulado mensual de facturación/propinas, registros diarios circulares con imágenes sustituibles, gráficos compactos, tabla semanal navegable y barra inferior de Inicio, Historial, Añadir, Estadísticas y Ajustes. Los datos siguen viniendo de Supabase y el registro diario editable permanece accesible desde Añadir.
+- La vista móvil de conductor sigue el modelo de referencia: cabecera azul marino con menú y notificaciones, acumulado mensual de facturación/propinas, registros diarios circulares con imágenes sustituibles, gráficos compactos, tabla semanal navegable y barra inferior de Inicio, Historial, Estadísticas y Ajustes. Los datos siguen viniendo de Supabase y el registro diario editable permanece accesible desde el menú del conductor.
+
+- En la vista móvil del conductor, la acción principal de adjuntar parte de cada círculo de registro: el botón + inferior no se muestra. Gasolina, Parcial 1, Parcial 2 y Total abren el selector nativo de cámara/archivos y guardan el documento en Supabase con metadatos de lectura pendientes de análisis estructurado para su futura sincronización con Administración.
 
 - Neto mantiene operativa la casita de la navegaciÃ³n inferior para volver al resumen; sus tres tarjetas profesionales usan una altura compacta por encima de la barra fija. En la vista del conductor se muestran el nombre y el DNI sin etiquetas, con el DNI destacado, y el mes en curso conserva su barra de facturaciÃ³n con propinas, peajes y otros gastos en formato ampliado.
 

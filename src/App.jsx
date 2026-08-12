@@ -1413,8 +1413,21 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const [driverNoticeOpen, setDriverNoticeOpen] = useState(false);
   const [driverNavSection, setDriverNavSection] = useState("home");
   const [entryFormOpen, setEntryFormOpen] = useState(false);
+  const [circleUpload, setCircleUpload] = useState({ key: "", status: "idle", fileName: "" });
+  const [circlePreviewUrls, setCirclePreviewUrls] = useState({});
+  const circleFileInputRef = useRef(null);
+  const circleUploadKeyRef = useRef("");
+  const circlePreviewUrlsRef = useRef({});
   const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profile.vehicle_plate);
   const activeProfileId = profile.id ?? session.user.id;
+
+  useEffect(() => {
+    circlePreviewUrlsRef.current = circlePreviewUrls;
+  }, [circlePreviewUrls]);
+
+  useEffect(() => () => {
+    Object.values(circlePreviewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -1645,10 +1658,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const averageConsumption = partialKm2 > 0 ? (Number(selectedDayData.fuel_liters) || 0) / partialKm2 * 100 : 0;
   const imageDocument = (predicate) => documentPreviews.find((document) => predicate(document) && document.signedUrl)?.signedUrl ?? "";
   const driverImages = {
-    fuelReceipt: imageDocument((document) => document.category === "consumption"),
-    partialKm1: imageDocument((document) => getDriverDocumentNumber(document.extracted_data?.odometerKm ?? document.extracted_data?.odometer_km ?? document.extracted_data?.km) > 0) || "/assets/odometer-210735.jpg",
-    partialKm2: imageDocument((document) => getDriverDocumentNumber(document.extracted_data?.odometerKm ?? document.extracted_data?.odometer_km ?? document.extracted_data?.km) > 0) || "/assets/odometer-210735.jpg",
-    totalKm: imageDocument((document) => getDriverDocumentNumber(document.extracted_data?.odometerKm ?? document.extracted_data?.odometer_km ?? document.extracted_data?.km) > 0) || "/assets/odometer-210735.jpg",
+    fuelReceipt: circlePreviewUrls.fuel || imageDocument((document) => document.extracted_data?.recordType === "fuel" || document.category === "consumption" && document.extracted_data?.metric === "fuel_receipt"),
+    partialKm1: circlePreviewUrls["partial-1"] || imageDocument((document) => document.extracted_data?.recordType === "partial-1") || "/assets/driver-examples/photo-1.jpg",
+    partialKm2: circlePreviewUrls["partial-2"] || imageDocument((document) => document.extracted_data?.recordType === "partial-2") || "/assets/driver-examples/photo-3.jpg",
+    totalKm: circlePreviewUrls.total || imageDocument((document) => document.extracted_data?.recordType === "total") || "/assets/driver-examples/photo-2.jpg",
   };
   const dailyPhotoRecords = [
     { key: "fuel", label: "Gasolina", value: formatCurrency(selectedDayData.fuel_cost), image: driverImages.fuelReceipt, Icon: IconGasStation, alt: "Justificante de gasolina" },
@@ -1656,6 +1669,73 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     { key: "partial-2", label: "Parcial 2", value: formatKm(partialKm2), image: driverImages.partialKm2, Icon: IconGauge, alt: "Lectura parcial 2 del cuentakilómetros" },
     { key: "total", label: "Total", value: formatKm(vehicle?.odometer ?? 0), image: driverImages.totalKm, Icon: IconGauge, alt: "Lectura total del cuentakilómetros" },
   ];
+  const openCirclePicker = (recordKey) => {
+    if (preview) {
+      setMessage("La vista previa es de solo lectura. El conductor adjunta las fotos desde su cuenta.");
+      return;
+    }
+    circleUploadKeyRef.current = recordKey;
+    const input = circleFileInputRef.current;
+    if (!input) return;
+    input.value = "";
+    try {
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+        return;
+      }
+    } catch {
+      // Algunos navegadores móviles solo permiten abrir el selector con click().
+    }
+    input.click();
+  };
+  const handleCircleFile = async (event) => {
+    const file = event.target.files?.[0];
+    const recordKey = circleUploadKeyRef.current;
+    event.target.value = "";
+    if (!file || !recordKey) return;
+    const validation = validateDocumentFile(file, "upload");
+    if (!validation.valid) {
+      setCircleUpload({ key: recordKey, status: "error", fileName: file.name });
+      setMessage(validation.message);
+      return;
+    }
+    const localPreviewUrl = URL.createObjectURL(file);
+    setCirclePreviewUrls((current) => ({ ...current, [recordKey]: localPreviewUrl }));
+    setCircleUpload({ key: recordKey, status: "uploading", fileName: file.name });
+    const selectedRecord = dailyPhotoRecords.find((record) => record.key === recordKey);
+    const extractedData = {
+      date: selectedDate,
+      source: "driver-circle",
+      recordType: recordKey,
+      recordLabel: selectedRecord?.label ?? recordKey,
+      metric: recordKey === "fuel" ? "fuel_receipt" : `odometer_${recordKey}`,
+      valueShown: selectedRecord?.value ?? "",
+      analysisStatus: "pending",
+      analysisProvider: "openai-structured-extraction",
+    };
+    if (!supabase) {
+      setCircleUpload({ key: recordKey, status: "local", fileName: file.name });
+      setMessage(`Imagen de ${selectedRecord?.label?.toLowerCase() ?? "registro"} preparada. Se sincronizará al conectar Supabase.`);
+      return;
+    }
+    try {
+      const savedDocument = await uploadDocumentRecord({
+        ownerId: activeProfileId,
+        category: "consumption",
+        vehiclePlate: profile.vehicle_plate,
+        file,
+        extractedData,
+        overallConfidence: null,
+        status: "review",
+      });
+      setDocuments((current) => [{ ...savedDocument, extracted_data: extractedData }, ...current.filter((document) => document.id !== savedDocument.id)]);
+      setCircleUpload({ key: recordKey, status: "saved", fileName: file.name });
+      setMessage(`Imagen de ${selectedRecord?.label?.toLowerCase() ?? "registro"} guardada y pendiente de análisis.`);
+    } catch (error) {
+      setCircleUpload({ key: recordKey, status: "error", fileName: file.name });
+      setMessage(`La imagen se ha preparado, pero no se ha podido guardar: ${error.message}`);
+    }
+  };
   const weeklyRows = [
     { key: "cash", label: "Efectivo", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "cash_collected")) },
     { key: "fuel", label: "Repostajes", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "fuel_cost")) },
@@ -1719,6 +1799,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     setDriverNoticeOpen={setDriverNoticeOpen}
     driverNavSection={driverNavSection}
     setDriverNavSection={setDriverNavSection}
+    circleUpload={circleUpload}
+    circleFileInputRef={circleFileInputRef}
+    openCirclePicker={openCirclePicker}
+    handleCircleFile={handleCircleFile}
   />;
 
   return (
@@ -1838,7 +1922,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   );
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, weeklyRows, weeklyChartData, dailyPhotoRecords, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, weeklyRows, weeklyChartData, dailyPhotoRecords, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile }) {
   const homeRef = useRef(null);
   const statsRef = useRef(null);
   const historyRef = useRef(null);
@@ -1877,6 +1961,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
       </header>
       <div className="driver-mobile-body">
         {message && <div className="driver-mobile-message" role="status">{message}</div>}
+        <input ref={circleFileInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Adjuntar una foto o documento del registro" onChange={handleCircleFile} />
         <section ref={homeRef} className="driver-mobile-section driver-mobile-section--home" aria-label="Resumen del conductor">
           <article className="driver-mobile-month-summary">
             <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{vehicle?.owner?.dni ?? ""}</b></span></div>
@@ -1889,7 +1974,12 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         <section ref={statsRef} className="driver-mobile-section driver-mobile-section--today" aria-labelledby="driver-mobile-today-title">
           <header className="driver-mobile-section__heading"><h2 id="driver-mobile-today-title">REGISTROS DE HOY · {new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }).format(driverPeriodDate)}</h2><div className="driver-mobile-section__actions"><button type="button" aria-label="Día anterior" onClick={() => moveDay(-1)}><IconChevronLeft size={15} /></button><button type="button" aria-label="Día siguiente" onClick={() => moveDay(1)}><IconChevronRight size={15} /></button></div></header>
           <div className="driver-mobile-record-grid">
-            {dailyPhotoRecords.map(({ key, label, value, image, Icon: RecordIcon, alt }) => <article className={`driver-mobile-record-card driver-mobile-record-card--${key}`} key={key}><span>{label}</span><strong>{value}</strong><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}</div></article>)}
+            {dailyPhotoRecords.map(({ key, label, value, image, Icon: RecordIcon, alt }) => {
+              const isUploading = circleUpload.key === key && circleUpload.status === "uploading";
+              const isAttached = circleUpload.key === key && ["saved", "local"].includes(circleUpload.status);
+              const statusLabel = isUploading ? "Subiendo…" : isAttached ? "Adjuntada" : "Toca para adjuntar";
+              return <button type="button" className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key} onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={preview ? "Vista previa de solo lectura" : `Adjuntar foto o documento de ${label.toLowerCase()}`}><span>{label}</span><strong>{value}</strong><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><small className="driver-mobile-record-card__status">{statusLabel}</small></button>;
+            })}
           </div>
           <div className="driver-mobile-mini-grid">
             <article className="driver-mobile-mini-card"><div><strong>Consumo medio</strong><span>{averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</span></div><ResponsiveContainer width="100%" height={62}><BarChart data={weeklyChartData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Bar dataKey="consumption" fill="#74b9f2" radius={[2, 2, 0, 0]} /></BarChart></ResponsiveContainer></article>
@@ -1903,7 +1993,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         </section>
         {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Facturación<input type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Peajes<input type="number" min="0" step="0.01" value={entry.tolls} onChange={(event) => updateEntry("tolls", event.target.value)} /><i>€</i></label><label>Otros gastos<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, peaje u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
       </div>
-      <nav className="driver-mobile-bottom-nav" aria-label="Navegación del conductor"><button type="button" className={driverNavSection === "home" ? "is-active" : ""} onClick={() => scrollTo("home", homeRef)}><IconHome size={21} /><span>Inicio</span></button><button type="button" className={driverNavSection === "history" ? "is-active" : ""} onClick={() => scrollTo("history", historyRef)}><IconHistory size={21} /><span>Historial</span></button><button type="button" className="driver-mobile-bottom-nav__add" aria-label="Añadir registro" onClick={openEntry}><IconPlus size={30} /></button><button type="button" className={driverNavSection === "stats" ? "is-active" : ""} onClick={() => scrollTo("stats", statsRef)}><IconChartBar size={21} /><span>Estadísticas</span></button><button type="button" className={driverNavSection === "settings" ? "is-active" : ""} onClick={() => { setDriverNavSection("settings"); setDriverMenuOpen(true); setDriverNoticeOpen(false); }}><IconSettings size={21} /><span>Ajustes</span></button></nav>
+      <nav className="driver-mobile-bottom-nav" aria-label="Navegación del conductor"><button type="button" className={driverNavSection === "home" ? "is-active" : ""} onClick={() => scrollTo("home", homeRef)}><IconHome size={21} /><span>Inicio</span></button><button type="button" className={driverNavSection === "history" ? "is-active" : ""} onClick={() => scrollTo("history", historyRef)}><IconHistory size={21} /><span>Historial</span></button><button type="button" className={driverNavSection === "stats" ? "is-active" : ""} onClick={() => scrollTo("stats", statsRef)}><IconChartBar size={21} /><span>Estadísticas</span></button><button type="button" className={driverNavSection === "settings" ? "is-active" : ""} onClick={() => { setDriverNavSection("settings"); setDriverMenuOpen(true); setDriverNoticeOpen(false); }}><IconSettings size={21} /><span>Ajustes</span></button></nav>
     </main>
   );
 }

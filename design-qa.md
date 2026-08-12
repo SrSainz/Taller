@@ -38,4 +38,14 @@ passed
 - Selected the profile control and confirmed the existing profile feedback appears above the bottom bar.
 - Opened a Conductores calendar and confirmed both daily panels remain above the bar without scrolling.
 
+## Iteración actual: adjuntos desde los círculos
+
+- Referencias de lectura aportadas: `.codex-remote-attachments/.../1-Photo-1.jpg`, `2-Photo-2.jpg` y `3-Photo-3.jpg`.
+- Implementación: `src/App.jsx`, `src/styles.css` y `public/assets/driver-examples/`.
+- Evidencia: `design-qa-driver-circle-upload-mobile.png` (390×844 px) y `design-qa-driver-circle-upload-desktop.png` (1280×900 px).
+- Los tres cuadros de kilometraje muestran las fotos de ejemplo como imágenes sustituibles; Gasolina mantiene su icono hasta que el conductor adjunte una factura o justificante real.
+- Los cuatro círculos son botones accesibles que abren el selector nativo de cámara/archivos. Se comprobó que existen cuatro botones de registro y que no existe el botón inferior `Añadir registro`.
+- Los adjuntos se guardan en el bucket y tabla existentes de Supabase con `status: review`, `recordType`, fecha, vehículo y `analysisStatus: pending`, de modo que la futura API de OpenAI pueda analizar los documentos y actualizar los datos visibles para Administración sin inventar lecturas en esta fase.
+- Comprobación Supabase: las tablas `documents` y `driver_entries` están disponibles; no se realizaron cambios de esquema ni se subieron archivos durante la prueba visual.
+
 final result: passed
