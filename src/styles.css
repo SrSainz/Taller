@@ -1814,6 +1814,11 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .page-scroll--dashboard .report-chart-card--compact-preview > .report-chart-card__top { margin-bottom: 0; padding-bottom: 10px; }
 .page-scroll--dashboard .report-chart-card > header .report-chart-title--summary { font-size: 12px; }
 
+/* General: los selectores de periodo quedan en una sola linea y liberan altura para la grafica. */
+.page-scroll--dashboard .report-chart-card--compact-preview > .report-chart-card__top { min-height: 40px; align-items: center; padding-bottom: 0; }
+.page-scroll--dashboard .report-chart-card--compact-preview .report-chart-filters { align-items: center; }
+.page-scroll--dashboard .report-chart-card--compact-preview .report-period-dropdown { gap: 0; }
+
 @media (min-width: 821px) {
   .page-scroll--dashboard .report-stat-card--wide { min-height: 94px; padding-block: 10px; }
 }

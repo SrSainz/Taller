@@ -2124,13 +2124,13 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
                       {periodMenu === "chart-metric" && <ChartMetricMenu selectedMetrics={selectedChartMetrics} onSelectSummary={() => { selectChartMetrics([]); setPeriodMenu(""); }} onToggleMetric={(metric) => selectChartMetrics(selectedChartMetrics.includes(metric) ? selectedChartMetrics.filter((candidate) => candidate !== metric) : [...selectedChartMetrics, metric])} />}
                     </div>
                     <div className="report-period-dropdown">
-                      <span>Mes</span>
-                      <button type="button" className="report-period-trigger" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
+                      <span className="sr-only">Mes</span>
+                      <button type="button" className="report-period-trigger" aria-label="Seleccionar mes" title="Mes" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
                       {periodMenu === "month" && <WheelPickerMenu options={reportMonths.map((label, index) => ({ value: index, label }))} value={reportMonth} onChange={(value) => { setReportMonth(value); setPeriodMenu(""); }} ariaLabel="Seleccionar mes" className="report-period-menu--months" />}
                     </div>
                     <div className="report-period-dropdown">
-                      <span>Año</span>
-                      <button type="button" className="report-period-trigger report-period-trigger--year" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
+                      <span className="sr-only">Año</span>
+                      <button type="button" className="report-period-trigger report-period-trigger--year" aria-label="Seleccionar año" title="Año" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
                       {periodMenu === "year" && <WheelPickerMenu options={reportYears.map((year) => ({ value: year, label: String(year) }))} value={reportYear} onChange={(value) => { setReportYear(value); setPeriodMenu(""); }} ariaLabel="Seleccionar año" className="report-period-menu--years" />}
                     </div>
                   </div>
