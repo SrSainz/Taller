@@ -1916,6 +1916,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       const unit = normalizeText(fieldValue("unit") || "");
       const totalBilling = numberValue("total", "netAmount");
       const cashCollected = numberValue("cashCollected");
+      const tips = numberValue("tips");
       const extractedData = {
         ...baseExtractedData,
         date: detectedDate ?? (recordKey === "fuel" || recordKey === "billing" ? null : targetDate),
@@ -1932,6 +1933,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         odometerKm: numberValue("odometerKm"),
         billing: totalBilling,
         cashCollected,
+        tips,
         unit: fieldValue("unit") ?? "",
       };
       const entryPatch = {};
@@ -1942,6 +1944,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       } else if (recordKey === "billing" && detectedDate) {
         if (totalBilling > 0) entryPatch.billing = totalBilling;
         if (cashCollected > 0) entryPatch.cash_collected = cashCollected;
+        if (tips > 0) entryPatch.tips = tips;
       } else if (["daily-km", "total-km"].includes(recordKey)) {
         const previous = [...entries].filter((item) => String(item.entry_date ?? "") < targetDate).sort((left, right) => String(right.entry_date ?? "").localeCompare(String(left.entry_date ?? "")))[0];
         const detectedKm = extractedData.odometerKm || (recordKey === "daily-km" && extractedData.dailyKm > 0 ? getDriverEntryAmount(previous, "odometer_km") + extractedData.dailyKm : 0);
@@ -1965,8 +1968,9 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         setMessage("Documento archivado para revisión: la fecha impresa no se ha podido leer con seguridad.");
       } else if (recordKey === "fuel" && extractedData.cost > 0) {
         setMessage(`Factura de gasolina aplicada a Repostajes del ${detectedDate}: ${formatCurrency(extractedData.cost)}.`);
-      } else if (recordKey === "billing" && cashCollected > 0) {
-        setMessage(`Efectivo cobrado aplicado al ${detectedDate}: ${formatCurrency(cashCollected)}.`);
+      } else if (recordKey === "billing" && (cashCollected > 0 || tips > 0)) {
+        const appliedValues = [cashCollected > 0 ? `efectivo ${formatCurrency(cashCollected)}` : "", tips > 0 ? `propinas ${formatCurrency(tips)}` : ""].filter(Boolean).join(" y ");
+        setMessage(`Facturación aplicada al ${detectedDate}: ${appliedValues}.`);
       } else {
         setMessage(`${selectedRecord?.label ?? "Registro"} actualizado para el ${targetDate}.`);
       }

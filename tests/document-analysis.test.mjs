@@ -49,6 +49,8 @@ test("anchors fuel totals and collected cash to the printed document date", () =
   assert.match(fuelPrompt, /importe TOTAL finalmente pagado/i);
   assert.match(billingPrompt, /Efectivo cobrado/i);
   assert.match(billingPrompt, /no uses el total facturado como sustituto/i);
+  assert.match(billingPrompt, /Propina/i);
+  assert.match(billingPrompt, /no la sumes a cashCollected/i);
 });
 
 test("rejects invalid document payloads before calling the AI provider", async () => {

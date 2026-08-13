@@ -15,11 +15,12 @@ const billingSchema = {
     total: { type: ["number", "null"] },
     netAmount: { type: ["number", "null"] },
     cashCollected: { type: ["number", "null"] },
+    tips: { type: ["number", "null"] },
     concept: { type: ["string", "null"] },
     expenseCategory: { type: ["string", "null"] },
     vehicle: { type: ["string", "null"] },
   },
-  required: ["company", "invoiceNumber", "issueDate", "serviceDate", "taxBase", "vat", "total", "netAmount", "cashCollected", "concept", "expenseCategory", "vehicle"],
+  required: ["company", "invoiceNumber", "issueDate", "serviceDate", "taxBase", "vat", "total", "netAmount", "cashCollected", "tips", "concept", "expenseCategory", "vehicle"],
 };
 
 const consumptionSchema = {
@@ -81,7 +82,7 @@ export const buildSchema = (category) => {
 
 export const buildPrompt = (category) => {
   if (category === "billing") {
-    return `Analiza este documento de facturación usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: empresa, número de factura, fechas de emisión y servicio, base imponible, IVA, total, importe neto, efectivo o efectivo cobrado si aparece, concepto, categoría de gasto y matrícula o referencia de vehículo si aparece. La fecha debe proceder exclusivamente del texto visible del documento, nunca de la fecha actual, de la subida ni del nombre del archivo. Si el documento representa la actividad de un día, usa ese día en serviceDate; usa issueDate para la fecha de emisión impresa. Extrae en cashCollected únicamente la cifra rotulada como "Efectivo", "Efectivo cobrado" o equivalente inequívoco; no uses el total facturado como sustituto si ese dato no aparece. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros, sin símbolo. Si un dato no aparece devuelve null. Clasifica la categoría de gasto con una etiqueta corta en español. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
+    return `Analiza este documento de facturación usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: empresa, número de factura, fechas de emisión y servicio, base imponible, IVA, total, importe neto, efectivo o efectivo cobrado, propinas, concepto, categoría de gasto y matrícula o referencia de vehículo si aparecen. La fecha debe proceder exclusivamente del texto visible del documento, nunca de la fecha actual, de la subida ni del nombre del archivo. Si el documento representa la actividad de un día, usa ese día en serviceDate; usa issueDate para la fecha de emisión impresa. Extrae en cashCollected únicamente la cifra rotulada como "Efectivo", "Efectivo cobrado" o equivalente inequívoco; no uses el total facturado como sustituto si ese dato no aparece. Extrae en tips únicamente la cifra rotulada como "Propina" o "Propinas"; no la sumes a cashCollected ni la confundas con el precio neto o las ganancias totales. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros, sin símbolo. Si un dato no aparece devuelve null. Clasifica la categoría de gasto con una etiqueta corta en español. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
   }
   return `Analiza este documento de consumo, repostaje o lectura del vehículo usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: fecha, tipo de suministro, periodo de consumo, consumo registrado, kilómetros diarios si aparecen, kilometraje acumulado del cuentakilómetros si aparece, unidad, coste y coste por unidad. En un ticket o factura de gasolina, date debe ser la fecha de operación o factura impresa en el documento, nunca la fecha actual, la fecha de subida ni la del nombre del archivo. En ese caso, cost debe ser el importe TOTAL finalmente pagado de la factura; no uses la base imponible, los impuestos aislados, los litros ni el precio por litro. Para una foto del cuadro del coche, identifica el número de kilómetros mostrado y úsalo en odometerKm; si se muestra una distancia del día, úsala en dailyKm. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros y el consumo y kilometrajes números, sin símbolos. Si un dato no aparece devuelve null. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
 };
