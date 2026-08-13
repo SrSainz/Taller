@@ -73,6 +73,14 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .topbar-back-button { min-height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 8px; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(255,255,255,.1); color: #fff; font-size: 8px; font-weight: 800; cursor: pointer; }
 .topbar-back-button:hover, .topbar-back-button:focus-visible { border-color: rgba(255,255,255,.7); background: rgba(255,255,255,.22); outline: 0; }
 .topbar-back-button span { font-size: 8px; font-weight: 800; }
+.topbar-back-button { display: none; }
+.topbar-navigation-button { width: 32px; height: 32px; display: inline-grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(255,255,255,.1); color: #fff; cursor: pointer; }
+.topbar-navigation-button:hover, .topbar-navigation-button:focus-visible { border-color: rgba(255,255,255,.7); background: rgba(255,255,255,.22); outline: 0; }
+.admin-navigation-menu { position: absolute; top: 62px; left: 22px; z-index: 35; width: min(260px, calc(100vw - 24px)); display: grid; gap: 3px; padding: 8px; border: 1px solid #343434; border-radius: 12px; background: #0b0b0b; box-shadow: 0 16px 32px rgba(0,0,0,.35); }
+.admin-navigation-menu__title { padding: 4px 10px 6px; color: rgba(255,255,255,.58); font-size: 7px; letter-spacing: .12em; }
+.admin-navigation-menu__item { min-height: 37px; display: flex; align-items: center; gap: 9px; width: 100%; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: #fff; font-size: 9px; font-weight: 700; text-align: left; cursor: pointer; }
+.admin-navigation-menu__item:hover, .admin-navigation-menu__item:focus-visible, .admin-navigation-menu__item.is-active { background: #252525; outline: 0; }
+.admin-navigation-menu__item svg { color: rgba(255,255,255,.82); }
 .topbar--detail { justify-content: center; }
 .topbar--detail { background: #050505; border-color: #242424; color: #fff; }
 .topbar--detail .workspace-home-button { border-color: rgba(255,255,255,.38); background: rgba(255,255,255,.14); }
@@ -1265,6 +1273,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .topbar-actions { gap: 7px; }
   .topbar-back-button { width: 32px; padding: 0; }
   .topbar-back-button span { display: none; }
+  .admin-navigation-menu { top: 58px; left: 12px; width: min(260px, calc(100vw - 24px)); }
   .topbar-shortcuts { gap: 4px; }
   .profile > span:not(.avatar), .profile > svg, .date { display: none; }
   .notification-popover { position: fixed; top: 62px; right: 12px; left: 12px; width: auto; }
