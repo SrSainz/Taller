@@ -1760,19 +1760,26 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const chronologicalEntries = [...entries].sort((left, right) => String(left.entry_date ?? "").localeCompare(String(right.entry_date ?? "")));
     return driverWeekDays.map(({ date, key }) => {
       const currentEntry = entries.find((item) => String(item.entry_date) === key);
+      const consumptionDocument = documents.find((document) => {
+        const data = document.extracted_data ?? {};
+        return getDriverDocumentDateKey(document) === key
+          && (data.recordType === "consumption" || data.metric === "consumption")
+          && getDriverDocumentNumber(data.consumption) > 0;
+      });
+      const extractedConsumption = getDriverDocumentNumber(consumptionDocument?.extracted_data?.consumption);
       const currentOdometer = getDriverEntryAmount(currentEntry, "odometer_km");
       const previousEntry = [...chronologicalEntries].reverse().find((item) => String(item.entry_date ?? "") < key);
       const previousEntryOdometer = getDriverEntryAmount(previousEntry, "odometer_km");
       const kilometres = Math.max(0, currentOdometer - previousEntryOdometer);
       const litres = getDriverEntryAmount(currentEntry, "fuel_liters");
-      const driverConsumption = litres > 0 && kilometres > 0 ? litres / kilometres * 100 : seededDriverConsumption;
+      const driverConsumption = extractedConsumption || (litres > 0 && kilometres > 0 ? litres / kilometres * 100 : seededDriverConsumption);
       return {
         label: new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", ""),
         driverConsumption: Number(driverConsumption.toFixed(1)),
         otherConsumption: Number(otherDriversConsumptionAverage.toFixed(1)),
       };
     });
-  }, [driverWeekDays, entries, otherDriversConsumptionAverage, seededDriverConsumption]);
+  }, [driverWeekDays, documents, entries, otherDriversConsumptionAverage, seededDriverConsumption]);
   const weeklyConsumptionAverage = useMemo(() => {
     const values = weeklyConsumptionData.map((item) => item.driverConsumption).filter((value) => value > 0);
     return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
