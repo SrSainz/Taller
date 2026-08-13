@@ -720,9 +720,41 @@ const distributeInteger = (total, keys, seed) => {
   return result;
 };
 
+const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
+  .filter((vehicle) => vehicle.use === "Profesional")
+  .flatMap((vehicle) => vehicle.drivers.map((driver, driverIndex) => {
+    const profile = vehicle.driverProfiles?.[driverIndex];
+    const allEntries = (driverEntries ?? []).filter((entry) => profile?.id && entry.driver_id === profile.id && entry.entry_date);
+    const entries = allEntries.filter((entry) => {
+      const entryDate = new Date(`${entry.entry_date}T12:00:00`);
+      return entryDate.getMonth() === month && entryDate.getFullYear() === year;
+    });
+    return {
+      key: `${vehicle.plate}-${driver}`,
+      driver,
+      driverId: profile?.id ?? "",
+      plate: vehicle.plate,
+      model: vehicle.model,
+      trips: 0,
+      revenue: Number(entries.reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0).toFixed(2)),
+      entries: allEntries,
+    };
+  }));
+
 const getDriverCalendarRows = (vehicle, row, month, year) => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const billingDays = getDriverBillingDays(row.driver, row.plate, month, year, row.revenue);
+  const realEntries = (row.entries ?? []).filter((entry) => {
+    if (!entry.entry_date) return false;
+    const entryDate = new Date(`${entry.entry_date}T12:00:00`);
+    return entryDate.getMonth() === month && entryDate.getFullYear() === year;
+  });
+  const billingDays = realEntries.length
+    ? realEntries.reduce((days, entry) => {
+      const day = Number(entry.entry_date.slice(8, 10));
+      days.set(day, Number(((days.get(day) ?? 0) + (Number(entry.billing) || 0)).toFixed(2)));
+      return days;
+    }, new Map())
+    : getDriverBillingDays(row.driver, row.plate, month, year, row.revenue);
   const billingDayKeys = [...billingDays.keys()];
   const seed = `${row.driver}-${row.plate}-${month}-${year}`.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0);
   const tripsByDay = distributeInteger(row.trips, billingDayKeys, seed);
@@ -912,6 +944,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const profileInitials = profileName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U";
   const [previewDriver, setPreviewDriver] = useState(null);
   const [driverProfiles, setDriverProfiles] = useState([]);
+  const [driverEntries, setDriverEntries] = useState([]);
   const [activeNav, setActiveNav] = useState(initialAppNav);
   const [selectedPlate, setSelectedPlate] = useState("5043 MLC");
   const [maintenancePlate, setMaintenancePlate] = useState("5043 MLC");
@@ -959,6 +992,35 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       .catch(() => { if (mounted) setDriverProfiles([]); });
     return () => { mounted = false; };
   }, [isAdmin]);
+
+  const refreshDriverEntries = useCallback(async () => {
+    if (!isAdmin || !supabase) return;
+    const { data, error } = await supabase
+      .from("driver_entries")
+      .select("id, driver_id, vehicle_plate, entry_date, billing, cash_collected, tips, fuel_cost, fuel_liters, odometer_km")
+      .order("entry_date", { ascending: false });
+    if (error) throw error;
+    setDriverEntries(data ?? []);
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin || !supabase) {
+      setDriverEntries([]);
+      return undefined;
+    }
+    let mounted = true;
+    refreshDriverEntries().catch(() => { if (mounted) setDriverEntries([]); });
+    const channel = supabase
+      .channel(`admin-driver-entries-${session.user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_entries" }, () => {
+        refreshDriverEntries().catch(() => undefined);
+      })
+      .subscribe();
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [isAdmin, refreshDriverEntries, session.user.id]);
 
   useEffect(() => {
     const onBottomNavigationClick = (event) => {
@@ -1262,7 +1324,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   };
 
   if (previewDriver) {
-    return <DriverApp session={session} profile={previewDriver} preview onExitPreview={() => setPreviewDriver(null)} onSignOut={onSignOut} />;
+    return <DriverApp session={session} profile={previewDriver} preview onExitPreview={() => { setPreviewDriver(null); refreshDriverEntries().catch(() => undefined); }} onSignOut={onSignOut} />;
   }
 
   return (
@@ -1307,10 +1369,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         </header>
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
-          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" vehicles={vehicles} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
-          {activeNav === "Conductores" && <DriversView vehicles={vehicles} setModal={setModal} />}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" vehicles={vehicles} driverEntries={driverEntries} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
+          {activeNav === "Conductores" && <DriversView vehicles={vehicles} driverEntries={driverEntries} setModal={setModal} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} vehicles={vehicles} driverEntries={driverEntries} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} driverEntries={driverEntries} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
@@ -2264,7 +2326,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   return (
     <main className={`driver-app driver-mobile-app${preview ? " driver-app--preview" : ""}`}>
       <header className="driver-mobile-topbar">
-        {preview && <button type="button" className="driver-mobile-topbar__back" onClick={onExitPreview} aria-label="Cerrar vista del conductor y volver a administración" title="Volver a administración"><IconChevronLeft size={22} /><span>Administración</span></button>}
+        {preview && <button type="button" className="driver-mobile-topbar__back" onClick={onExitPreview} aria-label="Volver a administración" title="Volver a administración"><IconChevronLeft size={24} /></button>}
         <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir menú del conductor" aria-expanded={driverMenuOpen} onClick={() => { setDriverMenuOpen((current) => !current); setDriverNoticeOpen(false); }}><IconMenu2 size={23} /></button>
         <div className="driver-mobile-topbar__title"><strong>{profile.full_name.toUpperCase()}</strong><small>{vehicle?.plate ?? profile.vehicle_plate ?? "PENDIENTE"}</small></div>
         <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir notificaciones" aria-expanded={driverNoticeOpen} onClick={() => { setDriverNoticeOpen((current) => !current); setDriverMenuOpen(false); }}><IconBell size={23} /></button>
@@ -2773,7 +2835,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
   );
 }
 
-function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
+function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;
@@ -2782,8 +2844,8 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   const setChartMetric = onChartMetricChange ?? setInternalChartMetric;
   const [selectedChartMetrics, setSelectedChartMetrics] = useState(() => chartMetric === "summary" ? [] : [chartMetric]);
   const pendingChartMetricsRef = useRef(null);
-  const [reportMonth, setReportMonth] = useState(6);
-  const [reportYear, setReportYear] = useState(2026);
+  const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
+  const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
   const [periodMenu, setPeriodMenu] = useState("");
   const [selectedChartBar, setSelectedChartBar] = useState("");
   const [netDetailOpen, setNetDetailOpen] = useState(false);
@@ -2871,18 +2933,7 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
   }), { liters: 0, cost: 0, refuels: 0 });
   const totalDistance = 0;
   const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
-  const billingRows = vehicles
-    .filter((vehicle) => vehicle.use === "Profesional")
-    .flatMap((vehicle, vehicleIndex) => vehicle.drivers.map((driver, driverIndex) => {
-      return {
-        key: `${vehicle.plate}-${driver}`,
-        driver,
-        plate: vehicle.plate,
-        model: vehicle.model,
-        trips: 0,
-        revenue: 0,
-      };
-    }));
+  const billingRows = getDriverBillingRows(vehicles, driverEntries, reportMonth, reportYear);
   const billingChartData = billingRows.map((row) => ({
     label: row.driver,
     detail: row.plate,
@@ -3362,9 +3413,9 @@ function FuelDriversReport({ vehicles, selectedDriverKey, onSelectDriver }) {
   );
 }
 
-function DriversView({ vehicles, setModal }) {
-  const [reportMonth, setReportMonth] = useState(6);
-  const [reportYear, setReportYear] = useState(2026);
+function DriversView({ vehicles, driverEntries = [], setModal }) {
+  const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
+  const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
   const [selectedDriverKey, setSelectedDriverKey] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
   const [calendarSwipeOffset, setCalendarSwipeOffset] = useState(0);
@@ -3378,16 +3429,7 @@ function DriversView({ vehicles, setModal }) {
   const [calendarSurfaceHeight, setCalendarSurfaceHeight] = useState(null);
   const professionalVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.use === "Profesional"), [vehicles]);
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
-  const billingRows = useMemo(() => professionalVehicles.flatMap((vehicle, vehicleIndex) => vehicle.drivers.map((driver, driverIndex) => {
-    return {
-      key: `${vehicle.plate}-${driver}`,
-      driver,
-      plate: vehicle.plate,
-      model: vehicle.model,
-      trips: 0,
-      revenue: 0,
-    };
-  })), [professionalVehicles, periodFactor]);
+  const billingRows = useMemo(() => getDriverBillingRows(professionalVehicles, driverEntries, reportMonth, reportYear), [professionalVehicles, driverEntries, reportMonth, reportYear]);
   const fuelSummaries = useMemo(() => professionalVehicles.map((vehicle) => {
     const entries = (vehicle.monthlyFuel ?? []).map((entry) => ({
       ...entry,
