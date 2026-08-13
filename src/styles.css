@@ -70,6 +70,9 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .topbar-title > div { display: flex; flex-direction: column; gap: 2px; }
 .topbar-title span { font-size: 18px; font-weight: 650; letter-spacing: -.25px; }
 .topbar-title small { color: var(--muted); font-size: 9px; }
+.topbar-back-button { min-height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 8px; border: 1px solid rgba(255,255,255,.34); border-radius: 8px; background: rgba(255,255,255,.1); color: #fff; font-size: 8px; font-weight: 800; cursor: pointer; }
+.topbar-back-button:hover, .topbar-back-button:focus-visible { border-color: rgba(255,255,255,.7); background: rgba(255,255,255,.22); outline: 0; }
+.topbar-back-button span { font-size: 8px; font-weight: 800; }
 .topbar--detail { justify-content: center; }
 .topbar--detail { background: #050505; border-color: #242424; color: #fff; }
 .topbar--detail .workspace-home-button { border-color: rgba(255,255,255,.38); background: rgba(255,255,255,.14); }
@@ -1260,6 +1263,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .workspace { min-height: 100vh; overflow: visible; }
   .topbar { position: sticky; top: 0; }
   .topbar-actions { gap: 7px; }
+  .topbar-back-button { width: 32px; padding: 0; }
+  .topbar-back-button span { display: none; }
   .topbar-shortcuts { gap: 4px; }
   .profile > span:not(.avatar), .profile > svg, .date { display: none; }
   .notification-popover { position: fixed; top: 62px; right: 12px; left: 12px; width: auto; }
