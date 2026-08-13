@@ -130,6 +130,8 @@ When implementing from a selected generated mock, treat that image as the source
 - The General chart keeps the Mes/Año period controls functional but hides their visible labels and compacts them into the upper row so the chart starts higher and its bars receive the released height.
 - General KPI amounts and the vertical values rendered inside Facturación, Mantenimiento, Combustible, and Neto bars use a slightly larger readable scale without changing chart geometry.
 
+- La vista móvil del conductor incorpora dos evidencias visuales de referencia, una de consumo y otra de facturación, dentro de sus tarjetas compactas; se identifican como ejemplos y no alteran los datos reales. Al abrirlas se muestran ampliadas, mientras que las lecturas reales siguen llegando desde los círculos de adjuntos y Supabase.
+
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
 
 - La vista móvil de conductor sigue el modelo de referencia: cabecera azul marino con menú y notificaciones, acumulado mensual de facturación/propinas, registros diarios circulares con imágenes sustituibles, gráficos compactos, tabla semanal navegable y barra inferior de Inicio, Historial, Estadísticas y Ajustes. Los datos siguen viniendo de Supabase y el registro diario editable permanece accesible desde el menú del conductor.

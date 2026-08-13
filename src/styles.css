@@ -3257,6 +3257,22 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-mini-card strong { color: #1a2e50; font-size: 11px; font-weight: 850; }
 .driver-mobile-mini-card span { color: #273e66; font-size: 10px; font-weight: 800; }
 .driver-mobile-mini-card .recharts-wrapper { margin-top: 2px; }
+.driver-mobile-mini-card__header { display: flex !important; align-items: center; justify-content: space-between; gap: 7px; min-height: 42px; text-align: left !important; }
+.driver-mobile-mini-card__header > div { min-width: 0; display: grid; gap: 2px; text-align: left; }
+.driver-mobile-reference-thumb { position: relative; flex: 0 0 42px; width: 42px; height: 42px; overflow: hidden; padding: 0; border: 2px solid #fff; border-radius: 11px; background: #eaf1fb; box-shadow: 0 2px 6px rgba(24,47,82,.16); cursor: pointer; }
+.driver-mobile-reference-thumb img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.driver-mobile-reference-thumb span { position: absolute; right: 2px; bottom: 2px; left: 2px; overflow: hidden; padding: 2px 1px; border-radius: 4px; background: rgba(9,46,104,.78); color: #fff; font-size: 6px; font-weight: 850; line-height: 1; text-align: center; text-transform: uppercase; }
+.driver-mobile-reference-thumb:hover, .driver-mobile-reference-thumb:focus-visible { border-color: #74b9f2; outline: 0; transform: translateY(-1px); }
+.driver-mobile-reference-dialog { position: fixed; z-index: 90; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(7,27,61,.62); }
+.driver-mobile-reference-dialog__panel { width: min(420px, 100%); max-height: min(720px, calc(100dvh - 36px)); overflow: auto; padding: 14px; border: 1px solid #dbe4f0; border-radius: 18px; background: #fff; color: #15233d; box-shadow: 0 18px 46px rgba(5,23,55,.34); }
+.driver-mobile-reference-dialog__panel header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.driver-mobile-reference-dialog__panel header span { color: #4770a8; font-size: 8px; font-weight: 850; letter-spacing: .14em; }
+.driver-mobile-reference-dialog__panel header h2 { margin: 3px 0 0; color: #173661; font-size: 17px; line-height: 1.1; }
+.driver-mobile-reference-dialog__panel header button { width: 29px; height: 29px; display: grid; place-items: center; padding: 0; border: 1px solid #d7e1ee; border-radius: 8px; background: #fff; color: #315a9d; cursor: pointer; }
+.driver-mobile-reference-dialog__panel header button:hover, .driver-mobile-reference-dialog__panel header button:focus-visible { border-color: #6c94d1; outline: 0; background: #f0f5fc; }
+.driver-mobile-reference-dialog__panel > img { width: 100%; max-height: 58dvh; display: block; object-fit: contain; border-radius: 11px; background: #101828; }
+.driver-mobile-reference-dialog__panel > p { margin: 10px 0 12px; color: #687891; font-size: 10px; line-height: 1.45; }
+.driver-mobile-reference-dialog__panel > .primary-button { min-height: 34px; padding: 0 14px; background: #092e68; font-size: 10px; }
 .driver-mobile-section--history { padding-bottom: 4px; }
 .driver-mobile-section__heading--week { align-items: flex-start; }
 .driver-mobile-period-control { position: relative; display: flex; justify-content: flex-end; gap: 5px; margin: 2px 0 7px; }

@@ -48,4 +48,13 @@ passed
 - Los adjuntos se guardan en el bucket y tabla existentes de Supabase con `status: review`, `recordType`, fecha, vehículo y `analysisStatus: pending`, de modo que la futura API de OpenAI pueda analizar los documentos y actualizar los datos visibles para Administración sin inventar lecturas en esta fase.
 - Comprobación Supabase: las tablas `documents` y `driver_entries` están disponibles; no se realizaron cambios de esquema ni se subieron archivos durante la prueba visual.
 
+## Iteración actual: referencias de consumo y facturación
+
+- Referencias aportadas: `.../4cf984e5-f894-4422-802e-f1bcc6a0462e/1-Photo-1.jpg` (720×1280 px, historial de consumo del vehículo) y `2-Photo-2.jpg` (591×1280 px, resumen semanal de facturación).
+- Implementación: `src/App.jsx`, `src/styles.css` y `public/assets/driver-examples/photo-4.jpg` / `photo-5.jpg`.
+- Evidencia móvil: `design-qa-driver-reference-mobile.png` (390×844 px), vista previa de AIDA PEREZ en `#/administracion` → `5754 MJV` → `Ver aplicación`.
+- Cada referencia aparece como miniatura accesible dentro de su tarjeta correspondiente: consumo junto al gráfico de consumo medio y facturación junto al gráfico de facturación. Al pulsar se abre una ampliación con título, texto alternativo y aviso explícito de que es un ejemplo.
+- Las imágenes no se mezclan con los cuatro círculos de lecturas ni se guardan como documentos del conductor; las fotos reales siguen entrando por el selector nativo de cada círculo y mantienen el flujo de Supabase con análisis pendiente.
+- Verificación final: se comprobó el diálogo de consumo, la presencia de ambas rutas de imagen, el estado responsive a 390×844 px y consola sin errores ni advertencias.
+
 final result: passed
