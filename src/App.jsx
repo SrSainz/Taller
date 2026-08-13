@@ -147,7 +147,6 @@ const utilityItems = [
 
 const adminNavItem = { label: "Administraci\u00f3n", slug: "administracion", icon: IconShieldCheck };
 const topbarItems = [navItems[4], ...utilityItems];
-const adminNavigationItems = [navItems[0], navItems[1], conductorNavItem, navItems[2], navItems[3], fleetSubItems[0], fleetSubItems[1], navItems[4], ...utilityItems];
 
 const vehicleOrder = ["5043 MLC", "5750 MJV", "5754 MJV", "0344 LCP", "9401 LTG"];
 const vehicleBrandLogos = {
@@ -966,7 +965,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [processedDocuments, setProcessedDocuments] = useState(loadProcessedDocuments);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
-  const [adminNavigationOpen, setAdminNavigationOpen] = useState(false);
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
   const [settings, setSettings] = useState({ company: "SOBRE RUEDAS", email: "flota@sobreruedas.es", serviceWarning: "5000", lowConfidence: "94" });
@@ -1051,7 +1049,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         setModal(null);
         setNotificationsOpen(false);
         setTopbarMenuOpen(false);
-        setAdminNavigationOpen(false);
         setQuickMenuStep("");
       }
     };
@@ -1068,14 +1065,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [topbarMenuOpen]);
 
-  useEffect(() => {
-    const onPointerDown = (event) => {
-      if (!adminNavigationOpen || !(event.target instanceof Element)) return;
-      if (!event.target.closest(".admin-navigation-menu, .topbar-navigation-button")) setAdminNavigationOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [adminNavigationOpen]);
 
   useEffect(() => {
     const displayMode = window.matchMedia("(display-mode: standalone)");
@@ -1266,7 +1255,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     setActiveNav(item.label);
     setNotificationsOpen(false);
     setTopbarMenuOpen(false);
-    setAdminNavigationOpen(false);
     if (window.location.hash !== `#/${item.slug}`) window.location.hash = `/${item.slug}`;
   };
 
@@ -1332,12 +1320,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       <main className="workspace">
           <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores", "Administración"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}${activeNav === "Mantenimiento" ? " topbar--maintenance" : ""}`}>
           <div className="topbar-title">
-            {activeNav === "Administraci\u00f3n" && isAdmin && <button type="button" className="topbar-navigation-button" onClick={() => { setAdminNavigationOpen((value) => !value); setTopbarMenuOpen(false); setNotificationsOpen(false); }} aria-label="Abrir vistas de la aplicacion" aria-expanded={adminNavigationOpen} aria-controls="admin-navigation-menu" title="Volver a otras vistas"><IconMenu2 size={17} /></button>}
             <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
             {activeNav === "Administración" && isAdmin && <button type="button" className="topbar-back-button" onClick={openGeneral} aria-label="Volver a la aplicación" title="Volver a la aplicación"><IconChevronLeft size={17} /><span>Volver</span></button>}
             <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : activeNav === "Administración" ? "Usuarios y permisos" : "Gestión centralizada de vehículos"}</small>}</div>
           </div>
-          {activeNav === "Administraci\u00f3n" && isAdmin && adminNavigationOpen && <aside id="admin-navigation-menu" className="admin-navigation-menu" aria-label="Vistas de la aplicacion"><strong className="admin-navigation-menu__title">IR A OTRA VISTA</strong>{adminNavigationItems.map((item) => { const Icon = item.icon; const active = activeNav === item.label; return <button type="button" className={`admin-navigation-menu__item${active ? " is-active" : ""}`} key={item.slug} onClick={() => navigate(item)} aria-current={active ? "page" : undefined}><Icon size={17} /><span>{item.label === "Informes" ? "SOBRE RUEDAS" : item.label}</span></button>; })}</aside>}
           {activeNav === "Mantenimiento" && <MaintenanceSearch query={maintenanceSearchQuery} open={maintenanceSearchOpen} suggestions={maintenanceSearchSuggestions} onQueryChange={setMaintenanceSearchQuery} onOpenChange={setMaintenanceSearchOpen} onSelect={openMaintenanceSearchRecord} />}
           {!compactDetailHeader && <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
@@ -2844,8 +2830,8 @@ function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onN
   const setChartMetric = onChartMetricChange ?? setInternalChartMetric;
   const [selectedChartMetrics, setSelectedChartMetrics] = useState(() => chartMetric === "summary" ? [] : [chartMetric]);
   const pendingChartMetricsRef = useRef(null);
-  const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
-  const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
+  const [reportMonth, setReportMonth] = useState(6);
+  const [reportYear, setReportYear] = useState(2026);
   const [periodMenu, setPeriodMenu] = useState("");
   const [selectedChartBar, setSelectedChartBar] = useState("");
   const [netDetailOpen, setNetDetailOpen] = useState(false);
@@ -2933,7 +2919,16 @@ function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onN
   }), { liters: 0, cost: 0, refuels: 0 });
   const totalDistance = 0;
   const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
-  const billingRows = getDriverBillingRows(vehicles, driverEntries, reportMonth, reportYear);
+  const billingRows = vehicles
+    .filter((vehicle) => vehicle.use === "Profesional")
+    .flatMap((vehicle) => vehicle.drivers.map((driver) => ({
+      key: `${vehicle.plate}-${driver}`,
+      driver,
+      plate: vehicle.plate,
+      model: vehicle.model,
+      trips: 0,
+      revenue: 0,
+    })));
   const billingChartData = billingRows.map((row) => ({
     label: row.driver,
     detail: row.plate,
