@@ -567,6 +567,33 @@ const getDriverWeekStart = (date) => {
   return start;
 };
 const getDriverEntryAmount = (entry, key) => Number(entry?.[key]) || 0;
+const buildDriverWeekPage = (anchorDate, entries) => {
+  const weekStart = getDriverWeekStart(anchorDate);
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(weekStart);
+    date.setDate(date.getDate() + index);
+    return { date, key: getDriverDateKey(date) };
+  });
+  const weekEntries = days.map(({ key }) => entries.find((item) => String(item.entry_date) === key) ?? null);
+  const total = (entry, key) => getDriverEntryAmount(entry, key);
+  const rows = [
+    { key: "cash", label: "Efectivo", values: weekEntries.map((entry) => total(entry, "cash_collected")) },
+    { key: "fuel", label: "Repostajes", values: weekEntries.map((entry) => total(entry, "fuel_cost")) },
+    { key: "tolls", label: "Peajes", values: weekEntries.map((entry) => total(entry, "tolls")) },
+    { key: "wash", label: "Lavados", values: weekEntries.map(() => 0) },
+    { key: "other", label: "Varios", values: weekEntries.map((entry) => total(entry, "other_expenses")) },
+    { key: "total", label: "Total", values: weekEntries.map((entry) => total(entry, "cash_collected") - total(entry, "fuel_cost") - total(entry, "tolls") - total(entry, "other_expenses")) },
+  ];
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const shortDate = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
+  return {
+    days,
+    rows,
+    key: getDriverDateKey(weekStart),
+    label: `${shortDate.format(weekStart)} · ${shortDate.format(weekEnd)}`.replace(/\./g, ""),
+  };
+};
 const getDriverDocumentNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   const raw = String(value ?? "").replace(/[^\d,.-]/g, "").trim();
@@ -1646,6 +1673,11 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     });
   }, [selectedDate]);
   const driverWeekEntries = useMemo(() => driverWeekDays.map(({ key }) => entries.find((item) => String(item.entry_date) === key) ?? null), [driverWeekDays, entries]);
+  const driverWeekPages = useMemo(() => [-1, 0, 1].map((offset) => {
+    const pageDate = new Date(driverPeriodDate);
+    pageDate.setDate(pageDate.getDate() + (offset * 7));
+    return { offset, ...buildDriverWeekPage(pageDate, entries) };
+  }), [selectedDate, entries]);
   const seededDriverShift = vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name)) ?? vehicle?.shifts?.[0] ?? null;
   const seededDriverConsumption = seededDriverShift?.km > 0 ? Number(((Number(seededDriverShift.liters) || 0) / seededDriverShift.km * 100).toFixed(1)) : 0;
   const otherDriversConsumptionAverage = useMemo(() => {
@@ -1836,6 +1868,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     periodPickerOptionRef={periodPickerOptionRef}
     selectDriverPeriod={selectDriverPeriod}
     driverWeekDays={driverWeekDays}
+    driverWeekPages={driverWeekPages}
     weeklyRows={weeklyRows}
     weeklyChartData={weeklyChartData}
     monthlyBillingHistory={monthlyBillingHistory}
@@ -1987,12 +2020,19 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   );
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyConsumptionAverage, otherDriversConsumptionAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyConsumptionAverage, otherDriversConsumptionAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile }) {
   const homeRef = useRef(null);
   const statsRef = useRef(null);
   const historyRef = useRef(null);
   const entryRef = useRef(null);
+  const weekSwipeViewportRef = useRef(null);
+  const weekGestureRef = useRef({ pointerId: null, startX: 0, startY: 0, axis: "", offset: 0 });
+  const weekSwipeTimerRef = useRef(null);
+  const weekSuppressClickRef = useRef(false);
   const [referenceOpen, setReferenceOpen] = useState("");
+  const [weekSwipeOffset, setWeekSwipeOffset] = useState(0);
+  const [weekSwipeActive, setWeekSwipeActive] = useState(false);
+  const [weekSwipeTransition, setWeekSwipeTransition] = useState(false);
   const referenceLabels = {
     consumption: { title: "Ejemplo de consumo", caption: "Historial del vehículo", alt: "Ejemplo de historial de consumo del vehículo" },
     billing: { title: "Ejemplo de facturación", caption: "Resumen semanal", alt: "Ejemplo de resumen semanal de facturación" },
@@ -2015,7 +2055,61 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     date.setDate(date.getDate() + offset);
     setSelectedDate(getDriverDateKey(date));
   };
-  const weekLabel = `${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" }).format(driverWeekDays[0].date).replace(".", "")} – ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(driverWeekDays[6].date).replace(" de ", " ")}`;
+  const currentWeekPage = driverWeekPages.find((page) => page.offset === 0) ?? driverWeekPages[1];
+  const weekLabel = currentWeekPage?.label ?? "";
+  const settleWeekSwipe = (direction) => {
+    const width = weekSwipeViewportRef.current?.clientWidth ?? 320;
+    window.clearTimeout(weekSwipeTimerRef.current);
+    setWeekSwipeTransition(true);
+    setWeekSwipeOffset(direction === 0 ? 0 : direction > 0 ? -width : width);
+    weekSwipeTimerRef.current = window.setTimeout(() => {
+      if (direction !== 0) shiftDriverWeek(direction);
+      setWeekSwipeOffset(0);
+      setWeekSwipeActive(false);
+      setWeekSwipeTransition(false);
+      weekSwipeTimerRef.current = null;
+    }, 280);
+  };
+  const handleWeekPointerDown = (event) => {
+    if (weekSwipeTransition || (event.pointerType === "mouse" && event.button !== 0)) return;
+    weekGestureRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, axis: "", offset: 0 };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const handleWeekPointerMove = (event) => {
+    const gesture = weekGestureRef.current;
+    if (gesture.pointerId !== event.pointerId || weekSwipeTransition) return;
+    const deltaX = event.clientX - gesture.startX;
+    const deltaY = event.clientY - gesture.startY;
+    if (!gesture.axis) {
+      if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 6) return;
+      gesture.axis = Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
+      if (gesture.axis === "horizontal") setWeekSwipeActive(true);
+    }
+    if (gesture.axis !== "horizontal") return;
+    event.preventDefault();
+    const width = weekSwipeViewportRef.current?.clientWidth ?? 320;
+    gesture.offset = Math.max(-width, Math.min(width, deltaX));
+    setWeekSwipeOffset(gesture.offset);
+  };
+  const handleWeekPointerEnd = (event) => {
+    const gesture = weekGestureRef.current;
+    if (gesture.pointerId !== event.pointerId) return;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    weekGestureRef.current = { pointerId: null, startX: 0, startY: 0, axis: "", offset: 0 };
+    if (gesture.axis !== "horizontal") return;
+    weekSuppressClickRef.current = true;
+    const width = weekSwipeViewportRef.current?.clientWidth ?? 320;
+    const threshold = Math.max(48, width * 0.18);
+    const direction = Math.abs(gesture.offset) >= threshold ? (gesture.offset < 0 ? 1 : -1) : 0;
+    settleWeekSwipe(direction);
+  };
+  const handleWeekClickCapture = (event) => {
+    if (!weekSuppressClickRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    weekSuppressClickRef.current = false;
+  };
+  useEffect(() => () => window.clearTimeout(weekSwipeTimerRef.current), []);
 
   return (
     <main className={`driver-app driver-mobile-app${preview ? " driver-app--preview" : ""}`}>
@@ -2059,6 +2153,11 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
           </div>
         </section>
         <section ref={historyRef} className="driver-mobile-section driver-mobile-section--history" aria-labelledby="driver-mobile-week-title">
+          <div ref={weekSwipeViewportRef} className={`driver-mobile-week-swipe-wrap${weekSwipeActive ? " is-dragging" : ""}`} role="region" aria-label="Semana desplazable" onPointerDown={handleWeekPointerDown} onPointerMove={handleWeekPointerMove} onPointerUp={handleWeekPointerEnd} onPointerCancel={handleWeekPointerEnd} onClickCapture={handleWeekClickCapture}>
+            <div className={`driver-mobile-week-track${weekSwipeTransition ? " is-animating" : ""}`} style={{ transform: `translate3d(calc(-33.333333% + ${weekSwipeOffset}px), 0, 0)` }}>
+              {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={`${page.key}-${row.key}`}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{formatCurrency(value)}</td>)}</tr>)}</tbody></table></div>)}
+            </div>
+          </div>
           <header className="driver-mobile-section__heading driver-mobile-section__heading--week"><div><h2 id="driver-mobile-week-title">SEMANA {weekLabel}</h2><small>Selecciona un día para revisar sus registros</small></div><div className="driver-mobile-week-actions"><button type="button" aria-label="Semana anterior" onClick={() => shiftDriverWeek(-1)}><IconChevronLeft size={16} /></button><button type="button" aria-label="Semana siguiente" onClick={() => shiftDriverWeek(1)}><IconChevronRight size={16} /></button></div></header>
           <div className="driver-mobile-period-control" ref={periodPickerRef}><button type="button" className="driver-mobile-period-trigger" aria-label="Seleccionar mes" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "month"} onClick={() => setPeriodPickerOpen((current) => current === "month" ? "" : "month")}><span>{reportMonths[driverPeriodMonth]}</span><IconChevronDown size={14} /></button><button type="button" className="driver-mobile-period-year" aria-label="Seleccionar año" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "year"} onClick={() => setPeriodPickerOpen((current) => current === "year" ? "" : "year")}>{driverPeriodYear}</button>{periodPickerOpen === "month" && <div className="driver-period-picker__menu driver-mobile-period-menu" role="listbox" aria-label="Meses disponibles">{reportMonths.map((monthLabel, monthIndex) => <button type="button" role="option" aria-selected={driverPeriodMonth === monthIndex} ref={driverPeriodMonth === monthIndex ? periodPickerOptionRef : undefined} className={driverPeriodMonth === monthIndex ? "is-selected" : ""} onClick={() => selectDriverPeriod(driverPeriodYear, monthIndex)} key={monthLabel}>{monthLabel}</button>)}</div>}{periodPickerOpen === "year" && <div className="driver-period-picker__menu driver-period-picker__menu--years driver-mobile-period-menu" role="listbox" aria-label="Años disponibles">{driverPeriodYears.map((yearOption) => <button type="button" role="option" aria-selected={driverPeriodYear === yearOption} ref={driverPeriodYear === yearOption ? periodPickerOptionRef : undefined} className={driverPeriodYear === yearOption ? "is-selected" : ""} onClick={() => selectDriverPeriod(yearOption, driverPeriodMonth)} key={yearOption}>{yearOption}</button>)}</div>}</div>
           <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={row.key}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{formatCurrency(value)}</td>)}</tr>)}</tbody></table></div>

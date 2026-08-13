@@ -3316,6 +3316,19 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-week-table tbody th { padding: 7px 6px; color: #203455; font-size: 8px; font-weight: 850; text-align: left; white-space: nowrap; }
 .driver-mobile-week-table tbody td { padding: 7px 2px; color: #4e5e76; font-size: 8px; font-weight: 650; white-space: nowrap; }
 .driver-mobile-week-table tbody tr.is-total th, .driver-mobile-week-table tbody tr.is-total td { color: #122d5b; font-weight: 900; background: #f2f6fc; }
+.driver-mobile-section--history { display: flex; flex-direction: column; }
+.driver-mobile-section--history > .driver-mobile-section__heading { order: 1; }
+.driver-mobile-section--history > .driver-mobile-period-control { order: 2; }
+.driver-mobile-section--history > .driver-mobile-week-swipe-wrap { order: 3; }
+.driver-mobile-section--history > .driver-mobile-week-table-wrap { display: none; }
+.driver-mobile-section--history .driver-mobile-week-actions { display: none; }
+.driver-mobile-week-swipe-wrap { overflow: hidden; border: 1px solid #e0e6ee; border-radius: 14px; background: #fff; box-shadow: 0 4px 12px rgba(24,47,82,.06); touch-action: pan-y; user-select: none; }
+.driver-mobile-week-swipe-wrap.is-dragging { cursor: grabbing; }
+.driver-mobile-week-track { display: flex; width: 300%; will-change: transform; cursor: grab; transition: transform 280ms cubic-bezier(.22,.75,.25,1); }
+.driver-mobile-week-track.is-animating { transition-duration: 280ms; }
+.driver-mobile-week-swipe-wrap.is-dragging .driver-mobile-week-track { cursor: grabbing; transition: none; }
+.driver-mobile-week-page { flex: 0 0 33.333333%; min-width: 0; overflow: hidden; }
+.driver-mobile-week-page .driver-mobile-week-table { min-width: 0; }
 .driver-mobile-entry { scroll-margin-top: 82px; padding: 12px; border: 1px solid #dae3ef; border-radius: 15px; background: #fff; box-shadow: 0 5px 14px rgba(24,47,82,.07); }
 .driver-mobile-entry > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .driver-mobile-entry > header span { color: #315a9d; font-size: 8px; font-weight: 850; letter-spacing: .12em; }
