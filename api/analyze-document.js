@@ -1,3 +1,5 @@
+import { getVercelOidcToken } from "@vercel/oidc";
+
 const MAX_DATA_URL_BYTES = 4 * 1024 * 1024;
 
 const billingSchema = {
@@ -113,7 +115,15 @@ export default async function handler(req, res) {
   }
 
   const directOpenAiKey = process.env.OPENAI_API_KEY?.trim();
-  const gatewayToken = process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim();
+  let requestOidcToken = "";
+  if (process.env.VERCEL && !directOpenAiKey && !process.env.AI_GATEWAY_API_KEY?.trim() && !process.env.VERCEL_OIDC_TOKEN?.trim()) {
+    try {
+      requestOidcToken = (await getVercelOidcToken())?.trim() || "";
+    } catch {
+      requestOidcToken = "";
+    }
+  }
+  const gatewayToken = process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim() || requestOidcToken;
   const aiToken = directOpenAiKey || gatewayToken;
   if (!aiToken) {
     return json(res, 503, { code: "AI_NOT_CONFIGURED", message: "El servicio de IA no está configurado en el servidor." });
