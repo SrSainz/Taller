@@ -547,6 +547,7 @@ const readingSeed = [
 const formatKm = (value) => `${new Intl.NumberFormat("es-ES").format(value)} km`;
 const formatCurrency = (value) => `${value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatShortCurrency = (value) => `${Math.round(value).toLocaleString("es-ES")} €`;
+const formatDriverBarAmount = (value) => Number(value) >= 1000 ? `${(Number(value) / 1000).toLocaleString("es-ES", { maximumFractionDigits: 1 })}k` : `${Math.round(Number(value) || 0)}`;
 const getDriverDateKey = (date = new Date()) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -1727,8 +1728,13 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     });
     const currentMonthKey = `${driverPeriodYear}-${String(driverPeriodMonth + 1).padStart(2, "0")}`;
     if (!monthly.has(currentMonthKey)) monthly.set(currentMonthKey, entries.length === 0 ? Number(seededDriverShift?.monthRevenue) || 0 : 0);
-    const maximum = Math.max(1, ...monthly.values());
-    return Array.from(monthly.entries()).sort(([left], [right]) => left.localeCompare(right)).map(([monthKey, amount]) => {
+    const months = Array.from({ length: 12 }, (_, index) => {
+      const monthDate = new Date(driverPeriodYear, driverPeriodMonth - (11 - index), 1);
+      const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
+      return [monthKey, monthly.get(monthKey) || 0];
+    });
+    const maximum = Math.max(1, ...months.map(([, amount]) => amount));
+    return months.map(([monthKey, amount]) => {
       const [year, month] = monthKey.split("-").map(Number);
       const monthDate = new Date(year, month - 1, 1);
       return {
@@ -1736,8 +1742,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         year,
         monthIndex: month - 1,
         label: new Intl.DateTimeFormat("es-ES", { month: "short", year: "numeric" }).format(monthDate).replace(/\./g, ""),
+        shortLabel: new Intl.DateTimeFormat("es-ES", { month: "short" }).format(monthDate).replace(/\./g, ""),
         amount,
         barWidth: Math.max(7, amount / maximum * 100),
+        barHeight: amount > 0 ? Math.max(14, amount / maximum * 100) : 5,
         isCurrent: monthKey === currentMonthKey,
       };
     });
@@ -2147,6 +2155,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
               return <button type="button" className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key} onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={preview ? "Vista previa de solo lectura" : `Adjuntar foto o documento de ${label.toLowerCase()}`}><span>{label}</span><strong>{value}</strong><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><small className="driver-mobile-record-card__status">{statusLabel}</small></button>;
             })}
           </div>
+          {preview && <div className="driver-mobile-preview-mini-grid">
+            <article className="driver-mobile-preview-history" aria-label="Facturación de los últimos doce meses"><div className="driver-mobile-history-bars" role="list" aria-label="Histórico de facturación mensual">{monthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><span>{formatDriverBarAmount(month.amount)}</span><i style={{ height: `${month.barHeight}%` }} /><small>{month.shortLabel}</small></button>)}</div></article>
+            <article className="driver-mobile-preview-consumption" aria-label="Consumo semanal comparado"><div className="driver-mobile-consumption-compare"><span>Este conductor<strong>{weeklyConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span><em className={consumptionDifference <= 0 ? "is-better" : "is-higher"}>{consumptionDifference > 0 ? "+" : ""}{consumptionDifference.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</em><span>Resto<strong>{otherDriversConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyConsumptionData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverConsumption" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherConsumption" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-consumption-legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
+          </div>}
           <div className="driver-mobile-mini-grid">
             <article className="driver-mobile-mini-card driver-mobile-mini-card--billing-history"><div className="driver-mobile-mini-card__header"><div><strong>Facturación histórica</strong><span>{formatCurrency(activeBillingMonth.amount)} · este conductor</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("billing")} aria-label="Abrir ejemplo de facturación"><img src={driverReferenceImages.billing} alt="" loading="lazy" /><span>Ejemplo</span></button></div><div className="driver-mobile-billing-history" role="list" aria-label="Histórico mensual de facturación del conductor">{monthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-billing-history__month${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><span>{month.label}</span><strong>{formatCurrency(month.amount)}</strong><i style={{ width: `${month.barWidth}%` }} /></button>)}</div></article>
             <article className="driver-mobile-mini-card driver-mobile-mini-card--consumption-compare"><div className="driver-mobile-mini-card__header"><div><strong>Consumo semanal</strong><span>{weeklyConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km · este conductor</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("consumption")} aria-label="Abrir ejemplo de consumo"><img src={driverReferenceImages.consumption} alt="" loading="lazy" /><span>Ejemplo</span></button></div><div className="driver-mobile-consumption-compare"><span>Resto conductores<strong>{otherDriversConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span><em className={consumptionDifference <= 0 ? "is-better" : "is-higher"}>{consumptionDifference > 0 ? "+" : ""}{consumptionDifference.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</em></div><ResponsiveContainer width="100%" height={62}><LineChart data={weeklyConsumptionData} margin={{ top: 5, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverConsumption" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherConsumption" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-consumption-legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>

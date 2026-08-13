@@ -3266,6 +3266,33 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-mini-card .recharts-wrapper { margin-top: 2px; }
 .driver-mobile-mini-card__header { display: flex !important; align-items: center; justify-content: space-between; gap: 7px; min-height: 42px; text-align: left !important; }
 .driver-mobile-mini-card__header > div { min-width: 0; display: grid; gap: 2px; text-align: left; }
+.driver-mobile-preview-mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+.driver-mobile-preview-history, .driver-mobile-preview-consumption { min-width: 0; overflow: hidden; padding: 7px 7px 5px; border: 1px solid #dce5f0; border-radius: 12px; background: #fff; box-shadow: 0 3px 9px rgba(24,47,82,.05); }
+.driver-mobile-history-bars { height: 92px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: end; gap: 2px; padding: 3px 1px 0; border-bottom: 1px solid #dce5f0; }
+.driver-mobile-history-bar { min-width: 0; height: 100%; display: grid; grid-template-rows: 13px minmax(0, 1fr) 12px; align-items: end; gap: 2px; padding: 0 1px; border: 0; background: transparent; color: #6e7e96; cursor: pointer; }
+.driver-mobile-history-bar span { overflow: hidden; color: #6c7c92; font-size: 5px; font-weight: 800; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-history-bar i { align-self: end; width: 100%; min-height: 3px; border-radius: 3px 3px 1px 1px; background: #8db7f4; }
+.driver-mobile-history-bar small { overflow: hidden; color: #6d7d93; font-size: 6px; font-weight: 800; line-height: 1; text-transform: uppercase; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-history-bar:hover, .driver-mobile-history-bar:focus-visible { outline: 0; }
+.driver-mobile-history-bar:hover i, .driver-mobile-history-bar:focus-visible i, .driver-mobile-history-bar.is-selected i { background: #286ee7; }
+.driver-mobile-history-bar.is-selected span, .driver-mobile-history-bar.is-selected small { color: #1d55ad; font-weight: 900; }
+.driver-app--preview .driver-preview-banner { display: none; }
+.driver-app--preview .driver-mobile-month-summary__heading { display: none; }
+.driver-app--preview .driver-mobile-month-summary { padding: 5px; border: 2px solid #2c6de9; border-radius: 12px; }
+.driver-app--preview .driver-mobile-month-summary__columns { padding: 8px 10px; border-radius: 8px; }
+.driver-app--preview .driver-mobile-mini-grid { display: none; }
+.driver-app--preview .driver-mobile-section__heading--week { display: none; }
+.driver-app--preview .driver-mobile-body { gap: 8px; padding: 8px 9px 16px; }
+.driver-app--preview .driver-mobile-section--today .driver-mobile-section__heading { margin-bottom: 3px; }
+.driver-app--preview .driver-mobile-preview-mini-grid { gap: 6px; margin-top: 4px; }
+.driver-app--preview .driver-mobile-record-grid { gap: 2px; }
+.driver-app--preview .driver-mobile-record-card { gap: 2px; }
+.driver-app--preview .driver-mobile-record-card > span { font-size: 7px; }
+.driver-app--preview .driver-mobile-record-card > strong { font-size: 7px; }
+.driver-app--preview .driver-mobile-record-card__image { width: clamp(42px, 11vw, 54px); border-width: 3px; }
+.driver-app--preview .driver-mobile-record-card__status { min-height: 7px; font-size: 5px; }
+.driver-app--preview .driver-mobile-week-table thead th { height: 37px; }
+.driver-app--preview .driver-mobile-week-table tbody th, .driver-app--preview .driver-mobile-week-table tbody td { padding-block: 5px; }
 .driver-mobile-billing-history { display: flex !important; gap: 5px; overflow-x: auto; padding: 4px 1px 3px; margin-top: 4px; text-align: left !important; scrollbar-width: thin; }
 .driver-mobile-billing-history__month { flex: 0 0 72px; min-height: 58px; display: grid; align-content: space-between; gap: 3px; padding: 6px; border: 1px solid #e0e7f0; border-radius: 9px; background: #f8faff; color: #29466f; text-align: left; cursor: pointer; }
 .driver-mobile-billing-history__month:hover, .driver-mobile-billing-history__month:focus-visible { border-color: #6c94d1; outline: 0; background: #eff5ff; }
