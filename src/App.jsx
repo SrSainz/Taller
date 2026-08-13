@@ -60,8 +60,6 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { funesmotorsportDocuments, funesmotorsportImportMeta } from "./data/funesmotorsportSummary";
-import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
 import { getProfile, invokeAdminUsers, isSupabaseConfigured, roleFromUser, supabase, uploadDocumentRecord } from "./supabase";
 
 const BILLING_COLOR = "#74b9f2";
@@ -342,23 +340,6 @@ const invoiceSeed = [
   { id: "FAC-2026-1684", date: "28 may 2026", provider: "Peugeot Madrid", plate: "9401 LTG", concept: "Aceite y filtros", amount: 198.6, source: "Correo", status: "Pendiente" },
 ];
 
-const funesmotorsportInvoiceSeed = funesmotorsportDocuments.map((document) => ({
-  id: document.id,
-  date: document.date,
-  dateIso: document.dateIso,
-  provider: "Funes Motorsport",
-  plate: document.plate,
-  concept: document.concept,
-  amount: document.amount,
-  source: "Resumen estructurado autorizado",
-  status: document.typeLabel,
-  documentType: document.type,
-  sourceFile: document.sourceFile,
-  sourceFiles: document.sourceFiles,
-  imageSrc: funesmotorsportAssetMap[document.id],
-  items: document.items,
-}));
-
 const maintenanceConceptRows = [
   { label: "Aceite y filtro", matches: ["aceite y filtro", "aceite motor", "filtro de aceite"] },
   { label: "Filtro habitáculo", matches: ["filtro habitaculo", "filtro de polen"] },
@@ -375,7 +356,7 @@ const maintenanceConceptRows = [
   { label: "Varios", matches: ["varios", "otros"] },
 ];
 
-const photoInvoiceStorageKey = "talleria:photo-invoices:v1";
+const photoInvoiceStorageKey = "talleria:photo-invoices:clean-v2";
 const processedDocumentStorageKey = "talleria:processed-documents:v1";
 const migratedPlates = { "3456 HTR": "0344 LCP", "7890 GYL": "9401 LTG" };
 
@@ -410,7 +391,7 @@ const netAdditionalExpenseAmounts = {};
 const netPayrollAmounts = {};
 const netSocialSecurityAmounts = {};
 
-const manualNetExpensesStorageKey = "talleria:manual-net-expenses:v1";
+const manualNetExpensesStorageKey = "talleria:manual-net-expenses:clean-v2";
 const loadManualNetExpenses = () => {
   try {
     if (typeof window === "undefined") return [];
@@ -1056,7 +1037,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     };
   }, []);
 
-  const invoices = useMemo(() => [...photoInvoices, ...funesmotorsportInvoiceSeed].map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) })), [photoInvoices]);
+  const invoices = useMemo(() => photoInvoices.map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) })), [photoInvoices]);
   const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
     const recordedMaintenance = photoInvoices
       .filter((invoice) => invoice.plate === vehicle.plate)
@@ -1068,21 +1049,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         amount: Number(invoice.amount) || 0,
         invoiceId: invoice.id,
       }));
-    const importedMaintenance = funesmotorsportDocuments
-      .filter((document) => document.plate === vehicle.plate)
-      .map((document) => ({
-        date: document.date,
-        dateIso: document.dateIso,
-        km: document.km || vehicle.odometer,
-        concept: document.concept,
-        amount: document.amount,
-        invoiceId: document.id,
-        documentType: document.type,
-        sourceFile: document.sourceFile,
-        sourceFiles: document.sourceFiles,
-        imageSrc: funesmotorsportAssetMap[document.id],
-      }));
-    return { ...vehicle, maintenance: [...recordedMaintenance, ...importedMaintenance], monthlyFuel: [] };
+    return { ...vehicle, maintenance: recordedMaintenance, monthlyFuel: [], nextServiceKm: vehicle.odometer, serviceDate: "" };
   }).map((vehicle) => {
     if (vehicle.use !== "Profesional") return { ...vehicle, driverProfiles: [] };
     const assignedProfiles = driverProfiles
@@ -1334,7 +1301,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           {!compactDetailHeader && notificationsOpen && (
             <aside className="notification-popover" aria-label="Notificaciones recientes">
               <header><strong>Notificaciones</strong><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></header>
-              <button onClick={() => openVehicleFromModule("5043 MLC")}><IconAlertTriangle size={18} /><span><strong>Revisión próxima</strong><small>Toyota Corolla · 4.265 km restantes</small></span></button>
               <button onClick={() => navigate(navItems[2])}><IconGauge size={18} /><span><strong>2 lecturas por revisar</strong><small>Confianza inferior al umbral configurado</small></span></button>
             </aside>
           )}
@@ -3829,13 +3795,11 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
   const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
   const selectedBrand = getVehicleBrand(workshopVehicle);
   const sortedMaintenance = [...workshopVehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a));
-  const importedDocumentCount = funesmotorsportDocuments.filter((document) => document.plate === workshopVehicle.plate).length;
   const maintenanceRecords = sortedMaintenance.map((item, index) => {
     const invoice = getMaintenanceInvoice(item, workshopVehicle, invoices);
     const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
     return { item, invoice, details, key: getMaintenanceRecordKey(item, index) };
   });
-  const total = sortedMaintenance.reduce((sum, item) => sum + item.amount, 0);
   useEffect(() => {
     setWorkshopPlate(initialPlate);
   }, [initialPlate]);
@@ -3882,7 +3846,6 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
         {vehicles.map((vehicle, index) => {
           const brand = getVehicleBrand(vehicle);
           const latest = [...vehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a))[0];
-          const remaining = vehicle.nextServiceKm - vehicle.odometer;
           const isActive = vehicle.plate === workshopVehicle.plate;
           return (
             <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} key={vehicle.plate} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
@@ -3891,7 +3854,6 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
               <span className="maintenance-vehicle-identity"><small>{brand}</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></span>
               <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
               <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
-              <span className="maintenance-vehicle-service"><small>Próxima revisión</small><strong>{formatKm(remaining)}</strong><span>{vehicle.serviceDate}</span></span>
             </button>
           );
         })}
@@ -3903,13 +3865,14 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
             <span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt="" /></span>
             <span><h2>{workshopVehicle.plate}</h2></span>
           </div>
-          <div className="maintenance-history-total"><small>{sortedMaintenance.length} intervenciones</small><small>{funesmotorsportImportMeta.sourceLabel}: {importedDocumentCount} documentos estructurados</small><strong>{formatCurrency(total)}</strong></div>
+          <div className="maintenance-history-total"><small>{sortedMaintenance.length ? `${sortedMaintenance.length} intervenciones` : "Sin intervenciones"}</small></div>
         </header>
         <div className="maintenance-history-scroll">
         <div className="maintenance-timeline" aria-label={`Historial de mantenimiento de ${workshopVehicle.plate}`}>
           <header className="maintenance-timeline-heading">
             <span><span className="maintenance-timeline-heading__icon"><IconTool size={14} /></span><strong>INTERVENCIONES REALIZADAS</strong></span>
           </header>
+          {maintenanceRecords.length === 0 && <div className="empty-state"><IconTool size={22} /><strong>Sin mantenimientos registrados</strong><span>Las nuevas facturas e intervenciones aparecerán aquí.</span></div>}
           {maintenanceRecords.map(({ item, invoice, details, key }) => {
             const isOpen = openMaintenanceKey === key;
             const eventId = getMaintenanceEventDomId(workshopVehicle.plate, key);
