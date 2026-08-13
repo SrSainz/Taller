@@ -2921,20 +2921,31 @@ function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onN
   const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
   const billingRows = vehicles
     .filter((vehicle) => vehicle.use === "Profesional")
-    .flatMap((vehicle) => vehicle.drivers.map((driver) => ({
-      key: `${vehicle.plate}-${driver}`,
-      driver,
-      plate: vehicle.plate,
-      model: vehicle.model,
-      trips: 0,
-      revenue: 0,
-    })));
+    .flatMap((vehicle, vehicleIndex) => vehicle.drivers.map((driver, driverIndex) => {
+      const activity = getDriverDay(vehicle, driver);
+      return {
+        key: `${vehicle.plate}-${driver}`,
+        driver,
+        plate: vehicle.plate,
+        model: vehicle.model,
+        trips: Math.round(activity.monthTrips * periodFactor),
+        revenue: Math.round(activity.monthRevenue * periodFactor * (1 + ((vehicleIndex + driverIndex) % 3 - 1) * 0.018)),
+      };
+    }));
   const billingChartData = billingRows.map((row) => ({
     label: row.driver,
     detail: row.plate,
     value: row.revenue,
   }));
-  const fuelChartData = vehicleStats.map(({ vehicle, cost }, index) => ({
+  const chartVehicleStats = vehicles.map((vehicle) => {
+    const sourceVehicle = vehiclesSeed.find((candidate) => candidate.plate === vehicle.plate) ?? vehicle;
+    const entries = (sourceVehicle.monthlyFuel ?? []).map((entry) => ({
+      ...entry,
+      cost: Number(((entry.cost ?? 0) * periodFactor).toFixed(2)),
+    }));
+    return { vehicle, cost: entries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0) };
+  });
+  const fuelChartData = chartVehicleStats.map(({ vehicle, cost }, index) => ({
     label: vehicle.plate,
     detail: vehicle.model,
     value: Number((cost * (1 + (index - 2) * 0.012)).toFixed(2)),
@@ -2942,7 +2953,7 @@ function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onN
   const maintenanceChartData = vehicles.map((vehicle) => ({
     label: vehicle.plate,
     detail: vehicle.model,
-    value: getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear),
+    value: getMaintenanceAmountForPeriod(vehiclesSeed.find((candidate) => candidate.plate === vehicle.plate) ?? vehicle, reportMonth, reportYear),
   }));
   const netPeriodKey = `${reportYear}-${reportMonth}`;
   const netVehicleDetails = vehicles
