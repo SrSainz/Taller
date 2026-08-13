@@ -1974,10 +1974,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         <input ref={circleFileInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Adjuntar una foto o documento del registro" onChange={handleCircleFile} />
         <section ref={homeRef} className="driver-mobile-section driver-mobile-section--home" aria-label="Resumen del conductor">
           <article className="driver-mobile-month-summary">
-            <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{vehicle?.owner?.dni ?? ""}</b></span></div>
+            <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{(vehicle?.owner?.dni ?? "").replaceAll("-", "")}</b></span></div>
             <div className="driver-mobile-month-summary__columns">
-              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing"><span>Facturación</span><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong><div className="driver-mobile-progress"><i style={{ width: `${periodSummary.billingProgress}%` }} /><small>{Math.round(periodSummary.billingProgress)}%</small></div></div>
-              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--tips"><span>Propinas</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong><div className="driver-mobile-progress"><i style={{ width: `${periodSummary.tipsProgress}%` }} /><small>{Math.round(periodSummary.tipsProgress)}%</small></div></div>
+              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing"><span>Facturación</span><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong></div>
+              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--tips"><span>Propinas</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></div>
             </div>
           </article>
         </section>

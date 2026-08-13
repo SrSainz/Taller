@@ -131,6 +131,7 @@ When implementing from a selected generated mock, treat that image as the source
 - General KPI amounts and the vertical values rendered inside Facturación, Mantenimiento, Combustible, and Neto bars use a slightly larger readable scale without changing chart geometry.
 
 - La vista móvil del conductor incorpora dos evidencias visuales de referencia, una de consumo y otra de facturación, dentro de sus tarjetas compactas; se identifican como ejemplos y no alteran los datos reales. Al abrirlas se muestran ampliadas, mientras que las lecturas reales siguen llegando desde los círculos de adjuntos y Supabase.
+- En la aplicación de los conductores asignados, el DNI del propietario se muestra sin guiones y el resumen de Facturación y Propinas no incluye barras de progreso bajo sus importes.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
 
