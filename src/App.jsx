@@ -405,30 +405,10 @@ const expenseCategories = [
   { label: "Varios", cadence: "Variable" },
 ];
 
-const vehicleExpenseAmounts = {
-  "5754 MJV": [780, 450, 1280.42, 286.4, 390, 1650, 824.05, 1860, 85, 870, 95, 120],
-  "5750 MJV": [895, 450, 1136.28, 498, 390, 1650, 812.64, 1740, 92, 940, 110, 164.8],
-  "5043 MLC": [820, 450, 1054.72, 312.5, 390, 1650, 754.29, 1695, 78, 905, 98, 98.5],
-  "0344 LCP": [420, 0, 185.34, 224.8, 0, 0, 0, 0, 0, 540, 40, 60],
-  "9401 LTG": [0, 310, 142.18, 198.6, 0, 0, 0, 0, 0, 495, 35, 44.9],
-};
-
-const netAdditionalExpenseAmounts = {
-  "5043 MLC": { gestoria: 135, itv: 61.5, circulation: 148, annexInsurance: 38 },
-  "5750 MJV": { gestoria: 135, itv: 61.5, circulation: 148, annexInsurance: 42 },
-  "5754 MJV": { gestoria: 135, itv: 61.5, circulation: 148, annexInsurance: 40 },
-};
-
-const netPayrollAmounts = {
-  "5043 MLC": [1650, 1720],
-  "5750 MJV": [1680, 1640],
-  "5754 MJV": [1700, 1650],
-};
-const netSocialSecurityAmounts = {
-  "5043 MLC": [120, 132, 138],
-  "5750 MJV": [125, 130, 135],
-  "5754 MJV": [118, 130, 142],
-};
+const vehicleExpenseAmounts = {};
+const netAdditionalExpenseAmounts = {};
+const netPayrollAmounts = {};
+const netSocialSecurityAmounts = {};
 
 const manualNetExpensesStorageKey = "talleria:manual-net-expenses:v1";
 const loadManualNetExpenses = () => {
@@ -455,7 +435,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
   const vehicleDrivers = vehicle.drivers.slice(0, 2);
-  const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: getDriverDay(vehicle, driver).monthRevenue ?? 0 }));
+  const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: 0 }));
   const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
   const fuelBreakdown = vehicleDrivers.map((driver) => {
     const refuellings = getDriverFuelEntriesForPeriod(vehicle, driver, reportMonth, reportYear);
@@ -463,11 +443,11 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     const cost = refuellings.reduce((sum, entry) => sum + entry.cost, 0);
     return { label: driver, amount: Number(cost.toFixed(2)), meta: `${Number(liters.toFixed(1)).toLocaleString("es-ES")} L · ${refuellings.length} repostajes` };
   });
-  const payrollBreakdown = vehicleDrivers.map((driver, index) => ({ label: driver, amount: scale(netPayrollAmounts[vehicle.plate]?.[index] ?? 1650), meta: "Nómina mensual" }));
+  const payrollBreakdown = vehicleDrivers.map((driver, index) => ({ label: driver, amount: scale(netPayrollAmounts[vehicle.plate]?.[index] ?? 0), meta: "Nómina mensual" }));
   const commissionBreakdown = resolvedDriverRows.slice(0, 2).map((row) => ({ label: row.driver, amount: Number((Number(row.revenue) * DRIVER_COMMISSION_RATE).toFixed(2)), meta: `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación` }));
   const socialBreakdown = [
-    { label: "Autónomo", amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[0] ?? 120), meta: "Cuota mensual" },
-    ...vehicleDrivers.map((driver, index) => ({ label: driver, amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[index + 1] ?? 130), meta: "Seguridad social" })),
+    { label: "Autónomo", amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[0] ?? 0), meta: "Cuota mensual" },
+    ...vehicleDrivers.map((driver, index) => ({ label: driver, amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[index + 1] ?? 0), meta: "Seguridad social" })),
   ];
   const breakdownTotal = (rows) => rows.reduce((sum, row) => sum + row.amount, 0);
   const fuelTotal = breakdownTotal(fuelBreakdown);
@@ -1076,7 +1056,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     };
   }, []);
 
-  const invoices = useMemo(() => [...photoInvoices, ...funesmotorsportInvoiceSeed, ...invoiceSeed].map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) })), [photoInvoices]);
+  const invoices = useMemo(() => [...photoInvoices, ...funesmotorsportInvoiceSeed].map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) })), [photoInvoices]);
   const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
     const recordedMaintenance = photoInvoices
       .filter((invoice) => invoice.plate === vehicle.plate)
@@ -1102,7 +1082,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         sourceFiles: document.sourceFiles,
         imageSrc: funesmotorsportAssetMap[document.id],
       }));
-    return { ...vehicle, maintenance: [...recordedMaintenance, ...importedMaintenance, ...vehicle.maintenance] };
+    return { ...vehicle, maintenance: [...recordedMaintenance, ...importedMaintenance], monthlyFuel: [] };
   }).map((vehicle) => {
     if (vehicle.use !== "Profesional") return { ...vehicle, driverProfiles: [] };
     const assignedProfiles = driverProfiles
@@ -1676,7 +1656,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
     const monthlyBilling = total(monthEntries, "billing");
-    const billingGoal = Math.max(1, Number(vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name))?.monthRevenue) || 10000);
+    const billingGoal = 0;
     const weeklyCash = total(weekEntries, "cash_collected");
     const weeklyFuel = total(weekEntries, "fuel_cost");
     const weeklyTolls = total(weekEntries, "tolls");
@@ -1696,7 +1676,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       monthlyOther: total(monthEntries, "other_expenses") + monthlyWash,
       tipsProgress: monthlyBilling > 0 ? Math.min(100, (total(monthEntries, "tips") / monthlyBilling) * 100) : 0,
       billingGoal,
-      billingProgress: Math.min(100, (monthlyBilling / billingGoal) * 100),
+      billingProgress: billingGoal > 0 ? Math.min(100, (monthlyBilling / billingGoal) * 100) : 0,
       weeklyCash,
       weeklyFuel,
       weeklyTolls,
@@ -1749,7 +1729,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     return { offset, ...buildDriverWeekPage(pageDate, entries, weeklyManualValues) };
   }), [selectedDate, entries, weeklyManualValues]);
   const seededDriverShift = vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name)) ?? vehicle?.shifts?.[0] ?? null;
-  const seededDriverConsumption = seededDriverShift?.km > 0 ? Number(((Number(seededDriverShift.liters) || 0) / seededDriverShift.km * 100).toFixed(1)) : 0;
+  const seededDriverConsumption = 0;
   const otherDriversConsumptionAverage = useMemo(() => {
     const professionalShifts = vehiclesSeed.filter((candidate) => candidate.use === "Profesional").flatMap((candidate) => candidate.shifts ?? []);
     const otherShifts = professionalShifts.filter((shift) => shift.id !== seededDriverShift?.id);
@@ -1803,7 +1783,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       monthly.set(monthKey, (monthly.get(monthKey) || 0) + getDriverEntryAmount(item, "billing"));
     });
     const currentMonthKey = `${driverPeriodYear}-${String(driverPeriodMonth + 1).padStart(2, "0")}`;
-    if (!monthly.has(currentMonthKey)) monthly.set(currentMonthKey, entries.length === 0 ? Number(seededDriverShift?.monthRevenue) || 0 : 0);
+    if (!monthly.has(currentMonthKey)) monthly.set(currentMonthKey, 0);
     const months = Array.from({ length: 12 }, (_, index) => {
       const monthDate = new Date(driverPeriodYear, driverPeriodMonth - (11 - index), 1);
       const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
@@ -2022,11 +2002,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     { key: "other", label: "Varios", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "other_expenses")) },
     { key: "total", label: "Total", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "cash_collected") - getDriverEntryAmount(item, "fuel_cost") - getDriverEntryAmount(item, "tolls") - (Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses")) - getDriverEntryAmount(item, "other_expenses")) },
   ];
-  const seededChartPattern = [0.38, 0.55, 0.46, 0.72, 0.6, 0.82, 1];
   const weeklyChartData = driverWeekDays.map(({ date }, index) => ({
     label: new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", ""),
-    consumption: getDriverEntryAmount(driverWeekEntries[index], "fuel_liters") || Number(((seededDriverShift?.liters ?? 0) * seededChartPattern[index]).toFixed(1)),
-    billing: getDriverEntryAmount(driverWeekEntries[index], "billing") || Number(((seededDriverShift?.revenue ?? 0) * seededChartPattern[index]).toFixed(2)),
+    consumption: getDriverEntryAmount(driverWeekEntries[index], "fuel_liters"),
+    billing: getDriverEntryAmount(driverWeekEntries[index], "billing"),
   }));
 
   const selectedDayMetrics = [
@@ -2924,19 +2903,18 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
     cost: summary.cost + item.cost,
     refuels: summary.refuels + item.refuels,
   }), { liters: 0, cost: 0, refuels: 0 });
-  const totalDistance = 7524;
+  const totalDistance = 0;
   const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
   const billingRows = vehicles
     .filter((vehicle) => vehicle.use === "Profesional")
     .flatMap((vehicle, vehicleIndex) => vehicle.drivers.map((driver, driverIndex) => {
-      const activity = getDriverDay(vehicle, driver);
       return {
         key: `${vehicle.plate}-${driver}`,
         driver,
         plate: vehicle.plate,
         model: vehicle.model,
-        trips: Math.round(activity.monthTrips * periodFactor),
-        revenue: Math.round(activity.monthRevenue * periodFactor * (1 + ((vehicleIndex + driverIndex) % 3 - 1) * 0.018)),
+        trips: 0,
+        revenue: 0,
       };
     }));
   const billingChartData = billingRows.map((row) => ({
@@ -3110,8 +3088,8 @@ function FuelView({ vehicles, selected, onSelectVehicle, onNavigate, setModal, i
             <div className="report-general-grid">
               <div className="report-stat-grid">
                 <ReportFleetSummaryCard billing={formatCurrency(periodTotals.billing)} fuel={formatCurrency(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
-                <ReportStatCard wide icon={IconTool} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(periodTotals.maintenance / totalDistance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
-                <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(periodTotals.net / totalDistance)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
+                <ReportStatCard wide icon={IconTool} label="Mantenimiento" value={formatCurrency(periodTotals.maintenance)} daily={formatCurrency(periodTotals.maintenance / periodDays)} perKm={formatCurrency(totalDistance > 0 ? periodTotals.maintenance / totalDistance : 0)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
+                <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatCurrency(periodTotals.net)} daily={formatCurrency(periodTotals.net / periodDays)} perKm={formatCurrency(totalDistance > 0 ? periodTotals.net / totalDistance : 0)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
               </div>
               <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
                 <header className="report-chart-card__top">
@@ -3435,14 +3413,13 @@ function DriversView({ vehicles, setModal }) {
   const professionalVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.use === "Profesional"), [vehicles]);
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
   const billingRows = useMemo(() => professionalVehicles.flatMap((vehicle, vehicleIndex) => vehicle.drivers.map((driver, driverIndex) => {
-    const activity = getDriverDay(vehicle, driver);
     return {
       key: `${vehicle.plate}-${driver}`,
       driver,
       plate: vehicle.plate,
       model: vehicle.model,
-      trips: Math.round(activity.monthTrips * periodFactor),
-      revenue: Math.round(activity.monthRevenue * periodFactor * (1 + ((vehicleIndex + driverIndex) % 3 - 1) * 0.018)),
+      trips: 0,
+      revenue: 0,
     };
   })), [professionalVehicles, periodFactor]);
   const fuelSummaries = useMemo(() => professionalVehicles.map((vehicle) => {
