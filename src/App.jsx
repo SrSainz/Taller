@@ -3006,9 +3006,7 @@ function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onN
   const selectedBillingDriver = billingRows.find((row) => row.key === billingDriverKey) ?? null;
   const selectedBillingVehicle = vehicles.find((vehicle) => vehicle.plate === billingVehiclePlate) ?? null;
   const selectedBillingVehicleRows = billingRows.filter((row) => row.plate === billingVehiclePlate);
-  const hasChartData = chartMetric === "summary"
-    ? visibleChartMetrics.some((metric) => activeChart.data.some((item) => item[metric] !== 0))
-    : activeChart.data.some((item) => item.value !== 0);
+  const hasChartData = true;
   const selectChartBar = (entry) => {
     const label = entry?.payload?.label ?? entry?.label;
     if (label) setSelectedChartBar(label);
