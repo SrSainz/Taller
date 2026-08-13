@@ -133,6 +133,7 @@ When implementing from a selected generated mock, treat that image as the source
 - La vista móvil del conductor incorpora dos evidencias visuales de referencia, una de consumo y otra de facturación, dentro de sus tarjetas compactas; se identifican como ejemplos y no alteran los datos reales. Al abrirlas se muestran ampliadas, mientras que las lecturas reales siguen llegando desde los círculos de adjuntos y Supabase.
 - En la aplicación de los conductores asignados, el DNI del propietario se muestra sin guiones y el resumen de Facturación y Propinas no incluye barras de progreso bajo sus importes.
 - El registro diario de la vista del conductor contiene cinco accesos en orden fijo: Gasolina, Facturación, Km diarios, Km acumulados y Consumo. Cada acceso mantiene su imagen o símbolo contextual, abre la captura nativa y etiqueta el documento con su tipo para el análisis posterior.
+- En las estadísticas del conductor, la tarjeta izquierda muestra la facturación mensual histórica de ese conductor en una tira horizontal seleccionable; la tarjeta derecha compara su consumo medio semanal con la media del resto de conductores.
 
 Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
 

@@ -3261,6 +3261,23 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-mini-card .recharts-wrapper { margin-top: 2px; }
 .driver-mobile-mini-card__header { display: flex !important; align-items: center; justify-content: space-between; gap: 7px; min-height: 42px; text-align: left !important; }
 .driver-mobile-mini-card__header > div { min-width: 0; display: grid; gap: 2px; text-align: left; }
+.driver-mobile-billing-history { display: flex !important; gap: 5px; overflow-x: auto; padding: 4px 1px 3px; margin-top: 4px; text-align: left !important; scrollbar-width: thin; }
+.driver-mobile-billing-history__month { flex: 0 0 72px; min-height: 58px; display: grid; align-content: space-between; gap: 3px; padding: 6px; border: 1px solid #e0e7f0; border-radius: 9px; background: #f8faff; color: #29466f; text-align: left; cursor: pointer; }
+.driver-mobile-billing-history__month:hover, .driver-mobile-billing-history__month:focus-visible { border-color: #6c94d1; outline: 0; background: #eff5ff; }
+.driver-mobile-billing-history__month.is-selected { border-color: #2c6de9; background: #edf4ff; box-shadow: inset 0 0 0 1px rgba(44,109,233,.12); }
+.driver-mobile-billing-history__month span { overflow: hidden; color: #6a7890; font-size: 7px !important; font-weight: 800; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.driver-mobile-billing-history__month strong { overflow: hidden; color: #1e4eaa; font-size: 9px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-billing-history__month i { width: 7%; height: 4px; display: block; border-radius: 999px; background: #2c6de9; }
+.driver-mobile-consumption-compare { display: flex !important; align-items: flex-end; justify-content: space-between; gap: 5px; margin-top: 4px; text-align: left !important; }
+.driver-mobile-consumption-compare > span { min-width: 0; display: grid; gap: 1px; color: #718099; font-size: 7px !important; font-weight: 750; line-height: 1.05; text-align: left; }
+.driver-mobile-consumption-compare > span strong { color: #526783; font-size: 8px; font-weight: 900; white-space: nowrap; }
+.driver-mobile-consumption-compare > em { flex: 0 0 auto; padding: 3px 4px; border-radius: 5px; font-size: 8px; font-style: normal; font-weight: 900; white-space: nowrap; }
+.driver-mobile-consumption-compare > em.is-better { background: #e7f7f1; color: #128866; }
+.driver-mobile-consumption-compare > em.is-higher { background: #fff0ee; color: #c9584e; }
+.driver-mobile-consumption-legend { display: flex !important; justify-content: center; gap: 10px; margin-top: 1px; color: #7b899e; font-size: 7px !important; text-align: center !important; }
+.driver-mobile-consumption-legend > span { display: inline-flex; align-items: center; gap: 3px; font-size: 7px !important; font-weight: 750; }
+.driver-mobile-consumption-legend i { width: 7px; height: 3px; display: inline-block; border-radius: 999px; background: #2c6de9; }
+.driver-mobile-consumption-legend i.is-fleet { background: #9aaac0; }
 .driver-mobile-reference-thumb { position: relative; flex: 0 0 42px; width: 42px; height: 42px; overflow: hidden; padding: 0; border: 2px solid #fff; border-radius: 11px; background: #eaf1fb; box-shadow: 0 2px 6px rgba(24,47,82,.16); cursor: pointer; }
 .driver-mobile-reference-thumb img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .driver-mobile-reference-thumb span { position: absolute; right: 2px; bottom: 2px; left: 2px; overflow: hidden; padding: 2px 1px; border-radius: 4px; background: rgba(9,46,104,.78); color: #fff; font-size: 6px; font-weight: 850; line-height: 1; text-align: center; text-transform: uppercase; }

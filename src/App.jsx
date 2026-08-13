@@ -1646,6 +1646,35 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     });
   }, [selectedDate]);
   const driverWeekEntries = useMemo(() => driverWeekDays.map(({ key }) => entries.find((item) => String(item.entry_date) === key) ?? null), [driverWeekDays, entries]);
+  const seededDriverShift = vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name)) ?? vehicle?.shifts?.[0] ?? null;
+  const seededDriverConsumption = seededDriverShift?.km > 0 ? Number(((Number(seededDriverShift.liters) || 0) / seededDriverShift.km * 100).toFixed(1)) : 0;
+  const otherDriversConsumptionAverage = useMemo(() => {
+    const professionalShifts = vehiclesSeed.filter((candidate) => candidate.use === "Profesional").flatMap((candidate) => candidate.shifts ?? []);
+    const otherShifts = professionalShifts.filter((shift) => shift.id !== seededDriverShift?.id);
+    const values = otherShifts.map((shift) => shift.km > 0 ? (Number(shift.liters) || 0) / shift.km * 100 : 0).filter((value) => value > 0);
+    return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : seededDriverConsumption;
+  }, [seededDriverConsumption, seededDriverShift]);
+  const weeklyConsumptionData = useMemo(() => {
+    const chronologicalEntries = [...entries].sort((left, right) => String(left.entry_date ?? "").localeCompare(String(right.entry_date ?? "")));
+    return driverWeekDays.map(({ date, key }) => {
+      const currentEntry = entries.find((item) => String(item.entry_date) === key);
+      const currentOdometer = getDriverEntryAmount(currentEntry, "odometer_km");
+      const previousEntry = [...chronologicalEntries].reverse().find((item) => String(item.entry_date ?? "") < key);
+      const previousEntryOdometer = getDriverEntryAmount(previousEntry, "odometer_km");
+      const kilometres = Math.max(0, currentOdometer - previousEntryOdometer);
+      const litres = getDriverEntryAmount(currentEntry, "fuel_liters");
+      const driverConsumption = litres > 0 && kilometres > 0 ? litres / kilometres * 100 : seededDriverConsumption;
+      return {
+        label: new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", ""),
+        driverConsumption: Number(driverConsumption.toFixed(1)),
+        otherConsumption: Number(otherDriversConsumptionAverage.toFixed(1)),
+      };
+    });
+  }, [driverWeekDays, entries, otherDriversConsumptionAverage, seededDriverConsumption]);
+  const weeklyConsumptionAverage = useMemo(() => {
+    const values = weeklyConsumptionData.map((item) => item.driverConsumption).filter((value) => value > 0);
+    return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  }, [weeklyConsumptionData]);
   const previousDriverEntry = useMemo(() => {
     const previous = entries
       .filter((item) => String(item.entry_date ?? "") < selectedDate)
@@ -1656,6 +1685,31 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const previousOdometer = getDriverEntryAmount(previousDriverEntry, "odometer_km");
   const partialKm2 = Math.max(0, selectedOdometer - previousOdometer);
   const averageConsumption = partialKm2 > 0 ? (Number(selectedDayData.fuel_liters) || 0) / partialKm2 * 100 : 0;
+  const monthlyBillingHistory = useMemo(() => {
+    const monthly = new Map();
+    entries.forEach((item) => {
+      const entryDate = parseDriverDateKey(item.entry_date);
+      if (!entryDate) return;
+      const monthKey = String(item.entry_date).slice(0, 7);
+      monthly.set(monthKey, (monthly.get(monthKey) || 0) + getDriverEntryAmount(item, "billing"));
+    });
+    const currentMonthKey = `${driverPeriodYear}-${String(driverPeriodMonth + 1).padStart(2, "0")}`;
+    if (!monthly.has(currentMonthKey)) monthly.set(currentMonthKey, entries.length === 0 ? Number(seededDriverShift?.monthRevenue) || 0 : 0);
+    const maximum = Math.max(1, ...monthly.values());
+    return Array.from(monthly.entries()).sort(([left], [right]) => left.localeCompare(right)).map(([monthKey, amount]) => {
+      const [year, month] = monthKey.split("-").map(Number);
+      const monthDate = new Date(year, month - 1, 1);
+      return {
+        key: monthKey,
+        year,
+        monthIndex: month - 1,
+        label: new Intl.DateTimeFormat("es-ES", { month: "short", year: "numeric" }).format(monthDate).replace(/\./g, ""),
+        amount,
+        barWidth: Math.max(7, amount / maximum * 100),
+        isCurrent: monthKey === currentMonthKey,
+      };
+    });
+  }, [entries, driverPeriodMonth, driverPeriodYear, seededDriverShift]);
   const imageDocument = (predicate) => documentPreviews.find((document) => predicate(document) && document.signedUrl)?.signedUrl ?? "";
   const driverImages = {
     fuelReceipt: circlePreviewUrls.fuel || imageDocument((document) => document.extracted_data?.recordType === "fuel" || document.category === "consumption" && document.extracted_data?.metric === "fuel_receipt"),
@@ -1751,7 +1805,6 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     { key: "other", label: "Varios", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "other_expenses")) },
     { key: "total", label: "Total", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "cash_collected") - getDriverEntryAmount(item, "fuel_cost") - getDriverEntryAmount(item, "tolls") - getDriverEntryAmount(item, "other_expenses")) },
   ];
-  const seededDriverShift = vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name)) ?? vehicle?.shifts?.[0] ?? null;
   const seededChartPattern = [0.38, 0.55, 0.46, 0.72, 0.6, 0.82, 1];
   const weeklyChartData = driverWeekDays.map(({ date }, index) => ({
     label: new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", ""),
@@ -1785,6 +1838,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     driverWeekDays={driverWeekDays}
     weeklyRows={weeklyRows}
     weeklyChartData={weeklyChartData}
+    monthlyBillingHistory={monthlyBillingHistory}
+    weeklyConsumptionData={weeklyConsumptionData}
+    weeklyConsumptionAverage={weeklyConsumptionAverage}
+    otherDriversConsumptionAverage={otherDriversConsumptionAverage}
     dailyPhotoRecords={dailyPhotoRecords}
     driverReferenceImages={driverReferenceImages}
     averageConsumption={averageConsumption}
@@ -1930,7 +1987,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   );
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, weeklyRows, weeklyChartData, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyConsumptionAverage, otherDriversConsumptionAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile }) {
   const homeRef = useRef(null);
   const statsRef = useRef(null);
   const historyRef = useRef(null);
@@ -1940,6 +1997,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     consumption: { title: "Ejemplo de consumo", caption: "Historial del vehículo", alt: "Ejemplo de historial de consumo del vehículo" },
     billing: { title: "Ejemplo de facturación", caption: "Resumen semanal", alt: "Ejemplo de resumen semanal de facturación" },
   };
+  const activeBillingMonth = monthlyBillingHistory.find((month) => month.isCurrent) ?? monthlyBillingHistory[monthlyBillingHistory.length - 1] ?? { amount: 0 };
+  const consumptionDifference = weeklyConsumptionAverage - otherDriversConsumptionAverage;
   const scrollTo = (section, ref) => {
     setDriverNavSection(section);
     setDriverMenuOpen(false);
@@ -1995,8 +2054,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
             })}
           </div>
           <div className="driver-mobile-mini-grid">
-              <article className="driver-mobile-mini-card"><div className="driver-mobile-mini-card__header"><div><strong>Consumo medio</strong><span>{averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("consumption")} aria-label="Abrir ejemplo de consumo"><img src={driverReferenceImages.consumption} alt="" loading="lazy" /><span>Ejemplo</span></button></div><ResponsiveContainer width="100%" height={62}><BarChart data={weeklyChartData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Bar dataKey="consumption" fill="#74b9f2" radius={[2, 2, 0, 0]} /></BarChart></ResponsiveContainer></article>
-              <article className="driver-mobile-mini-card"><div className="driver-mobile-mini-card__header"><div><strong>Facturación</strong><span>{formatCurrency(periodSummary.monthlyBilling)}</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("billing")} aria-label="Abrir ejemplo de facturación"><img src={driverReferenceImages.billing} alt="" loading="lazy" /><span>Ejemplo</span></button></div><ResponsiveContainer width="100%" height={62}><LineChart data={weeklyChartData} margin={{ top: 5, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="billing" stroke="#2c6de9" strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer></article>
+            <article className="driver-mobile-mini-card driver-mobile-mini-card--billing-history"><div className="driver-mobile-mini-card__header"><div><strong>Facturación histórica</strong><span>{formatCurrency(activeBillingMonth.amount)} · este conductor</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("billing")} aria-label="Abrir ejemplo de facturación"><img src={driverReferenceImages.billing} alt="" loading="lazy" /><span>Ejemplo</span></button></div><div className="driver-mobile-billing-history" role="list" aria-label="Histórico mensual de facturación del conductor">{monthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-billing-history__month${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><span>{month.label}</span><strong>{formatCurrency(month.amount)}</strong><i style={{ width: `${month.barWidth}%` }} /></button>)}</div></article>
+            <article className="driver-mobile-mini-card driver-mobile-mini-card--consumption-compare"><div className="driver-mobile-mini-card__header"><div><strong>Consumo semanal</strong><span>{weeklyConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km · este conductor</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("consumption")} aria-label="Abrir ejemplo de consumo"><img src={driverReferenceImages.consumption} alt="" loading="lazy" /><span>Ejemplo</span></button></div><div className="driver-mobile-consumption-compare"><span>Resto conductores<strong>{otherDriversConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span><em className={consumptionDifference <= 0 ? "is-better" : "is-higher"}>{consumptionDifference > 0 ? "+" : ""}{consumptionDifference.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</em></div><ResponsiveContainer width="100%" height={62}><LineChart data={weeklyConsumptionData} margin={{ top: 5, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverConsumption" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherConsumption" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-consumption-legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
           </div>
         </section>
         <section ref={historyRef} className="driver-mobile-section driver-mobile-section--history" aria-labelledby="driver-mobile-week-title">

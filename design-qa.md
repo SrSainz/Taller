@@ -66,4 +66,12 @@ passed
 - La carga de Facturación se etiqueta como categoría `billing`; Gasolina, kilómetros y Consumo conservan `consumption`, con `recordType` específico para que el análisis posterior pueda clasificar cada imagen.
 - Verificación final: cinco botones accesibles, etiquetas completas, imágenes contextualizadas, composición sin desbordamiento a 390 px y consola sin errores ni advertencias.
 
+## Iteración actual: estadísticas del conductor
+
+- Implementación: `src/App.jsx` y `src/styles.css`.
+- Evidencia móvil: `design-qa-driver-stats-mobile.png` (390×844 px), vista previa de AIDA PEREZ en `#/administracion` → `5754 MJV` → `Ver aplicación`.
+- La primera tarjeta muestra `Facturación histórica`, agrupa los registros del conductor por mes, permite desplazamiento horizontal y hace seleccionable cada periodo para actualizar la vista.
+- La segunda tarjeta muestra `Consumo semanal`, grafica la línea del conductor frente a la media del resto de conductores profesionales y comunica la diferencia en l/100 km.
+- Verificación final: ambas tarjetas, la tira histórica y la comparación aparecen en el DOM, no existe desbordamiento horizontal a 390 px y la consola permanece sin errores ni advertencias.
+
 final result: passed
