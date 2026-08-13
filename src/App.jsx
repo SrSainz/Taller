@@ -2179,6 +2179,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
 }
 
 function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyConsumptionAverage, otherDriversConsumptionAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile, saveWeeklyAmount }) {
+  const weekSwipeDuration = 420;
   const homeRef = useRef(null);
   const statsRef = useRef(null);
   const historyRef = useRef(null);
@@ -2234,7 +2235,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
       setWeekSwipeActive(false);
       setWeekSwipeTransition(false);
       weekSwipeTimerRef.current = null;
-    }, 280);
+    }, weekSwipeDuration);
   };
   const handleWeekPointerDown = (event) => {
     if (weekSwipeTransition || (event.pointerType === "mouse" && event.button !== 0)) return;
@@ -2306,11 +2307,11 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         <section ref={statsRef} className="driver-mobile-section driver-mobile-section--today" aria-labelledby="driver-mobile-today-title">
           <header className="driver-mobile-section__heading"><h2 id="driver-mobile-today-title">REGISTROS DE HOY · {new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }).format(driverPeriodDate)}</h2><div className="driver-mobile-section__actions"><button type="button" aria-label="Día anterior" onClick={() => moveDay(-1)}><IconChevronLeft size={15} /></button><button type="button" aria-label="Día siguiente" onClick={() => moveDay(1)}><IconChevronRight size={15} /></button></div></header>
           <div className="driver-mobile-record-grid">
-            {dailyPhotoRecords.map(({ key, label, value, image, Icon: RecordIcon, alt }) => {
+            {dailyPhotoRecords.map(({ key, label, image, Icon: RecordIcon, alt }) => {
               const isUploading = circleUpload.key === key && circleUpload.status === "uploading";
               const isAttached = circleUpload.key === key && ["saved", "local"].includes(circleUpload.status);
-              const statusLabel = isUploading ? "Subiendo…" : isAttached ? "Adjuntada" : "Toca para adjuntar";
-              return <button type="button" className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key} onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={preview ? "Vista previa de solo lectura" : `Adjuntar foto o documento de ${label.toLowerCase()}`}><span>{label}</span><strong>{value}</strong><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><small className="driver-mobile-record-card__status">{statusLabel}</small></button>;
+              const statusLabel = isUploading ? "Subiendo…" : isAttached ? "Adjuntada" : "Sin adjunto";
+              return <button type="button" className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key} onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={preview ? "Vista previa de solo lectura" : `Adjuntar foto o documento de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>;
             })}
           </div>
           {preview && <div className="driver-mobile-preview-mini-grid">
