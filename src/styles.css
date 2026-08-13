@@ -3212,7 +3212,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-topbar__icon:hover, .driver-mobile-topbar__icon:focus-visible { background: rgba(255,255,255,.12); outline: 0; }
 .driver-mobile-topbar__title { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; }
 .driver-mobile-topbar__title strong { min-width: 0; overflow: hidden; flex: 1 1 auto; max-width: 100%; font-size: clamp(15px, 4.6vw, 19px); font-weight: 850; letter-spacing: .08em; text-overflow: ellipsis; white-space: nowrap; }
-.driver-mobile-topbar__title small { flex: 0 0 auto; max-width: 45%; overflow: hidden; color: #fff; font-size: 10px; font-weight: 850; letter-spacing: .12em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.driver-mobile-topbar__title small { flex: 0 0 auto; max-width: 45%; overflow: hidden; color: #fff; font-size: clamp(15px, 4.6vw, 19px); font-weight: 850; letter-spacing: .08em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .driver-mobile-topbar__popover { position: absolute; z-index: 45; top: calc(100% - 1px); border: 1px solid rgba(14,53,112,.13); border-radius: 0 0 12px 12px; background: #fff; color: #15233d; box-shadow: 0 14px 25px rgba(11,35,74,.2); }
 .driver-mobile-topbar__popover--menu { left: 10px; width: min(230px, calc(100% - 20px)); padding: 7px; }
 .driver-mobile-topbar__popover--menu button { width: 100%; min-height: 38px; display: flex; align-items: center; gap: 9px; padding: 7px 9px; border: 0; border-radius: 8px; background: transparent; color: inherit; font-size: 11px; font-weight: 750; text-align: left; cursor: pointer; }
@@ -3226,7 +3226,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-app--preview .driver-mobile-topbar { grid-template-columns: minmax(0, 1fr); min-height: 42px; padding: 3px 10px; }
 .driver-app--preview .driver-mobile-topbar__icon, .driver-app--preview .driver-mobile-topbar__popover { display: none; }
 .driver-app--preview .driver-mobile-topbar__title strong { font-size: clamp(16px, 5vw, 21px); }
-.driver-app--preview .driver-mobile-topbar__title small { font-size: 10px; }
+.driver-app--preview .driver-mobile-topbar__title small { font-size: clamp(16px, 5vw, 21px); letter-spacing: .08em; }
 .driver-mobile-body { display: grid; gap: 14px; min-height: calc(100dvh - 56px); padding: 14px 12px 92px; }
 .driver-app--preview .driver-mobile-body { min-height: calc(100dvh - 42px); padding-bottom: 24px; }
 .driver-mobile-message { padding: 8px 10px; border: 1px solid #b8d0ee; border-radius: 9px; background: #eff6ff; color: #164888; font-size: 9px; font-weight: 650; }
