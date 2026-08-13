@@ -3209,7 +3209,12 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-topbar__popover--notice span { display: grid; gap: 2px; }
 .driver-mobile-topbar__popover--notice strong { font-size: 11px; }
 .driver-mobile-topbar__popover--notice small { color: #76839a; font-size: 9px; }
+.driver-app--preview .driver-mobile-topbar { grid-template-columns: minmax(0, 1fr); min-height: 48px; padding: 4px 12px; }
+.driver-app--preview .driver-mobile-topbar__icon, .driver-app--preview .driver-mobile-topbar__popover { display: none; }
+.driver-app--preview .driver-mobile-topbar__title strong { font-size: 14px; }
+.driver-app--preview .driver-mobile-topbar__title small { font-size: 8px; }
 .driver-mobile-body { display: grid; gap: 14px; min-height: calc(100dvh - 70px); padding: 14px 12px 92px; }
+.driver-app--preview .driver-mobile-body { min-height: calc(100dvh - 48px); padding-bottom: 24px; }
 .driver-mobile-message { padding: 8px 10px; border: 1px solid #b8d0ee; border-radius: 9px; background: #eff6ff; color: #164888; font-size: 9px; font-weight: 650; }
 .driver-mobile-section { min-width: 0; scroll-margin-top: 82px; }
 .driver-mobile-month-summary { overflow: hidden; padding: 10px 9px 12px; border-radius: 0 0 15px 15px; background: #092e68; box-shadow: 0 8px 17px rgba(18, 43, 83, .14); }
@@ -3353,6 +3358,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-entry footer > span { min-width: 0; color: #52709d; font-size: 8px; }
 .driver-mobile-entry footer .primary-button { min-height: 34px; padding: 0 10px; background: #092e68; font-size: 9px; }
 .driver-mobile-bottom-nav { position: fixed; z-index: 50; right: auto; bottom: 0; left: 50%; width: min(480px, 100%); height: calc(70px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; padding: 8px 8px env(safe-area-inset-bottom); transform: translateX(-50%); background: #092e68; box-shadow: 0 -5px 18px rgba(9,37,83,.2); }
+.driver-app--preview .driver-mobile-bottom-nav { display: none; }
 .driver-mobile-bottom-nav button { min-width: 0; min-height: 46px; display: grid; align-content: center; justify-items: center; gap: 2px; padding: 3px 2px; border: 0; border-radius: 9px; background: transparent; color: rgba(255,255,255,.7); cursor: pointer; }
 .driver-mobile-bottom-nav button:hover, .driver-mobile-bottom-nav button:focus-visible, .driver-mobile-bottom-nav button.is-active { background: rgba(255,255,255,.1); color: #fff; outline: 0; }
 .driver-mobile-bottom-nav button span { overflow: hidden; max-width: 100%; font-size: 7px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
