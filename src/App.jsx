@@ -2192,6 +2192,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const weekSwipeViewportRef = useRef(null);
   const weekGestureRef = useRef({ pointerId: null, startX: 0, startY: 0, axis: "", offset: 0 });
   const weekSwipeTimerRef = useRef(null);
+  const weekSwipeDirectionRef = useRef(0);
   const weekSuppressClickRef = useRef(false);
   const [referenceOpen, setReferenceOpen] = useState("");
   const [weekSwipeOffset, setWeekSwipeOffset] = useState(0);
@@ -2230,18 +2231,26 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     const displayedValue = hasDraft ? weeklyDrafts[draftKey] : (Number(value) || 0).toFixed(2).replace(".", ",");
     return <span className="driver-mobile-week-table__amount-editor"><input className="driver-mobile-week-table__amount-input" type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" value={displayedValue} aria-label={`${row.label} del ${dateKey}`} placeholder="0,00" onChange={(event) => setWeeklyDrafts((current) => ({ ...current, [draftKey]: event.target.value }))} onBlur={async () => { const nextValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : displayedValue; await saveWeeklyAmount(dateKey, row.key, nextValue); setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); event.currentTarget.blur(); } }} /><b aria-hidden="true">€</b></span>;
   };
+  const completeWeekSwipe = () => {
+    const direction = weekSwipeDirectionRef.current;
+    if (!weekSwipeTransition && !weekSwipeActive && direction === 0) return;
+    window.clearTimeout(weekSwipeTimerRef.current);
+    weekSwipeTimerRef.current = null;
+    if (direction !== 0) shiftDriverWeek(direction);
+    weekSwipeDirectionRef.current = 0;
+    setWeekSwipeOffset(0);
+    setWeekSwipeActive(false);
+    setWeekSwipeTransition(false);
+  };
   const settleWeekSwipe = (direction) => {
     const width = weekSwipeViewportRef.current?.clientWidth ?? 320;
     window.clearTimeout(weekSwipeTimerRef.current);
+    weekSwipeDirectionRef.current = direction;
     setWeekSwipeTransition(true);
     setWeekSwipeOffset(direction === 0 ? 0 : direction > 0 ? -width : width);
-    weekSwipeTimerRef.current = window.setTimeout(() => {
-      if (direction !== 0) shiftDriverWeek(direction);
-      setWeekSwipeOffset(0);
-      setWeekSwipeActive(false);
-      setWeekSwipeTransition(false);
-      weekSwipeTimerRef.current = null;
-    }, weekSwipeDuration);
+    // La transición real es la que confirma el cambio; este temporizador solo evita
+    // que el carrusel quede bloqueado si el navegador no emite transitionend.
+    weekSwipeTimerRef.current = window.setTimeout(completeWeekSwipe, weekSwipeDuration + 120);
   };
   const handleWeekPointerDown = (event) => {
     if (weekSwipeTransition || (event.pointerType === "mouse" && event.button !== 0)) return;
@@ -2331,7 +2340,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         </section>
         <section ref={historyRef} className="driver-mobile-section driver-mobile-section--history" aria-labelledby="driver-mobile-week-title">
           <div ref={weekSwipeViewportRef} className={`driver-mobile-week-swipe-wrap${weekSwipeActive ? " is-dragging" : ""}`} role="region" aria-label="Semana desplazable" onPointerDown={handleWeekPointerDown} onPointerMove={handleWeekPointerMove} onPointerUp={handleWeekPointerEnd} onPointerCancel={handleWeekPointerEnd} onClickCapture={handleWeekClickCapture}>
-            <div className={`driver-mobile-week-track${weekSwipeTransition ? " is-animating" : ""}`} style={{ transform: `translate3d(calc(-33.333333% + ${weekSwipeOffset}px), 0, 0)` }}>
+            <div className={`driver-mobile-week-track${weekSwipeTransition ? " is-animating" : ""}`} onTransitionEnd={(event) => { if (event.propertyName === "transform") completeWeekSwipe(); }} style={{ transform: `translate3d(calc(-33.333333% + ${weekSwipeOffset}px), 0, 0)` }}>
               {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={`${page.key}-${row.key}`}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{weeklyCell(row, value, page.days[index].key)}</td>)}</tr>)}</tbody></table></div>)}
             </div>
           </div>
