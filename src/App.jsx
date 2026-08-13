@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   IconAlertTriangle,
   IconBrandUber,
@@ -2200,7 +2201,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
 }
 
 function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyConsumptionAverage, otherDriversConsumptionAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile, saveWeeklyAmount }) {
-  const weekSwipeDuration = 420;
+  const weekSwipeDuration = 520;
   const homeRef = useRef(null);
   const statsRef = useRef(null);
   const historyRef = useRef(null);
@@ -2252,11 +2253,13 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     if (!weekSwipeTransition && !weekSwipeActive && direction === 0) return;
     window.clearTimeout(weekSwipeTimerRef.current);
     weekSwipeTimerRef.current = null;
-    if (direction !== 0) shiftDriverWeek(direction);
-    weekSwipeDirectionRef.current = 0;
-    setWeekSwipeOffset(0);
-    setWeekSwipeActive(false);
-    setWeekSwipeTransition(false);
+    flushSync(() => {
+      if (direction !== 0) shiftDriverWeek(direction);
+      weekSwipeDirectionRef.current = 0;
+      setWeekSwipeOffset(0);
+      setWeekSwipeActive(false);
+      setWeekSwipeTransition(false);
+    });
   };
   const settleWeekSwipe = (direction) => {
     const width = weekSwipeViewportRef.current?.clientWidth ?? 320;
@@ -2357,7 +2360,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         </section>
         <section ref={historyRef} className="driver-mobile-section driver-mobile-section--history" aria-labelledby="driver-mobile-week-title">
           <div ref={weekSwipeViewportRef} className={`driver-mobile-week-swipe-wrap${weekSwipeActive ? " is-dragging" : ""}`} role="region" aria-label="Semana desplazable" onPointerDown={handleWeekPointerDown} onPointerMove={handleWeekPointerMove} onPointerUp={handleWeekPointerEnd} onPointerCancel={handleWeekPointerEnd} onClickCapture={handleWeekClickCapture}>
-            <div className={`driver-mobile-week-track${weekSwipeTransition ? " is-animating" : ""}`} onTransitionEnd={(event) => { if (event.propertyName === "transform") completeWeekSwipe(); }} style={{ transform: `translate3d(calc(-33.333333% + ${weekSwipeOffset}px), 0, 0)` }}>
+            <div className={`driver-mobile-week-track${weekSwipeTransition ? " is-animating" : ""}`} onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "transform") completeWeekSwipe(); }} style={{ transform: `translate3d(calc(-33.333333% + ${weekSwipeOffset}px), 0, 0)` }}>
               {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={`${page.key}-${row.key}`}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{weeklyCell(row, value, page.days[index].key)}</td>)}</tr>)}</tbody></table></div>)}
             </div>
           </div>
