@@ -356,7 +356,7 @@ const maintenanceConceptRows = [
   { label: "Varios", matches: ["varios", "otros"] },
 ];
 
-const photoInvoiceStorageKey = "talleria:photo-invoices:clean-v2";
+const photoInvoiceStorageKey = "talleria:photo-invoices:clean-v3";
 const processedDocumentStorageKey = "talleria:processed-documents:v1";
 const migratedPlates = { "3456 HTR": "0344 LCP", "7890 GYL": "9401 LTG" };
 
@@ -391,7 +391,7 @@ const netAdditionalExpenseAmounts = {};
 const netPayrollAmounts = {};
 const netSocialSecurityAmounts = {};
 
-const manualNetExpensesStorageKey = "talleria:manual-net-expenses:clean-v2";
+const manualNetExpensesStorageKey = "talleria:manual-net-expenses:clean-v3";
 const loadManualNetExpenses = () => {
   try {
     if (typeof window === "undefined") return [];
@@ -2922,32 +2922,13 @@ function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onN
   }), { liters: 0, cost: 0, refuels: 0 });
   const totalDistance = 0;
   const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
-  const billingRows = vehicles
-    .filter((vehicle) => vehicle.use === "Profesional")
-    .flatMap((vehicle, vehicleIndex) => vehicle.drivers.map((driver, driverIndex) => {
-      const activity = getDriverDay(vehicle, driver);
-      return {
-        key: `${vehicle.plate}-${driver}`,
-        driver,
-        plate: vehicle.plate,
-        model: vehicle.model,
-        trips: Math.round(activity.monthTrips * periodFactor),
-        revenue: Math.round(activity.monthRevenue * periodFactor * (1 + ((vehicleIndex + driverIndex) % 3 - 1) * 0.018)),
-      };
-    }));
+  const billingRows = getDriverBillingRows(vehicles, driverEntries, reportMonth, reportYear);
   const billingChartData = billingRows.map((row) => ({
     label: row.driver,
     detail: row.plate,
     value: row.revenue,
   }));
-  const chartVehicleStats = vehicles.map((vehicle) => {
-    const sourceVehicle = vehiclesSeed.find((candidate) => candidate.plate === vehicle.plate) ?? vehicle;
-    const entries = (sourceVehicle.monthlyFuel ?? []).map((entry) => ({
-      ...entry,
-      cost: Number(((entry.cost ?? 0) * periodFactor).toFixed(2)),
-    }));
-    return { vehicle, cost: entries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0) };
-  });
+  const chartVehicleStats = vehicles.map((vehicle) => ({ vehicle, cost: 0 }));
   const fuelChartData = chartVehicleStats.map(({ vehicle, cost }, index) => ({
     label: vehicle.plate,
     detail: vehicle.model,
@@ -2956,7 +2937,7 @@ function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onN
   const maintenanceChartData = vehicles.map((vehicle) => ({
     label: vehicle.plate,
     detail: vehicle.model,
-    value: getMaintenanceAmountForPeriod(vehiclesSeed.find((candidate) => candidate.plate === vehicle.plate) ?? vehicle, reportMonth, reportYear),
+    value: getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear),
   }));
   const netPeriodKey = `${reportYear}-${reportMonth}`;
   const netVehicleDetails = vehicles
