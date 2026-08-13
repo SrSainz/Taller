@@ -1643,7 +1643,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       if (file && supabase) {
         try {
           const extractedData = { date: entry.entryDate, cost: data.fuel_cost, consumption: data.fuel_liters, unit: "L", odometerKm: data.odometer_km, billing: data.billing, cashCollected: data.cash_collected, tips: data.tips, tolls: data.tolls, otherExpenses: data.other_expenses };
-          savedDocument = await uploadDocumentRecord({ ownerId: session.user.id, category: "consumption", vehiclePlate: profile.vehicle_plate, file, extractedData, status: "review" });
+          savedDocument = await uploadDocumentRecord({ ownerId: activeProfileId, category: "consumption", vehiclePlate: profile.vehicle_plate, file, extractedData, status: "review" });
           savedDocument = { ...savedDocument, extracted_data: extractedData };
           uploadMessage = " y el justificante se ha archivado";
         } catch (uploadError) {
@@ -1849,10 +1849,6 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     billing: "/assets/driver-examples/photo-5.jpg",
   };
   const openCirclePicker = (recordKey) => {
-    if (preview) {
-      setMessage("La vista previa es de solo lectura. El conductor adjunta las fotos desde su cuenta.");
-      return;
-    }
     circleUploadKeyRef.current = recordKey;
     const input = circleFileInputRef.current;
     if (!input) return;
@@ -1980,26 +1976,19 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     }
   };
   const saveWeeklyAmount = async (dateKey, rowKey, rawValue) => {
-    if (preview) {
-      setMessage("La vista previa es de solo lectura. El conductor puede editar sus gastos desde su cuenta.");
-      return;
-    }
     const amount = Math.max(0, Number(String(rawValue ?? "").replace(",", ".")) || 0);
-    if (rowKey === "wash") {
-      try {
-        await upsertDriverEntry(dateKey, { wash_expenses: amount });
-        setWeeklyManualValues((current) => ({ ...current, [dateKey]: { ...(current[dateKey] ?? {}), wash: amount } }));
-        setMessage(`Lavados del ${dateKey}: ${formatCurrency(amount)}.`);
-      } catch (error) {
-        setMessage(`No se ha podido guardar ese lavado: ${error.message}`);
-      }
-      return;
-    }
+    const entryFieldByRow = { cash: "cash_collected", fuel: "fuel_cost", tolls: "tolls", wash: "wash_expenses", other: "other_expenses" };
+    const rowLabelByKey = { cash: "Efectivo", fuel: "Repostajes", tolls: "Peajes", wash: "Lavados", other: "Varios" };
+    const entryField = entryFieldByRow[rowKey];
+    if (!entryField) return;
     try {
-      await upsertDriverEntry(dateKey, { [rowKey === "tolls" ? "tolls" : "other_expenses"]: amount });
-      setMessage(`${rowKey === "tolls" ? "Peajes" : "Varios"} del ${dateKey}: ${formatCurrency(amount)}.`);
+      await upsertDriverEntry(dateKey, { [entryField]: amount });
+      if (rowKey === "wash") {
+        setWeeklyManualValues((current) => ({ ...current, [dateKey]: { ...(current[dateKey] ?? {}), wash: amount } }));
+      }
+      setMessage(`${rowLabelByKey[rowKey]} del ${dateKey}: ${formatCurrency(amount)}.`);
     } catch (error) {
-      setMessage(`No se ha podido guardar ese gasto: ${error.message}`);
+      setMessage(`No se ha podido guardar ${rowLabelByKey[rowKey].toLowerCase()}: ${error.message}`);
     }
   };
   const weeklyRows = [
@@ -2084,7 +2073,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         <button className="driver-app__logout" type="button" onClick={preview ? onExitPreview : onSignOut} aria-label={preview ? "Volver a administración" : "Cerrar sesión"}><IconLogout size={18} /></button>
       </header>
       <div className="driver-app__body">
-        {preview && <div className="driver-preview-banner" role="status"><IconEye size={18} /><span><strong>Vista previa de {profile.full_name}</strong><small>Estás viendo la aplicación tal y como la verá este conductor. Los cambios están desactivados.</small></span><button type="button" className="secondary-button" onClick={onExitPreview}>Volver a administración</button></div>}
+        {preview && <div className="driver-preview-banner" role="status"><IconEye size={18} /><span><strong>Vista previa de {profile.full_name}</strong><small>El administrador puede adjuntar las cinco lecturas y editar los importes semanales desde esta vista.</small></span><button type="button" className="secondary-button" onClick={onExitPreview}>Volver a administración</button></div>}
         <section className="driver-welcome">
           <div className="driver-welcome__identity"><span>HOLA</span><h1>{profile.full_name.toUpperCase()}</h1></div>
           <div className="driver-welcome__vehicle">
@@ -2233,12 +2222,13 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   };
   const currentWeekPage = driverWeekPages.find((page) => page.offset === 0) ?? driverWeekPages[1];
   const weekLabel = currentWeekPage?.days?.[0]?.date ? new Intl.DateTimeFormat("es-ES", { day: "numeric" }).format(currentWeekPage.days[0].date) : "";
-  const editableWeeklyRows = new Set(["tolls", "wash", "other"]);
+  const editableWeeklyRows = new Set(["cash", "fuel", "tolls", "wash", "other"]);
   const weeklyCell = (row, value, dateKey) => {
     if (!editableWeeklyRows.has(row.key)) return formatCurrency(value);
     const draftKey = `${dateKey}:${row.key}`;
-    const displayedValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : (Number(value) || 0);
-    return <input className="driver-mobile-week-table__amount-input" type="number" min="0" step="0.01" inputMode="decimal" value={displayedValue} disabled={preview} aria-label={`${row.label} del ${dateKey}`} placeholder="0,00" onChange={(event) => setWeeklyDrafts((current) => ({ ...current, [draftKey]: event.target.value }))} onBlur={async () => { const nextValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : displayedValue; await saveWeeklyAmount(dateKey, row.key, nextValue); setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); event.currentTarget.blur(); } }} />;
+    const hasDraft = Object.hasOwn(weeklyDrafts, draftKey);
+    const displayedValue = hasDraft ? weeklyDrafts[draftKey] : (Number(value) || 0).toFixed(2).replace(".", ",");
+    return <span className="driver-mobile-week-table__amount-editor"><input className="driver-mobile-week-table__amount-input" type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" value={displayedValue} aria-label={`${row.label} del ${dateKey}`} placeholder="0,00" onChange={(event) => setWeeklyDrafts((current) => ({ ...current, [draftKey]: event.target.value }))} onBlur={async () => { const nextValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : displayedValue; await saveWeeklyAmount(dateKey, row.key, nextValue); setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); event.currentTarget.blur(); } }} /><b aria-hidden="true">€</b></span>;
   };
   const settleWeekSwipe = (direction) => {
     const width = weekSwipeViewportRef.current?.clientWidth ?? 320;
@@ -2310,7 +2300,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
       </header>
       <div className="driver-mobile-body">
         {message && <div className="driver-mobile-message" role="status">{message}</div>}
-        <input ref={circleFileInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Adjuntar una foto o documento del registro" onChange={handleCircleFile} />
+        <input ref={circleFileInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Elegir cámara o archivo para el registro" onChange={handleCircleFile} />
         <section ref={homeRef} className="driver-mobile-section driver-mobile-section--home" aria-label="Resumen del conductor">
           <article className="driver-mobile-month-summary">
             <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{(vehicle?.owner?.dni ?? "").replaceAll("-", "")}</b></span></div>
@@ -2327,7 +2317,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
               const isUploading = circleUpload.key === key && circleUpload.status === "uploading";
               const isAttached = circleUpload.key === key && ["saved", "local"].includes(circleUpload.status);
               const statusLabel = isUploading ? "Subiendo…" : isAttached ? "Adjuntada" : "Sin adjunto";
-              return <button type="button" className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key} onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={preview ? "Vista previa de solo lectura" : `Adjuntar foto o documento de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>;
+              return <button type="button" className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key} onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={`Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>;
             })}
           </div>
           {preview && <div className="driver-mobile-preview-mini-grid">
