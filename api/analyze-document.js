@@ -17,7 +17,7 @@ const billingSchema = {
     expenseCategory: { type: ["string", "null"] },
     vehicle: { type: ["string", "null"] },
   },
-  required: ["company", "invoiceNumber", "issueDate", "serviceDate", "taxBase", "vat", "total", "netAmount", "concept", "expenseCategory", "vehicle"],
+  required: ["company", "invoiceNumber", "issueDate", "serviceDate", "taxBase", "vat", "total", "netAmount", "cashCollected", "concept", "expenseCategory", "vehicle"],
 };
 
 const consumptionSchema = {
@@ -34,7 +34,7 @@ const consumptionSchema = {
     cost: { type: ["number", "null"] },
     costPerUnit: { type: ["number", "null"] },
   },
-  required: ["date", "supplyType", "consumptionPeriod", "consumption", "unit", "cost", "costPerUnit"],
+  required: ["date", "supplyType", "consumptionPeriod", "consumption", "dailyKm", "odometerKm", "unit", "cost", "costPerUnit"],
 };
 
 const json = (res, status, payload) => {
@@ -60,7 +60,7 @@ const fieldConfidenceSchema = (schema) => ({
   required: Object.keys(schema.properties),
 });
 
-const buildSchema = (category) => {
+export const buildSchema = (category) => {
   const fields = category === "billing" ? billingSchema : consumptionSchema;
   return {
     type: "object",
@@ -77,11 +77,11 @@ const buildSchema = (category) => {
   };
 };
 
-const buildPrompt = (category) => {
+export const buildPrompt = (category) => {
   if (category === "billing") {
-    return `Analiza este documento de facturación usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: empresa, número de factura, fechas de emisión y servicio, base imponible, IVA, total, importe neto, efectivo o efectivo cobrado si aparece, concepto, categoría de gasto y matrícula o referencia de vehículo si aparece. Si aparece una cifra de efectivo cobrado, úsala en cashCollected; no la confundas con el total si son diferentes. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros, sin símbolo. Si un dato no aparece devuelve null. Clasifica la categoría de gasto con una etiqueta corta en español. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
+    return `Analiza este documento de facturación usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: empresa, número de factura, fechas de emisión y servicio, base imponible, IVA, total, importe neto, efectivo o efectivo cobrado si aparece, concepto, categoría de gasto y matrícula o referencia de vehículo si aparece. La fecha debe proceder exclusivamente del texto visible del documento, nunca de la fecha actual, de la subida ni del nombre del archivo. Si el documento representa la actividad de un día, usa ese día en serviceDate; usa issueDate para la fecha de emisión impresa. Extrae en cashCollected únicamente la cifra rotulada como "Efectivo", "Efectivo cobrado" o equivalente inequívoco; no uses el total facturado como sustituto si ese dato no aparece. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros, sin símbolo. Si un dato no aparece devuelve null. Clasifica la categoría de gasto con una etiqueta corta en español. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
   }
-  return `Analiza este documento de consumo, repostaje o lectura del vehículo usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: fecha, tipo de suministro, periodo de consumo, consumo registrado, kilómetros diarios si aparecen, kilometraje acumulado del cuentakilómetros si aparece, unidad, coste y coste por unidad. Para una foto del cuadro del coche, identifica el número de kilómetros mostrado y úsalo en odometerKm; si se muestra una distancia del día, úsala en dailyKm. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros y el consumo y kilometrajes números, sin símbolos. Si un dato no aparece devuelve null. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
+  return `Analiza este documento de consumo, repostaje o lectura del vehículo usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: fecha, tipo de suministro, periodo de consumo, consumo registrado, kilómetros diarios si aparecen, kilometraje acumulado del cuentakilómetros si aparece, unidad, coste y coste por unidad. En un ticket o factura de gasolina, date debe ser la fecha de operación o factura impresa en el documento, nunca la fecha actual, la fecha de subida ni la del nombre del archivo. En ese caso, cost debe ser el importe TOTAL finalmente pagado de la factura; no uses la base imponible, los impuestos aislados, los litros ni el precio por litro. Para una foto del cuadro del coche, identifica el número de kilómetros mostrado y úsalo en odometerKm; si se muestra una distancia del día, úsala en dailyKm. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros y el consumo y kilometrajes números, sin símbolos. Si un dato no aparece devuelve null. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
 };
 
 const extractOutputText = (body) => {
@@ -112,7 +112,10 @@ export default async function handler(req, res) {
     return json(res, 405, { code: "METHOD_NOT_ALLOWED", message: "Método no permitido." });
   }
 
-  if (!process.env.OPENAI_API_KEY?.trim()) {
+  const directOpenAiKey = process.env.OPENAI_API_KEY?.trim();
+  const gatewayToken = process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim();
+  const aiToken = directOpenAiKey || gatewayToken;
+  if (!aiToken) {
     return json(res, 503, { code: "AI_NOT_CONFIGURED", message: "El servicio de IA no está configurado en el servidor." });
   }
 
@@ -141,14 +144,15 @@ export default async function handler(req, res) {
     content.push({ type: "input_image", image_url: dataUrl, detail: "high" });
   }
 
-  const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
+  const usesGateway = !directOpenAiKey;
+  const openAiResponse = await fetch(usesGateway ? "https://ai-gateway.vercel.sh/v1/responses" : "https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY.trim()}`,
+      Authorization: `Bearer ${aiToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_DOCUMENT_MODEL?.trim() || "gpt-4.1-mini",
+      model: process.env.OPENAI_DOCUMENT_MODEL?.trim() || (usesGateway ? "openai/gpt-5.4" : "gpt-4.1-mini"),
       input: [{ role: "user", content }],
       text: { format: { type: "json_schema", name: "fleet_document_extraction", strict: true, schema: buildSchema(category) } },
     }),

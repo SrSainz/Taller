@@ -1908,13 +1908,17 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         return value && typeof value === "object" && "value" in value ? value.value : value;
       };
       const numberValue = (...keys) => keys.map((key) => getDriverDocumentNumber(fieldValue(key))).find((value) => value > 0) || 0;
-      const detectedDate = normalizeDriverDocumentDate(fieldValue("date") || fieldValue("serviceDate") || fieldValue("issueDate")) ?? selectedDate;
+      const printedDate = recordKey === "billing"
+        ? fieldValue("serviceDate") || fieldValue("issueDate")
+        : fieldValue("date");
+      const detectedDate = normalizeDriverDocumentDate(printedDate);
+      const targetDate = detectedDate ?? selectedDate;
       const unit = normalizeText(fieldValue("unit") || "");
-      const totalBilling = numberValue("total", "netAmount", "cashCollected");
-      const cashCollected = numberValue("cashCollected", "total", "netAmount");
+      const totalBilling = numberValue("total", "netAmount");
+      const cashCollected = numberValue("cashCollected");
       const extractedData = {
         ...baseExtractedData,
-        date: detectedDate,
+        date: detectedDate ?? (recordKey === "fuel" || recordKey === "billing" ? null : targetDate),
         analysisStatus: "complete",
         analyzedAt: responseBody?.analyzedAt ?? new Date().toISOString(),
         documentType: responseBody?.documentType ?? "",
@@ -1931,25 +1935,25 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         unit: fieldValue("unit") ?? "",
       };
       const entryPatch = {};
-      if (recordKey === "fuel") {
+      if (recordKey === "fuel" && detectedDate) {
         if (extractedData.cost > 0) entryPatch.fuel_cost = extractedData.cost;
         if (extractedData.consumption > 0 && !unit.includes("100")) entryPatch.fuel_liters = extractedData.consumption;
         if (extractedData.odometerKm > 0) entryPatch.odometer_km = extractedData.odometerKm;
-      } else if (recordKey === "billing") {
+      } else if (recordKey === "billing" && detectedDate) {
         if (totalBilling > 0) entryPatch.billing = totalBilling;
         if (cashCollected > 0) entryPatch.cash_collected = cashCollected;
       } else if (["daily-km", "total-km"].includes(recordKey)) {
-        const previous = [...entries].filter((item) => String(item.entry_date ?? "") < detectedDate).sort((left, right) => String(right.entry_date ?? "").localeCompare(String(left.entry_date ?? "")))[0];
+        const previous = [...entries].filter((item) => String(item.entry_date ?? "") < targetDate).sort((left, right) => String(right.entry_date ?? "").localeCompare(String(left.entry_date ?? "")))[0];
         const detectedKm = extractedData.odometerKm || (recordKey === "daily-km" && extractedData.dailyKm > 0 ? getDriverEntryAmount(previous, "odometer_km") + extractedData.dailyKm : 0);
         if (detectedKm > 0) entryPatch.odometer_km = detectedKm;
         extractedData.odometerKm = detectedKm;
-        setCircleMetricValues((current) => ({ ...current, [detectedDate]: { ...(current[detectedDate] ?? {}), ...(recordKey === "daily-km" && extractedData.dailyKm > 0 ? { dailyKm: extractedData.dailyKm } : {}), ...(recordKey === "total-km" && detectedKm > 0 ? { totalKm: detectedKm } : {}) } }));
+        setCircleMetricValues((current) => ({ ...current, [targetDate]: { ...(current[targetDate] ?? {}), ...(recordKey === "daily-km" && extractedData.dailyKm > 0 ? { dailyKm: extractedData.dailyKm } : {}), ...(recordKey === "total-km" && detectedKm > 0 ? { totalKm: detectedKm } : {}) } }));
       }
       if (recordKey === "consumption" && extractedData.consumption > 0) {
-        setCircleMetricValues((current) => ({ ...current, [detectedDate]: { ...(current[detectedDate] ?? {}), consumption: extractedData.consumption, consumptionUnit: extractedData.unit || "l/100 km" } }));
+        setCircleMetricValues((current) => ({ ...current, [targetDate]: { ...(current[targetDate] ?? {}), consumption: extractedData.consumption, consumptionUnit: extractedData.unit || "l/100 km" } }));
       }
-      if (Object.keys(entryPatch).length > 0) await upsertDriverEntry(detectedDate, entryPatch);
-      if (detectedDate !== selectedDate) setSelectedDate(detectedDate);
+      if (Object.keys(entryPatch).length > 0) await upsertDriverEntry(targetDate, entryPatch);
+      if (detectedDate && detectedDate !== selectedDate) setSelectedDate(detectedDate);
       let savedDocument = { id: `local-circle-${Date.now()}`, owner_id: activeProfileId, category: documentCategory, vehicle_plate: profile.vehicle_plate, file_name: optimized.name || file.name, mime_type: optimized.type || file.type, file_size: optimized.size || file.size, extracted_data: extractedData, status: "review", created_at: new Date().toISOString() };
       if (supabase) {
         const uploaded = await uploadDocumentRecord({ ownerId: activeProfileId, category: documentCategory, vehiclePlate: profile.vehicle_plate, file: optimized, extractedData, overallConfidence: extractedData.overallConfidence, status: "review" });
@@ -1957,7 +1961,15 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       }
       setDocuments((current) => [savedDocument, ...current.filter((document) => document.id !== savedDocument.id)]);
       setCircleUpload({ key: recordKey, status: supabase ? "saved" : "local", fileName: file.name });
-      setMessage(`${selectedRecord?.label ?? "Registro"} actualizado para el ${detectedDate}.`);
+      if ((recordKey === "fuel" || recordKey === "billing") && !detectedDate) {
+        setMessage("Documento archivado para revisión: la fecha impresa no se ha podido leer con seguridad.");
+      } else if (recordKey === "fuel" && extractedData.cost > 0) {
+        setMessage(`Factura de gasolina aplicada a Repostajes del ${detectedDate}: ${formatCurrency(extractedData.cost)}.`);
+      } else if (recordKey === "billing" && cashCollected > 0) {
+        setMessage(`Efectivo cobrado aplicado al ${detectedDate}: ${formatCurrency(cashCollected)}.`);
+      } else {
+        setMessage(`${selectedRecord?.label ?? "Registro"} actualizado para el ${targetDate}.`);
+      }
     } catch (error) {
       const pendingData = { ...baseExtractedData, analysisError: error.message, analysisCode: error.code ?? "PROCESSING_ERROR" };
       try {
