@@ -1815,6 +1815,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const data = document.extracted_data ?? {};
     const recordType = data.recordType;
     if (recordType === "consumption" && getDriverDocumentNumber(data.consumption) > 0) values.consumption = getDriverDocumentNumber(data.consumption);
+    if (recordType === "daily-km" && getDriverDocumentNumber(data.dailyKm) > 0) values.dailyKm = getDriverDocumentNumber(data.dailyKm);
     if (data.unit) values.consumptionUnit = data.unit;
     if (recordType === "total-km" && getDriverDocumentNumber(data.odometerKm ?? data.odometer_km) > 0) values.totalKm = getDriverDocumentNumber(data.odometerKm ?? data.odometer_km);
     return values;
@@ -1823,7 +1824,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const dailyPhotoRecords = [
     { key: "fuel", label: "Gasolina", value: formatCurrency(selectedDayData.fuel_cost), image: driverImages.fuelReceipt, Icon: IconGasStation, alt: "Justificante de gasolina" },
     { key: "billing", label: "Facturación", value: formatCurrency(selectedDayData.billing), image: driverImages.billingReceipt, Icon: IconFileInvoice, alt: "Foto de facturación diaria" },
-    { key: "daily-km", label: "Km diarios", value: formatKm(partialKm2), image: driverImages.dailyKm, Icon: IconGauge, alt: "Lectura de kilómetros diarios" },
+    { key: "daily-km", label: "Km diarios", value: formatKm(directCircleValues.dailyKm ?? partialKm2), image: driverImages.dailyKm, Icon: IconGauge, alt: "Lectura de kilómetros diarios" },
     { key: "total-km", label: "Km acumulados", value: formatKm(directCircleValues.totalKm ?? vehicle?.odometer ?? selectedOdometer), image: driverImages.totalKm, Icon: IconGauge, alt: "Lectura de kilómetros acumulados" },
     { key: "consumption", label: "Consumo", value: `${Number(directCircleValues.consumption || averageConsumption).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${directCircleValues.consumptionUnit || "l/100 km"}`, image: driverImages.consumption, Icon: IconChartBar, alt: "Historial de consumo del vehículo" },
   ];
@@ -1930,6 +1931,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         const detectedKm = extractedData.odometerKm || (recordKey === "daily-km" && extractedData.dailyKm > 0 ? getDriverEntryAmount(previous, "odometer_km") + extractedData.dailyKm : 0);
         if (detectedKm > 0) entryPatch.odometer_km = detectedKm;
         extractedData.odometerKm = detectedKm;
+        setCircleMetricValues((current) => ({ ...current, [detectedDate]: { ...(current[detectedDate] ?? {}), ...(recordKey === "daily-km" && extractedData.dailyKm > 0 ? { dailyKm: extractedData.dailyKm } : {}), ...(recordKey === "total-km" && detectedKm > 0 ? { totalKm: detectedKm } : {}) } }));
       }
       if (recordKey === "consumption" && extractedData.consumption > 0) {
         setCircleMetricValues((current) => ({ ...current, [detectedDate]: { ...(current[detectedDate] ?? {}), consumption: extractedData.consumption, consumptionUnit: extractedData.unit || "l/100 km" } }));
