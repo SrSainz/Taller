@@ -2319,6 +2319,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   return (
     <main className={`driver-app driver-mobile-app${preview ? " driver-app--preview" : ""}`}>
       <header className="driver-mobile-topbar">
+        {preview && <button type="button" className="driver-mobile-topbar__back" onClick={onExitPreview} aria-label="Cerrar vista del conductor y volver a administración" title="Volver a administración"><IconChevronLeft size={22} /><span>Administración</span></button>}
         <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir menú del conductor" aria-expanded={driverMenuOpen} onClick={() => { setDriverMenuOpen((current) => !current); setDriverNoticeOpen(false); }}><IconMenu2 size={23} /></button>
         <div className="driver-mobile-topbar__title"><strong>{profile.full_name.toUpperCase()}</strong><small>{vehicle?.plate ?? profile.vehicle_plate ?? "PENDIENTE"}</small></div>
         <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir notificaciones" aria-expanded={driverNoticeOpen} onClick={() => { setDriverNoticeOpen((current) => !current); setDriverMenuOpen(false); }}><IconBell size={23} /></button>

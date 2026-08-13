@@ -3226,8 +3226,10 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-topbar__popover--notice span { display: grid; gap: 2px; }
 .driver-mobile-topbar__popover--notice strong { font-size: 11px; }
 .driver-mobile-topbar__popover--notice small { color: #76839a; font-size: 9px; }
-.driver-app--preview .driver-mobile-topbar { grid-template-columns: minmax(0, 1fr); min-height: 42px; padding: 3px 10px; }
+.driver-app--preview .driver-mobile-topbar { grid-template-columns: auto minmax(0, 1fr); min-height: 42px; padding: 3px 10px; }
 .driver-app--preview .driver-mobile-topbar__icon, .driver-app--preview .driver-mobile-topbar__popover { display: none; }
+.driver-mobile-topbar__back { min-width: 0; display: inline-flex; align-items: center; gap: 3px; padding: 5px 7px 5px 3px; border: 0; background: transparent; color: #fff; font: inherit; font-size: 9px; font-weight: 850; cursor: pointer; }
+.driver-mobile-topbar__back:focus-visible { outline: 2px solid #fff; outline-offset: 1px; border-radius: 7px; }
 .driver-app--preview .driver-mobile-topbar__title strong { font-size: clamp(16px, 5vw, 21px); }
 .driver-app--preview .driver-mobile-topbar__title small { font-size: clamp(16px, 5vw, 21px); letter-spacing: .08em; }
 .driver-mobile-body { display: grid; gap: 14px; min-height: calc(100dvh - 56px); padding: 14px 12px 92px; }
