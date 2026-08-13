@@ -1659,15 +1659,17 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const imageDocument = (predicate) => documentPreviews.find((document) => predicate(document) && document.signedUrl)?.signedUrl ?? "";
   const driverImages = {
     fuelReceipt: circlePreviewUrls.fuel || imageDocument((document) => document.extracted_data?.recordType === "fuel" || document.category === "consumption" && document.extracted_data?.metric === "fuel_receipt"),
-    partialKm1: circlePreviewUrls["partial-1"] || imageDocument((document) => document.extracted_data?.recordType === "partial-1") || "/assets/driver-examples/photo-1.jpg",
-    partialKm2: circlePreviewUrls["partial-2"] || imageDocument((document) => document.extracted_data?.recordType === "partial-2") || "/assets/driver-examples/photo-3.jpg",
-    totalKm: circlePreviewUrls.total || imageDocument((document) => document.extracted_data?.recordType === "total") || "/assets/driver-examples/photo-2.jpg",
+    billingReceipt: circlePreviewUrls.billing || imageDocument((document) => document.category === "billing" || document.extracted_data?.recordType === "billing") || "/assets/driver-examples/photo-5.jpg",
+    dailyKm: circlePreviewUrls["daily-km"] || imageDocument((document) => ["daily-km", "partial-1"].includes(document.extracted_data?.recordType)) || "/assets/driver-examples/photo-1.jpg",
+    totalKm: circlePreviewUrls["total-km"] || imageDocument((document) => ["total-km", "total"].includes(document.extracted_data?.recordType)) || "/assets/driver-examples/photo-2.jpg",
+    consumption: circlePreviewUrls.consumption || imageDocument((document) => document.extracted_data?.recordType === "consumption" || document.extracted_data?.metric === "consumption") || "/assets/driver-examples/photo-4.jpg",
   };
   const dailyPhotoRecords = [
     { key: "fuel", label: "Gasolina", value: formatCurrency(selectedDayData.fuel_cost), image: driverImages.fuelReceipt, Icon: IconGasStation, alt: "Justificante de gasolina" },
-    { key: "partial-1", label: "Parcial 1", value: formatKm(selectedOdometer), image: driverImages.partialKm1, Icon: IconGauge, alt: "Lectura parcial 1 del cuentakilómetros" },
-    { key: "partial-2", label: "Parcial 2", value: formatKm(partialKm2), image: driverImages.partialKm2, Icon: IconGauge, alt: "Lectura parcial 2 del cuentakilómetros" },
-    { key: "total", label: "Total", value: formatKm(vehicle?.odometer ?? 0), image: driverImages.totalKm, Icon: IconGauge, alt: "Lectura total del cuentakilómetros" },
+    { key: "billing", label: "Facturación", value: formatCurrency(selectedDayData.billing), image: driverImages.billingReceipt, Icon: IconFileInvoice, alt: "Foto de facturación diaria" },
+    { key: "daily-km", label: "Km diarios", value: formatKm(partialKm2), image: driverImages.dailyKm, Icon: IconGauge, alt: "Lectura de kilómetros diarios" },
+    { key: "total-km", label: "Km acumulados", value: formatKm(vehicle?.odometer ?? selectedOdometer), image: driverImages.totalKm, Icon: IconGauge, alt: "Lectura de kilómetros acumulados" },
+    { key: "consumption", label: "Consumo", value: `${averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`, image: driverImages.consumption, Icon: IconChartBar, alt: "Historial de consumo del vehículo" },
   ];
   const driverReferenceImages = {
     consumption: "/assets/driver-examples/photo-4.jpg",
@@ -1707,12 +1709,13 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     setCirclePreviewUrls((current) => ({ ...current, [recordKey]: localPreviewUrl }));
     setCircleUpload({ key: recordKey, status: "uploading", fileName: file.name });
     const selectedRecord = dailyPhotoRecords.find((record) => record.key === recordKey);
+    const documentCategory = recordKey === "billing" ? "billing" : "consumption";
     const extractedData = {
       date: selectedDate,
       source: "driver-circle",
       recordType: recordKey,
       recordLabel: selectedRecord?.label ?? recordKey,
-      metric: recordKey === "fuel" ? "fuel_receipt" : `odometer_${recordKey}`,
+      metric: recordKey === "fuel" ? "fuel_receipt" : recordKey === "billing" ? "billing_daily" : recordKey === "consumption" ? "consumption" : `odometer_${recordKey}`,
       valueShown: selectedRecord?.value ?? "",
       analysisStatus: "pending",
       analysisProvider: "openai-structured-extraction",
@@ -1725,7 +1728,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     try {
       const savedDocument = await uploadDocumentRecord({
         ownerId: activeProfileId,
-        category: "consumption",
+        category: documentCategory,
         vehiclePlate: profile.vehicle_plate,
         file,
         extractedData,

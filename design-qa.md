@@ -57,4 +57,13 @@ passed
 - Las imágenes no se mezclan con los cuatro círculos de lecturas ni se guardan como documentos del conductor; las fotos reales siguen entrando por el selector nativo de cada círculo y mantienen el flujo de Supabase con análisis pendiente.
 - Verificación final: se comprobó el diálogo de consumo, la presencia de ambas rutas de imagen, el estado responsive a 390×844 px y consola sin errores ni advertencias.
 
+## Iteración actual: cinco registros capturables
+
+- Referencias usadas: la foto de facturación semanal con barra azul y la foto del historial de consumo con `4,0 l/100 km`, además de las lecturas de cuentakilómetros ya disponibles en `public/assets/driver-examples/`.
+- Implementación: `src/App.jsx` y `src/styles.css`.
+- Evidencia móvil: `design-qa-driver-five-records-mobile.png` (390×844 px), vista previa de AIDA PEREZ en `#/administracion` → `5754 MJV` → `Ver aplicación`.
+- El registro diario muestra cinco accesos en orden: Gasolina (símbolo), Facturación (foto con barra azul), Km diarios, Km acumulados y Consumo (foto de historial). Los cinco son botones y abren el mismo selector nativo de cámara/archivos.
+- La carga de Facturación se etiqueta como categoría `billing`; Gasolina, kilómetros y Consumo conservan `consumption`, con `recordType` específico para que el análisis posterior pueda clasificar cada imagen.
+- Verificación final: cinco botones accesibles, etiquetas completas, imágenes contextualizadas, composición sin desbordamiento a 390 px y consola sin errores ni advertencias.
+
 final result: passed
