@@ -12,6 +12,7 @@ const billingSchema = {
     vat: { type: ["number", "null"] },
     total: { type: ["number", "null"] },
     netAmount: { type: ["number", "null"] },
+    cashCollected: { type: ["number", "null"] },
     concept: { type: ["string", "null"] },
     expenseCategory: { type: ["string", "null"] },
     vehicle: { type: ["string", "null"] },
@@ -27,6 +28,8 @@ const consumptionSchema = {
     supplyType: { type: ["string", "null"] },
     consumptionPeriod: { type: ["string", "null"] },
     consumption: { type: ["number", "null"] },
+    dailyKm: { type: ["number", "null"] },
+    odometerKm: { type: ["number", "null"] },
     unit: { type: ["string", "null"] },
     cost: { type: ["number", "null"] },
     costPerUnit: { type: ["number", "null"] },
@@ -76,9 +79,9 @@ const buildSchema = (category) => {
 
 const buildPrompt = (category) => {
   if (category === "billing") {
-    return `Analiza este documento de facturación usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: empresa, número de factura, fechas de emisión y servicio, base imponible, IVA, total, importe neto, concepto, categoría de gasto y matrícula o referencia de vehículo si aparece. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros, sin símbolo. Si un dato no aparece devuelve null. Clasifica la categoría de gasto con una etiqueta corta en español. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
+    return `Analiza este documento de facturación usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: empresa, número de factura, fechas de emisión y servicio, base imponible, IVA, total, importe neto, efectivo o efectivo cobrado si aparece, concepto, categoría de gasto y matrícula o referencia de vehículo si aparece. Si aparece una cifra de efectivo cobrado, úsala en cashCollected; no la confundas con el total si son diferentes. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros, sin símbolo. Si un dato no aparece devuelve null. Clasifica la categoría de gasto con una etiqueta corta en español. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
   }
-  return `Analiza este documento de consumo usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: fecha, tipo de suministro, periodo de consumo, consumo registrado, unidad, coste y coste por unidad. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros y el consumo un número, sin símbolos. Si un dato no aparece devuelve null. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
+  return `Analiza este documento de consumo, repostaje o lectura del vehículo usando visión y OCR. Devuelve solo el JSON solicitado. Extrae sin inventar: fecha, tipo de suministro, periodo de consumo, consumo registrado, kilómetros diarios si aparecen, kilometraje acumulado del cuentakilómetros si aparece, unidad, coste y coste por unidad. Para una foto del cuadro del coche, identifica el número de kilómetros mostrado y úsalo en odometerKm; si se muestra una distancia del día, úsala en dailyKm. Las fechas deben estar en formato ISO YYYY-MM-DD cuando sea posible. Los importes deben ser números en euros y el consumo y kilometrajes números, sin símbolos. Si un dato no aparece devuelve null. Asigna una confianza de 0 a 100 a cada campo y añade avisos para cualquier dato dudoso, ilegible o calculado.`;
 };
 
 const extractOutputText = (body) => {

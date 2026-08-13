@@ -3361,6 +3361,18 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-week-swipe-wrap.is-dragging .driver-mobile-week-track { cursor: grabbing; transition: none; }
 .driver-mobile-week-page { flex: 0 0 33.333333%; min-width: 0; overflow: hidden; }
 .driver-mobile-week-page .driver-mobile-week-table { min-width: 0; }
+.driver-mobile-section--history { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 6px; }
+.driver-mobile-section--history > .driver-mobile-section__heading { grid-column: 1; grid-row: 1; order: initial; min-width: 0; margin: 0; }
+.driver-mobile-section--history > .driver-mobile-section__heading h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-section--history > .driver-mobile-section__heading small { display: none; }
+.driver-mobile-section--history > .driver-mobile-period-control { grid-column: 2; grid-row: 1; order: initial; margin: 0; }
+.driver-mobile-section--history > .driver-mobile-week-swipe-wrap { grid-column: 1 / -1; grid-row: 2; order: initial; width: 100%; }
+.driver-mobile-week-table__amount-input { width: 100%; min-width: 0; min-height: 25px; padding: 2px 1px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #4e5e76; font: inherit; font-size: 8px; font-weight: 700; text-align: center; }
+.driver-mobile-week-table__amount-input:hover, .driver-mobile-week-table__amount-input:focus { border-color: #9db9e0; outline: 0; background: #f4f8ff; color: #173661; }
+.driver-mobile-week-table__amount-input:disabled { cursor: not-allowed; opacity: .72; }
+.driver-app--preview .driver-mobile-section--history { grid-template-columns: minmax(0, 1fr) auto; }
+.driver-app--preview .driver-mobile-section--history > .driver-mobile-period-control { grid-column: 2; }
+.driver-app--preview .driver-mobile-section__heading--week { display: flex; }
 .driver-mobile-entry { scroll-margin-top: 82px; padding: 12px; border: 1px solid #dae3ef; border-radius: 15px; background: #fff; box-shadow: 0 5px 14px rgba(24,47,82,.07); }
 .driver-mobile-entry > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .driver-mobile-entry > header span { color: #315a9d; font-size: 8px; font-weight: 850; letter-spacing: .12em; }

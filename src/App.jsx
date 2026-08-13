@@ -568,7 +568,17 @@ const getDriverWeekStart = (date) => {
   return start;
 };
 const getDriverEntryAmount = (entry, key) => Number(entry?.[key]) || 0;
-const buildDriverWeekPage = (anchorDate, entries) => {
+const driverWeeklyManualStorageKey = "sobre-ruedas-driver-weekly-manual-v1";
+const loadDriverWeeklyManualValues = (driverId) => {
+  if (!driverId || typeof window === "undefined") return {};
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(driverWeeklyManualStorageKey) ?? "{}");
+    return stored?.[driverId] && typeof stored[driverId] === "object" ? stored[driverId] : {};
+  } catch {
+    return {};
+  }
+};
+const buildDriverWeekPage = (anchorDate, entries, manualValues = {}) => {
   const weekStart = getDriverWeekStart(anchorDate);
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(weekStart);
@@ -581,9 +591,9 @@ const buildDriverWeekPage = (anchorDate, entries) => {
     { key: "cash", label: "Efectivo", values: weekEntries.map((entry) => total(entry, "cash_collected")) },
     { key: "fuel", label: "Repostajes", values: weekEntries.map((entry) => total(entry, "fuel_cost")) },
     { key: "tolls", label: "Peajes", values: weekEntries.map((entry) => total(entry, "tolls")) },
-    { key: "wash", label: "Lavados", values: weekEntries.map(() => 0) },
+    { key: "wash", label: "Lavados", values: weekEntries.map((entry, index) => Object.hasOwn(manualValues?.[days[index].key] ?? {}, "wash") ? Number(manualValues[days[index].key].wash) || 0 : total(entry, "wash_expenses")) },
     { key: "other", label: "Varios", values: weekEntries.map((entry) => total(entry, "other_expenses")) },
-    { key: "total", label: "Total", values: weekEntries.map((entry) => total(entry, "cash_collected") - total(entry, "fuel_cost") - total(entry, "tolls") - total(entry, "other_expenses")) },
+    { key: "total", label: "Total", values: weekEntries.map((entry, index) => total(entry, "cash_collected") - total(entry, "fuel_cost") - total(entry, "tolls") - (Object.hasOwn(manualValues?.[days[index].key] ?? {}, "wash") ? Number(manualValues[days[index].key].wash) || 0 : total(entry, "wash_expenses")) - total(entry, "other_expenses")) },
   ];
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
@@ -1420,6 +1430,7 @@ function AccessBlockedScreen({ onSignOut }) {
 }
 
 function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview }) {
+  const activeProfileId = profile.id ?? session.user.id;
   const [selectedDate, setSelectedDate] = useState(getDriverDateKey());
   const [entry, setEntry] = useState(() => getDriverEntryForm(getDriverDateKey()));
   const [entries, setEntries] = useState([]);
@@ -1443,15 +1454,30 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const [entryFormOpen, setEntryFormOpen] = useState(false);
   const [circleUpload, setCircleUpload] = useState({ key: "", status: "idle", fileName: "" });
   const [circlePreviewUrls, setCirclePreviewUrls] = useState({});
+  const [circleMetricValues, setCircleMetricValues] = useState({});
+  const [weeklyManualValues, setWeeklyManualValues] = useState(() => loadDriverWeeklyManualValues(activeProfileId));
   const circleFileInputRef = useRef(null);
   const circleUploadKeyRef = useRef("");
   const circlePreviewUrlsRef = useRef({});
   const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profile.vehicle_plate);
-  const activeProfileId = profile.id ?? session.user.id;
 
   useEffect(() => {
     circlePreviewUrlsRef.current = circlePreviewUrls;
   }, [circlePreviewUrls]);
+
+  useEffect(() => {
+    setWeeklyManualValues(loadDriverWeeklyManualValues(activeProfileId));
+  }, [activeProfileId]);
+
+  useEffect(() => {
+    if (!activeProfileId || typeof window === "undefined") return;
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(driverWeeklyManualStorageKey) ?? "{}");
+      window.localStorage.setItem(driverWeeklyManualStorageKey, JSON.stringify({ ...stored, [activeProfileId]: weeklyManualValues }));
+    } catch {
+      // La persistencia local es un apoyo para los gastos manuales; Supabase sigue siendo la fuente principal.
+    }
+  }, [activeProfileId, weeklyManualValues]);
 
   useEffect(() => () => {
     Object.values(circlePreviewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
@@ -1461,7 +1487,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     let mounted = true;
     if (!supabase) return undefined;
     Promise.all([
-      supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
+      supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
       supabase.from("documents").select("id, category, vehicle_plate, file_path, file_name, mime_type, file_size, extracted_data, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(180),
     ]).then(([entryResult, documentResult]) => {
       if (!mounted) return;
@@ -1550,50 +1576,74 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   }, [selectedDate]);
 
   const updateEntry = (key, value) => setEntry((current) => ({ ...current, [key]: value }));
+  const upsertDriverEntry = async (dateKey, patch = {}) => {
+    const existing = entries.find((item) => String(item.entry_date) === dateKey) ?? {};
+    const numberFor = (key) => patch[key] === undefined ? getDriverEntryAmount(existing, key) : Math.max(0, Number(patch[key]) || 0);
+    const values = {
+      driver_id: activeProfileId,
+      vehicle_plate: profile.vehicle_plate,
+      entry_date: dateKey,
+      fuel_cost: numberFor("fuel_cost"),
+      fuel_liters: numberFor("fuel_liters"),
+      odometer_km: Math.round(numberFor("odometer_km")),
+      billing: numberFor("billing"),
+      cash_collected: numberFor("cash_collected"),
+      tips: numberFor("tips"),
+      tolls: numberFor("tolls"),
+      wash_expenses: numberFor("wash_expenses"),
+      other_expenses: numberFor("other_expenses"),
+      notes: patch.notes === undefined ? existing.notes ?? null : String(patch.notes || "").trim() || null,
+      updated_at: new Date().toISOString(),
+    };
+    if (!supabase) {
+      const localEntry = { ...existing, ...values, id: existing.id ?? `local-${activeProfileId}-${dateKey}`, created_at: existing.created_at ?? new Date().toISOString() };
+      setEntries((current) => [localEntry, ...current.filter((candidate) => String(candidate.entry_date) !== dateKey)]);
+      return localEntry;
+    }
+    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").single();
+    if (error) throw error;
+    setEntries((current) => [data, ...current.filter((candidate) => candidate.id !== data.id && String(candidate.entry_date) !== dateKey)]);
+    return data;
+  };
   const saveEntry = async (event) => {
     event.preventDefault();
     setMessage("");
     if (preview) return setMessage("Estás viendo una vista previa. Solo el conductor puede guardar sus datos.");
-    if (!supabase) return setMessage("La conexión con Supabase no está disponible.");
     setSaving(true);
-    const values = {
-      driver_id: activeProfileId,
-      vehicle_plate: profile.vehicle_plate,
-      entry_date: entry.entryDate,
-      fuel_cost: Number(entry.fuelCost) || 0,
-      fuel_liters: Number(entry.fuelLiters) || 0,
-      odometer_km: Number(entry.odometerKm) || 0,
-      billing: Number(entry.billing) || 0,
-      cash_collected: Number(entry.cashCollected) || 0,
-      tips: Number(entry.tips) || 0,
-      tolls: Number(entry.tolls) || 0,
-      other_expenses: Number(entry.otherExpenses) || 0,
-      notes: entry.notes.trim() || null,
-      updated_at: new Date().toISOString(),
-    };
-    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, other_expenses, notes, created_at").single();
-    if (error) {
-      setSaving(false);
-      setMessage(error.message);
-      return;
-    }
-    let uploadMessage = "";
-    let savedDocument = null;
-    if (file) {
-      try {
-        const extractedData = { date: entry.entryDate, cost: values.fuel_cost, consumption: values.fuel_liters, unit: "L", odometerKm: values.odometer_km, billing: values.billing, cashCollected: values.cash_collected, tips: values.tips, tolls: values.tolls, otherExpenses: values.other_expenses };
-        savedDocument = await uploadDocumentRecord({ ownerId: session.user.id, category: "consumption", vehiclePlate: profile.vehicle_plate, file, extractedData, status: "review" });
-        savedDocument = { ...savedDocument, extracted_data: extractedData };
-        uploadMessage = " y el justificante se ha archivado";
-      } catch (uploadError) {
-        uploadMessage = `, pero el justificante no se ha podido subir: ${uploadError.message}`;
+    try {
+      const data = await upsertDriverEntry(entry.entryDate, {
+        fuel_cost: Number(entry.fuelCost) || 0,
+        fuel_liters: Number(entry.fuelLiters) || 0,
+        odometer_km: Number(entry.odometerKm) || 0,
+        billing: Number(entry.billing) || 0,
+        cash_collected: Number(entry.cashCollected) || 0,
+        tips: Number(entry.tips) || 0,
+        tolls: Number(entry.tolls) || 0,
+        other_expenses: Number(entry.otherExpenses) || 0,
+        notes: entry.notes,
+      });
+      let uploadMessage = "";
+      let savedDocument = null;
+      if (file && supabase) {
+        try {
+          const extractedData = { date: entry.entryDate, cost: data.fuel_cost, consumption: data.fuel_liters, unit: "L", odometerKm: data.odometer_km, billing: data.billing, cashCollected: data.cash_collected, tips: data.tips, tolls: data.tolls, otherExpenses: data.other_expenses };
+          savedDocument = await uploadDocumentRecord({ ownerId: session.user.id, category: "consumption", vehiclePlate: profile.vehicle_plate, file, extractedData, status: "review" });
+          savedDocument = { ...savedDocument, extracted_data: extractedData };
+          uploadMessage = " y el justificante se ha archivado";
+        } catch (uploadError) {
+          uploadMessage = `, pero el justificante no se ha podido subir: ${uploadError.message}`;
+        }
+      } else if (file) {
+        uploadMessage = "; la imagen se ha quedado preparada en este dispositivo";
       }
+      if (savedDocument) setDocuments((current) => [savedDocument, ...current.filter((document) => document.id !== savedDocument.id)]);
+      setFile(null);
+      setSaving(false);
+      setMessage(`Registro del ${entry.entryDate} guardado${uploadMessage}.`);
+    } catch (error) {
+      setSaving(false);
+      setMessage(`No se ha podido guardar el registro: ${error.message}`);
     }
-    setEntries((current) => [data, ...current.filter((candidate) => candidate.id !== data.id)]);
-    if (savedDocument) setDocuments((current) => [savedDocument, ...current.filter((document) => document.id !== savedDocument.id)]);
-    setFile(null);
-    setSaving(false);
-    setMessage(`Registro del ${entry.entryDate} guardado${uploadMessage}.`);
   };
 
   const periodSummary = useMemo(() => {
@@ -1608,12 +1658,15 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       return date && date >= weekStart && date < weekEnd;
     });
     const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
+    const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
     const monthlyBilling = total(monthEntries, "billing");
     const billingGoal = Math.max(1, Number(vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name))?.monthRevenue) || 10000);
     const weeklyCash = total(weekEntries, "cash_collected");
     const weeklyFuel = total(weekEntries, "fuel_cost");
     const weeklyTolls = total(weekEntries, "tolls");
-    const weeklyOther = total(weekEntries, "other_expenses");
+    const weeklyWash = weekEntries.reduce((sum, item) => sum + washFor(item), 0);
+    const weeklyOther = total(weekEntries, "other_expenses") + weeklyWash;
+    const monthlyWash = monthEntries.reduce((sum, item) => sum + washFor(item), 0);
     const weeklyNet = weeklyCash - weeklyFuel - weeklyTolls - weeklyOther;
     const weekEndLabel = new Date(weekEnd);
     weekEndLabel.setDate(weekEndLabel.getDate() - 1);
@@ -1624,7 +1677,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       monthlyBilling,
       monthlyTips: total(monthEntries, "tips"),
       monthlyTolls: total(monthEntries, "tolls"),
-      monthlyOther: total(monthEntries, "other_expenses"),
+      monthlyOther: total(monthEntries, "other_expenses") + monthlyWash,
       tipsProgress: monthlyBilling > 0 ? Math.min(100, (total(monthEntries, "tips") / monthlyBilling) * 100) : 0,
       billingGoal,
       billingProgress: Math.min(100, (monthlyBilling / billingGoal) * 100),
@@ -1636,7 +1689,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       weeklyProgress: weeklyCash > 0 ? Math.max(0, Math.min(100, (weeklyNet / weeklyCash) * 100)) : 0,
       weekEntries: weekEntries.length,
     };
-  }, [entries, profile.full_name, selectedDate, vehicle]);
+  }, [entries, profile.full_name, selectedDate, vehicle, weeklyManualValues]);
 
   const selectedDayDocumentData = useMemo(() => selectedDayDocuments.reduce((summary, document) => {
     const data = document.extracted_data ?? {};
@@ -1677,8 +1730,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const driverWeekPages = useMemo(() => [-1, 0, 1].map((offset) => {
     const pageDate = new Date(driverPeriodDate);
     pageDate.setDate(pageDate.getDate() + (offset * 7));
-    return { offset, ...buildDriverWeekPage(pageDate, entries) };
-  }), [selectedDate, entries]);
+    return { offset, ...buildDriverWeekPage(pageDate, entries, weeklyManualValues) };
+  }), [selectedDate, entries, weeklyManualValues]);
   const seededDriverShift = vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name)) ?? vehicle?.shifts?.[0] ?? null;
   const seededDriverConsumption = seededDriverShift?.km > 0 ? Number(((Number(seededDriverShift.liters) || 0) / seededDriverShift.km * 100).toFixed(1)) : 0;
   const otherDriversConsumptionAverage = useMemo(() => {
@@ -1758,12 +1811,21 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     totalKm: circlePreviewUrls["total-km"] || imageDocument((document) => ["total-km", "total"].includes(document.extracted_data?.recordType)) || "/assets/driver-examples/photo-2.jpg",
     consumption: circlePreviewUrls.consumption || imageDocument((document) => document.extracted_data?.recordType === "consumption" || document.extracted_data?.metric === "consumption") || "/assets/driver-examples/photo-4.jpg",
   };
+  const documentCircleValues = selectedDayDocuments.reduce((values, document) => {
+    const data = document.extracted_data ?? {};
+    const recordType = data.recordType;
+    if (recordType === "consumption" && getDriverDocumentNumber(data.consumption) > 0) values.consumption = getDriverDocumentNumber(data.consumption);
+    if (data.unit) values.consumptionUnit = data.unit;
+    if (recordType === "total-km" && getDriverDocumentNumber(data.odometerKm ?? data.odometer_km) > 0) values.totalKm = getDriverDocumentNumber(data.odometerKm ?? data.odometer_km);
+    return values;
+  }, {});
+  const directCircleValues = { ...documentCircleValues, ...(circleMetricValues[selectedDate] ?? {}) };
   const dailyPhotoRecords = [
     { key: "fuel", label: "Gasolina", value: formatCurrency(selectedDayData.fuel_cost), image: driverImages.fuelReceipt, Icon: IconGasStation, alt: "Justificante de gasolina" },
     { key: "billing", label: "Facturación", value: formatCurrency(selectedDayData.billing), image: driverImages.billingReceipt, Icon: IconFileInvoice, alt: "Foto de facturación diaria" },
     { key: "daily-km", label: "Km diarios", value: formatKm(partialKm2), image: driverImages.dailyKm, Icon: IconGauge, alt: "Lectura de kilómetros diarios" },
-    { key: "total-km", label: "Km acumulados", value: formatKm(vehicle?.odometer ?? selectedOdometer), image: driverImages.totalKm, Icon: IconGauge, alt: "Lectura de kilómetros acumulados" },
-    { key: "consumption", label: "Consumo", value: `${averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`, image: driverImages.consumption, Icon: IconChartBar, alt: "Historial de consumo del vehículo" },
+    { key: "total-km", label: "Km acumulados", value: formatKm(directCircleValues.totalKm ?? vehicle?.odometer ?? selectedOdometer), image: driverImages.totalKm, Icon: IconGauge, alt: "Lectura de kilómetros acumulados" },
+    { key: "consumption", label: "Consumo", value: `${Number(directCircleValues.consumption || averageConsumption).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${directCircleValues.consumptionUnit || "l/100 km"}`, image: driverImages.consumption, Icon: IconChartBar, alt: "Historial de consumo del vehículo" },
   ];
   const driverReferenceImages = {
     consumption: "/assets/driver-examples/photo-4.jpg",
@@ -1804,7 +1866,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     setCircleUpload({ key: recordKey, status: "uploading", fileName: file.name });
     const selectedRecord = dailyPhotoRecords.find((record) => record.key === recordKey);
     const documentCategory = recordKey === "billing" ? "billing" : "consumption";
-    const extractedData = {
+    const baseExtractedData = {
       date: selectedDate,
       source: "driver-circle",
       recordType: recordKey,
@@ -1814,36 +1876,121 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       analysisStatus: "pending",
       analysisProvider: "openai-structured-extraction",
     };
-    if (!supabase) {
-      setCircleUpload({ key: recordKey, status: "local", fileName: file.name });
-      setMessage(`Imagen de ${selectedRecord?.label?.toLowerCase() ?? "registro"} preparada. Se sincronizará al conectar Supabase.`);
+    try {
+      if (navigator.onLine === false) throw Object.assign(new Error("No hay conexión para analizar la imagen. Se guardará pendiente de análisis."), { code: "OFFLINE" });
+      const optimized = await prepareDocumentFile(file);
+      const dataUrl = await readFileAsDataUrl(optimized);
+      if (new TextEncoder().encode(dataUrl).byteLength > documentMaxRequestSize) throw Object.assign(new Error("La imagen sigue siendo demasiado grande después de optimizarla."), { code: "DOCUMENT_TOO_LARGE" });
+      const response = await fetch("/api/analyze-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ category: documentCategory, fileName: optimized.name, fileType: optimized.type || file.type, dataUrl }),
+      });
+      let responseBody = null;
+      try { responseBody = await response.json(); } catch { responseBody = null; }
+      if (!response.ok) throw Object.assign(new Error(responseBody?.message || "No se ha podido analizar la imagen."), { code: responseBody?.code || `HTTP_${response.status}` });
+
+      const fieldValue = (key) => {
+        const value = responseBody?.fields?.[key];
+        return value && typeof value === "object" && "value" in value ? value.value : value;
+      };
+      const numberValue = (...keys) => keys.map((key) => getDriverDocumentNumber(fieldValue(key))).find((value) => value > 0) || 0;
+      const detectedDate = normalizeDriverDocumentDate(fieldValue("date") || fieldValue("serviceDate") || fieldValue("issueDate")) ?? selectedDate;
+      const unit = normalizeText(fieldValue("unit") || "");
+      const totalBilling = numberValue("total", "netAmount", "cashCollected");
+      const cashCollected = numberValue("cashCollected", "total", "netAmount");
+      const extractedData = {
+        ...baseExtractedData,
+        date: detectedDate,
+        analysisStatus: "complete",
+        analyzedAt: responseBody?.analyzedAt ?? new Date().toISOString(),
+        documentType: responseBody?.documentType ?? "",
+        fields: responseBody?.fields ?? {},
+        confidence: responseBody?.confidence ?? {},
+        overallConfidence: responseBody?.overallConfidence ?? null,
+        warnings: responseBody?.warnings ?? [],
+        cost: numberValue("cost"),
+        consumption: numberValue("consumption"),
+        dailyKm: numberValue("dailyKm"),
+        odometerKm: numberValue("odometerKm"),
+        billing: totalBilling,
+        cashCollected,
+        unit: fieldValue("unit") ?? "",
+      };
+      const entryPatch = {};
+      if (recordKey === "fuel") {
+        if (extractedData.cost > 0) entryPatch.fuel_cost = extractedData.cost;
+        if (extractedData.consumption > 0 && !unit.includes("100")) entryPatch.fuel_liters = extractedData.consumption;
+        if (extractedData.odometerKm > 0) entryPatch.odometer_km = extractedData.odometerKm;
+      } else if (recordKey === "billing") {
+        if (totalBilling > 0) entryPatch.billing = totalBilling;
+        if (cashCollected > 0) entryPatch.cash_collected = cashCollected;
+      } else if (["daily-km", "total-km"].includes(recordKey)) {
+        const previous = [...entries].filter((item) => String(item.entry_date ?? "") < detectedDate).sort((left, right) => String(right.entry_date ?? "").localeCompare(String(left.entry_date ?? "")))[0];
+        const detectedKm = extractedData.odometerKm || (recordKey === "daily-km" && extractedData.dailyKm > 0 ? getDriverEntryAmount(previous, "odometer_km") + extractedData.dailyKm : 0);
+        if (detectedKm > 0) entryPatch.odometer_km = detectedKm;
+        extractedData.odometerKm = detectedKm;
+      }
+      if (recordKey === "consumption" && extractedData.consumption > 0) {
+        setCircleMetricValues((current) => ({ ...current, [detectedDate]: { ...(current[detectedDate] ?? {}), consumption: extractedData.consumption, consumptionUnit: extractedData.unit || "l/100 km" } }));
+      }
+      if (Object.keys(entryPatch).length > 0) await upsertDriverEntry(detectedDate, entryPatch);
+      if (detectedDate !== selectedDate) setSelectedDate(detectedDate);
+      let savedDocument = { id: `local-circle-${Date.now()}`, owner_id: activeProfileId, category: documentCategory, vehicle_plate: profile.vehicle_plate, file_name: optimized.name || file.name, mime_type: optimized.type || file.type, file_size: optimized.size || file.size, extracted_data: extractedData, status: "review", created_at: new Date().toISOString() };
+      if (supabase) {
+        const uploaded = await uploadDocumentRecord({ ownerId: activeProfileId, category: documentCategory, vehiclePlate: profile.vehicle_plate, file: optimized, extractedData, overallConfidence: extractedData.overallConfidence, status: "review" });
+        savedDocument = { ...uploaded, extracted_data: extractedData };
+      }
+      setDocuments((current) => [savedDocument, ...current.filter((document) => document.id !== savedDocument.id)]);
+      setCircleUpload({ key: recordKey, status: supabase ? "saved" : "local", fileName: file.name });
+      setMessage(`${selectedRecord?.label ?? "Registro"} actualizado para el ${detectedDate}.`);
+    } catch (error) {
+      const pendingData = { ...baseExtractedData, analysisError: error.message, analysisCode: error.code ?? "PROCESSING_ERROR" };
+      try {
+        let savedDocument = { id: `local-circle-${Date.now()}`, owner_id: activeProfileId, category: documentCategory, vehicle_plate: profile.vehicle_plate, file_name: file.name, mime_type: file.type, file_size: file.size, extracted_data: pendingData, status: "review", created_at: new Date().toISOString() };
+        if (supabase) {
+          const uploaded = await uploadDocumentRecord({ ownerId: activeProfileId, category: documentCategory, vehiclePlate: profile.vehicle_plate, file, extractedData: pendingData, status: "review" });
+          savedDocument = { ...uploaded, extracted_data: pendingData };
+        }
+        setDocuments((current) => [savedDocument, ...current.filter((document) => document.id !== savedDocument.id)]);
+        setCircleUpload({ key: recordKey, status: supabase ? "saved" : "local", fileName: file.name });
+        setMessage(`Imagen guardada, pero queda pendiente de análisis: ${error.message}`);
+      } catch (saveError) {
+        setCircleUpload({ key: recordKey, status: "error", fileName: file.name });
+        setMessage(`La imagen se ha preparado, pero no se ha podido guardar: ${saveError.message}`);
+      }
+    }
+  };
+  const saveWeeklyAmount = async (dateKey, rowKey, rawValue) => {
+    if (preview) {
+      setMessage("La vista previa es de solo lectura. El conductor puede editar sus gastos desde su cuenta.");
+      return;
+    }
+    const amount = Math.max(0, Number(String(rawValue ?? "").replace(",", ".")) || 0);
+    if (rowKey === "wash") {
+      try {
+        await upsertDriverEntry(dateKey, { wash_expenses: amount });
+        setWeeklyManualValues((current) => ({ ...current, [dateKey]: { ...(current[dateKey] ?? {}), wash: amount } }));
+        setMessage(`Lavados del ${dateKey}: ${formatCurrency(amount)}.`);
+      } catch (error) {
+        setMessage(`No se ha podido guardar ese lavado: ${error.message}`);
+      }
       return;
     }
     try {
-      const savedDocument = await uploadDocumentRecord({
-        ownerId: activeProfileId,
-        category: documentCategory,
-        vehiclePlate: profile.vehicle_plate,
-        file,
-        extractedData,
-        overallConfidence: null,
-        status: "review",
-      });
-      setDocuments((current) => [{ ...savedDocument, extracted_data: extractedData }, ...current.filter((document) => document.id !== savedDocument.id)]);
-      setCircleUpload({ key: recordKey, status: "saved", fileName: file.name });
-      setMessage(`Imagen de ${selectedRecord?.label?.toLowerCase() ?? "registro"} guardada y pendiente de análisis.`);
+      await upsertDriverEntry(dateKey, { [rowKey === "tolls" ? "tolls" : "other_expenses"]: amount });
+      setMessage(`${rowKey === "tolls" ? "Peajes" : "Varios"} del ${dateKey}: ${formatCurrency(amount)}.`);
     } catch (error) {
-      setCircleUpload({ key: recordKey, status: "error", fileName: file.name });
-      setMessage(`La imagen se ha preparado, pero no se ha podido guardar: ${error.message}`);
+      setMessage(`No se ha podido guardar ese gasto: ${error.message}`);
     }
   };
   const weeklyRows = [
     { key: "cash", label: "Efectivo", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "cash_collected")) },
     { key: "fuel", label: "Repostajes", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "fuel_cost")) },
     { key: "tolls", label: "Peajes", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "tolls")) },
-    { key: "wash", label: "Lavados", values: driverWeekEntries.map(() => 0) },
+    { key: "wash", label: "Lavados", values: driverWeekEntries.map((item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses")) },
     { key: "other", label: "Varios", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "other_expenses")) },
-    { key: "total", label: "Total", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "cash_collected") - getDriverEntryAmount(item, "fuel_cost") - getDriverEntryAmount(item, "tolls") - getDriverEntryAmount(item, "other_expenses")) },
+    { key: "total", label: "Total", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "cash_collected") - getDriverEntryAmount(item, "fuel_cost") - getDriverEntryAmount(item, "tolls") - (Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses")) - getDriverEntryAmount(item, "other_expenses")) },
   ];
   const seededChartPattern = [0.38, 0.55, 0.46, 0.72, 0.6, 0.82, 1];
   const weeklyChartData = driverWeekDays.map(({ date }, index) => ({
@@ -1909,6 +2056,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     circleFileInputRef={circleFileInputRef}
     openCirclePicker={openCirclePicker}
     handleCircleFile={handleCircleFile}
+    saveWeeklyAmount={saveWeeklyAmount}
   />;
 
   return (
@@ -2028,7 +2176,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   );
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyConsumptionAverage, otherDriversConsumptionAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyConsumptionAverage, otherDriversConsumptionAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile, saveWeeklyAmount }) {
   const homeRef = useRef(null);
   const statsRef = useRef(null);
   const historyRef = useRef(null);
@@ -2041,6 +2189,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const [weekSwipeOffset, setWeekSwipeOffset] = useState(0);
   const [weekSwipeActive, setWeekSwipeActive] = useState(false);
   const [weekSwipeTransition, setWeekSwipeTransition] = useState(false);
+  const [weeklyDrafts, setWeeklyDrafts] = useState({});
   const referenceLabels = {
     consumption: { title: "Ejemplo de consumo", caption: "Historial del vehículo", alt: "Ejemplo de historial de consumo del vehículo" },
     billing: { title: "Ejemplo de facturación", caption: "Resumen semanal", alt: "Ejemplo de resumen semanal de facturación" },
@@ -2064,7 +2213,14 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     setSelectedDate(getDriverDateKey(date));
   };
   const currentWeekPage = driverWeekPages.find((page) => page.offset === 0) ?? driverWeekPages[1];
-  const weekLabel = currentWeekPage?.label ?? "";
+  const weekLabel = currentWeekPage?.days?.[0]?.date ? new Intl.DateTimeFormat("es-ES", { day: "numeric" }).format(currentWeekPage.days[0].date) : "";
+  const editableWeeklyRows = new Set(["tolls", "wash", "other"]);
+  const weeklyCell = (row, value, dateKey) => {
+    if (!editableWeeklyRows.has(row.key)) return formatCurrency(value);
+    const draftKey = `${dateKey}:${row.key}`;
+    const displayedValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : (Number(value) || 0);
+    return <input className="driver-mobile-week-table__amount-input" type="number" min="0" step="0.01" inputMode="decimal" value={displayedValue} disabled={preview} aria-label={`${row.label} del ${dateKey}`} placeholder="0,00" onChange={(event) => setWeeklyDrafts((current) => ({ ...current, [draftKey]: event.target.value }))} onBlur={async () => { const nextValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : displayedValue; await saveWeeklyAmount(dateKey, row.key, nextValue); setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); event.currentTarget.blur(); } }} />;
+  };
   const settleWeekSwipe = (direction) => {
     const width = weekSwipeViewportRef.current?.clientWidth ?? 320;
     window.clearTimeout(weekSwipeTimerRef.current);
@@ -2167,12 +2323,12 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         <section ref={historyRef} className="driver-mobile-section driver-mobile-section--history" aria-labelledby="driver-mobile-week-title">
           <div ref={weekSwipeViewportRef} className={`driver-mobile-week-swipe-wrap${weekSwipeActive ? " is-dragging" : ""}`} role="region" aria-label="Semana desplazable" onPointerDown={handleWeekPointerDown} onPointerMove={handleWeekPointerMove} onPointerUp={handleWeekPointerEnd} onPointerCancel={handleWeekPointerEnd} onClickCapture={handleWeekClickCapture}>
             <div className={`driver-mobile-week-track${weekSwipeTransition ? " is-animating" : ""}`} style={{ transform: `translate3d(calc(-33.333333% + ${weekSwipeOffset}px), 0, 0)` }}>
-              {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={`${page.key}-${row.key}`}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{formatCurrency(value)}</td>)}</tr>)}</tbody></table></div>)}
+              {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={`${page.key}-${row.key}`}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{weeklyCell(row, value, page.days[index].key)}</td>)}</tr>)}</tbody></table></div>)}
             </div>
           </div>
-          <header className="driver-mobile-section__heading driver-mobile-section__heading--week"><div><h2 id="driver-mobile-week-title">SEMANA {weekLabel}</h2><small>Selecciona un día para revisar sus registros</small></div><div className="driver-mobile-week-actions"><button type="button" aria-label="Semana anterior" onClick={() => shiftDriverWeek(-1)}><IconChevronLeft size={16} /></button><button type="button" aria-label="Semana siguiente" onClick={() => shiftDriverWeek(1)}><IconChevronRight size={16} /></button></div></header>
+          <header className="driver-mobile-section__heading driver-mobile-section__heading--week"><div><h2 id="driver-mobile-week-title">SEMANA DEL {weekLabel}</h2><small>Selecciona un día para revisar sus registros</small></div><div className="driver-mobile-week-actions"><button type="button" aria-label="Semana anterior" onClick={() => shiftDriverWeek(-1)}><IconChevronLeft size={16} /></button><button type="button" aria-label="Semana siguiente" onClick={() => shiftDriverWeek(1)}><IconChevronRight size={16} /></button></div></header>
           <div className="driver-mobile-period-control" ref={periodPickerRef}><button type="button" className="driver-mobile-period-trigger" aria-label="Seleccionar mes" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "month"} onClick={() => setPeriodPickerOpen((current) => current === "month" ? "" : "month")}><span>{reportMonths[driverPeriodMonth]}</span><IconChevronDown size={14} /></button><button type="button" className="driver-mobile-period-year" aria-label="Seleccionar año" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "year"} onClick={() => setPeriodPickerOpen((current) => current === "year" ? "" : "year")}>{driverPeriodYear}</button>{periodPickerOpen === "month" && <div className="driver-period-picker__menu driver-mobile-period-menu" role="listbox" aria-label="Meses disponibles">{reportMonths.map((monthLabel, monthIndex) => <button type="button" role="option" aria-selected={driverPeriodMonth === monthIndex} ref={driverPeriodMonth === monthIndex ? periodPickerOptionRef : undefined} className={driverPeriodMonth === monthIndex ? "is-selected" : ""} onClick={() => selectDriverPeriod(driverPeriodYear, monthIndex)} key={monthLabel}>{monthLabel}</button>)}</div>}{periodPickerOpen === "year" && <div className="driver-period-picker__menu driver-period-picker__menu--years driver-mobile-period-menu" role="listbox" aria-label="Años disponibles">{driverPeriodYears.map((yearOption) => <button type="button" role="option" aria-selected={driverPeriodYear === yearOption} ref={driverPeriodYear === yearOption ? periodPickerOptionRef : undefined} className={driverPeriodYear === yearOption ? "is-selected" : ""} onClick={() => selectDriverPeriod(yearOption, driverPeriodMonth)} key={yearOption}>{yearOption}</button>)}</div>}</div>
-          <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={row.key}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{formatCurrency(value)}</td>)}</tr>)}</tbody></table></div>
+          <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={row.key}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{weeklyCell(row, value, driverWeekDays[index].key)}</td>)}</tr>)}</tbody></table></div>
         </section>
         {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Facturación<input type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Peajes<input type="number" min="0" step="0.01" value={entry.tolls} onChange={(event) => updateEntry("tolls", event.target.value)} /><i>€</i></label><label>Otros gastos<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, peaje u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
         {referenceOpen && referenceLabels[referenceOpen] && <div className="driver-mobile-reference-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-reference-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setReferenceOpen(""); }}><div className="driver-mobile-reference-dialog__panel"><header><div><span>REFERENCIA VISUAL</span><h2 id="driver-mobile-reference-title">{referenceLabels[referenceOpen].title}</h2></div><button type="button" aria-label="Cerrar referencia" onClick={() => setReferenceOpen("")}><IconX size={18} /></button></header><img src={driverReferenceImages[referenceOpen]} alt={referenceLabels[referenceOpen].alt} /><p>{referenceLabels[referenceOpen].caption}. Esta imagen es un ejemplo y no modifica los datos del conductor.</p><button type="button" className="primary-button" onClick={() => setReferenceOpen("")}>Cerrar</button></div></div>}
