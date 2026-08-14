@@ -105,3 +105,13 @@ final result: passed
 - Console check: no browser console errors observed; no actionable P0, P1 or P2 mismatch remains.
 
 final result: passed
+
+## Iteracion actual: cabecera global de NETO
+
+- Implementation: `src/App.jsx` and `src/styles.css`.
+- Browser evidence: `design-qa-net-header.png` (1280 x 720 px), NETO open from the General dashboard.
+- The global black bar remains the only title surface: the red SOBRE RUEDAS wheel and `NETO` in uppercase are centered above the modal.
+- The duplicate `NETO` label and menu icon were removed from the modal header; the period total and close control remain available.
+- Verified the modal has no internal heading, the global title is exactly `NETO`, and no console errors were observed.
+
+final result: passed

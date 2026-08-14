@@ -1195,7 +1195,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       : activeNav === "Informes" && homeReportTab === "Repostaje"
         ? "Combustible"
         : activeNav === "Informes" && homeReportTab === "General" && homeChartMetric === "net"
-          ? "Neto"
+          ? "NETO"
           : "";
   const compactDetailHeader = Boolean(detailHeaderTitle);
 
@@ -2858,9 +2858,9 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
   </div>;
   return (
     <div className="net-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`net-detail-modal${selectedDetail ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-labelledby="net-detail-title">
+      <section className={`net-detail-modal${selectedDetail ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-label="Detalle de NETO">
         <header className="net-detail-modal__header">
-          <div className="net-detail-modal__header-content"><span className="net-detail-menu-icon" aria-hidden="true"><IconMenu2 size={20} /></span><h2 id="net-detail-title">NETO</h2><strong aria-label={`Total neto de ${periodLabel}`}>{formatCurrency(total)}</strong></div>
+          <div className="net-detail-modal__header-content"><strong aria-label={`Total neto de ${periodLabel}`}>{formatCurrency(total)}</strong></div>
           <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
         </header>
         {!selectedDetail ? <>
