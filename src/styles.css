@@ -3164,6 +3164,133 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .driver-day-workspace .driver-entry-grid input, .driver-day-workspace .driver-entry-grid textarea { min-height: 35px; font-size: 12px; }
 .driver-day-workspace .driver-entry-grid__readonly { min-height: 35px; }
 
+/* Administración: opción 2 de la referencia, con panel claro y tarjetas codificadas por color. */
+.app-shell--admin {
+  --bottom-navigation-height: 58px;
+  background: #f4f9f7;
+}
+.app-shell--admin .workspace { background: #f4f9f7; }
+.app-shell--admin .topbar,
+.app-shell--admin .topbar--reports {
+  height: 64px;
+  flex-basis: 64px;
+  padding-inline: 14px;
+  border-bottom-color: #e4ece9;
+  background: #fff;
+  color: #152a27;
+  box-shadow: 0 1px 0 rgba(24, 63, 54, .04);
+}
+.app-shell--admin .topbar-title { gap: 10px; }
+.app-shell--admin .topbar-title > div { gap: 0; }
+.app-shell--admin .topbar-title span { color: #152a27; font-size: 19px; font-weight: 850; letter-spacing: -.04em; }
+.app-shell--admin .topbar-title small,
+.app-shell--admin .topbar-back-button { display: none; }
+.app-shell--admin .admin-topbar-home { width: 36px; height: 36px; flex-basis: 36px; border: 0; border-radius: 11px; background: #e3f5f0; color: #117c6f; box-shadow: none; }
+.app-shell--admin .admin-topbar-home:hover,
+.app-shell--admin .admin-topbar-home:focus-visible { background: #d5eee7; color: #0a675d; box-shadow: none; transform: none; }
+.app-shell--admin .topbar-actions { gap: 7px; }
+.app-shell--admin .topbar-actions > .install-app-button,
+.app-shell--admin .topbar-actions > .date,
+.app-shell--admin .topbar-actions > .profile { display: none; }
+.app-shell--admin .topbar-route-button,
+.app-shell--admin .bell-button,
+.app-shell--admin .topbar-menu-button { width: 34px; height: 34px; min-height: 34px; padding: 0; justify-content: center; border: 1px solid #e0e8e5; border-radius: 11px; background: #fff; color: #526963; }
+.app-shell--admin .topbar-route-button span { display: none; }
+.app-shell--admin .topbar-route-button i { top: -5px; right: -4px; border-color: #fff; background: #168b80; }
+.app-shell--admin .topbar-route-button--facturas svg { color: #4d7068; }
+.app-shell--admin .bell-button i { border-color: #fff; background: #f29a25; }
+.app-shell--admin .topbar-menu-button { color: #526963; }
+.app-shell--admin .topbar-route-button:hover,
+.app-shell--admin .bell-button:hover,
+.app-shell--admin .topbar-menu-button:hover,
+.app-shell--admin .topbar-route-button--active { border-color: #b9d8ce; background: #f1faf7; color: #17776b; }
+.app-shell--admin .topbar-management-menu { top: 58px; right: 14px; }
+.app-shell--admin .page-scroll { background: #f4f9f7; }
+.app-shell--admin .admin-page { width: min(calc(100% - 24px), 560px); min-height: calc(100dvh - 64px - var(--bottom-navigation-height) - env(safe-area-inset-bottom)); padding: 12px 0 10px; }
+.app-shell--admin .admin-access-stack { display: flex; flex-direction: column; flex: 0 0 auto; gap: 8px; }
+.app-shell--admin .admin-page:not(:has(.admin-accordion__button--open)) .admin-access-stack { display: grid; flex: 1 1 auto; grid-template-rows: minmax(0, 1fr) 20px repeat(3, minmax(0, 1fr)) minmax(0, 1fr); gap: 8px; }
+.app-shell--admin .admin-page:not(:has(.admin-accordion__button--open)) .admin-accordion,
+.app-shell--admin .admin-page:not(:has(.admin-accordion__button--open)) .admin-accordion__button { height: 100%; }
+.app-shell--admin .admin-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 0 0 2px; }
+.app-shell--admin .admin-stat { min-width: 0; min-height: 56px; display: flex; align-items: center; gap: 7px; padding: 7px 8px; border: 1px solid #e1ebe7; border-radius: 13px; background: #fff; box-shadow: 0 2px 7px rgba(29, 73, 62, .035); }
+.app-shell--admin .admin-stat__icon { width: 29px; height: 29px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 10px; }
+.app-shell--admin .admin-stat > div { display: grid; min-width: 0; gap: 2px; }
+.app-shell--admin .admin-stat strong { color: #243c37; font-size: 17px; line-height: 1; }
+.app-shell--admin .admin-stat small { overflow: hidden; color: #6d7e78; font-size: 8px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell--admin .admin-stat--vehicles .admin-stat__icon { background: #dff5ef; color: #158d7d; }
+.app-shell--admin .admin-stat--drivers .admin-stat__icon { background: #e6eeff; color: #4a70c9; }
+.app-shell--admin .admin-stat--documents .admin-stat__icon { background: #fff0e1; color: #dc8350; }
+.app-shell--admin .admin-vehicles-heading { display: flex; align-items: center; justify-content: space-between; min-height: 20px; padding: 4px 3px 0; }
+.app-shell--admin .admin-vehicles-heading strong { color: #257d71; font-size: 10px; letter-spacing: .08em; }
+.app-shell--admin .admin-vehicles-heading button { padding: 2px 0; border: 0; background: transparent; color: #297b70; font: inherit; font-size: 8px; font-weight: 750; cursor: pointer; }
+.app-shell--admin .admin-accordion { overflow: hidden; border: 1px solid #e0e9e6; border-radius: 13px; background: #fff; box-shadow: 0 3px 9px rgba(29, 73, 62, .045); }
+.app-shell--admin .admin-accordion--admin { border-color: #d9eae5; }
+.app-shell--admin .admin-accordion__button { min-height: 64px; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.15fr) auto; gap: 9px; padding: 9px 11px; background: #fff; }
+.app-shell--admin .admin-accordion--admin .admin-accordion__button { grid-template-columns: auto minmax(0, 1fr) auto; min-height: 62px; }
+.app-shell--admin .admin-accordion__button:hover { background: #f9fcfb; }
+.app-shell--admin .admin-accordion__icon { width: 34px; height: 34px; border-radius: 10px; }
+.app-shell--admin .admin-accordion__copy { min-width: 0; gap: 2px; }
+.app-shell--admin .admin-accordion__copy strong { overflow: hidden; color: #243631; font-size: 12px; line-height: 1.05; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell--admin .admin-accordion__copy .admin-accordion__admin-name { font-size: 13px; letter-spacing: .02em; }
+.app-shell--admin .admin-accordion__copy small { overflow: hidden; color: #70817b; font-size: 8px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell--admin .admin-accordion__status { display: inline-flex; align-items: center; gap: 3px; color: #2b9d55; font-size: 7px; font-weight: 750; line-height: 1; }
+.app-shell--admin .admin-accordion__status i { width: 6px; height: 6px; display: block; border-radius: 50%; background: #2ab15d; }
+.app-shell--admin .admin-accordion__meta { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 7px; }
+.app-shell--admin .admin-accordion__meta > span { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 4px; align-items: center; }
+.app-shell--admin .admin-accordion__meta svg { grid-row: 1 / span 2; color: #758580; }
+.app-shell--admin .admin-accordion__meta b,
+.app-shell--admin .admin-accordion__meta small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell--admin .admin-accordion__meta b { color: #687973; font-size: 7px; font-weight: 750; line-height: 1; }
+.app-shell--admin .admin-accordion__meta small { color: #263d37; font-size: 7px; line-height: 1.1; }
+.app-shell--admin .admin-accordion__chevron { color: #74827d; }
+.app-shell--admin .admin-accordion__button--open .admin-accordion__chevron { color: #24796e; }
+.app-shell--admin .admin-accordion__icon--vehicle { background: #e4edff; color: #4771d6; }
+.app-shell--admin .admin-accordion__icon--create { background: #e8d9ff; color: #7845cf; }
+.app-shell--admin .admin-accordion--create { border-color: #d9c7f2; }
+.app-shell--admin .admin-accordion--create .admin-accordion__button { background: #eee4ff; }
+.app-shell--admin .admin-accordion--create .admin-accordion__button:hover,
+.app-shell--admin .admin-accordion--create .admin-accordion__button--open { background: #e8d9ff; }
+.app-shell--admin .admin-access-stack > .admin-accordion:nth-of-type(2) .admin-accordion__button { border-left: 4px solid #4b78df; background: #edf3ff; }
+.app-shell--admin .admin-access-stack > .admin-accordion:nth-of-type(3) .admin-accordion__button { border-left: 4px solid #17a9ac; background: #e9f9f9; }
+.app-shell--admin .admin-access-stack > .admin-accordion:nth-of-type(4) .admin-accordion__button { border-left: 4px solid #8950d3; background: #f1eaff; }
+.app-shell--admin .admin-access-stack > .admin-accordion:nth-of-type(2) .admin-accordion__icon--vehicle { background: #dce8ff; color: #4771d6; }
+.app-shell--admin .admin-access-stack > .admin-accordion:nth-of-type(3) .admin-accordion__icon--vehicle { background: #d9f2f1; color: #15999e; }
+.app-shell--admin .admin-access-stack > .admin-accordion:nth-of-type(4) .admin-accordion__icon--vehicle { background: #e4d7ff; color: #7a45cb; }
+.app-shell--admin .admin-accordion__panel { background: #fff; }
+
+@media (max-width: 520px) {
+  .app-shell--admin .topbar,
+  .app-shell--admin .topbar--reports { height: 60px; flex-basis: 60px; padding-inline: 12px; }
+  .app-shell--admin .topbar-title span { font-size: 18px; }
+  .app-shell--admin .topbar-actions { gap: 5px; }
+  .app-shell--admin .admin-topbar-home { width: 34px; height: 34px; flex-basis: 34px; }
+  .app-shell--admin .topbar-route-button,
+  .app-shell--admin .bell-button,
+  .app-shell--admin .topbar-menu-button { width: 32px; height: 32px; min-height: 32px; border-radius: 10px; }
+  .app-shell--admin .admin-page { width: min(calc(100% - 20px), 560px); min-height: calc(100dvh - 60px - var(--bottom-navigation-height) - env(safe-area-inset-bottom)); padding-top: 10px; }
+  .app-shell--admin .admin-access-stack { gap: 6px; }
+  .app-shell--admin .admin-stats { gap: 5px; margin-bottom: 1px; }
+  .app-shell--admin .admin-stat { min-height: 52px; gap: 5px; padding: 6px; border-radius: 11px; }
+  .app-shell--admin .admin-stat__icon { width: 27px; height: 27px; border-radius: 9px; }
+  .app-shell--admin .admin-stat strong { font-size: 16px; }
+  .app-shell--admin .admin-stat small { font-size: 7px; }
+  .app-shell--admin .admin-vehicles-heading { min-height: 18px; padding-top: 2px; }
+  .app-shell--admin .admin-vehicles-heading strong { font-size: 9px; }
+  .app-shell--admin .admin-vehicles-heading button { font-size: 7px; }
+  .app-shell--admin .admin-accordion__button { min-height: 62px; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.2fr) auto; gap: 7px; padding: 8px 8px; }
+  .app-shell--admin .admin-accordion--admin .admin-accordion__button { grid-template-columns: auto minmax(0, 1fr) auto; min-height: 58px; }
+  .app-shell--admin .admin-accordion__icon { width: 31px; height: 31px; border-radius: 9px; }
+  .app-shell--admin .admin-accordion__copy strong { font-size: 11px; }
+  .app-shell--admin .admin-accordion__copy .admin-accordion__admin-name { font-size: 12px; }
+  .app-shell--admin .admin-accordion__copy small { font-size: 7px; }
+  .app-shell--admin .admin-accordion__status { font-size: 6.5px; }
+  .app-shell--admin .admin-accordion__meta { gap: 4px; }
+  .app-shell--admin .admin-accordion__meta > span { column-gap: 3px; }
+  .app-shell--admin .admin-accordion__meta svg { width: 12px; height: 12px; }
+  .app-shell--admin .admin-accordion__meta b { font-size: 6px; }
+  .app-shell--admin .admin-accordion__meta small { font-size: 6px; }
+}
+
 @media (max-width: 760px) {
   .driver-period-overview--top { gap: 5px; margin-bottom: 5px; }
   .driver-period-overview--top .driver-period-card { gap: 4px; padding: 6px 8px; border-radius: 10px; }

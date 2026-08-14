@@ -1352,11 +1352,11 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   }
 
   return (
-    <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}${activeNav === "Informes" && homeReportTab === "General" ? " app-shell--dashboard" : ""}`}>
+    <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}${activeNav === "Informes" && homeReportTab === "General" ? " app-shell--dashboard" : ""}${activeNav === adminNavItem.label ? " app-shell--admin" : ""}`}>
       <main className="workspace">
           <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores", "Administración"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}${activeNav === "Mantenimiento" ? " topbar--maintenance" : ""}`}>
           <div className="topbar-title">
-            <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
+            {activeNav === adminNavItem.label ? <button className="workspace-home-button admin-topbar-home" onClick={openGeneral} aria-label="Volver a la aplicación" title="Volver a la aplicación"><IconShieldCheck size={22} /></button> : <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>}
             {activeNav === "Administración" && isAdmin && <button type="button" className="topbar-back-button" onClick={openGeneral} aria-label="Volver a la aplicación" title="Volver a la aplicación"><IconChevronLeft size={17} /><span>Volver</span></button>}
             <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : activeNav === "Administración" ? "Usuarios y permisos" : "Gestión centralizada de vehículos"}</small>}</div>
           </div>
@@ -1398,7 +1398,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
-          {activeNav === "Administración" && isAdmin && <AdminView profile={profile} session={session} notify={notify} onProfileChange={onProfileChange} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} />}
+          {activeNav === "Administración" && isAdmin && <AdminView profile={profile} session={session} notify={notify} onProfileChange={onProfileChange} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} invoices={invoices} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}
@@ -2440,7 +2440,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
 const driverVehicleOptions = vehicleOrder.map((plate) => vehiclesSeed.find((vehicle) => vehicle.plate === plate)).filter((vehicle) => vehicle?.use === "Profesional");
 const generateDriverPassword = () => `Rueda-${Math.random().toString(36).slice(2, 7)}-${new Date().getFullYear()}!`;
 
-function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver, onDriversChange }) {
+function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver, onDriversChange, invoices = [] }) {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -2552,11 +2552,19 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
   const driversForVehicle = (vehicle) => drivers
     .filter((driver) => driver.vehicle_plate === vehicle.plate)
     .sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name));
+  const activeDriverCount = drivers.filter((driver) => driver.active).length;
+  const documentCount = invoices.length;
+  const vehicleDocumentCount = (vehicle) => invoices.filter((invoice) => invoice.plate === vehicle.plate || invoice.vehicle_plate === vehicle.plate).length;
   const toggleSection = (section) => setOpenSection((current) => current === section ? "" : section);
   const toggleDriver = (driverId) => setFocusedDriverId((current) => current === driverId ? "" : driverId);
 
   return <section className="admin-page">
      {message && <div className="admin-alert" role="alert"><IconAlertTriangle size={18} />{message}</div>}
+     <div className="admin-stats" aria-label="Resumen de administración">
+       <article className="admin-stat admin-stat--vehicles"><span className="admin-stat__icon"><IconCar size={18} /></span><div><strong>{driverVehicleOptions.length}</strong><small>Vehículos</small></div></article>
+       <article className="admin-stat admin-stat--drivers"><span className="admin-stat__icon"><IconUserCircle size={18} /></span><div><strong>{activeDriverCount}</strong><small>{activeDriverCount === 1 ? "Conductor activo" : "Conductores activos"}</small></div></article>
+       <article className="admin-stat admin-stat--documents"><span className="admin-stat__icon"><IconFileInvoice size={18} /></span><div><strong>{documentCount}</strong><small>Documentos</small></div></article>
+     </div>
      <div className="admin-access-stack">
        <section className="admin-accordion admin-accordion--admin">
          <button className={`admin-accordion__button${openSection === "admin" ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection("admin")} aria-expanded={openSection === "admin"} aria-controls="admin-profile-panel">
@@ -2570,14 +2578,16 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
            <form className="admin-profile-form admin-profile-form--password" onSubmit={saveAdminPassword}><label>Nueva contraseña<input type="password" value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} minLength={8} placeholder="Mínimo 8 caracteres" /></label><button className="secondary-button" type="submit"><IconKey size={16} />Cambiar contraseña</button></form>
          </div>}
        </section>
+       <div className="admin-vehicles-heading"><strong>VEHÍCULOS</strong><button type="button" onClick={() => setOpenSection("")}>Ver todos</button></div>
        {driverVehicleOptions.map((vehicle) => {
          const vehicleDrivers = driversForVehicle(vehicle);
-         const activeCount = vehicleDrivers.filter((driver) => driver.active).length;
+         const vehicleDocuments = vehicleDocumentCount(vehicle);
          return <section className="admin-accordion" key={vehicle.plate}>
            <button className={`admin-accordion__button${openSection === vehicle.plate ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection(vehicle.plate)} aria-expanded={openSection === vehicle.plate} aria-controls={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>
              <span className="admin-accordion__icon admin-accordion__icon--vehicle"><IconCar size={21} /></span>
-             <span className="admin-accordion__copy"><strong>{vehicle.plate}</strong><small>{vehicle.model} · {activeCount} activos de {vehicleDrivers.length}</small></span>
-             <IconChevronDown className="admin-accordion__chevron" size={19} />
+             <span className="admin-accordion__copy"><strong>{vehicle.plate}</strong><small>{vehicle.model}</small><span className="admin-accordion__status"><i />Activo</span></span>
+             <span className="admin-accordion__meta"><span><IconUserCircle size={14} /><b>Conductor</b><small>{vehicleDrivers[0]?.full_name || "Ninguno"}</small></span><span><IconFileInvoice size={14} /><b>Documentos</b><small>{vehicleDocuments}</small></span></span>
+             <IconChevronRight className="admin-accordion__chevron" size={18} />
            </button>
            {openSection === vehicle.plate && <div className="admin-accordion__panel" id={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>
              <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">CONDUCTORES ASIGNADOS</span><h2>{vehicle.plate}</h2><p>Activa, pausa, restablece o abre la vista de cada cuenta.</p></div><IconUsers size={23} /></header>
@@ -2603,7 +2613,7 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
          <button className={`admin-accordion__button${openSection === "create" ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection("create")} aria-expanded={openSection === "create"} aria-controls="admin-create-panel">
            <span className="admin-accordion__icon admin-accordion__icon--create"><IconUserPlus size={21} /></span>
            <span className="admin-accordion__copy"><strong>CREAR NUEVO ACCESO</strong><small>Añade una cuenta y asigna su coche profesional</small></span>
-           <IconChevronDown className="admin-accordion__chevron" size={19} />
+           <IconChevronRight className="admin-accordion__chevron" size={19} />
          </button>
          {openSection === "create" && <div className="admin-accordion__panel" id="admin-create-panel">
            <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">CUENTAS DE CONDUCTOR</span><h2>Nuevo acceso</h2><p>La contraseña que introduzcas será definitiva. Solo el administrador podrá cambiarla después.</p></div><IconKey size={23} /></header>
