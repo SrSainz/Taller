@@ -61,7 +61,8 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { getProfile, invokeAdminUsers, isSupabaseConfigured, roleFromUser, supabase, uploadDocumentRecord } from "./supabase";
+import { confirmDocumentTransactions, getProfile, invokeAdminUsers, isSupabaseConfigured, roleFromUser, supabase, uploadDocumentRecord } from "./supabase";
+import { hashDocumentFile, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -945,6 +946,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [previewDriver, setPreviewDriver] = useState(null);
   const [driverProfiles, setDriverProfiles] = useState([]);
   const [driverEntries, setDriverEntries] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [activeNav, setActiveNav] = useState(initialAppNav);
   const [selectedPlate, setSelectedPlate] = useState("5043 MLC");
   const [maintenancePlate, setMaintenancePlate] = useState("5043 MLC");
@@ -1002,24 +1004,42 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     setDriverEntries(data ?? []);
   }, [isAdmin]);
 
+  const refreshTransactions = useCallback(async () => {
+    if (!isAdmin || !supabase) return;
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("id, type, occurred_on, amount, driver_id, vehicle_plate, source_document_id, category, metadata, dedupe_key, created_at")
+      .order("occurred_on", { ascending: false });
+    if (error) throw error;
+    setTransactions(data ?? []);
+    setDriverEntries(transactionsToDriverEntries(data ?? []));
+  }, [isAdmin]);
+
   useEffect(() => {
     if (!isAdmin || !supabase) {
       setDriverEntries([]);
       return undefined;
     }
     let mounted = true;
-    refreshDriverEntries().catch(() => { if (mounted) setDriverEntries([]); });
+    refreshTransactions().catch(() => { if (mounted) setDriverEntries([]); });
     const channel = supabase
       .channel(`admin-driver-entries-${session.user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "driver_entries" }, () => {
         refreshDriverEntries().catch(() => undefined);
       })
       .subscribe();
+    const transactionChannel = supabase
+      .channel(`admin-transactions-${session.user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => {
+        refreshTransactions().catch(() => undefined);
+      })
+      .subscribe();
     return () => {
       mounted = false;
       supabase.removeChannel(channel);
+      supabase.removeChannel(transactionChannel);
     };
-  }, [isAdmin, refreshDriverEntries, session.user.id]);
+  }, [isAdmin, refreshDriverEntries, refreshTransactions, session.user.id]);
 
   useEffect(() => {
     const onBottomNavigationClick = (event) => {
@@ -1207,13 +1227,22 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     if (file && supabase && session.user?.id) {
       try {
         const fields = savedDocument.fields ?? {};
-        await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate: fields.vehicle || selectedPlate, file, extractedData: fields, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: savedDocument.lowConfidence ? "review" : "approved" });
+        const documentDate = savedDocument.category === "billing" ? fields.serviceDate || fields.issueDate || new Date().toISOString().slice(0, 10) : fields.date || new Date().toISOString().slice(0, 10);
+        const fileHash = await hashDocumentFile(file);
+        const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate: fields.vehicle || selectedPlate, file, fileHash, documentDate, extractedData: fields, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
+        const operations = operationsFromDocument({ category: savedDocument.category, fields, vehiclePlate: fields.vehicle || selectedPlate, fileHash, fallbackDate: documentDate });
+        if (!operations.length) throw new Error("No se ha reconocido ningún importe económico. Revisa los campos antes de confirmar.");
+        const result = await confirmDocumentTransactions(uploaded.id, operations);
+        if (result?.duplicate && !result?.created) throw new Error("Este documento ya estaba registrado y no se ha vuelto a sumar.");
+        await refreshTransactions();
         cloudSaved = true;
       } catch (error) {
-        notify(`Datos guardados localmente; no se pudo subir el adjunto: ${error.message}`);
+        const duplicate = error?.code === "23505" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
+        notify(duplicate ? "Documento duplicado: no se ha vuelto a sumar ningún importe." : `No se pudo registrar el documento: ${error.message}`);
+        return;
       }
     }
-    if (savedDocument.category === "billing") {
+    if (savedDocument.category === "billing" && !cloudSaved) {
       const fields = savedDocument.fields ?? {};
       const amount = Number(fields.total) || Number(fields.netAmount) || 0;
       const vehiclePlate = vehicles.some((vehicle) => vehicle.plate === fields.vehicle) ? fields.vehicle : selectedPlate;
@@ -1356,10 +1385,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         </header>
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
-          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" vehicles={vehicles} driverEntries={driverEntries} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
-          {activeNav === "Conductores" && <DriversView vehicles={vehicles} driverEntries={driverEntries} setModal={setModal} />}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} vehicles={vehicles} driverEntries={driverEntries} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} driverEntries={driverEntries} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
+          {activeNav === "Conductores" && <DriversView vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} setModal={setModal} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
@@ -1938,6 +1967,32 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         tips,
         unit: fieldValue("unit") ?? "",
       };
+      let centralSavedDocument = null;
+      const centralEconomic = recordKey === "fuel" || recordKey === "billing";
+      if (centralEconomic) {
+        const reviewLines = recordKey === "fuel"
+          ? [`Documento: Gasolina`, `Fecha: ${targetDate}`, `Importe: ${formatCurrency(extractedData.cost)}`]
+          : [`Documento: Facturación`, `Fecha: ${targetDate}`, `Facturación: ${formatCurrency(totalBilling)}`, `Efectivo: ${formatCurrency(cashCollected)}`, `Propinas: ${formatCurrency(tips)}`];
+        reviewLines.push(`Conductor: ${profile.full_name}`, `Vehículo: ${profile.vehicle_plate}`, "", "Confirma para guardar estos datos. Si no son correctos, cancela y vuelve a realizar la captura.");
+        if (!window.confirm(reviewLines.join("\n"))) {
+          setCircleUpload({ key: recordKey, status: "review", fileName: file.name });
+          setMessage("Guardado cancelado para que puedas corregir la lectura.");
+          return;
+        }
+        const fileHash = await hashDocumentFile(optimized);
+        const operationFields = recordKey === "fuel"
+          ? { date: targetDate, cost: extractedData.cost, consumption: extractedData.consumption, unit: extractedData.unit, odometerKm: extractedData.odometerKm, vehicle: profile.vehicle_plate }
+          : { serviceDate: targetDate, total: totalBilling, cashCollected, tips, tolls: numberValue("tolls"), washExpenses: numberValue("washExpenses"), otherExpenses: numberValue("otherExpenses"), vehicle: profile.vehicle_plate };
+        if (supabase) {
+          const uploaded = await uploadDocumentRecord({ ownerId: activeProfileId, category: documentCategory, vehiclePlate: profile.vehicle_plate, file: optimized, fileHash, documentDate: targetDate, extractedData, fieldConfidence: responseBody?.confidence ?? {}, overallConfidence: extractedData.overallConfidence, status: "review" });
+          const operations = operationsFromDocument({ category: documentCategory, fields: operationFields, driverId: activeProfileId, vehiclePlate: profile.vehicle_plate, fileHash, fallbackDate: targetDate });
+          const result = await confirmDocumentTransactions(uploaded.id, operations);
+          if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
+          centralSavedDocument = { ...uploaded, extracted_data: extractedData };
+          const { data: refreshedEntries } = await supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180);
+          if (refreshedEntries) setEntries(refreshedEntries);
+        }
+      }
       const entryPatch = {};
       if (recordKey === "fuel" && detectedDate) {
         if (extractedData.cost > 0) entryPatch.fuel_cost = extractedData.cost;
@@ -1957,10 +2012,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       if (recordKey === "consumption" && extractedData.consumption > 0) {
         setCircleMetricValues((current) => ({ ...current, [targetDate]: { ...(current[targetDate] ?? {}), consumption: extractedData.consumption, consumptionUnit: extractedData.unit || "l/100 km" } }));
       }
-      if (Object.keys(entryPatch).length > 0) await upsertDriverEntry(targetDate, entryPatch);
+      if (Object.keys(entryPatch).length > 0 && !centralEconomic) await upsertDriverEntry(targetDate, entryPatch);
       if (detectedDate && detectedDate !== selectedDate) setSelectedDate(detectedDate);
-      let savedDocument = { id: `local-circle-${Date.now()}`, owner_id: activeProfileId, category: documentCategory, vehicle_plate: profile.vehicle_plate, file_name: optimized.name || file.name, mime_type: optimized.type || file.type, file_size: optimized.size || file.size, extracted_data: extractedData, status: "review", created_at: new Date().toISOString() };
-      if (supabase) {
+      let savedDocument = centralSavedDocument ?? { id: `local-circle-${Date.now()}`, owner_id: activeProfileId, category: documentCategory, vehicle_plate: profile.vehicle_plate, file_name: optimized.name || file.name, mime_type: optimized.type || file.type, file_size: optimized.size || file.size, extracted_data: extractedData, status: "review", created_at: new Date().toISOString() };
+      if (supabase && !centralSavedDocument) {
         const uploaded = await uploadDocumentRecord({ ownerId: activeProfileId, category: documentCategory, vehiclePlate: profile.vehicle_plate, file: optimized, extractedData, overallConfidence: extractedData.overallConfidence, status: "review" });
         savedDocument = { ...uploaded, extracted_data: extractedData };
       }
@@ -2824,7 +2879,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
   );
 }
 
-function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
+function FuelView({ vehicles, driverEntries = [], transactions = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;
@@ -2900,12 +2955,17 @@ function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onN
   }, [billingDriverKey]);
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
   const selectedPeriodLabel = `${reportMonths[reportMonth]} ${reportYear}`;
+  const periodTransactions = transactions.filter((transaction) => {
+    const date = new Date(`${transaction.occurred_on}T12:00:00`);
+    return date.getFullYear() === reportYear && date.getMonth() === reportMonth;
+  });
   const vehicleStats = vehicles.map((vehicle) => {
-    const entries = (vehicle.monthlyFuel ?? []).map((entry) => ({
-      ...entry,
-      date: entry.date.replace(fuelPeriodSuffixPattern, `${reportMonthTokens[reportMonth]} ${reportYear}`),
-      liters: Number(((entry.liters ?? 0) * periodFactor).toFixed(2)),
-      cost: Number(((entry.cost ?? 0) * periodFactor).toFixed(2)),
+    const entries = periodTransactions.filter((transaction) => transaction.type === "fuel" && transaction.vehicle_plate === vehicle.plate).map((transaction) => ({
+      id: transaction.id,
+      date: transaction.occurred_on,
+      liters: Number(transaction.metadata?.liters) || 0,
+      cost: Number(transaction.amount) || 0,
+      sourceDocumentId: transaction.source_document_id,
     }));
     return {
       vehicle,
@@ -2928,7 +2988,7 @@ function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onN
     detail: row.plate,
     value: row.revenue,
   }));
-  const chartVehicleStats = vehicles.map((vehicle) => ({ vehicle, cost: 0 }));
+  const chartVehicleStats = vehicles.map((vehicle, index) => ({ vehicle, cost: vehicleStats[index]?.cost ?? 0 }));
   const fuelChartData = chartVehicleStats.map(({ vehicle, cost }, index) => ({
     label: vehicle.plate,
     detail: vehicle.model,
@@ -2937,7 +2997,7 @@ function FuelView({ vehicles, driverEntries = [], selected, onSelectVehicle, onN
   const maintenanceChartData = vehicles.map((vehicle) => ({
     label: vehicle.plate,
     detail: vehicle.model,
-    value: getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear),
+    value: periodTransactions.filter((transaction) => transaction.type === "maintenance" && transaction.vehicle_plate === vehicle.plate).reduce((sum, transaction) => sum + (Number(transaction.amount) || 0), 0),
   }));
   const netPeriodKey = `${reportYear}-${reportMonth}`;
   const netVehicleDetails = vehicles
@@ -3401,7 +3461,7 @@ function FuelDriversReport({ vehicles, selectedDriverKey, onSelectDriver }) {
   );
 }
 
-function DriversView({ vehicles, driverEntries = [], setModal }) {
+function DriversView({ vehicles, driverEntries = [], transactions = [], setModal }) {
   const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
   const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
   const [selectedDriverKey, setSelectedDriverKey] = useState("");
@@ -3419,10 +3479,15 @@ function DriversView({ vehicles, driverEntries = [], setModal }) {
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
   const billingRows = useMemo(() => getDriverBillingRows(professionalVehicles, driverEntries, reportMonth, reportYear), [professionalVehicles, driverEntries, reportMonth, reportYear]);
   const fuelSummaries = useMemo(() => professionalVehicles.map((vehicle) => {
-    const entries = (vehicle.monthlyFuel ?? []).map((entry) => ({
-      ...entry,
-      liters: Number(((entry.liters ?? 0) * periodFactor).toFixed(2)),
-      cost: Number(((entry.cost ?? 0) * periodFactor).toFixed(2)),
+    const entries = transactions.filter((transaction) => {
+      if (transaction.type !== "fuel" || transaction.vehicle_plate !== vehicle.plate) return false;
+      const date = new Date(`${transaction.occurred_on}T12:00:00`);
+      return date.getFullYear() === reportYear && date.getMonth() === reportMonth;
+    }).map((transaction) => ({
+      driverId: transaction.driver_id,
+      date: transaction.occurred_on,
+      liters: Number(transaction.metadata?.liters) || 0,
+      cost: Number(transaction.amount) || 0,
     }));
     return {
       vehicle,
@@ -3430,10 +3495,14 @@ function DriversView({ vehicles, driverEntries = [], setModal }) {
       cost: entries.reduce((sum, entry) => sum + entry.cost, 0),
       refuels: entries.length,
     };
-  }), [professionalVehicles, periodFactor]);
+  }), [professionalVehicles, reportMonth, reportYear, transactions]);
   const driverRows = useMemo(() => billingRows.map((row) => {
     const vehicle = professionalVehicles.find((candidate) => candidate.plate === row.plate);
-    const fuelEntries = getDriverFuelEntriesForPeriod(vehicle, row.driver, reportMonth, reportYear);
+    const fuelEntries = transactions.filter((transaction) => {
+      if (transaction.type !== "fuel" || transaction.driver_id !== row.driverId) return false;
+      const date = new Date(`${transaction.occurred_on}T12:00:00`);
+      return date.getFullYear() === reportYear && date.getMonth() === reportMonth;
+    }).map((transaction) => ({ date: transaction.occurred_on, liters: Number(transaction.metadata?.liters) || 0, cost: Number(transaction.amount) || 0 }));
     return {
       ...row,
       vehicle,
@@ -3441,7 +3510,7 @@ function DriversView({ vehicles, driverEntries = [], setModal }) {
       fuelLiters: fuelEntries.reduce((sum, entry) => sum + entry.liters, 0),
       fuelCost: fuelEntries.reduce((sum, entry) => sum + entry.cost, 0),
     };
-  }), [billingRows, professionalVehicles, reportMonth, reportYear]);
+  }), [billingRows, professionalVehicles, reportMonth, reportYear, transactions]);
   const selectedDriver = driverRows.find((row) => row.key === selectedDriverKey) ?? null;
   const calendarRows = useMemo(() => selectedDriver ? getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, reportMonth, reportYear) : [], [selectedDriver, reportMonth, reportYear]);
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;

@@ -35,7 +35,7 @@ const safeFileName = (value = "documento") => String(value)
   .replace(/^-|-$/g, "")
   .slice(0, 100) || "documento";
 
-export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, file, extractedData = {}, fieldConfidence = {}, overallConfidence = null, status = "review" }) => {
+export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, file, fileHash = null, documentDate = null, extractedData = {}, fieldConfidence = {}, overallConfidence = null, status = "review" }) => {
   if (!supabase || !ownerId || !file) throw new Error("No se puede guardar el documento sin una sesión activa.");
   const path = `${ownerId}/${category}/${Date.now()}-${safeFileName(file.name)}`;
   const { error: uploadError } = await supabase.storage
@@ -53,18 +53,27 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
       file_name: file.name || "documento",
       mime_type: file.type || "application/octet-stream",
       file_size: file.size || 0,
+      file_hash: fileHash || null,
+      document_date: documentDate || null,
       extracted_data: extractedData,
       field_confidence: fieldConfidence,
       overall_confidence: overallConfidence,
       status,
     })
-    .select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, status, created_at")
+    .select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, status, created_at")
     .single();
 
   if (error) {
     await supabase.storage.from("documents").remove([path]);
     throw error;
   }
+  return data;
+};
+
+export const confirmDocumentTransactions = async (documentId, operations) => {
+  if (!supabase || !documentId || !operations?.length) throw new Error("No hay operaciones válidas para guardar.");
+  const { data, error } = await supabase.rpc("confirm_document_transactions", { p_document_id: documentId, p_operations: operations });
+  if (error) throw error;
   return data;
 };
 
