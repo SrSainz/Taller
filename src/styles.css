@@ -1779,13 +1779,13 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .net-detail-card--collapsed { flex: 1 0 0; min-width: 0; display: flex; align-items: stretch; gap: 8px; padding: 9px 8px 0; border: 0; border-radius: 13px; background: #fbfcfb; box-shadow: none; scroll-snap-align: center; overflow: hidden; }
 .net-detail-card--collapsed:nth-child(1) { background: #f7fbf6; }
 .net-detail-card--collapsed:nth-child(2) { background: #f7faff; }
-.net-detail-card--collapsed:nth-child(3) { background: #fbf8fc; }
+.net-detail-card--collapsed:nth-child(3) { background: #fff8f7; }
 .net-detail-card__vehicle-visual { min-height: 77px; display: grid; place-items: center; padding: 5px; border-radius: 9px; background: #edf5ef; }
 .net-detail-card__vehicle-visual img { width: 78px; height: 48px; object-fit: contain; }
 .net-detail-card__vehicle-visual--toyota img { filter: saturate(1.05); }
 .net-detail-card--collapsed .net-detail-card__plate { align-self: center; width: max-content; padding: 5px 8px; border-radius: 8px; background: #239755; color: #fff; font-size: 13px; line-height: 1; }
 .net-detail-card--collapsed:nth-child(2) .net-detail-card__plate { background: #2f72cf; }
-.net-detail-card--collapsed:nth-child(3) .net-detail-card__plate { background: #7542a7; }
+.net-detail-card--collapsed:nth-child(3) .net-detail-card__plate { background: #d43b30; }
 .net-detail-card__net--large { color: #168a45; font-size: 24px; font-weight: 900; letter-spacing: -.04em; }
 .net-detail-card__collapsed .net-detail-card__net--large { margin: 3px 0 3px; text-align: center; }
 .net-detail-card__collapsed-line { display: flex; flex-direction: column; gap: 3px; padding: 2px 2px; }
@@ -1793,7 +1793,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .net-detail-card__collapsed-line strong { color: #14231f; font-size: 14px; }
 .net-detail-card__expand { min-height: 45px; display: grid; place-items: center; margin: auto -8px 0; border: 0; background: rgba(85, 188, 105, .16); color: #287a4c; cursor: pointer; }
 .net-detail-card--collapsed:nth-child(2) .net-detail-card__expand { background: rgba(61, 124, 211, .12); color: #285d9a; }
-.net-detail-card--collapsed:nth-child(3) .net-detail-card__expand { background: rgba(125, 72, 171, .11); color: #69408f; }
+.net-detail-card--collapsed:nth-child(3) .net-detail-card__expand { background: rgba(212, 59, 48, .11); color: #b32e28; }
 .net-detail-carousel-dots { display: flex; justify-content: center; gap: 9px; padding: 0 0 14px; }
 .net-detail-carousel-dots i { width: 9px; height: 9px; display: block; border-radius: 50%; background: #647784; }
 .net-detail-carousel-dots i.is-active { background: #67df86; }
@@ -1864,7 +1864,7 @@ body:has(.drivers-page--calendar-open) { overflow: hidden; }
 .net-detail-card__vehicle-visual img { display: block; width: 100%; height: 88px; object-fit: contain; object-position: center; }
 .net-detail-card__vehicle-visual--green { background: #e6f5e7; }
 .net-detail-card__vehicle-visual--blue { background: #e7f0fc; }
-.net-detail-card__vehicle-visual--purple { background: #f1eafb; }
+.net-detail-card__vehicle-visual--red { background: #fff0ee; }
 
 @media (max-width: 520px) {
   .net-detail-card__vehicle-visual { min-height: 62px; border-radius: 8px; }

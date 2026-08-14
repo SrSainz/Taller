@@ -160,7 +160,7 @@ const vehicleBrandLogos = {
 const netVehicleImages = {
   "5043 MLC": { src: "/net-vehicles/toyota-corolla-green.png", tone: "green", view: "frontal de tres cuartos" },
   "5750 MJV": { src: "/net-vehicles/toyota-corolla-blue.png", tone: "blue", view: "lateral" },
-  "5754 MJV": { src: "/net-vehicles/toyota-corolla-purple.png", tone: "purple", view: "trasera de tres cuartos" },
+  "5754 MJV": { src: "/net-vehicles/toyota-corolla-red.png", tone: "red", view: "trasera de tres cuartos" },
 };
 
 const vehicleOwnerSeed = {
