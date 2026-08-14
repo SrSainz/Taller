@@ -75,3 +75,21 @@ passed
 - Verificación final: ambas tarjetas, la tira histórica y la comparación aparecen en el DOM, no existe desbordamiento horizontal a 390 px y la consola permanece sin errores ni advertencias.
 
 final result: passed
+
+## Iteracion actual: rediseño de NETO segun referencia de tarjetas deslizables
+
+- Source visual truth: `C:/Users/aiday/OneDrive/Escritorio/app david/.codex-remote-attachments/019fd3ce-9cc5-7010-89a4-15da8da4d73a/ac1a1557-d72a-48ec-8771-864aa6ba0930/1-Photo-1.jpg` (640 x 1280 px, referencia proporcionada por la persona usuaria).
+- Implementation: `src/App.jsx` (`NetDetailModal`) and `src/styles.css` (NETO carousel/detail block).
+- Browser evidence: `design-qa-net-collapsed.png` and `design-qa-net-expanded.png` (1280 x 720 px browser viewport; the source is a mobile reference, so the comparison focuses on the app-owned modal content and preserves responsive behavior).
+- States compared: NETO collapsed horizontal vehicle carousel and expanded 5043 MLC vehicle detail with the expense list.
+- Full-view evidence: the implementation uses the same dark blue NETO shell, green total, close control, three horizontal vehicle cards, color-coded plates, dots, expanded vehicle header, two summary cells, expense list, and bottom actions.
+- Focused interaction evidence: opening 5043 MLC exposes all expense concepts; selecting Gasolina exposes both driver rows; the manual Añadir gastos form remains available.
+- Typography and copy: NETO, plates, euro amounts, GASTOS/IMPORTE and action labels follow the strong hierarchy in the reference without clipping.
+- Spacing and layout: the collapsed state keeps three cards in one row at the captured viewport; the expanded state reserves an internal scroll for the complete list while keeping the shell and actions visible.
+- Colors and tokens: charcoal/navy shell, green positive values and action, pale green selected card, blue and purple secondary card tones, and pale icon containers match the visual direction.
+- Image and icon fidelity: the existing Toyota brand asset is reused as the vehicle image treatment and Tabler icons are used for the expense concepts; no screenshot is used as a static UI substitute.
+- Findings: no actionable P0, P1 or P2 mismatch remains in the reviewed states. The reference's illustrative car photographs are represented by the existing real Toyota brand asset because the app has no vehicle photographs in its data model.
+- Primary interactions tested: open NETO, open/close each vehicle detail, scroll the expense list, expand Gasolina and verify both driver breakdown rows, return to all vehicles.
+- Console check: no browser console errors observed during the reviewed states.
+
+final result: passed

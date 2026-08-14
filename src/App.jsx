@@ -2776,7 +2776,7 @@ function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }
 
 function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemoveExpense, onClose }) {
   const closeButtonRef = useRef(null);
-  const [expandedPlates, setExpandedPlates] = useState(() => new Set());
+  const [selectedPlate, setSelectedPlate] = useState("");
   const [expandedExpenseRows, setExpandedExpenseRows] = useState(() => new Set());
   const [activeFormPlate, setActiveFormPlate] = useState("");
   const [formState, setFormState] = useState({ label: "", amount: "" });
@@ -2785,14 +2785,12 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
     closeButtonRef.current?.focus();
   }, []);
   const total = details.reduce((sum, detail) => sum + detail.net, 0);
-  const hasExpandedDetails = expandedPlates.size > 0 || Boolean(activeFormPlate);
-  const toggleExpenses = (plate) => {
-    setExpandedPlates((current) => {
-      const next = new Set(current);
-      if (next.has(plate)) next.delete(plate);
-      else next.add(plate);
-      return next;
-    });
+  const orderedDetails = [...details].sort((left, right) => vehicleOrder.indexOf(left.vehicle.plate) - vehicleOrder.indexOf(right.vehicle.plate));
+  const selectedDetail = orderedDetails.find((detail) => detail.vehicle.plate === selectedPlate) ?? null;
+  const toggleVehicle = (plate) => {
+    setSelectedPlate((current) => current === plate ? "" : plate);
+    setExpandedExpenseRows(new Set());
+    setActiveFormPlate("");
   };
   const toggleExpenseRow = (rowKey) => {
     setExpandedExpenseRows((current) => {
@@ -2821,59 +2819,71 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
       return;
     }
     onAddExpense({ periodKey, plate, label, amount: Number(amount.toFixed(2)) });
-    setExpandedPlates((current) => new Set(current).add(plate));
+    setSelectedPlate(plate);
     closeExpenseForm();
   };
+  const getExpenseIcon = (key) => {
+    if (key === "fuel") return IconGasStation;
+    if (key === "payroll") return IconUsers;
+    if (key === "driver-commission") return IconCurrencyEuro;
+    if (key === "social-security") return IconShieldCheck;
+    if (key === "workshop") return IconTool;
+    if (key === "accounting") return IconBuildingStore;
+    if (key === "leasing" || key === "license-loan") return IconCar;
+    return IconFileInvoice;
+  };
+  const renderExpenseRows = (detail) => <div className="net-detail-card__expenses" id={`net-expenses-${detail.vehicle.plate.replace(/\s/g, "-")}`} role="table" aria-label={`Gastos de ${detail.vehicle.plate}`}>
+    <div className="net-detail-card__expenses-heading" role="row"><strong>GASTOS</strong><strong>IMPORTE</strong></div>
+    <div className="net-detail-card__expenses-scroll">
+      {detail.expenses.map((expense) => {
+        const rowKey = `${detail.vehicle.plate}-${expense.key}`;
+        const expandable = Array.isArray(expense.breakdown) && expense.breakdown.length > 0;
+        const breakdownOpen = expandedExpenseRows.has(rowKey);
+        const ExpenseIcon = getExpenseIcon(expense.key);
+        const rowClass = `net-detail-card__expense${expandable ? " net-detail-card__expense--expandable" : ""}${breakdownOpen ? " is-expanded" : ""}`;
+        return <div className="net-detail-card__expense-group" key={expense.key}>
+          {expandable ? <button type="button" className={rowClass} aria-expanded={breakdownOpen} aria-controls={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} onClick={() => toggleExpenseRow(rowKey)}><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{expense.cadence}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong><IconChevronRight size={15} /></span></button> : <div className={rowClass} role="row"><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manual && <button type="button" onClick={() => onRemoveExpense(expense.id)} aria-label={`Eliminar gasto ${expense.label}`}><IconTrash size={12} /></button>}</span></div>}
+          {breakdownOpen && <div className="net-detail-card__expense-breakdown" id={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} role="rowgroup" aria-label={`Detalle de ${expense.label}`}>
+            {expense.breakdown.map((breakdown) => <div className="net-detail-card__expense-breakdown-row" role="row" key={`${rowKey}-${breakdown.label}`}><span role="cell"><strong>{breakdown.label}</strong><small>{breakdown.meta}</small></span><strong role="cell">{formatCurrency(breakdown.amount)}</strong></div>)}
+          </div>}
+        </div>;
+      })}
+    </div>
+  </div>;
   return (
     <div className="net-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`net-detail-modal${hasExpandedDetails ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-labelledby="net-detail-title">
+      <section className={`net-detail-modal${selectedDetail ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-labelledby="net-detail-title">
         <header className="net-detail-modal__header">
-          <div className="net-detail-modal__header-content"><h2 id="net-detail-title">NETO</h2><strong aria-label={`Total neto de ${periodLabel}`}>{formatCurrency(total)}</strong></div>
+          <div className="net-detail-modal__header-content"><span className="net-detail-menu-icon" aria-hidden="true"><IconMenu2 size={20} /></span><h2 id="net-detail-title">NETO</h2><strong aria-label={`Total neto de ${periodLabel}`}>{formatCurrency(total)}</strong></div>
           <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
         </header>
-        <div className="net-detail-grid" aria-label="Resultado neto por coche profesional">
-          {details.map(({ vehicle, revenue, expenses, totalExpenses, net }) => {
-            const expanded = expandedPlates.has(vehicle.plate);
-            const adding = activeFormPlate === vehicle.plate;
-            return (
-              <article className="net-detail-card" key={vehicle.plate}>
-                <header className="net-detail-card__header">
-                  <div><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></div>
-                  <strong className={net >= 0 ? "net-detail-card__net net-detail-card__net--positive" : "net-detail-card__net net-detail-card__net--negative"}>{formatCurrency(net)}</strong>
-                </header>
-                <div className="net-detail-card__billing"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
-                <div className="net-detail-card__summary"><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div>
-                <div className="net-detail-card__actions">
-                  <button type="button" className="net-detail-card__toggle" onClick={() => toggleExpenses(vehicle.plate)} aria-expanded={expanded} aria-controls={`net-expenses-${vehicle.plate.replace(/\s/g, "-")}`}><span>{expanded ? "Ocultar gastos" : `Ver gastos (${expenses.length})`}</span><IconChevronDown size={14} /></button>
-                  <button type="button" className="net-detail-card__add" onClick={() => openExpenseForm(vehicle.plate)}><IconPlus size={14} />Añadir gastos</button>
-                </div>
-                {adding && <form className="net-detail-card__add-form" onSubmit={(event) => handleExpenseSubmit(event, vehicle.plate)}>
-                  <label><span>Concepto manual</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Nóminas · Andrés" maxLength={42} autoFocus /></label>
-                  <label><span>Importe</span><input type="number" value={formState.amount} onChange={(event) => setFormState((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" min="0.01" step="0.01" inputMode="decimal" /></label>
-                  <div><button type="button" className="net-detail-card__form-cancel" onClick={closeExpenseForm}>Cancelar</button><button type="submit" className="net-detail-card__form-save">Guardar gasto</button></div>
-                  {formError && <p>{formError}</p>}
-                </form>}
-                {expanded && <div className="net-detail-card__expenses" id={`net-expenses-${vehicle.plate.replace(/\s/g, "-")}`} role="table" aria-label={`Gastos de ${vehicle.plate}`}>
-                  <div className="net-detail-card__expenses-heading" role="row"><strong>Gastos</strong><strong>Importe</strong></div>
-                  <div className="net-detail-card__expenses-scroll">
-                    {expenses.map((expense) => {
-                      const rowKey = `${vehicle.plate}-${expense.key}`;
-                      const expandable = Array.isArray(expense.breakdown) && expense.breakdown.length > 0;
-                      const breakdownOpen = expandedExpenseRows.has(rowKey);
-                      const rowClass = `net-detail-card__expense${expandable ? " net-detail-card__expense--expandable" : ""}${breakdownOpen ? " is-expanded" : ""}`;
-                      return <div className="net-detail-card__expense-group" key={expense.key}>
-                        {expandable ? <button type="button" className={rowClass} aria-expanded={breakdownOpen} aria-controls={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} onClick={() => toggleExpenseRow(rowKey)}><span role="cell"><strong>{expense.label}</strong><small>{expense.cadence}</small></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong><IconChevronDown size={13} /></span></button> : <div className={rowClass} role="row"><span role="cell"><strong>{expense.label}</strong><small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manual && <button type="button" onClick={() => onRemoveExpense(expense.id)} aria-label={`Eliminar gasto ${expense.label}`}><IconTrash size={12} /></button>}</span></div>}
-                        {breakdownOpen && <div className="net-detail-card__expense-breakdown" id={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} role="rowgroup" aria-label={`Detalle de ${expense.label}`}>
-                          {expense.breakdown.map((detail) => <div className="net-detail-card__expense-breakdown-row" role="row" key={`${rowKey}-${detail.label}`}><span role="cell"><strong>{detail.label}</strong><small>{detail.meta}</small></span><strong role="cell">{formatCurrency(detail.amount)}</strong></div>)}
-                        </div>}
-                      </div>;
-                    })}
-                  </div>
-                </div>}
-              </article>
-            );
-          })}
-        </div>
+        {!selectedDetail ? <>
+          <div className="net-detail-carousel" aria-label="Vehículos profesionales con resultado neto">
+            {orderedDetails.map(({ vehicle, revenue, totalExpenses, net }) => <article className="net-detail-card net-detail-card--collapsed" key={vehicle.plate}>
+              <div className={`net-detail-card__vehicle-visual net-detail-card__vehicle-visual--${getVehicleBrand(vehicle).toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[getVehicleBrand(vehicle)]} alt={`Vehículo ${vehicle.model}`} /></div>
+              <strong className="net-detail-card__plate">{vehicle.plate}</strong>
+              <strong className={`net-detail-card__net net-detail-card__net--large${net < 0 ? " net-detail-card__net--negative" : ""}`}>{formatCurrency(net)}</strong>
+              <div className="net-detail-card__collapsed-line"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
+              <div className="net-detail-card__collapsed-line"><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div>
+              <button type="button" className="net-detail-card__expand" onClick={() => toggleVehicle(vehicle.plate)} aria-label={`Abrir gastos de ${vehicle.plate}`}><IconChevronDown size={21} /></button>
+            </article>)}
+          </div>
+          <div className="net-detail-carousel-dots" aria-hidden="true">{orderedDetails.map((detail, index) => <i className={index === 0 ? "is-active" : ""} key={detail.vehicle.plate} />)}</div>
+        </> : <div className="net-detail-expanded">
+          <button type="button" className="net-detail-back" onClick={() => { setSelectedPlate(""); closeExpenseForm(); }}><IconChevronLeft size={16} />VER LOS 3 COCHES</button>
+          <article className="net-detail-expanded__card">
+            <header className="net-detail-expanded__vehicle"><strong className="net-detail-card__plate">{selectedDetail.vehicle.plate}</strong><strong className={`net-detail-card__net net-detail-card__net--large${selectedDetail.net < 0 ? " net-detail-card__net--negative" : ""}`}>{formatCurrency(selectedDetail.net)}</strong><button type="button" className="net-detail-expanded__collapse" onClick={() => setSelectedPlate("")} aria-label="Cerrar detalle del coche"><IconChevronUp size={21} /></button></header>
+            <div className="net-detail-expanded__summary"><div><span>Facturación</span><strong>{formatCurrency(selectedDetail.revenue)}</strong></div><div><span>Gastos registrados</span><strong>{formatCurrency(selectedDetail.totalExpenses)}</strong></div></div>
+            {renderExpenseRows(selectedDetail)}
+            {activeFormPlate === selectedDetail.vehicle.plate && <form className="net-detail-card__add-form" onSubmit={(event) => handleExpenseSubmit(event, selectedDetail.vehicle.plate)}>
+              <label><span>Concepto manual</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Nóminas · Andrés" maxLength={42} autoFocus /></label>
+              <label><span>Importe</span><input type="number" value={formState.amount} onChange={(event) => setFormState((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" min="0.01" step="0.01" inputMode="decimal" /></label>
+              <div><button type="button" className="net-detail-card__form-cancel" onClick={closeExpenseForm}>Cancelar</button><button type="submit" className="net-detail-card__form-save">Guardar gasto</button></div>
+              {formError && <p>{formError}</p>}
+            </form>}
+            <footer className="net-detail-expanded__actions"><button type="button" className="net-detail-expanded__hide" onClick={() => setSelectedPlate("")}><span>Ocultar gastos</span><IconChevronUp size={17} /></button><button type="button" className="net-detail-expanded__add" onClick={() => openExpenseForm(selectedDetail.vehicle.plate)}><IconPlus size={18} />Añadir gastos</button></footer>
+          </article>
+        </div>}
       </section>
     </div>
   );

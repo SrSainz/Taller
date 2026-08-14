@@ -1765,6 +1765,95 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .net-detail-card__expense-breakdown-row > strong { font-size: 9px; }
 }
 
+/* Neto: carrusel horizontal y ficha expandida según la referencia móvil. */
+.net-detail-backdrop { padding: 14px; background: rgba(4, 20, 28, .68); }
+.net-detail-modal { width: min(100%, 640px); max-height: min(92dvh, 820px); border: 1px solid #183f4e; border-radius: 22px; background: #092c3a; box-shadow: 0 26px 70px rgba(1, 18, 26, .45); }
+.net-detail-modal__header { min-height: 72px; padding: 13px 16px 11px 18px; border-bottom: 1px solid rgba(255,255,255,.12); background: #092c3a; }
+.net-detail-modal__header-content { justify-content: flex-start; gap: 12px; }
+.net-detail-menu-icon { display: inline-flex; color: #d9e5e4; }
+.net-detail-modal__header h2 { color: #f7fbfa; font-size: clamp(22px, 5vw, 29px); letter-spacing: .04em; }
+.net-detail-modal__header-content > strong { margin-left: auto; color: #6fe28e; font-size: clamp(22px, 5vw, 30px); }
+.net-detail-modal__close { width: 42px; height: 42px; border: 1px solid rgba(255,255,255,.2); border-radius: 10px; }
+.net-detail-carousel { display: flex; gap: 9px; min-height: 352px; padding: 14px 14px 9px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+.net-detail-carousel::-webkit-scrollbar { display: none; }
+.net-detail-card--collapsed { flex: 1 0 0; min-width: 0; display: flex; align-items: stretch; gap: 8px; padding: 9px 8px 0; border: 0; border-radius: 13px; background: #fbfcfb; box-shadow: none; scroll-snap-align: center; overflow: hidden; }
+.net-detail-card--collapsed:nth-child(1) { background: #f7fbf6; }
+.net-detail-card--collapsed:nth-child(2) { background: #f7faff; }
+.net-detail-card--collapsed:nth-child(3) { background: #fbf8fc; }
+.net-detail-card__vehicle-visual { min-height: 77px; display: grid; place-items: center; padding: 5px; border-radius: 9px; background: #edf5ef; }
+.net-detail-card__vehicle-visual img { width: 78px; height: 48px; object-fit: contain; }
+.net-detail-card__vehicle-visual--toyota img { filter: saturate(1.05); }
+.net-detail-card--collapsed .net-detail-card__plate { align-self: center; width: max-content; padding: 5px 8px; border-radius: 8px; background: #239755; color: #fff; font-size: 13px; line-height: 1; }
+.net-detail-card--collapsed:nth-child(2) .net-detail-card__plate { background: #2f72cf; }
+.net-detail-card--collapsed:nth-child(3) .net-detail-card__plate { background: #7542a7; }
+.net-detail-card__net--large { color: #168a45; font-size: 24px; font-weight: 900; letter-spacing: -.04em; }
+.net-detail-card__collapsed .net-detail-card__net--large { margin: 3px 0 3px; text-align: center; }
+.net-detail-card__collapsed-line { display: flex; flex-direction: column; gap: 3px; padding: 2px 2px; }
+.net-detail-card__collapsed-line span { color: #31433d; font-size: 10px; }
+.net-detail-card__collapsed-line strong { color: #14231f; font-size: 14px; }
+.net-detail-card__expand { min-height: 45px; display: grid; place-items: center; margin: auto -8px 0; border: 0; background: rgba(85, 188, 105, .16); color: #287a4c; cursor: pointer; }
+.net-detail-card--collapsed:nth-child(2) .net-detail-card__expand { background: rgba(61, 124, 211, .12); color: #285d9a; }
+.net-detail-card--collapsed:nth-child(3) .net-detail-card__expand { background: rgba(125, 72, 171, .11); color: #69408f; }
+.net-detail-carousel-dots { display: flex; justify-content: center; gap: 9px; padding: 0 0 14px; }
+.net-detail-carousel-dots i { width: 9px; height: 9px; display: block; border-radius: 50%; background: #647784; }
+.net-detail-carousel-dots i.is-active { background: #67df86; }
+.net-detail-expanded { min-height: 0; display: flex; flex-direction: column; padding: 10px 12px 13px; overflow: auto; }
+.net-detail-back { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin: 0 0 8px; padding: 5px 7px; border: 0; background: transparent; color: #c0d6d9; font-size: 9px; font-weight: 850; letter-spacing: .08em; cursor: pointer; }
+.net-detail-expanded__card { display: flex; flex-direction: column; overflow: hidden; border-radius: 15px; background: #fbfcfb; }
+.net-detail-expanded__vehicle { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #d9f3d7; }
+.net-detail-card__plate { width: max-content; padding: 5px 9px; border-radius: 7px; background: #239755; color: #fff; font-size: 13px; line-height: 1; }
+.net-detail-expanded__vehicle > .net-detail-card__net--large { margin-left: auto; }
+.net-detail-expanded__collapse { display: grid; place-items: center; width: 30px; height: 30px; border: 0; background: transparent; color: #214f37; cursor: pointer; }
+.net-detail-expanded__summary { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding: 9px 10px 4px; }
+.net-detail-expanded__summary > div { display: grid; gap: 4px; padding: 10px 8px; border-radius: 9px; background: #f1f4f1; text-align: center; }
+.net-detail-expanded__summary span { color: #33423c; font-size: 10px; }
+.net-detail-expanded__summary strong { color: #111e1a; font-size: 15px; }
+.net-detail-expanded .net-detail-card__expenses { display: flex; min-height: 0; margin: 0 10px; }
+.net-detail-expanded .net-detail-card__expenses-heading { padding: 7px 5px; color: #34453f; font-size: 10px; }
+.net-detail-expanded .net-detail-card__expenses-scroll { max-height: min(43dvh, 390px); overflow-y: auto; }
+.net-detail-expanded .net-detail-card__expense { min-height: 48px; padding: 6px 5px; border-bottom: 1px solid #e5ebe7; }
+.net-detail-expanded .net-detail-card__expense--expandable { text-align: left; }
+.net-detail-card__expense-label { width: 100%; min-width: 0; display: inline-flex !important; flex-direction: row !important; align-items: center; justify-content: flex-start; gap: 9px; text-align: left; }
+.net-detail-card__expense-label > i { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 32px; border-radius: 9px; background: #e7f5e9; color: #21924a; }
+.net-detail-card__expense-label > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.net-detail-expanded .net-detail-card__expense-label > span strong { color: #1d2924; font-size: 12px; }
+.net-detail-expanded .net-detail-card__expense-label > span small { color: #718079; font-size: 9px; }
+.net-detail-expanded .net-detail-card__expense-value { gap: 7px; }
+.net-detail-expanded .net-detail-card__expense-value > strong { color: #263831; font-size: 13px; }
+.net-detail-expanded .net-detail-card__expense-value > svg { color: #72847c; }
+.net-detail-expanded .net-detail-card__expense-breakdown-row { min-height: 34px; padding: 6px 8px 6px 48px; }
+.net-detail-expanded__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 11px 10px 10px; }
+.net-detail-expanded__actions button { min-height: 43px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; }
+.net-detail-expanded__hide { border: 1px solid #73ae8b; background: #fff; color: #257d48; }
+.net-detail-expanded__add { border: 1px solid #209851; background: #209851; color: #fff; }
+.net-detail-expanded .net-detail-card__add-form { margin: 0 10px 4px; }
+
+@media (max-width: 520px) {
+  .net-detail-backdrop { align-items: stretch; padding: 7px; }
+  .net-detail-modal { width: 100%; max-height: calc(100dvh - 14px); border-radius: 18px; }
+  .net-detail-modal__header { min-height: 61px; padding: 9px 10px 9px 13px; }
+  .net-detail-modal__header h2 { font-size: 22px; }
+  .net-detail-modal__close { width: 36px; height: 36px; }
+  .net-detail-carousel { min-height: 335px; padding: 12px 10px 8px; gap: 7px; }
+  .net-detail-card--collapsed { flex: 0 0 calc((100% - 14px) / 3); padding-inline: 6px; }
+  .net-detail-card__vehicle-visual { min-height: 64px; }
+  .net-detail-card__vehicle-visual img { width: 64px; height: 40px; }
+  .net-detail-card--collapsed .net-detail-card__plate { font-size: 10px; padding: 4px 5px; }
+  .net-detail-card__net--large { font-size: 18px; }
+  .net-detail-card__collapsed-line span { font-size: 8px; }
+  .net-detail-card__collapsed-line strong { font-size: 11px; }
+  .net-detail-card__expand { min-height: 38px; }
+  .net-detail-expanded { padding: 7px 8px 9px; }
+  .net-detail-expanded__vehicle { padding: 10px; }
+  .net-detail-expanded__summary { padding-inline: 8px; }
+  .net-detail-expanded .net-detail-card__expenses { margin-inline: 8px; }
+  .net-detail-expanded .net-detail-card__expense { min-height: 44px; }
+  .net-detail-expanded .net-detail-card__expense-label > i { width: 29px; height: 29px; flex-basis: 29px; }
+  .net-detail-expanded .net-detail-card__expense-label > span strong { font-size: 11px; }
+  .net-detail-expanded .net-detail-card__expense-label > span small { font-size: 8px; }
+  .net-detail-expanded .net-detail-card__expense-value > strong { font-size: 12px; }
+}
+
 body:has(.drivers-page--calendar-open) { overflow: hidden; }
 
 /* Neto keeps the result amount and expense total visible without the removed label. */
