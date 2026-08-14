@@ -174,5 +174,6 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - En el registro diario del conductor se muestra cada concepto debajo de su foto o símbolo, sin importes ni textos de ayuda visibles; la cabecera coloca nombre y matrícula en una banda azul compacta y la navegación semanal usa una transición larga y fluida.
 
 - El detalle de Neto sigue la referencia móvil suministrada: carcasa azul marino, tarjetas horizontales para los tres vehículos profesionales, distintivos de matrícula por color, puntos de paginación y ficha expandida con todos los gastos y sus desgloses anidados.
+- Las tarjetas de NETO usan Corolla sedan transparentes generados como recursos del proyecto: verde, azul y morado segun la matricula, con un punto de vista distinto en cada tarjeta.
 
 The user has granted standing permission to answer “sí” to routine in-scope permission prompts for this project, including normal build and validation checks and, after successful validation, preparing commits containing only the files modified for the current functionality, pushing to the connected GitHub repository, and deploying to the linked Vercel production project without asking for confirmation each time. Unrelated, temporary, or generated files must remain excluded. Destructive actions, data deletion, or work outside the application scope still require confirmation.

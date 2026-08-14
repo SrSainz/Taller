@@ -87,9 +87,21 @@ final result: passed
 - Typography and copy: NETO, plates, euro amounts, GASTOS/IMPORTE and action labels follow the strong hierarchy in the reference without clipping.
 - Spacing and layout: the collapsed state keeps three cards in one row at the captured viewport; the expanded state reserves an internal scroll for the complete list while keeping the shell and actions visible.
 - Colors and tokens: charcoal/navy shell, green positive values and action, pale green selected card, blue and purple secondary card tones, and pale icon containers match the visual direction.
-- Image and icon fidelity: the existing Toyota brand asset is reused as the vehicle image treatment and Tabler icons are used for the expense concepts; no screenshot is used as a static UI substitute.
-- Findings: no actionable P0, P1 or P2 mismatch remains in the reviewed states. The reference's illustrative car photographs are represented by the existing real Toyota brand asset because the app has no vehicle photographs in its data model.
+- Image and icon fidelity: generated Corolla sedan assets are used for the three vehicle views, while Tabler icons remain used for the expense concepts; no screenshot is used as a static UI substitute.
+- Findings: no actionable P0, P1 or P2 mismatch remains in the reviewed states. The reference's illustrative car photographs are represented by dedicated transparent project assets with matching plate tones.
 - Primary interactions tested: open NETO, open/close each vehicle detail, scroll the expense list, expand Gasolina and verify both driver breakdown rows, return to all vehicles.
 - Console check: no browser console errors observed during the reviewed states.
+
+final result: passed
+
+## Iteracion actual: vehiculos Corolla sedan en NETO
+
+- Source visual truth: `C:/Users/aiday/OneDrive/Escritorio/app david/.codex-remote-attachments/019fd3ce-9cc5-7010-89a4-15da8da4d73a/ac1a1557-d72a-48ec-8771-864aa6ba0930/1-Photo-1.jpg`.
+- Implementation: `src/App.jsx`, `src/styles.css` and `public/net-vehicles/`.
+- Browser evidence: `design-qa-net-corolla-collapsed.png` (1280 x 720 px), NETO open on the General dashboard.
+- The Toyota symbol is replaced by three Corolla sedan images mapped to the professional vehicles: green 5043 MLC with a front three-quarter view, blue 5750 MJV with a lateral view, and purple 5754 MJV with a rear three-quarter view.
+- Each image uses the same visual tone as its plate badge, is transparent and remains an interactive card asset rather than a flattened screenshot.
+- The expanded detail, all expense concepts, nested driver breakdowns, manual expense form and modal close action remain functional after the image change.
+- Console check: no browser console errors observed; no actionable P0, P1 or P2 mismatch remains.
 
 final result: passed

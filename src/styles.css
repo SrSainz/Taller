@@ -1858,6 +1858,18 @@ body:has(.drivers-page--calendar-open) { overflow: hidden; }
 
 /* Neto keeps the result amount and expense total visible without the removed label. */
 .net-detail-card__result { grid-template-columns: 1fr; justify-items: start; }
+
+/* Neto: vehiculos Corolla sedan generados para sustituir el simbolo de marca. */
+.net-detail-card__vehicle-visual { min-height: 92px; display: grid; place-items: center; padding: 0; border-radius: 10px; overflow: hidden; background: #edf5ef; }
+.net-detail-card__vehicle-visual img { display: block; width: 100%; height: 88px; object-fit: contain; object-position: center; }
+.net-detail-card__vehicle-visual--green { background: #e6f5e7; }
+.net-detail-card__vehicle-visual--blue { background: #e7f0fc; }
+.net-detail-card__vehicle-visual--purple { background: #f1eafb; }
+
+@media (max-width: 520px) {
+  .net-detail-card__vehicle-visual { min-height: 62px; border-radius: 8px; }
+  .net-detail-card__vehicle-visual img { height: 60px; }
+}
 .net-detail-card__result > strong { justify-self: start; }
 body:has(.drivers-page--calendar-open) .app-shell { height: 100dvh; min-height: 0; overflow: hidden; }
 body:has(.drivers-page--calendar-open) .workspace { height: 100%; min-height: 0; overflow: hidden; }

@@ -157,6 +157,12 @@ const vehicleBrandLogos = {
   Peugeot: "/brands/peugeot.svg",
 };
 
+const netVehicleImages = {
+  "5043 MLC": { src: "/net-vehicles/toyota-corolla-green.png", tone: "green", view: "frontal de tres cuartos" },
+  "5750 MJV": { src: "/net-vehicles/toyota-corolla-blue.png", tone: "blue", view: "lateral" },
+  "5754 MJV": { src: "/net-vehicles/toyota-corolla-purple.png", tone: "purple", view: "trasera de tres cuartos" },
+};
+
 const vehicleOwnerSeed = {
   "5754 MJV": { name: "Aida Pérez Salt", dni: "500-944-52S" },
   "5750 MJV": { name: "Aida Díaz Pérez", dni: "01-93-803-7B", location: "Burgos" },
@@ -2860,7 +2866,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
         {!selectedDetail ? <>
           <div className="net-detail-carousel" aria-label="Vehículos profesionales con resultado neto">
             {orderedDetails.map(({ vehicle, revenue, totalExpenses, net }) => <article className="net-detail-card net-detail-card--collapsed" key={vehicle.plate}>
-              <div className={`net-detail-card__vehicle-visual net-detail-card__vehicle-visual--${getVehicleBrand(vehicle).toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[getVehicleBrand(vehicle)]} alt={`Vehículo ${vehicle.model}`} /></div>
+              <div className={`net-detail-card__vehicle-visual net-detail-card__vehicle-visual--${netVehicleImages[vehicle.plate]?.tone ?? "green"}`}><img src={netVehicleImages[vehicle.plate]?.src ?? vehicleBrandLogos[getVehicleBrand(vehicle)]} alt={`Toyota Corolla sedan, vista ${netVehicleImages[vehicle.plate]?.view ?? "frontal"}`} loading="eager" /></div>
               <strong className="net-detail-card__plate">{vehicle.plate}</strong>
               <strong className={`net-detail-card__net net-detail-card__net--large${net < 0 ? " net-detail-card__net--negative" : ""}`}>{formatCurrency(net)}</strong>
               <div className="net-detail-card__collapsed-line"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
