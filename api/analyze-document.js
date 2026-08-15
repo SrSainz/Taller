@@ -1,6 +1,7 @@
 import { getVercelOidcToken } from "@vercel/oidc";
 
 const MAX_DATA_URL_BYTES = 4 * 1024 * 1024;
+const structuredExtractionAddendum = "Prioriza siempre la fecha impresa, el importe total pagado, la matricula visible y el proveedor. En documentos de consumo identifica tambien combustible, gasolinera y numero de ticket. En capturas de facturacion separa facturacion total, efectivo cobrado y propinas sin sumarlos entre si. Devuelve null cuando un campo no sea legible y no inventes valores.";
 
 const billingSchema = {
   type: "object",
@@ -10,6 +11,9 @@ const billingSchema = {
     invoiceNumber: { type: ["string", "null"] },
     issueDate: { type: ["string", "null"] },
     serviceDate: { type: ["string", "null"] },
+    date: { type: ["string", "null"] },
+    periodStart: { type: ["string", "null"] },
+    periodEnd: { type: ["string", "null"] },
     taxBase: { type: ["number", "null"] },
     vat: { type: ["number", "null"] },
     total: { type: ["number", "null"] },
@@ -19,11 +23,12 @@ const billingSchema = {
     tolls: { type: ["number", "null"] },
     washExpenses: { type: ["number", "null"] },
     otherExpenses: { type: ["number", "null"] },
+    trips: { type: ["number", "null"] },
     concept: { type: ["string", "null"] },
     expenseCategory: { type: ["string", "null"] },
     vehicle: { type: ["string", "null"] },
   },
-  required: ["company", "invoiceNumber", "issueDate", "serviceDate", "taxBase", "vat", "total", "netAmount", "cashCollected", "tips", "tolls", "washExpenses", "otherExpenses", "concept", "expenseCategory", "vehicle"],
+  required: ["company", "invoiceNumber", "issueDate", "serviceDate", "date", "periodStart", "periodEnd", "taxBase", "vat", "total", "netAmount", "cashCollected", "tips", "tolls", "washExpenses", "otherExpenses", "trips", "concept", "expenseCategory", "vehicle"],
 };
 
 const consumptionSchema = {
@@ -32,6 +37,9 @@ const consumptionSchema = {
   properties: {
     date: { type: ["string", "null"] },
     supplyType: { type: ["string", "null"] },
+    fuelType: { type: ["string", "null"] },
+    provider: { type: ["string", "null"] },
+    invoiceNumber: { type: ["string", "null"] },
     consumptionPeriod: { type: ["string", "null"] },
     consumption: { type: ["number", "null"] },
     dailyKm: { type: ["number", "null"] },
@@ -39,8 +47,9 @@ const consumptionSchema = {
     unit: { type: ["string", "null"] },
     cost: { type: ["number", "null"] },
     costPerUnit: { type: ["number", "null"] },
+    vehicle: { type: ["string", "null"] },
   },
-  required: ["date", "supplyType", "consumptionPeriod", "consumption", "dailyKm", "odometerKm", "unit", "cost", "costPerUnit"],
+  required: ["date", "supplyType", "fuelType", "provider", "invoiceNumber", "consumptionPeriod", "consumption", "dailyKm", "odometerKm", "unit", "cost", "costPerUnit", "vehicle"],
 };
 
 const json = (res, status, payload) => {
@@ -151,7 +160,7 @@ export default async function handler(req, res) {
     return json(res, 413, { code: "DOCUMENT_TOO_LARGE", message: "El documento preparado supera el límite de procesamiento." });
   }
 
-  const content = [{ type: "input_text", text: buildPrompt(category) }];
+  const content = [{ type: "input_text", text: `${buildPrompt(category)} ${structuredExtractionAddendum}` }];
   if (fileType === "application/pdf" || fileName.toLocaleLowerCase("es").endsWith(".pdf")) {
     content.push({ type: "input_file", filename: fileName, file_data: dataUrl });
   } else {

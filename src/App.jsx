@@ -62,7 +62,7 @@ import {
   validateDocumentFile,
 } from "./documentAnalysis";
 import { confirmDocumentTransactions, getProfile, invokeAdminUsers, isSupabaseConfigured, roleFromUser, supabase, uploadDocumentRecord } from "./supabase";
-import { hashDocumentFile, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
+import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -418,15 +418,18 @@ const saveManualNetExpenses = (expenses) => {
   }
 };
 
-const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], reportMonth = 6, reportYear = 2026 }) => {
+const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], fuelEntries = [], reportMonth = 6, reportYear = 2026 }) => {
   const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
   const vehicleDrivers = vehicle.drivers.slice(0, 2);
   const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: 0 }));
   const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
-  const fuelBreakdown = vehicleDrivers.map((driver) => {
-    const refuellings = getDriverFuelEntriesForPeriod(vehicle, driver, reportMonth, reportYear);
+  const fuelBreakdown = vehicleDrivers.map((driver, driverIndex) => {
+    const profile = vehicle.driverProfiles?.[driverIndex];
+    const refuellings = fuelEntries.length
+      ? fuelEntries.filter((entry) => (entry.driverId && profile?.id ? entry.driverId === profile.id : !entry.driverId && driverIndex === vehicleDrivers.length - 1))
+      : getDriverFuelEntriesForPeriod(vehicle, driver, reportMonth, reportYear);
     const liters = refuellings.reduce((sum, entry) => sum + entry.liters, 0);
     const cost = refuellings.reduce((sum, entry) => sum + entry.cost, 0);
     return { label: driver, amount: Number(cost.toFixed(2)), meta: `${Number(liters.toFixed(1)).toLocaleString("es-ES")} L · ${refuellings.length} repostajes` };
@@ -637,6 +640,15 @@ const getDriverEntryForm = (date, item) => ({
   notes: getDriverFormValue(item?.notes),
 });
 const normalizeText = (value = "") => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
+const getExtractedDocumentFields = (document) => {
+  const data = document?.extracted_data ?? {};
+  const fields = data.fields && typeof data.fields === "object" ? data.fields : data;
+  return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value && typeof value === "object" && "value" in value ? value.value : value]));
+};
+const formatDocumentDisplayDate = (dateIso) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso ?? ""))) return "Fecha pendiente";
+  return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateIso}T12:00:00`)).replace(".", "");
+};
 const getMaintenanceRecordKey = (item, index = 0) => `${item.date}-${item.concept}-${item.km}-${index}`;
 const getMaintenanceEventDomId = (plate, key) => `maintenance-event-${normalizeText(`${plate}-${key}`).replace(/[^a-z0-9]+/g, "-")}`;
 const maintenanceMonths = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
@@ -971,6 +983,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState(null);
   const [photoInvoices, setPhotoInvoices] = useState(loadPhotoInvoices);
+  const [documentRecords, setDocumentRecords] = useState([]);
   const [processedDocuments, setProcessedDocuments] = useState(loadProcessedDocuments);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
@@ -1000,38 +1013,48 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     return () => { mounted = false; };
   }, [isAdmin]);
 
-  const refreshDriverEntries = useCallback(async () => {
-    if (!isAdmin || !supabase) return;
-    const { data, error } = await supabase
-      .from("driver_entries")
-      .select("id, driver_id, vehicle_plate, entry_date, billing, cash_collected, tips, fuel_cost, fuel_liters, odometer_km")
-      .order("entry_date", { ascending: false });
-    if (error) throw error;
-    setDriverEntries(data ?? []);
-  }, [isAdmin]);
-
   const refreshTransactions = useCallback(async () => {
     if (!isAdmin || !supabase) return;
+    const [transactionResult, entryResult] = await Promise.all([
+      supabase
+        .from("transactions")
+        .select("id, type, occurred_on, amount, driver_id, vehicle_plate, source_document_id, category, metadata, dedupe_key, created_at")
+        .order("occurred_on", { ascending: false }),
+      supabase
+        .from("driver_entries")
+        .select("id, driver_id, vehicle_plate, entry_date, billing, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, wash_expenses, other_expenses, notes, created_at, updated_at")
+        .order("entry_date", { ascending: false }),
+    ]);
+    if (transactionResult.error) throw transactionResult.error;
+    if (entryResult.error) throw entryResult.error;
+    const centralEntries = transactionsToDriverEntries(transactionResult.data ?? []);
+    setTransactions(transactionResult.data ?? []);
+    setDriverEntries(mergeDriverEntries(entryResult.data ?? [], centralEntries));
+  }, [isAdmin]);
+
+  const refreshDocuments = useCallback(async () => {
+    if (!isAdmin || !supabase) return;
     const { data, error } = await supabase
-      .from("transactions")
-      .select("id, type, occurred_on, amount, driver_id, vehicle_plate, source_document_id, category, metadata, dedupe_key, created_at")
-      .order("occurred_on", { ascending: false });
+      .from("documents")
+      .select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, extracted_data, field_confidence, overall_confidence, document_date, status, created_at, updated_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
     if (error) throw error;
-    setTransactions(data ?? []);
-    setDriverEntries(transactionsToDriverEntries(data ?? []));
+    setDocumentRecords(data ?? []);
   }, [isAdmin]);
 
   useEffect(() => {
     if (!isAdmin || !supabase) {
       setDriverEntries([]);
+      setTransactions([]);
+      setDocumentRecords([]);
       return undefined;
     }
-    let mounted = true;
-    refreshTransactions().catch(() => { if (mounted) setDriverEntries([]); });
-    const channel = supabase
+    void Promise.allSettled([refreshTransactions(), refreshDocuments()]);
+    const entryChannel = supabase
       .channel(`admin-driver-entries-${session.user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "driver_entries" }, () => {
-        refreshDriverEntries().catch(() => undefined);
+        refreshTransactions().catch(() => undefined);
       })
       .subscribe();
     const transactionChannel = supabase
@@ -1040,12 +1063,18 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         refreshTransactions().catch(() => undefined);
       })
       .subscribe();
+    const documentChannel = supabase
+      .channel(`admin-documents-${session.user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "documents" }, () => {
+        refreshDocuments().catch(() => undefined);
+      })
+      .subscribe();
     return () => {
-      mounted = false;
-      supabase.removeChannel(channel);
+      supabase.removeChannel(entryChannel);
       supabase.removeChannel(transactionChannel);
+      supabase.removeChannel(documentChannel);
     };
-  }, [isAdmin, refreshDriverEntries, refreshTransactions, session.user.id]);
+  }, [isAdmin, refreshDocuments, refreshTransactions, session.user.id]);
 
   useEffect(() => {
     const onBottomNavigationClick = (event) => {
@@ -1115,9 +1144,53 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     };
   }, []);
 
-  const invoices = useMemo(() => photoInvoices.map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) })), [photoInvoices]);
+  const centralMaintenanceInvoices = useMemo(() => transactions
+    .filter((transaction) => transaction.type === "maintenance" && transaction.vehicle_plate)
+    .map((transaction) => {
+      const sourceDocument = documentRecords.find((document) => document.id === transaction.source_document_id);
+      const fields = getExtractedDocumentFields(sourceDocument);
+      const metadata = transaction.metadata ?? {};
+      const concept = metadata.concept || fields.concept || fields.expenseCategory || "Taller";
+      const provider = metadata.company || fields.company || fields.provider || "Taller no identificado";
+      const invoiceNumber = metadata.invoiceNumber || fields.invoiceNumber || `DOC-${String(transaction.source_document_id ?? transaction.id).slice(0, 8)}`;
+      return {
+        id: invoiceNumber,
+        sourceDocumentId: transaction.source_document_id,
+        date: formatDocumentDisplayDate(transaction.occurred_on),
+        dateIso: transaction.occurred_on,
+        provider,
+        plate: transaction.vehicle_plate,
+        concept,
+        amount: Number(transaction.amount) || 0,
+        source: "Documento IA",
+        status: sourceDocument?.status === "approved" ? "Asociada" : "Revisar",
+        items: [{ concept, amount: Number(transaction.amount) || 0 }],
+        filePath: sourceDocument?.file_path ?? "",
+      };
+    }), [documentRecords, transactions]);
+  const invoices = useMemo(() => {
+    const centralIds = new Set(centralMaintenanceInvoices.map((invoice) => invoice.sourceDocumentId).filter(Boolean));
+    const centralSignatures = new Set(centralMaintenanceInvoices.map((invoice) => [
+      normalizeText(invoice.plate),
+      invoice.dateIso || invoice.date,
+      Number(invoice.amount || 0).toFixed(2),
+      normalizeText(invoice.concept),
+    ].join("|")));
+    const local = photoInvoices
+      .filter((invoice) => {
+        const signature = [
+          normalizeText(invoice.plate),
+          invoice.dateIso || invoice.date,
+          Number(invoice.amount || 0).toFixed(2),
+          normalizeText(invoice.concept),
+        ].join("|");
+        return (!invoice.sourceDocumentId || !centralIds.has(invoice.sourceDocumentId)) && !centralSignatures.has(signature);
+      })
+      .map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
+    return [...centralMaintenanceInvoices, ...local].map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
+  }, [centralMaintenanceInvoices, photoInvoices]);
   const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
-    const recordedMaintenance = photoInvoices
+    const recordedMaintenance = invoices
       .filter((invoice) => invoice.plate === vehicle.plate)
       .map((invoice) => ({
         date: invoice.date,
@@ -1146,7 +1219,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       fuelSchedule: vehicle.fuelSchedule?.map((shift) => ({ ...shift, driver: resolveDriver(shift.driver) })),
       monthlyFuel: vehicle.monthlyFuel?.map((entry) => entry.driver ? { ...entry, driver: resolveDriver(entry.driver) } : entry),
     };
-  }).sort((a, b) => vehicleOrder.indexOf(a.plate) - vehicleOrder.indexOf(b.plate)), [driverProfiles, photoInvoices]);
+  }).sort((a, b) => vehicleOrder.indexOf(a.plate) - vehicleOrder.indexOf(b.plate)), [driverProfiles, invoices]);
 
   useEffect(() => {
     setSelectedDrivers((current) => {
@@ -1213,7 +1286,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     toastTimer.current = window.setTimeout(() => setToast(""), 2800);
   };
 
-  const savePhotoInvoice = async (invoice) => {
+  const savePhotoInvoiceLegacy = async (invoice) => {
     const { file, ...localInvoice } = invoice;
     setPhotoInvoices((current) => [localInvoice, ...current.filter((item) => item.id !== localInvoice.id)]);
     if (file && supabase && session.user?.id) {
@@ -1225,7 +1298,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     }
   };
 
-  const saveProcessedDocument = async (document) => {
+  const saveProcessedDocumentLegacy = async (document) => {
     const { file, ...documentWithoutFile } = document;
     const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
     setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
@@ -1255,7 +1328,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       if (amount > 0 && vehiclePlate) {
         const dateIso = /^\d{4}-\d{2}-\d{2}$/.test(String(fields.issueDate ?? "")) ? fields.issueDate : new Date().toISOString().slice(0, 10);
         const displayDate = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateIso}T12:00:00`)).replace(".", "");
-        savePhotoInvoice({
+        savePhotoInvoiceLegacy({
           id: fields.invoiceNumber || `FAC-IA-${String(Date.now()).slice(-6)}`,
           date: displayDate,
           dateIso,
@@ -1270,6 +1343,95 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       }
     }
     notify(savedDocument.lowConfidence ? `Datos guardados${cloudSaved ? " en Supabase" : ""}; revisa los campos de baja confianza` : `Datos clasificados y guardados${cloudSaved ? " en Supabase" : ""} correctamente`);
+  };
+
+  const resolveVehiclePlate = (value) => vehicles.find((vehicle) => normalizeText(vehicle.plate) === normalizeText(value))?.plate ?? selectedPlate;
+  const addLocalDocumentTransactions = (documentId, operations) => {
+    const duplicate = operations.some((operation) => transactions.some((transaction) => transaction.dedupe_key === operation.dedupeKey));
+    if (duplicate) return { duplicate: true };
+    const rows = operations.map((operation, index) => ({
+      id: `local-transaction-${documentId}-${index}`,
+      type: operation.type,
+      occurred_on: operation.date,
+      amount: operation.amount,
+      driver_id: operation.driverId || null,
+      vehicle_plate: operation.vehiclePlate || null,
+      source_document_id: documentId,
+      category: operation.category,
+      metadata: operation.metadata ?? {},
+      dedupe_key: operation.dedupeKey,
+      created_at: new Date().toISOString(),
+    }));
+    setTransactions((current) => [...rows, ...current]);
+    setDriverEntries((current) => mergeDriverEntries(current, transactionsToDriverEntries(rows)));
+    return { duplicate: false, rows };
+  };
+
+  const savePhotoInvoiceCentral = async (invoice) => {
+    const { file, ...localInvoice } = invoice;
+    if (file && supabase && session.user?.id) {
+      try {
+        const fileHash = await hashDocumentFile(file);
+        const fields = { company: localInvoice.provider, invoiceNumber: localInvoice.id, serviceDate: localInvoice.dateIso, total: localInvoice.amount, netAmount: localInvoice.amount, concept: localInvoice.concept, expenseCategory: "Taller", vehicle: localInvoice.plate };
+        const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: "billing", vehiclePlate: localInvoice.plate, file, fileHash, documentDate: localInvoice.dateIso, extractedData: fields, overallConfidence: 96, status: "review" });
+        const operations = operationsFromDocument({ category: "billing", fields, vehiclePlate: localInvoice.plate, fileHash, fallbackDate: localInvoice.dateIso });
+        const result = await confirmDocumentTransactions(uploaded.id, operations);
+        if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
+        setDocumentRecords((current) => [uploaded, ...current.filter((document) => document.id !== uploaded.id)]);
+        await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
+        return true;
+      } catch (error) {
+        const duplicate = error?.code === "23505" || error?.code === "DUPLICATE_DOCUMENT" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
+        setPhotoInvoices((current) => [localInvoice, ...current.filter((item) => item.id !== localInvoice.id)]);
+        notify(duplicate ? "Documento duplicado: no se ha vuelto a sumar ningÃºn importe." : `Factura guardada localmente; no se pudo registrar en Supabase: ${error.message}`);
+        return false;
+      }
+    }
+    const localDocument = { ...localInvoice, id: localInvoice.id || `DOC-${Date.now()}`, category: "billing", vehicle_plate: localInvoice.plate, extracted_data: localInvoice, status: "review", created_at: new Date().toISOString() };
+    const operations = operationsFromDocument({ category: "billing", fields: { ...localInvoice, serviceDate: localInvoice.dateIso, total: localInvoice.amount, expenseCategory: "Taller", vehicle: localInvoice.plate }, vehiclePlate: localInvoice.plate, fallbackDate: localInvoice.dateIso });
+    const result = addLocalDocumentTransactions(localDocument.id, operations);
+    if (result.duplicate) {
+      notify("Documento duplicado: no se ha vuelto a sumar ningÃºn importe.");
+      return false;
+    }
+    setPhotoInvoices((current) => [localInvoice, ...current.filter((item) => item.id !== localInvoice.id)]);
+    setDocumentRecords((current) => [localDocument, ...current.filter((document) => document.id !== localDocument.id)]);
+    return true;
+  };
+
+  const saveProcessedDocumentCentral = async (document) => {
+    const { file, ...documentWithoutFile } = document;
+    const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
+    setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
+    const fields = savedDocument.fields ?? {};
+    const vehiclePlate = resolveVehiclePlate(fields.vehicle);
+    const documentDate = (savedDocument.category === "billing" ? fields.serviceDate || fields.issueDate || fields.date || fields.periodStart : fields.date || fields.serviceDate || fields.issueDate) || new Date().toISOString().slice(0, 10);
+    const driverId = savedDocument.driverId || "";
+    let cloudSaved = false;
+    try {
+      const fileHash = file ? await hashDocumentFile(file) : "";
+      const operations = operationsFromDocument({ category: savedDocument.category, fields: { ...fields, vehicle: vehiclePlate }, driverId, vehiclePlate, fileHash, fallbackDate: documentDate });
+      if (!operations.length) throw new Error("No se ha reconocido ningÃºn importe econÃ³mico. Revisa los campos antes de confirmar.");
+      if (file && supabase && session.user?.id) {
+        const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate, file, fileHash, documentDate, extractedData: { ...fields, vehicle: vehiclePlate }, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
+        const result = await confirmDocumentTransactions(uploaded.id, operations);
+        if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
+        setDocumentRecords((current) => [uploaded, ...current.filter((record) => record.id !== uploaded.id)]);
+        await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
+        cloudSaved = true;
+      } else {
+        const result = addLocalDocumentTransactions(savedDocument.id, operations);
+        if (result.duplicate) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
+        const localDocument = { ...savedDocument, vehicle_plate: vehiclePlate, extracted_data: { ...fields, vehicle: vehiclePlate }, status: "approved", created_at: new Date().toISOString() };
+        setDocumentRecords((current) => [localDocument, ...current.filter((record) => record.id !== localDocument.id)]);
+      }
+    } catch (error) {
+      const duplicate = error?.code === "23505" || error?.code === "DUPLICATE_DOCUMENT" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
+      notify(duplicate ? "Documento duplicado: no se ha vuelto a sumar ningÃºn importe." : `No se pudo registrar el documento: ${error.message}`);
+      return false;
+    }
+    notify(savedDocument.lowConfidence ? `Datos guardados${cloudSaved ? " en Supabase" : ""}; revisa los campos de baja confianza` : `Datos clasificados y guardados${cloudSaved ? " en Supabase" : ""} correctamente`);
+    return true;
   };
 
   const installApplication = async () => {
@@ -1430,7 +1592,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         onNotice={(message) => notify(message)}
         onDocumentAction={({ category, source, file }) => { setQuickMenuStep(""); setQuickMenuCategory(""); setModal({ type: "document-processing", category, source, file, selectedPlate }); }}
       />
-      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoice} onSaveDocument={saveProcessedDocument} vehicles={vehicles} />}
+      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoiceCentral} onSaveDocument={saveProcessedDocumentCentral} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
     </div>
   );
@@ -1946,7 +2108,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       };
       const numberValue = (...keys) => keys.map((key) => getDriverDocumentNumber(fieldValue(key))).find((value) => value > 0) || 0;
       const printedDate = recordKey === "billing"
-        ? fieldValue("serviceDate") || fieldValue("issueDate")
+        ? fieldValue("serviceDate") || fieldValue("issueDate") || fieldValue("date") || fieldValue("periodStart")
         : fieldValue("date");
       const detectedDate = normalizeDriverDocumentDate(printedDate);
       const targetDate = detectedDate ?? selectedDate;
@@ -2018,7 +2180,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       if (recordKey === "consumption" && extractedData.consumption > 0) {
         setCircleMetricValues((current) => ({ ...current, [targetDate]: { ...(current[targetDate] ?? {}), consumption: extractedData.consumption, consumptionUnit: extractedData.unit || "l/100 km" } }));
       }
-      if (Object.keys(entryPatch).length > 0 && !centralEconomic) await upsertDriverEntry(targetDate, entryPatch);
+      if (Object.keys(entryPatch).length > 0 && (!centralEconomic || !supabase)) await upsertDriverEntry(targetDate, entryPatch);
       if (detectedDate && detectedDate !== selectedDate) setSelectedDate(detectedDate);
       let savedDocument = centralSavedDocument ?? { id: `local-circle-${Date.now()}`, owner_id: activeProfileId, category: documentCategory, vehicle_plate: profile.vehicle_plate, file_name: optimized.name || file.name, mime_type: optimized.type || file.type, file_size: optimized.size || file.size, extracted_data: extractedData, status: "review", created_at: new Date().toISOString() };
       if (supabase && !centralSavedDocument) {
@@ -2038,6 +2200,12 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         setMessage(`${selectedRecord?.label ?? "Registro"} actualizado para el ${targetDate}.`);
       }
     } catch (error) {
+      const duplicate = error?.code === "23505" || error?.code === "DUPLICATE_DOCUMENT" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
+      if (duplicate) {
+        setCircleUpload({ key: recordKey, status: "duplicate", fileName: file.name });
+        setMessage("Documento duplicado: no se ha vuelto a sumar ningÃºn importe.");
+        return;
+      }
       const pendingData = { ...baseExtractedData, analysisError: error.message, analysisCode: error.code ?? "PROCESSING_ERROR" };
       try {
         let savedDocument = { id: `local-circle-${Date.now()}`, owner_id: activeProfileId, category: documentCategory, vehicle_plate: profile.vehicle_plate, file_name: file.name, mime_type: file.type, file_size: file.size, extracted_data: pendingData, status: "review", created_at: new Date().toISOString() };
@@ -2989,6 +3157,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], selected, o
     const entries = periodTransactions.filter((transaction) => transaction.type === "fuel" && transaction.vehicle_plate === vehicle.plate).map((transaction) => ({
       id: transaction.id,
       date: transaction.occurred_on,
+      driverId: transaction.driver_id,
       liters: Number(transaction.metadata?.liters) || 0,
       cost: Number(transaction.amount) || 0,
       sourceDocumentId: transaction.source_document_id,
@@ -3009,16 +3178,26 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], selected, o
   const totalDistance = 0;
   const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
   const billingRows = getDriverBillingRows(vehicles, driverEntries, reportMonth, reportYear);
-  const billingChartData = billingRows.map((row) => ({
-    label: row.driver,
-    detail: row.plate,
-    value: row.revenue,
-  }));
+  const unassignedBillingByPlate = vehicles.reduce((result, vehicle) => {
+    result[vehicle.plate] = periodTransactions
+      .filter((transaction) => transaction.type === "billing" && transaction.vehicle_plate === vehicle.plate && !transaction.driver_id)
+      .reduce((sum, transaction) => sum + (Number(transaction.amount) || 0), 0);
+    return result;
+  }, {});
+  const vehicleBillingTotals = vehicles.map((vehicle) => billingRows
+    .filter((row) => row.plate === vehicle.plate)
+    .reduce((sum, row) => sum + row.revenue, 0) + (unassignedBillingByPlate[vehicle.plate] ?? 0));
+  const billingChartData = [
+    ...billingRows.map((row) => ({ label: row.driver, detail: row.plate, value: row.revenue })),
+    ...vehicles
+      .filter((vehicle) => (unassignedBillingByPlate[vehicle.plate] ?? 0) > 0)
+      .map((vehicle) => ({ label: "Sin conductor", detail: vehicle.plate, value: unassignedBillingByPlate[vehicle.plate] })),
+  ];
   const chartVehicleStats = vehicles.map((vehicle, index) => ({ vehicle, cost: vehicleStats[index]?.cost ?? 0 }));
   const fuelChartData = chartVehicleStats.map(({ vehicle, cost }, index) => ({
     label: vehicle.plate,
     detail: vehicle.model,
-    value: Number((cost * (1 + (index - 2) * 0.012)).toFixed(2)),
+    value: Number(cost.toFixed(2)),
   }));
   const maintenanceChartData = vehicles.map((vehicle) => ({
     label: vehicle.plate,
@@ -3031,11 +3210,12 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], selected, o
     .map((vehicle) => {
       const vehicleIndex = vehicles.findIndex((candidate) => candidate.plate === vehicle.plate);
       const vehicleBillingRows = billingRows.filter((row) => row.plate === vehicle.plate);
-      const revenue = vehicleBillingRows.reduce((sum, row) => sum + row.revenue, 0);
+      const revenue = vehicleBillingTotals[vehicleIndex] ?? vehicleBillingRows.reduce((sum, row) => sum + row.revenue, 0);
       const commission = Number((vehicleBillingRows.reduce((sum, row) => sum + row.revenue * DRIVER_COMMISSION_RATE, 0)).toFixed(2));
       const expenses = buildNetExpenseBreakdown({
         vehicle,
         fuel: vehicleStats[vehicleIndex]?.cost ?? 0,
+        fuelEntries: vehicleStats[vehicleIndex]?.entries ?? [],
         maintenance: maintenanceChartData[vehicleIndex]?.value ?? 0,
         commission,
         periodFactor,
@@ -3064,7 +3244,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], selected, o
   const summaryChartData = vehicles.map((vehicle, index) => ({
     label: vehicle.plate,
     detail: vehicle.model,
-    billing: billingChartData.filter((item) => item.detail === vehicle.plate).reduce((sum, item) => sum + item.value, 0),
+    billing: vehicleBillingTotals[index] ?? 0,
     maintenance: maintenanceChartData[index].value,
     fuel: fuelChartData[index].value,
     net: netChartData[index].value,
@@ -4389,8 +4569,8 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, veh
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
         {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc && <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure>}<dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>DNI {itemOwner.dni}{itemOwner.location ? ` · ${itemOwner.location}` : ""}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
-        {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={(invoice) => { onSaveInvoice(invoice); complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
-        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} onCancel={onClose} onSave={(document) => { onSaveDocument(document); complete("Documento procesado y guardado"); }} />}
+        {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={async (invoice) => { const saved = await onSaveInvoice(invoice); if (saved !== false) complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
+        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument(document); if (saved !== false) complete("Documento procesado y guardado"); }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
         {!isPhotoInvoice && !isDocumentProcessing && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Factura Plenergy archivada" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar factura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
       </section>
@@ -4398,7 +4578,7 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, veh
   );
 }
 
-function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, onCancel, onSave }) {
+function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, driverId = "", onCancel, onSave }) {
   const controllerRef = useRef(null);
   const [stage, setStage] = useState("processing");
   const [progress, setProgress] = useState(5);
@@ -4498,6 +4678,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, on
     onSave({
       id: `DOC-${String(Date.now()).slice(-8)}`,
       category,
+      driverId,
       source,
       file: preparedFile,
       fileName: preparedFile?.name || file.name,
