@@ -3729,3 +3729,121 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 @media (max-width: 520px) {
   .driver-app--preview .driver-mobile-preview-chart-card__heading { font-size: 7px; }
 }
+
+/* Neto: cada vehÃ­culo se presenta como una tarjeta horizontal y conserva su color. */
+.net-detail-card--tone-green { --net-accent: #239755; --net-surface: #f7fbf6; --net-soft: #d9f3d7; --net-pale: #e6f5e7; }
+.net-detail-card--tone-blue { --net-accent: #2f72cf; --net-surface: #f7faff; --net-soft: #dceafb; --net-pale: #e7f0fc; }
+.net-detail-card--tone-red { --net-accent: #d43b30; --net-surface: #fff8f7; --net-soft: #f9deda; --net-pale: #fff0ee; }
+.net-detail-card--collapsed {
+  flex-direction: row;
+  gap: 10px;
+  padding: 12px 10px;
+  border-top: 3px solid var(--net-accent, #239755);
+  background: var(--net-surface, #f7fbf6);
+}
+.net-detail-card--collapsed.net-detail-card--tone-green { border-top-color: #239755; }
+.net-detail-card--collapsed.net-detail-card--tone-blue { border-top-color: #2f72cf; }
+.net-detail-card--collapsed.net-detail-card--tone-red { border-top-color: #d43b30; }
+.net-detail-card--collapsed .net-detail-card__vehicle-visual {
+  flex: 0 0 35%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+  background: var(--net-pale, #e6f5e7);
+}
+.net-detail-card--collapsed .net-detail-card__vehicle-visual img { width: 100%; height: auto; max-height: 100%; object-fit: contain; }
+.net-detail-card__collapsed-content {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: center;
+  gap: 7px;
+}
+.net-detail-card--collapsed .net-detail-card__plate {
+  grid-column: 1 / -1;
+  align-self: start;
+  margin: 0;
+  background: var(--net-accent, #239755);
+  font-size: 14px;
+}
+.net-detail-card--collapsed .net-detail-card__net--large {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--net-accent, #168a45);
+  font-size: clamp(22px, 2.2vw, 28px);
+  text-align: left;
+}
+.net-detail-card--collapsed .net-detail-card__collapsed-line {
+  min-width: 0;
+  gap: 3px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--net-soft, #d9f3d7) 58%, white);
+}
+.net-detail-card--collapsed .net-detail-card__collapsed-line span { min-height: 22px; color: #31433d; font-size: 10px; line-height: 1.15; }
+.net-detail-card--collapsed .net-detail-card__collapsed-line strong { overflow: hidden; color: var(--net-accent, #14231f); font-size: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.net-detail-card--collapsed .net-detail-card__expand {
+  grid-column: 1 / -1;
+  min-height: 35px;
+  margin: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--net-soft, #d9f3d7) 72%, white);
+  color: var(--net-accent, #287a4c);
+}
+
+.net-detail-expanded__card--tone-green { --net-accent: #239755; --net-soft: #d9f3d7; --net-pale: #e6f5e7; }
+.net-detail-expanded__card--tone-blue { --net-accent: #2f72cf; --net-soft: #dceafb; --net-pale: #e7f0fc; }
+.net-detail-expanded__card--tone-red { --net-accent: #d43b30; --net-soft: #f9deda; --net-pale: #fff0ee; }
+.net-detail-expanded__card--tone-green .net-detail-expanded__vehicle,
+.net-detail-expanded__card--tone-blue .net-detail-expanded__vehicle,
+.net-detail-expanded__card--tone-red .net-detail-expanded__vehicle { background: var(--net-soft); }
+.net-detail-expanded__card--tone-green .net-detail-card__plate,
+.net-detail-expanded__card--tone-blue .net-detail-card__plate,
+.net-detail-expanded__card--tone-red .net-detail-card__plate { background: var(--net-accent); }
+.net-detail-expanded__card--tone-green .net-detail-card__net--large,
+.net-detail-expanded__card--tone-blue .net-detail-card__net--large,
+.net-detail-expanded__card--tone-red .net-detail-card__net--large { color: var(--net-accent); }
+.net-detail-expanded__card--tone-green .net-detail-expanded__collapse,
+.net-detail-expanded__card--tone-blue .net-detail-expanded__collapse,
+.net-detail-expanded__card--tone-red .net-detail-expanded__collapse { color: var(--net-accent); }
+.net-detail-expanded__card--tone-green .net-detail-expanded__summary,
+.net-detail-expanded__card--tone-blue .net-detail-expanded__summary,
+.net-detail-expanded__card--tone-red .net-detail-expanded__summary { border-top: 3px solid var(--net-accent); }
+.net-detail-expanded__card--tone-green .net-detail-card__expense-label > i,
+.net-detail-expanded__card--tone-blue .net-detail-card__expense-label > i,
+.net-detail-expanded__card--tone-red .net-detail-card__expense-label > i { background: var(--net-pale); color: var(--net-accent); }
+.net-detail-expanded__card--tone-green .net-detail-card__expense--expandable:hover,
+.net-detail-expanded__card--tone-green .net-detail-card__expense--expandable:focus-visible,
+.net-detail-expanded__card--tone-blue .net-detail-card__expense--expandable:hover,
+.net-detail-expanded__card--tone-blue .net-detail-card__expense--expandable:focus-visible,
+.net-detail-expanded__card--tone-red .net-detail-card__expense--expandable:hover,
+.net-detail-expanded__card--tone-red .net-detail-card__expense--expandable:focus-visible { background: color-mix(in srgb, var(--net-soft) 42%, white); }
+.net-detail-expanded__card--tone-green .net-detail-card__expense-breakdown,
+.net-detail-expanded__card--tone-blue .net-detail-card__expense-breakdown,
+.net-detail-expanded__card--tone-red .net-detail-card__expense-breakdown { background: color-mix(in srgb, var(--net-pale) 55%, white); }
+.net-detail-expanded__card--tone-green .net-detail-card__expense-breakdown-row > strong,
+.net-detail-expanded__card--tone-blue .net-detail-card__expense-breakdown-row > strong,
+.net-detail-expanded__card--tone-red .net-detail-card__expense-breakdown-row > strong { color: var(--net-accent); }
+.net-detail-expanded__card--tone-green .net-detail-expanded__add,
+.net-detail-expanded__card--tone-blue .net-detail-expanded__add,
+.net-detail-expanded__card--tone-red .net-detail-expanded__add { border-color: var(--net-accent); background: var(--net-accent); }
+.net-detail-expanded__card--tone-green .net-detail-expanded__summary span,
+.net-detail-expanded__card--tone-blue .net-detail-expanded__summary span,
+.net-detail-expanded__card--tone-red .net-detail-expanded__summary span { font-size: 11px; }
+.net-detail-expanded__card--tone-green .net-detail-expanded__summary strong,
+.net-detail-expanded__card--tone-blue .net-detail-expanded__summary strong,
+.net-detail-expanded__card--tone-red .net-detail-expanded__summary strong { font-size: 20px; }
+
+@media (max-width: 720px) {
+  .net-detail-card--collapsed { gap: 7px; padding: 8px 7px; }
+  .net-detail-card--collapsed .net-detail-card__vehicle-visual { flex-basis: 34%; }
+  .net-detail-card__collapsed-content { gap: 5px; }
+  .net-detail-card--collapsed .net-detail-card__plate { padding: 4px 6px; font-size: 12px; }
+  .net-detail-card--collapsed .net-detail-card__net--large { font-size: 20px; }
+  .net-detail-card--collapsed .net-detail-card__collapsed-line { padding: 5px 6px; }
+  .net-detail-card--collapsed .net-detail-card__collapsed-line span { min-height: 20px; font-size: 8px; }
+  .net-detail-card--collapsed .net-detail-card__collapsed-line strong { font-size: 15px; }
+  .net-detail-card--collapsed .net-detail-card__expand { min-height: 30px; }
+}

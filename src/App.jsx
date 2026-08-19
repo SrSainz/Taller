@@ -3025,6 +3025,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
   const total = details.reduce((sum, detail) => sum + detail.net, 0);
   const orderedDetails = [...details].sort((left, right) => vehicleOrder.indexOf(left.vehicle.plate) - vehicleOrder.indexOf(right.vehicle.plate));
   const selectedDetail = orderedDetails.find((detail) => detail.vehicle.plate === selectedPlate) ?? null;
+  const selectedTone = selectedDetail ? (netVehicleImages[selectedDetail.vehicle.plate]?.tone ?? "green") : "green";
   const toggleVehicle = (plate) => {
     setSelectedPlate((current) => current === plate ? "" : plate);
     setExpandedExpenseRows(new Set());
@@ -3097,19 +3098,21 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
         </header>
         {!selectedDetail ? <>
           <div className="net-detail-carousel" aria-label="Vehículos profesionales con resultado neto">
-            {orderedDetails.map(({ vehicle, revenue, totalExpenses, net }) => <article className="net-detail-card net-detail-card--collapsed" key={vehicle.plate}>
+            {orderedDetails.map(({ vehicle, revenue, totalExpenses, net }) => <article className={`net-detail-card net-detail-card--collapsed net-detail-card--tone-${netVehicleImages[vehicle.plate]?.tone ?? "green"}`} key={vehicle.plate}>
               <div className={`net-detail-card__vehicle-visual net-detail-card__vehicle-visual--${netVehicleImages[vehicle.plate]?.tone ?? "green"}`}><img src={netVehicleImages[vehicle.plate]?.src ?? vehicleBrandLogos[getVehicleBrand(vehicle)]} alt={`Toyota Corolla sedan, vista ${netVehicleImages[vehicle.plate]?.view ?? "frontal"}`} loading="eager" /></div>
+              <div className="net-detail-card__collapsed-content">
               <strong className="net-detail-card__plate">{vehicle.plate}</strong>
               <strong className={`net-detail-card__net net-detail-card__net--large${net < 0 ? " net-detail-card__net--negative" : ""}`}>{formatCurrency(net)}</strong>
               <div className="net-detail-card__collapsed-line"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
               <div className="net-detail-card__collapsed-line"><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div>
               <button type="button" className="net-detail-card__expand" onClick={() => toggleVehicle(vehicle.plate)} aria-label={`Abrir gastos de ${vehicle.plate}`}><IconChevronDown size={21} /></button>
+              </div>
             </article>)}
           </div>
           <div className="net-detail-carousel-dots" aria-hidden="true">{orderedDetails.map((detail, index) => <i className={index === 0 ? "is-active" : ""} key={detail.vehicle.plate} />)}</div>
         </> : <div className="net-detail-expanded">
           <button type="button" className="net-detail-back" onClick={() => { setSelectedPlate(""); closeExpenseForm(); }}><IconChevronLeft size={16} />VER LOS 3 COCHES</button>
-          <article className="net-detail-expanded__card">
+          <article className={`net-detail-expanded__card net-detail-expanded__card--tone-${selectedTone}`}>
             <header className="net-detail-expanded__vehicle"><strong className="net-detail-card__plate">{selectedDetail.vehicle.plate}</strong><strong className={`net-detail-card__net net-detail-card__net--large${selectedDetail.net < 0 ? " net-detail-card__net--negative" : ""}`}>{formatCurrency(selectedDetail.net)}</strong><button type="button" className="net-detail-expanded__collapse" onClick={() => setSelectedPlate("")} aria-label="Cerrar detalle del coche"><IconChevronUp size={21} /></button></header>
             <div className="net-detail-expanded__summary"><div><span>Facturación</span><strong>{formatCurrency(selectedDetail.revenue)}</strong></div><div><span>Gastos registrados</span><strong>{formatCurrency(selectedDetail.totalExpenses)}</strong></div></div>
             {renderExpenseRows(selectedDetail)}
