@@ -3695,12 +3695,12 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-preview-consumption .driver-mobile-consumption-compare strong { font-size: 8px; }
 .driver-mobile-preview-consumption .driver-mobile-consumption-compare em { font-size: 7px; }
 .driver-mobile-week-table { min-width: 355px; }
-.driver-mobile-week-table thead th:first-child, .driver-mobile-week-table tbody th { width: 72px; }
-.driver-mobile-week-table tbody th { padding: 6px 4px; font-size: 10px; }
-.driver-mobile-week-table tbody td { padding: 6px 2px; font-size: 10px; font-variant-numeric: tabular-nums; }
+.driver-mobile-week-table thead th:first-child, .driver-mobile-week-table tbody th { width: 62px; }
+.driver-mobile-week-table tbody th { padding: 6px 3px; font-size: 10px; }
+.driver-mobile-week-table tbody td { padding: 6px 2px; font-size: 11px; font-variant-numeric: tabular-nums; }
 .driver-mobile-week-table__amount-editor { min-height: 28px; }
 .driver-mobile-week-table__amount-editor b { display: none; }
-.driver-mobile-week-table__amount-input { min-height: 28px; padding-inline: 0; font-size: 10px; }
+.driver-mobile-week-table__amount-input { min-height: 28px; padding-inline: 0; font-size: 11px; }
 .driver-mobile-chart-dialog { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 12px; background: rgba(5,22,47,.58); }
 .driver-mobile-chart-dialog__panel { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; padding: 14px; border: 1px solid #d7e2ef; border-radius: 18px; background: #fff; box-shadow: 0 18px 50px rgba(3,24,55,.3); }
 .driver-mobile-chart-dialog__panel > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
