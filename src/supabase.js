@@ -3,6 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
 
+// Evita que el navegador o una capa intermedia reutilice respuestas de perfil,
+// funciones, documentos o transacciones que ya han cambiado en Supabase.
+const noStoreFetch = (input, init = {}) => fetch(input, { ...init, cache: "no-store" });
+
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
 
 export const supabase = isSupabaseConfigured
@@ -12,6 +16,7 @@ export const supabase = isSupabaseConfigured
         autoRefreshToken: true,
         detectSessionInUrl: true,
       },
+      global: { fetch: noStoreFetch },
     })
   : null;
 

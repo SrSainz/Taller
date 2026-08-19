@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
-  headers: { ...corsHeaders, "Content-Type": "application/json" },
+  headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store, max-age=0, must-revalidate" },
 });
 
 const normalizeEmail = (value: unknown) => String(value ?? "").trim().toLowerCase();

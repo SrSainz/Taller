@@ -1659,6 +1659,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const [driverNavSection, setDriverNavSection] = useState("home");
   const [entryFormOpen, setEntryFormOpen] = useState(false);
   const [circleUpload, setCircleUpload] = useState({ key: "", status: "idle", fileName: "" });
+  const [circleReview, setCircleReview] = useState(null);
   const [circlePreviewUrls, setCirclePreviewUrls] = useState({});
   const [circleMetricValues, setCircleMetricValues] = useState({});
   const [weeklyManualValues, setWeeklyManualValues] = useState(() => loadDriverWeeklyManualValues(activeProfileId));
@@ -2098,153 +2099,149 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       setMessage(validation.message);
       return;
     }
-    const localPreviewUrl = URL.createObjectURL(file);
-    setCirclePreviewUrls((current) => ({ ...current, [recordKey]: localPreviewUrl }));
-    setCircleUpload({ key: recordKey, status: "uploading", fileName: file.name });
-    const selectedRecord = dailyPhotoRecords.find((record) => record.key === recordKey);
+    setCircleReview({ recordKey, file });
+    setCircleUpload({ key: recordKey, status: "review", fileName: file.name });
+    return;
+  };
+  const saveCircleReview = async (reviewDocument) => {
+    const recordKey = circleReview?.recordKey;
+    const file = reviewDocument?.file;
+    if (!recordKey || !file) return false;
+    const fields = reviewDocument.fields ?? {};
+    const fieldNumber = (...keys) => keys.map((key) => getDriverDocumentNumber(fields[key])).find((value) => value > 0) || 0;
     const documentCategory = recordKey === "billing" ? "billing" : "consumption";
-    const baseExtractedData = {
-      date: selectedDate,
+    const printedDate = recordKey === "billing"
+      ? fields.serviceDate || fields.issueDate || fields.date || fields.periodStart
+      : fields.date;
+    const detectedDate = normalizeDriverDocumentDate(printedDate);
+    const targetDate = detectedDate ?? selectedDate;
+    const cost = fieldNumber("cost", "total", "amount", "netAmount");
+    const consumption = fieldNumber("consumption");
+    const dailyKm = fieldNumber("dailyKm");
+    const odometerKm = fieldNumber("odometerKm");
+    const billing = fieldNumber("total", "netAmount", "amount");
+    const cashCollected = fieldNumber("cashCollected");
+    const tips = fieldNumber("tips");
+    const extractedData = {
+      date: targetDate,
       source: "driver-circle",
       recordType: recordKey,
-      recordLabel: selectedRecord?.label ?? recordKey,
-      metric: recordKey === "fuel" ? "fuel_receipt" : recordKey === "billing" ? "billing_daily" : recordKey === "consumption" ? "consumption" : `odometer_${recordKey}`,
-      valueShown: selectedRecord?.value ?? "",
-      analysisStatus: "pending",
-      analysisProvider: "openai-structured-extraction",
+      recordLabel: dailyPhotoRecords.find((record) => record.key === recordKey)?.label ?? recordKey,
+      metric: recordKey === "fuel" ? "fuel_receipt" : recordKey === "billing" ? "billing_daily" : recordKey,
+      analysisStatus: "complete",
+      analyzedAt: new Date().toISOString(),
+      documentType: reviewDocument.documentType ?? "",
+      fields,
+      confidence: reviewDocument.fieldConfidence ?? {},
+      overallConfidence: reviewDocument.overallConfidence ?? null,
+      warnings: reviewDocument.warnings ?? [],
+      cost,
+      consumption,
+      dailyKm,
+      odometerKm,
+      billing,
+      cashCollected,
+      tips,
+      unit: fields.unit ?? "",
     };
+    const centralEconomic = recordKey === "fuel" || recordKey === "billing";
+    setCircleUpload({ key: recordKey, status: "uploading", fileName: file.name });
     try {
-      if (navigator.onLine === false) throw Object.assign(new Error("No hay conexión para analizar la imagen. Se guardará pendiente de análisis."), { code: "OFFLINE" });
-      const optimized = await prepareDocumentFile(file);
-      const dataUrl = await readFileAsDataUrl(optimized);
-      if (new TextEncoder().encode(dataUrl).byteLength > documentMaxRequestSize) throw Object.assign(new Error("La imagen sigue siendo demasiado grande después de optimizarla."), { code: "DOCUMENT_TOO_LARGE" });
-      const response = await fetch("/api/analyze-document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ category: documentCategory, fileName: optimized.name, fileType: optimized.type || file.type, dataUrl }),
-      });
-      let responseBody = null;
-      try { responseBody = await response.json(); } catch { responseBody = null; }
-      if (!response.ok) throw Object.assign(new Error(responseBody?.message || "No se ha podido analizar la imagen."), { code: responseBody?.code || `HTTP_${response.status}` });
-
-      const fieldValue = (key) => {
-        const value = responseBody?.fields?.[key];
-        return value && typeof value === "object" && "value" in value ? value.value : value;
-      };
-      const numberValue = (...keys) => keys.map((key) => getDriverDocumentNumber(fieldValue(key))).find((value) => value > 0) || 0;
-      const printedDate = recordKey === "billing"
-        ? fieldValue("serviceDate") || fieldValue("issueDate") || fieldValue("date") || fieldValue("periodStart")
-        : fieldValue("date");
-      const detectedDate = normalizeDriverDocumentDate(printedDate);
-      const targetDate = detectedDate ?? selectedDate;
-      const unit = normalizeText(fieldValue("unit") || "");
-      const totalBilling = numberValue("total", "netAmount");
-      const cashCollected = numberValue("cashCollected");
-      const tips = numberValue("tips");
-      const extractedData = {
-        ...baseExtractedData,
-        date: detectedDate ?? (recordKey === "fuel" || recordKey === "billing" ? null : targetDate),
-        analysisStatus: "complete",
-        analyzedAt: responseBody?.analyzedAt ?? new Date().toISOString(),
-        documentType: responseBody?.documentType ?? "",
-        fields: responseBody?.fields ?? {},
-        confidence: responseBody?.confidence ?? {},
-        overallConfidence: responseBody?.overallConfidence ?? null,
-        warnings: responseBody?.warnings ?? [],
-        cost: numberValue("cost"),
-        consumption: numberValue("consumption"),
-        dailyKm: numberValue("dailyKm"),
-        odometerKm: numberValue("odometerKm"),
-        billing: totalBilling,
-        cashCollected,
-        tips,
-        unit: fieldValue("unit") ?? "",
-      };
-      let centralSavedDocument = null;
-      const centralEconomic = recordKey === "fuel" || recordKey === "billing";
-      if (centralEconomic) {
-        const reviewLines = recordKey === "fuel"
-          ? [`Documento: Gasolina`, `Fecha: ${targetDate}`, `Importe: ${formatCurrency(extractedData.cost)}`]
-          : [`Documento: Facturación`, `Fecha: ${targetDate}`, `Facturación: ${formatCurrency(totalBilling)}`, `Efectivo: ${formatCurrency(cashCollected)}`, `Propinas: ${formatCurrency(tips)}`];
-        reviewLines.push(`Conductor: ${profile.full_name}`, `Vehículo: ${profile.vehicle_plate}`, "", "Confirma para guardar estos datos. Si no son correctos, cancela y vuelve a realizar la captura.");
-        if (!window.confirm(reviewLines.join("\n"))) {
-          setCircleUpload({ key: recordKey, status: "review", fileName: file.name });
-          setMessage("Guardado cancelado para que puedas corregir la lectura.");
-          return;
-        }
-        const fileHash = await hashDocumentFile(optimized);
-        const operationFields = recordKey === "fuel"
-          ? { date: targetDate, cost: extractedData.cost, consumption: extractedData.consumption, unit: extractedData.unit, odometerKm: extractedData.odometerKm, vehicle: profile.vehicle_plate }
-          : { serviceDate: targetDate, total: totalBilling, cashCollected, tips, tolls: numberValue("tolls"), washExpenses: numberValue("washExpenses"), otherExpenses: numberValue("otherExpenses"), vehicle: profile.vehicle_plate };
-        if (supabase) {
-          const uploaded = await uploadDocumentRecord({ ownerId: activeProfileId, category: documentCategory, vehiclePlate: profile.vehicle_plate, file: optimized, fileHash, documentDate: targetDate, extractedData, fieldConfidence: responseBody?.confidence ?? {}, overallConfidence: extractedData.overallConfidence, status: "review" });
-          const operations = operationsFromDocument({ category: documentCategory, fields: operationFields, driverId: activeProfileId, vehiclePlate: profile.vehicle_plate, fileHash, fallbackDate: targetDate });
-          const result = await confirmDocumentTransactions(uploaded.id, operations);
-          if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
-          centralSavedDocument = { ...uploaded, extracted_data: extractedData };
-          const { data: refreshedEntries } = await supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180);
-          if (refreshedEntries) setEntries(refreshedEntries);
-        }
+      const fileHash = await hashDocumentFile(file);
+      let savedDocument;
+      if (centralEconomic && supabase) {
+        const uploaded = await uploadDocumentRecord({
+          ownerId: activeProfileId,
+          category: documentCategory,
+          vehiclePlate: fields.vehicle || profile.vehicle_plate,
+          file,
+          fileHash,
+          documentDate: targetDate,
+          extractedData,
+          fieldConfidence: reviewDocument.fieldConfidence,
+          overallConfidence: reviewDocument.overallConfidence,
+          status: "review",
+        });
+        const operations = operationsFromDocument({
+          category: documentCategory,
+          fields: { ...fields, date: targetDate, serviceDate: targetDate, vehicle: fields.vehicle || profile.vehicle_plate },
+          driverId: activeProfileId,
+          vehiclePlate: profile.vehicle_plate,
+          fileHash,
+          fallbackDate: targetDate,
+        });
+        const result = await confirmDocumentTransactions(uploaded.id, operations);
+        if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
+        savedDocument = { ...uploaded, extracted_data: extractedData };
+      } else if (supabase) {
+        const uploaded = await uploadDocumentRecord({
+          ownerId: activeProfileId,
+          category: documentCategory,
+          vehiclePlate: fields.vehicle || profile.vehicle_plate,
+          file,
+          fileHash,
+          documentDate: targetDate,
+          extractedData,
+          fieldConfidence: reviewDocument.fieldConfidence,
+          overallConfidence: reviewDocument.overallConfidence,
+          status: "review",
+        });
+        savedDocument = { ...uploaded, extracted_data: extractedData };
+      } else {
+        savedDocument = {
+          id: `local-circle-${Date.now()}`,
+          owner_id: activeProfileId,
+          category: documentCategory,
+          vehicle_plate: profile.vehicle_plate,
+          file_name: file.name,
+          mime_type: file.type,
+          file_size: file.size,
+          extracted_data: extractedData,
+          status: "review",
+          created_at: new Date().toISOString(),
+        };
       }
+
       const entryPatch = {};
-      if (recordKey === "fuel" && detectedDate) {
-        if (extractedData.cost > 0) entryPatch.fuel_cost = extractedData.cost;
-        if (extractedData.consumption > 0 && !unit.includes("100")) entryPatch.fuel_liters = extractedData.consumption;
-        if (extractedData.odometerKm > 0) entryPatch.odometer_km = extractedData.odometerKm;
-      } else if (recordKey === "billing" && detectedDate) {
-        if (totalBilling > 0) entryPatch.billing = totalBilling;
+      if (recordKey === "fuel") {
+        if (cost > 0) entryPatch.fuel_cost = cost;
+        if (consumption > 0 && !String(fields.unit ?? "").includes("100")) entryPatch.fuel_liters = consumption;
+        if (odometerKm > 0) entryPatch.odometer_km = odometerKm;
+      } else if (recordKey === "billing") {
+        if (billing > 0) entryPatch.billing = billing;
         if (cashCollected > 0) entryPatch.cash_collected = cashCollected;
         if (tips > 0) entryPatch.tips = tips;
-      } else if (["daily-km", "total-km"].includes(recordKey)) {
-        const previous = [...entries].filter((item) => String(item.entry_date ?? "") < targetDate).sort((left, right) => String(right.entry_date ?? "").localeCompare(String(left.entry_date ?? "")))[0];
-        const detectedKm = extractedData.odometerKm || (recordKey === "daily-km" && extractedData.dailyKm > 0 ? getDriverEntryAmount(previous, "odometer_km") + extractedData.dailyKm : 0);
-        if (detectedKm > 0) entryPatch.odometer_km = detectedKm;
-        extractedData.odometerKm = detectedKm;
-        setCircleMetricValues((current) => ({ ...current, [targetDate]: { ...(current[targetDate] ?? {}), ...(recordKey === "daily-km" && extractedData.dailyKm > 0 ? { dailyKm: extractedData.dailyKm } : {}), ...(recordKey === "total-km" && detectedKm > 0 ? { totalKm: detectedKm } : {}) } }));
-      }
-      if (recordKey === "consumption" && extractedData.consumption > 0) {
-        setCircleMetricValues((current) => ({ ...current, [targetDate]: { ...(current[targetDate] ?? {}), consumption: extractedData.consumption, consumptionUnit: extractedData.unit || "l/100 km" } }));
+      } else if (recordKey === "daily-km") {
+        const previous = [...entries]
+          .filter((item) => String(item.entry_date ?? "") < targetDate)
+          .sort((left, right) => String(right.entry_date ?? "").localeCompare(String(left.entry_date ?? "")))[0];
+        const dailyValue = dailyKm || fieldNumber("kilometres", "kilometers");
+        const totalKm = odometerKm || (dailyValue > 0 ? getDriverEntryAmount(previous, "odometer_km") + dailyValue : 0);
+        if (totalKm > 0) entryPatch.odometer_km = totalKm;
+        setCircleMetricValues((current) => ({ ...current, [targetDate]: { ...(current[targetDate] ?? {}), ...(dailyValue > 0 ? { dailyKm: dailyValue } : {}), ...(totalKm > 0 ? { totalKm } : {}) } }));
+      } else if (recordKey === "total-km" && odometerKm > 0) {
+        entryPatch.odometer_km = odometerKm;
+        setCircleMetricValues((current) => ({ ...current, [targetDate]: { ...(current[targetDate] ?? {}), totalKm: odometerKm } }));
+      } else if (recordKey === "consumption" && consumption > 0) {
+        setCircleMetricValues((current) => ({ ...current, [targetDate]: { ...(current[targetDate] ?? {}), consumption, consumptionUnit: fields.unit || "l/100 km" } }));
       }
       if (Object.keys(entryPatch).length > 0 && (!centralEconomic || !supabase)) await upsertDriverEntry(targetDate, entryPatch);
-      if (detectedDate && detectedDate !== selectedDate) setSelectedDate(detectedDate);
-      let savedDocument = centralSavedDocument ?? { id: `local-circle-${Date.now()}`, owner_id: activeProfileId, category: documentCategory, vehicle_plate: profile.vehicle_plate, file_name: optimized.name || file.name, mime_type: optimized.type || file.type, file_size: optimized.size || file.size, extracted_data: extractedData, status: "review", created_at: new Date().toISOString() };
-      if (supabase && !centralSavedDocument) {
-        const uploaded = await uploadDocumentRecord({ ownerId: activeProfileId, category: documentCategory, vehiclePlate: profile.vehicle_plate, file: optimized, extractedData, overallConfidence: extractedData.overallConfidence, status: "review" });
-        savedDocument = { ...uploaded, extracted_data: extractedData };
+      if (centralEconomic && supabase) {
+        const { data: refreshedEntries } = await supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180);
+        if (refreshedEntries) setEntries(refreshedEntries);
       }
       setDocuments((current) => [savedDocument, ...current.filter((document) => document.id !== savedDocument.id)]);
+      setCirclePreviewUrls((current) => ({ ...current, [recordKey]: URL.createObjectURL(file) }));
       setCircleUpload({ key: recordKey, status: supabase ? "saved" : "local", fileName: file.name });
-      if ((recordKey === "fuel" || recordKey === "billing") && !detectedDate) {
-        setMessage("Documento archivado para revisión: la fecha impresa no se ha podido leer con seguridad.");
-      } else if (recordKey === "fuel" && extractedData.cost > 0) {
-        setMessage(`Factura de gasolina aplicada a Repostajes del ${detectedDate}: ${formatCurrency(extractedData.cost)}.`);
-      } else if (recordKey === "billing" && (cashCollected > 0 || tips > 0)) {
-        const appliedValues = [cashCollected > 0 ? `efectivo ${formatCurrency(cashCollected)}` : "", tips > 0 ? `propinas ${formatCurrency(tips)}` : ""].filter(Boolean).join(" y ");
-        setMessage(`Facturación aplicada al ${detectedDate}: ${appliedValues}.`);
-      } else {
-        setMessage(`${selectedRecord?.label ?? "Registro"} actualizado para el ${targetDate}.`);
-      }
+      setCircleReview(null);
+      if (detectedDate && detectedDate !== selectedDate) setSelectedDate(detectedDate);
+      setMessage(`${dailyPhotoRecords.find((record) => record.key === recordKey)?.label ?? "Registro"} actualizado para el ${targetDate}.`);
+      return true;
     } catch (error) {
       const duplicate = error?.code === "23505" || error?.code === "DUPLICATE_DOCUMENT" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
-      if (duplicate) {
-        setCircleUpload({ key: recordKey, status: "duplicate", fileName: file.name });
-        setMessage("Documento duplicado: no se ha vuelto a sumar ningÃºn importe.");
-        return;
-      }
-      const pendingData = { ...baseExtractedData, analysisError: error.message, analysisCode: error.code ?? "PROCESSING_ERROR" };
-      try {
-        let savedDocument = { id: `local-circle-${Date.now()}`, owner_id: activeProfileId, category: documentCategory, vehicle_plate: profile.vehicle_plate, file_name: file.name, mime_type: file.type, file_size: file.size, extracted_data: pendingData, status: "review", created_at: new Date().toISOString() };
-        if (supabase) {
-          const uploaded = await uploadDocumentRecord({ ownerId: activeProfileId, category: documentCategory, vehiclePlate: profile.vehicle_plate, file, extractedData: pendingData, status: "review" });
-          savedDocument = { ...uploaded, extracted_data: pendingData };
-        }
-        setDocuments((current) => [savedDocument, ...current.filter((document) => document.id !== savedDocument.id)]);
-        setCircleUpload({ key: recordKey, status: supabase ? "saved" : "local", fileName: file.name });
-        setMessage(`Imagen guardada, pero queda pendiente de análisis: ${error.message}`);
-      } catch (saveError) {
-        setCircleUpload({ key: recordKey, status: "error", fileName: file.name });
-        setMessage(`La imagen se ha preparado, pero no se ha podido guardar: ${saveError.message}`);
-      }
+      setCircleUpload({ key: recordKey, status: duplicate ? "duplicate" : "error", fileName: file.name });
+      setMessage(duplicate ? "Documento duplicado: no se ha vuelto a sumar ningún importe." : `No se ha podido guardar el documento: ${error.message}`);
+      return false;
     }
   };
   const saveWeeklyAmount = async (dateKey, rowKey, rawValue) => {
@@ -2334,9 +2331,12 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     driverNavSection={driverNavSection}
     setDriverNavSection={setDriverNavSection}
     circleUpload={circleUpload}
+    circleReview={circleReview}
+    closeCircleReview={() => { setCircleReview(null); setCircleUpload((current) => ({ ...current, status: "idle" })); }}
     circleFileInputRef={circleFileInputRef}
     openCirclePicker={openCirclePicker}
     handleCircleFile={handleCircleFile}
+    saveCircleReview={saveCircleReview}
     saveWeeklyAmount={saveWeeklyAmount}
   />;
 
@@ -2457,7 +2457,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   );
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile, saveWeeklyAmount }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount }) {
   const weekSwipeDuration = 520;
   const homeRef = useRef(null);
   const statsRef = useRef(null);
@@ -2661,6 +2661,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Facturación<input type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Peajes<input type="number" min="0" step="0.01" value={entry.tolls} onChange={(event) => updateEntry("tolls", event.target.value)} /><i>€</i></label><label>Otros gastos<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, peaje u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
         {expandedPreviewMetric && <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}><div className="driver-mobile-chart-dialog__panel"><header><div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "km" ? "Kilómetros realizados" : "Consumo comparado"}</h2></div><button type="button" aria-label="Cerrar gráfica ampliada" onClick={() => setExpandedPreviewMetric("")}><IconX size={18} /></button></header>{expandedPreviewMetric === "billing" && <div className="driver-mobile-chart-dialog__chart"><BarChart width={520} height={250} data={monthlyBillingHistory} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="shortLabel" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} /><Tooltip formatter={(value) => formatCurrency(value)} labelFormatter={(label) => label} /><ReferenceLine y={periodSummary.billingGoal} stroke="#f2a62a" strokeDasharray="5 4" />{periodSummary.billingMilestones.slice(1).map((milestone) => <ReferenceLine key={milestone} y={milestone} stroke="#e6edf5" strokeDasharray="2 4" />)}<Bar dataKey="amount" fill="#2c6de9" radius={[5, 5, 0, 0]} /></BarChart></div>}{expandedPreviewMetric === "km" && <div className="driver-mobile-chart-dialog__chart"><LineChart width={520} height={250} data={weeklyKmData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} /><Tooltip formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} /><Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} /><Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} /></LineChart></div>}{expandedPreviewMetric === "consumption" && <div className="driver-mobile-chart-dialog__chart"><LineChart width={520} height={250} data={weeklyConsumptionData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l`} /><Tooltip formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km`} /><Line type="monotone" dataKey="driverConsumption" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} /><Line type="monotone" dataKey="otherConsumption" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} /></LineChart></div>}</div></div>}
         {referenceOpen && referenceLabels[referenceOpen] && <div className="driver-mobile-reference-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-reference-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setReferenceOpen(""); }}><div className="driver-mobile-reference-dialog__panel"><header><div><span>REFERENCIA VISUAL</span><h2 id="driver-mobile-reference-title">{referenceLabels[referenceOpen].title}</h2></div><button type="button" aria-label="Cerrar referencia" onClick={() => setReferenceOpen("")}><IconX size={18} /></button></header><img src={driverReferenceImages[referenceOpen]} alt={referenceLabels[referenceOpen].alt} /><p>{referenceLabels[referenceOpen].caption}. Esta imagen es un ejemplo y no modifica los datos del conductor.</p><button type="button" className="primary-button" onClick={() => setReferenceOpen("")}>Cerrar</button></div></div>}
+        {circleReview && <DriverCircleReviewDialog review={circleReview} profile={profile} driverId={profile.id} onClose={closeCircleReview} onSave={saveCircleReview} />}
       </div>
       <nav className="driver-mobile-bottom-nav" aria-label="Navegación del conductor"><button type="button" className={driverNavSection === "home" ? "is-active" : ""} onClick={() => scrollTo("home", homeRef)}><IconHome size={21} /><span>Inicio</span></button><button type="button" className={driverNavSection === "history" ? "is-active" : ""} onClick={() => scrollTo("history", historyRef)}><IconHistory size={21} /><span>Historial</span></button><button type="button" className={driverNavSection === "stats" ? "is-active" : ""} onClick={() => scrollTo("stats", statsRef)}><IconChartBar size={21} /><span>Estadísticas</span></button><button type="button" className={driverNavSection === "settings" ? "is-active" : ""} onClick={() => { setDriverNavSection("settings"); setDriverMenuOpen(true); setDriverNoticeOpen(false); }}><IconSettings size={21} /><span>Ajustes</span></button></nav>
     </main>
@@ -2684,6 +2685,10 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
   const [adminName, setAdminName] = useState(profile.full_name || "David Diaz");
   const [adminPassword, setAdminPassword] = useState("");
 
+  useEffect(() => {
+    setAdminName(profile.full_name || "David Diaz");
+  }, [profile.full_name]);
+
   const loadDrivers = useCallback(async () => {
     setLoading(true);
     try {
@@ -2696,6 +2701,27 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
     }
   }, []);
   useEffect(() => { loadDrivers(); }, [loadDrivers]);
+  const refreshAdminProfile = useCallback(async () => {
+    if (!supabase || !session?.user?.id) return;
+    const { data, error } = await getProfile(session.user);
+    if (!error && data) {
+      setAdminName(data.full_name || "David Diaz");
+      onProfileChange(data);
+    }
+  }, [onProfileChange, session?.user?.id]);
+  useEffect(() => {
+    const refreshOnReturn = () => {
+      if (document.visibilityState !== "visible") return;
+      void loadDrivers();
+      void refreshAdminProfile();
+    };
+    window.addEventListener("focus", refreshOnReturn);
+    document.addEventListener("visibilitychange", refreshOnReturn);
+    return () => {
+      window.removeEventListener("focus", refreshOnReturn);
+      document.removeEventListener("visibilitychange", refreshOnReturn);
+    };
+  }, [loadDrivers, refreshAdminProfile]);
   useEffect(() => { onDriversChange?.(drivers); }, [drivers, onDriversChange]);
   const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const createDriver = async (event) => {
@@ -2765,10 +2791,13 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
   const saveAdminName = async (event) => {
     event.preventDefault();
     if (!supabase) return;
-    const { error } = await supabase.from("profiles").update({ full_name: adminName.trim(), updated_at: new Date().toISOString() }).eq("id", session.user.id);
+    const nextName = adminName.trim();
+    if (!nextName) return setMessage("El nombre del administrador no puede estar vacío.");
+    const { error } = await supabase.from("profiles").update({ full_name: nextName, updated_at: new Date().toISOString() }).eq("id", session.user.id);
     if (error) return setMessage(error.message);
-    await supabase.auth.updateUser({ data: { full_name: adminName.trim() } });
-    onProfileChange({ full_name: adminName.trim() });
+    const { error: authError } = await supabase.auth.updateUser({ data: { full_name: nextName } });
+    if (authError) return setMessage(`El perfil se guardó, pero no se pudo sincronizar la sesión: ${authError.message}`);
+    await refreshAdminProfile();
     notify("Perfil de administrador actualizado");
   };
   const saveAdminPassword = async (event) => {
@@ -4638,6 +4667,16 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, veh
       </section>
     </div>
   );
+}
+
+function DriverCircleReviewDialog({ review, profile, driverId, onClose, onSave }) {
+  const category = review.recordKey === "billing" ? "billing" : "consumption";
+  return <div className="modal-backdrop" role="presentation">
+    <section className="modal modal--document-processing" role="dialog" aria-modal="true" aria-labelledby="driver-circle-review-title">
+      <header className="modal__header"><div><span>REGISTRO DEL CONDUCTOR</span><h2 id="driver-circle-review-title">Revisar documento</h2><p>{profile.full_name} · {profile.vehicle_plate}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar revisión"><IconX size={19} /></button></header>
+      <DocumentProcessingWorkflow category={category} source="upload" file={review.file} defaultVehicle={profile.vehicle_plate} driverId={driverId} onCancel={onClose} onSave={onSave} />
+    </section>
+  </div>;
 }
 
 function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, driverId = "", onCancel, onSave }) {

@@ -3925,3 +3925,56 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .net-detail-card--collapsed .net-detail-card__collapsed-line strong { font-size: 15px; }
   .net-detail-card--collapsed .net-detail-card__expand { min-height: 30px; }
 }
+
+/* Neto móvil: el desglose se lee como un ledger horizontal, sin apilar
+   concepto e importe ni forzar una columna estrecha para cada partida. */
+@media (max-width: 720px) {
+  .net-detail-expanded .net-detail-card__expenses {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .net-detail-expanded .net-detail-card__expenses-scroll {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+  .net-detail-expanded .net-detail-card__expense-group {
+    display: block;
+    min-width: 0;
+  }
+  .net-detail-expanded .net-detail-card__expense {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-width: 0;
+    align-items: center;
+  }
+  .net-detail-expanded .net-detail-card__expense-label {
+    display: grid !important;
+    grid-template-columns: 29px minmax(0, 1fr);
+    min-width: 0;
+    align-items: center;
+  }
+  .net-detail-expanded .net-detail-card__expense-label > span {
+    min-width: 0;
+  }
+  .net-detail-expanded .net-detail-card__expense-value {
+    min-width: max-content;
+    justify-content: flex-end;
+  }
+  .net-detail-expanded .net-detail-card__expense-breakdown {
+    margin-left: 38px;
+    min-width: 0;
+  }
+  .net-detail-expanded .net-detail-card__expense-breakdown-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-width: 0;
+    padding: 5px 8px;
+  }
+  .net-detail-expanded .net-detail-card__expense-breakdown-row > span,
+  .net-detail-expanded .net-detail-card__expense-breakdown-row > strong {
+    min-width: 0;
+  }
+  .net-detail-expanded .net-detail-card__add-form {
+    grid-template-columns: minmax(0, 1fr) minmax(96px, .55fr);
+  }
+}
