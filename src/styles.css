@@ -446,8 +446,11 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .net-detail-card__add-form { display: grid; grid-template-columns: minmax(0,1fr) 88px; gap: 6px; padding: 8px; border: 1px solid #b9d9bf; border-radius: 8px; background: #f1faef; }
 .net-detail-card__add-form label { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .net-detail-card__add-form label span { color: #55715c; font-size: 6px; font-weight: 800; text-transform: uppercase; }
-.net-detail-card__add-form input { min-width: 0; width: 100%; height: 28px; padding: 0 7px; border: 1px solid #c9ddcf; border-radius: 6px; background: #fff; color: #284936; font-size: 8px; outline: 0; }
-.net-detail-card__add-form input:focus { border-color: #63a779; box-shadow: 0 0 0 2px rgba(99,167,121,.13); }
+.net-detail-card__add-form input, .net-detail-card__add-form select { min-width: 0; width: 100%; height: 28px; padding: 0 7px; border: 1px solid #c9ddcf; border-radius: 6px; background: #fff; color: #284936; font-size: 8px; outline: 0; }
+.net-detail-card__add-form select { cursor: pointer; }
+.net-detail-card__add-form input:focus, .net-detail-card__add-form select:focus { border-color: #63a779; box-shadow: 0 0 0 2px rgba(99,167,121,.13); }
+.net-detail-card__add-form-category { grid-column: 1 / -1; }
+.net-detail-card__add-form-custom { grid-column: 1; }
 .net-detail-card__add-form > div { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 5px; }
 .net-detail-card__form-cancel, .net-detail-card__form-save { min-height: 25px; padding: 0 8px; border-radius: 6px; font-size: 7px; font-weight: 800; cursor: pointer; }
 .net-detail-card__form-cancel { border: 1px solid #cbd9d0; background: #fff; color: #66776d; }
@@ -1675,7 +1678,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .net-detail-card__add { white-space: normal; }
 .net-detail-card__add-form { gap: 9px; padding: 11px; }
 .net-detail-card__add-form label span { font-size: 9px; }
-.net-detail-card__add-form input { height: 38px; padding-inline: 9px; font-size: 12px; }
+.net-detail-card__add-form input, .net-detail-card__add-form select { height: 38px; padding-inline: 9px; font-size: 12px; }
 .net-detail-card__form-cancel, .net-detail-card__form-save { min-height: 34px; padding-inline: 11px; font-size: 11px; }
 .net-detail-card__expenses-heading { padding-block: 4px 7px; font-size: 10px; }
 .net-detail-card__expense { min-height: 34px; padding-block: 6px; }

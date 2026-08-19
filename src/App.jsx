@@ -3078,23 +3078,24 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
   };
   const openExpenseForm = (plate) => {
     setActiveFormPlate(plate);
-    setFormState({ label: "", amount: "" });
+    setFormState({ category: "", label: "", amount: "" });
     setFormError("");
   };
   const closeExpenseForm = () => {
     setActiveFormPlate("");
-    setFormState({ label: "", amount: "" });
+    setFormState({ category: "", label: "", amount: "" });
     setFormError("");
   };
   const handleExpenseSubmit = (event, plate) => {
     event.preventDefault();
-    const label = formState.label.trim();
+    const selectedCategory = expenseCategories.find((category) => category.label === formState.category);
+    const label = formState.category === "__custom__" ? formState.label.trim() : selectedCategory?.label ?? "";
     const amount = Number(String(formState.amount).replace(",", "."));
     if (!label || !Number.isFinite(amount) || amount <= 0) {
-      setFormError("Indica un concepto y un importe mayor que cero.");
+      setFormError("Selecciona una categoría o crea una nueva, e indica un importe mayor que cero.");
       return;
     }
-    onAddExpense({ periodKey, plate, label, amount: Number(amount.toFixed(2)) });
+    onAddExpense({ periodKey, plate, label, category: selectedCategory?.label ?? label, cadence: selectedCategory?.cadence ?? "Manual", amount: Number(amount.toFixed(2)) });
     setSelectedPlate(plate);
     closeExpenseForm();
   };
@@ -3151,7 +3152,8 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
           <article className={`net-detail-expanded__card net-detail-expanded__card--tone-${selectedTone}`}>
             {renderExpenseRows(selectedDetail)}
             {activeFormPlate === selectedDetail.vehicle.plate && <form className="net-detail-card__add-form" onSubmit={(event) => handleExpenseSubmit(event, selectedDetail.vehicle.plate)}>
-              <label><span>Concepto manual</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Nóminas · Andrés" maxLength={42} autoFocus /></label>
+              <label className="net-detail-card__add-form-category"><span>Categoría del gasto</span><select value={formState.category} onChange={(event) => setFormState((current) => ({ ...current, category: event.target.value, label: "" }))} autoFocus><option value="">Selecciona una categoría…</option>{expenseCategories.map((category) => <option value={category.label} key={category.label}>{category.label}</option>)}<option value="__custom__">+ Crear nueva categoría</option></select></label>
+              {formState.category === "__custom__" && <label className="net-detail-card__add-form-custom"><span>Nueva categoría</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Nóminas · Andrés" maxLength={42} /></label>}
               <label><span>Importe</span><input type="number" value={formState.amount} onChange={(event) => setFormState((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" min="0.01" step="0.01" inputMode="decimal" /></label>
               <div><button type="button" className="net-detail-card__form-cancel" onClick={closeExpenseForm}>Cancelar</button><button type="submit" className="net-detail-card__form-save">Guardar gasto</button></div>
               {formError && <p>{formError}</p>}
@@ -3316,7 +3318,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], selected, o
       });
       const manualExpenses = manualNetExpenses
         .filter((expense) => expense.periodKey === netPeriodKey && expense.plate === vehicle.plate)
-        .map((expense) => ({ ...expense, key: `manual-${expense.id}`, cadence: "Manual", manual: true }));
+        .map((expense) => ({ ...expense, key: `manual-${expense.id}`, cadence: expense.cadence || "Manual", category: expense.category || expense.label, manual: true }));
       expenses.push(...manualExpenses);
       const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
       return { vehicle, revenue, expenses, totalExpenses, net: Number((revenue - totalExpenses).toFixed(2)) };
