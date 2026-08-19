@@ -677,6 +677,56 @@ const formatDocumentDisplayDate = (dateIso) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso ?? ""))) return "Fecha pendiente";
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateIso}T12:00:00`)).replace(".", "");
 };
+const getDocumentNumericField = (fields = {}, keys = []) => {
+  for (const key of keys) {
+    const rawValue = fields?.[key] && typeof fields[key] === "object" && "value" in fields[key] ? fields[key].value : fields?.[key];
+    const value = Number(rawValue);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return 0;
+};
+const buildAdminDataActivities = ({ transactions = [], documents = [], driverEntries = [], driverProfiles = [] }) => {
+  const driverNames = new Map(driverProfiles.map((driver) => [driver.id, driver.full_name]));
+  const activities = [];
+  const add = (activity) => {
+    if (activity?.plate && activity?.key) activities.push(activity);
+  };
+  transactions.forEach((transaction) => {
+    const amount = Number(transaction.amount) || 0;
+    const plate = transaction.vehicle_plate || "Vehículo sin asignar";
+    const driver = driverNames.get(transaction.driver_id) || "";
+    const date = formatDocumentDisplayDate(transaction.occurred_on);
+    const suffix = driver ? ` · ${driver}` : "";
+    if (transaction.type === "fuel") add({ key: `transaction:${transaction.id}:fuel`, kind: "fuel", target: "Vehículos", plate, title: "Nuevo gasto de combustible", detail: `${plate}${suffix} · ${formatCurrency(amount)} · ${date}`, createdAt: transaction.created_at });
+    if (transaction.type === "billing") add({ key: `transaction:${transaction.id}:billing`, kind: "billing", target: "Conductores", plate, title: "Nueva facturación", detail: `${plate}${suffix} · ${formatCurrency(amount)} · ${date}`, createdAt: transaction.created_at });
+    if (["maintenance", "toll", "wash", "miscellaneous"].includes(transaction.type)) add({ key: `transaction:${transaction.id}:${transaction.type}`, kind: "expense", target: "Vehículos", plate, title: "Nuevo gasto registrado", detail: `${plate}${suffix} · ${formatCurrency(amount)} · ${date}`, createdAt: transaction.created_at });
+    const odometerKm = getDocumentNumericField(transaction.metadata, ["odometerKm", "odometer_km", "kilometres", "km"]);
+    if (odometerKm > 0) add({ key: `transaction:${transaction.id}:odometer`, kind: "mileage", target: "Vehículos", plate, title: "Nuevo kilometraje", detail: `${plate}${suffix} · ${formatKm(odometerKm)} · ${date}`, createdAt: transaction.created_at });
+  });
+  documents.forEach((document) => {
+    const extracted = getExtractedDocumentFields(document);
+    const plate = document.vehicle_plate || extracted.vehicle || "Vehículo sin asignar";
+    const date = formatDocumentDisplayDate(document.document_date || getDriverDocumentDateKey(document));
+    const suffix = driverNames.get(document.owner_id) ? ` · ${driverNames.get(document.owner_id)}` : "";
+    const recordType = normalizeText(extracted.recordType || extracted.metric || "");
+    const odometerKm = getDocumentNumericField(extracted, ["odometerKm", "odometer_km", "totalKm", "kilometres", "kilometers", "km"]);
+    const dailyKm = getDocumentNumericField(extracted, ["dailyKm", "daily_km"]);
+    const consumption = getDocumentNumericField(extracted, ["consumption", "consumptionRate", "consumption_rate"]);
+    if (odometerKm > 0 || dailyKm > 0) add({ key: `document:${document.id}:mileage`, kind: "mileage", target: "Vehículos", plate, title: "Nuevo kilometraje", detail: `${plate}${suffix} · ${formatKm(odometerKm || dailyKm)}${odometerKm ? " acumulados" : " diarios"} · ${date}`, createdAt: document.created_at });
+    if (consumption > 0 && (recordType === "consumption" || recordType === "consumption rate" || recordType === "consumo")) add({ key: `document:${document.id}:consumption`, kind: "consumption", target: "Vehículos", plate, title: "Nuevo consumo", detail: `${plate}${suffix} · ${consumption.toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km · ${date}`, createdAt: document.created_at });
+  });
+  driverEntries.forEach((entry) => {
+    const plate = entry.vehicle_plate || "Vehículo sin asignar";
+    const driver = driverNames.get(entry.driver_id) || "";
+    const date = formatDocumentDisplayDate(entry.entry_date);
+    const suffix = driver ? ` · ${driver}` : "";
+    const matchesTransaction = (type, amount) => transactions.some((transaction) => transaction.type === type && transaction.driver_id === entry.driver_id && transaction.vehicle_plate === entry.vehicle_plate && transaction.occurred_on === entry.entry_date && Math.abs((Number(transaction.amount) || 0) - amount) < 0.01);
+    if ((Number(entry.fuel_cost) || 0) > 0 && !matchesTransaction("fuel", Number(entry.fuel_cost) || 0)) add({ key: `entry:${entry.id}:fuel:${entry.updated_at}`, kind: "fuel", target: "Vehículos", plate, title: "Nuevo gasto de combustible", detail: `${plate}${suffix} · ${formatCurrency(Number(entry.fuel_cost) || 0)} · ${date}`, createdAt: entry.updated_at || entry.created_at });
+    if ((Number(entry.billing) || 0) > 0 && !matchesTransaction("billing", Number(entry.billing) || 0)) add({ key: `entry:${entry.id}:billing:${entry.updated_at}`, kind: "billing", target: "Conductores", plate, title: "Nueva facturación", detail: `${plate}${suffix} · ${formatCurrency(Number(entry.billing) || 0)} · ${date}`, createdAt: entry.updated_at || entry.created_at });
+    if ((Number(entry.odometer_km) || 0) > 0) add({ key: `entry:${entry.id}:odometer:${entry.updated_at}`, kind: "mileage", target: "Vehículos", plate, title: "Nuevo kilometraje", detail: `${plate}${suffix} · ${formatKm(Number(entry.odometer_km) || 0)} acumulados · ${date}`, createdAt: entry.updated_at || entry.created_at });
+  });
+  return activities.sort((left, right) => String(right.createdAt ?? "").localeCompare(String(left.createdAt ?? "")));
+};
 const getMaintenanceRecordKey = (item, index = 0) => `${item.date}-${item.concept}-${item.km}-${index}`;
 const getMaintenanceEventDomId = (plate, key) => `maintenance-event-${normalizeText(`${plate}-${key}`).replace(/[^a-z0-9]+/g, "-")}`;
 const maintenanceMonths = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
@@ -1014,6 +1064,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [documentRecords, setDocumentRecords] = useState([]);
   const [processedDocuments, setProcessedDocuments] = useState(loadProcessedDocuments);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [adminNotifications, setAdminNotifications] = useState([]);
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
@@ -1028,6 +1079,20 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [maintenanceSearchOpen, setMaintenanceSearchOpen] = useState(false);
   const [maintenanceSearchSelection, setMaintenanceSearchSelection] = useState(null);
   const toastTimer = useRef();
+  const adminDataSnapshotRef = useRef({
+    transactionsReady: false,
+    documentsReady: false,
+    driverEntriesReady: false,
+    transactionIds: new Set(),
+    documentIds: new Set(),
+    driverEntries: new Map(),
+  });
+
+  const notify = useCallback((message) => {
+    setToast(message);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(""), 2800);
+  }, []);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -1040,6 +1105,38 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       .catch(() => { if (mounted) setDriverProfiles([]); });
     return () => { mounted = false; };
   }, [isAdmin]);
+
+  const announceAdminDataChanges = useCallback(({ source, nextTransactions = [], nextDocuments = [], nextDriverEntries = [] }) => {
+    const snapshot = adminDataSnapshotRef.current;
+    let activities = [];
+    if (source === "transactions") {
+      const freshTransactions = snapshot.transactionsReady ? nextTransactions.filter((transaction) => !snapshot.transactionIds.has(transaction.id)) : [];
+      const nextEntryMap = new Map(nextDriverEntries.map((entry) => [entry.id, `${entry.updated_at ?? ""}:${entry.entry_date}:${entry.billing}:${entry.fuel_cost}:${entry.odometer_km}`]));
+      const freshEntries = snapshot.driverEntriesReady
+        ? nextDriverEntries.filter((entry) => snapshot.driverEntries.get(entry.id) !== nextEntryMap.get(entry.id))
+        : [];
+      activities = buildAdminDataActivities({ transactions: freshTransactions, driverEntries: freshEntries, driverProfiles });
+      snapshot.transactionIds = new Set(nextTransactions.map((transaction) => transaction.id));
+      snapshot.driverEntries = nextEntryMap;
+      snapshot.transactionsReady = true;
+      snapshot.driverEntriesReady = true;
+    }
+    if (source === "documents") {
+      const freshDocuments = snapshot.documentsReady ? nextDocuments.filter((document) => !snapshot.documentIds.has(document.id)) : [];
+      activities = buildAdminDataActivities({ documents: freshDocuments, driverProfiles });
+      snapshot.documentIds = new Set(nextDocuments.map((document) => document.id));
+      snapshot.documentsReady = true;
+    }
+    if (!activities.length) return;
+    setAdminNotifications((current) => {
+      const existing = new Set(current.map((activity) => activity.key));
+      const unique = activities.filter((activity) => !existing.has(activity.key));
+      if (!unique.length) return current;
+      return [...unique, ...current].slice(0, 20);
+    });
+    const first = activities[0];
+    notify(`${first.title}: ${first.detail}`);
+  }, [driverProfiles, notify]);
 
   const refreshTransactions = useCallback(async () => {
     if (!isAdmin || !supabase) return;
@@ -1058,7 +1155,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     const centralEntries = transactionsToDriverEntries(transactionResult.data ?? []);
     setTransactions(transactionResult.data ?? []);
     setDriverEntries(mergeDriverEntries(entryResult.data ?? [], centralEntries));
-  }, [isAdmin]);
+    announceAdminDataChanges({ source: "transactions", nextTransactions: transactionResult.data ?? [], nextDriverEntries: entryResult.data ?? [] });
+  }, [announceAdminDataChanges, isAdmin]);
 
   const refreshDocuments = useCallback(async () => {
     if (!isAdmin || !supabase) return;
@@ -1069,16 +1167,33 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       .limit(500);
     if (error) throw error;
     setDocumentRecords(data ?? []);
-  }, [isAdmin]);
+    announceAdminDataChanges({ source: "documents", nextDocuments: data ?? [] });
+  }, [announceAdminDataChanges, isAdmin]);
 
   useEffect(() => {
     if (!isAdmin || !supabase) {
       setDriverEntries([]);
       setTransactions([]);
       setDocumentRecords([]);
+      setAdminNotifications([]);
+      adminDataSnapshotRef.current = {
+        transactionsReady: false,
+        documentsReady: false,
+        driverEntriesReady: false,
+        transactionIds: new Set(),
+        documentIds: new Set(),
+        driverEntries: new Map(),
+      };
       return undefined;
     }
-    void Promise.allSettled([refreshTransactions(), refreshDocuments()]);
+    const refreshAll = () => Promise.allSettled([refreshTransactions(), refreshDocuments()]);
+    void refreshAll();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void refreshAll();
+    };
+    const refreshTimer = window.setInterval(refreshWhenVisible, 15000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
     const entryChannel = supabase
       .channel(`admin-driver-entries-${session.user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "driver_entries" }, () => {
@@ -1098,6 +1213,9 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       })
       .subscribe();
     return () => {
+      window.clearInterval(refreshTimer);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
       supabase.removeChannel(entryChannel);
       supabase.removeChannel(transactionChannel);
       supabase.removeChannel(documentChannel);
@@ -1305,12 +1423,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       return (!normalized || searchable.includes(normalized)) && (filter === "Todos" || vehicle.use === filter);
     });
   }, [filter, query, vehicles]);
-
-  const notify = (message) => {
-    setToast(message);
-    window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(""), 2800);
-  };
 
   const savePhotoInvoiceLegacy = async (invoice) => {
     const { file, ...localInvoice } = invoice;
@@ -1534,6 +1646,11 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     setInspectorOpen(true);
     navigate(navItems[1]);
   };
+  const openAdminActivity = (activity) => {
+    setNotificationsOpen(false);
+    if (activity?.plate && vehicles.some((vehicle) => vehicle.plate === activity.plate)) setSelectedPlate(activity.plate);
+    navigate(activity?.target === "Conductores" ? conductorNavItem : navItems[1]);
+  };
 
   if (previewDriver) {
     return <DriverApp session={session} profile={previewDriver} preview onExitPreview={() => { setPreviewDriver(null); refreshDriverEntries().catch(() => undefined); }} onSignOut={onSignOut} />;
@@ -1553,7 +1670,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             <span className="date"><IconCalendar size={18} />28 jul 2026</span>
             <button type="button" className={`topbar-route-button topbar-route-button--facturas${activeNav === "Facturas" ? " topbar-route-button--active" : ""}`} onClick={() => navigate(navItems[3])} aria-label="Abrir Facturas" aria-current={activeNav === "Facturas" ? "page" : undefined} title="Facturas"><IconFileInvoice size={14} /><span>Facturas</span><i>3</i></button>
-            <button className="bell-button" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setTopbarMenuOpen(false); }}><IconBell size={17} /><i>2</i></button>
+            <button className="bell-button" aria-label={`Notificaciones${adminNotifications.length ? ` · ${adminNotifications.length} nuevas` : ""}`} aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setTopbarMenuOpen(false); }}><IconBell size={17} />{adminNotifications.length > 0 && <i>{Math.min(adminNotifications.length, 99)}</i>}</button>
             <button className="topbar-menu-button" aria-label="Abrir accesos de gestión" aria-expanded={topbarMenuOpen} aria-controls="topbar-management-menu" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }} title="Accesos de gestión"><IconMenu2 size={18} /></button>
             <button className="profile" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }}><span className="avatar">{profileInitials}</span><span><strong>{profileName}</strong><small>{isAdmin ? "Administrador" : "Conductor"}</small></span><IconChevronDown size={17} /></button>
           </div>}
@@ -1572,17 +1689,20 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           )}
           {!compactDetailHeader && notificationsOpen && (
             <aside className="notification-popover" aria-label="Notificaciones recientes">
-              <header><strong>Notificaciones</strong><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></header>
-              <button onClick={() => navigate(navItems[2])}><IconGauge size={18} /><span><strong>2 lecturas por revisar</strong><small>Confianza inferior al umbral configurado</small></span></button>
+              <header><strong>Notificaciones</strong><div><span>{adminNotifications.length} nuevas</span><button className="icon-button" onClick={() => setAdminNotifications([])} aria-label="Marcar notificaciones como leídas"><IconCheck size={15} /></button><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></div></header>
+              {adminNotifications.length === 0 ? <p className="notification-popover__empty">No hay avisos nuevos.</p> : adminNotifications.slice(0, 8).map((activity) => {
+                const ActivityIcon = activity.kind === "fuel" ? IconGasStation : activity.kind === "billing" ? IconFileInvoice : activity.kind === "mileage" ? IconGauge : activity.kind === "consumption" ? IconChartBar : IconAlertTriangle;
+                return <button type="button" key={activity.key} onClick={() => openAdminActivity(activity)}><ActivityIcon size={18} /><span><strong>{activity.title}</strong><small>{activity.detail}</small></span></button>;
+              })}
             </aside>
           )}
         </header>
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
-          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
+          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
           {activeNav === "Conductores" && <DriversView vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} setModal={setModal} />}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
@@ -2942,7 +3062,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
                 const driver = selectedDrivers[vehicle.plate] ?? vehicle.drivers[0];
                 const day = getDriverDay(vehicle, driver);
                 const remaining = vehicle.nextServiceKm - vehicle.odometer;
-                const latestMaintenance = vehicle.maintenance[0];
+                const latestMaintenance = vehicle.maintenance[0] ?? { amount: 0, concept: "Sin intervenciones" };
                 return (
                   <tr className={selected.plate === vehicle.plate ? "is-selected" : ""} key={vehicle.plate} onClick={() => selectVehicle(vehicle)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") selectVehicle(vehicle); }}>
                     <td className="plate"><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td>
@@ -3194,7 +3314,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
   );
 }
 
-function FuelView({ vehicles, driverEntries = [], transactions = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
+function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;

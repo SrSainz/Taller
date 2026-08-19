@@ -130,11 +130,14 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .notification-popover { position: absolute; top: 62px; right: 80px; width: 330px; padding: 9px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: var(--shadow); }
 .notification-popover header { min-height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 5px 6px 10px; }
 .notification-popover header strong { font-size: 12px; }
+.notification-popover header > div { display: flex; align-items: center; gap: 2px; }
+.notification-popover header > div > span { color: var(--muted); font-size: 8px; font-weight: 700; }
 .notification-popover > button { width: 100%; display: grid; grid-template-columns: 24px 1fr; gap: 8px; padding: 11px; border: 0; border-radius: 8px; background: transparent; color: var(--green-800); text-align: left; cursor: pointer; }
 .notification-popover > button:hover { background: var(--green-50); }
 .notification-popover > button span { display: flex; flex-direction: column; gap: 4px; color: var(--text); }
 .notification-popover > button strong { font-size: 10px; }
 .notification-popover > button small { color: var(--muted); font-size: 8px; }
+.notification-popover__empty { margin: 8px 10px 10px; color: var(--muted); font-size: 9px; }
 
 .page-scroll { min-height: 0; flex: 1; overflow: auto; }
 .page-scroll:not(.page-scroll--dashboard) { padding-bottom: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom)); }
