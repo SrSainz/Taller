@@ -3323,8 +3323,8 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   const setChartMetric = onChartMetricChange ?? setInternalChartMetric;
   const [selectedChartMetrics, setSelectedChartMetrics] = useState(() => chartMetric === "summary" ? [] : [chartMetric]);
   const pendingChartMetricsRef = useRef(null);
-  const [reportMonth, setReportMonth] = useState(6);
-  const [reportYear, setReportYear] = useState(2026);
+  const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
+  const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
   const [periodMenu, setPeriodMenu] = useState("");
   const [selectedChartBar, setSelectedChartBar] = useState("");
   const [netDetailOpen, setNetDetailOpen] = useState(false);
