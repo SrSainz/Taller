@@ -3707,7 +3707,9 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-chart-dialog__panel > header span { color: #587398; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
 .driver-mobile-chart-dialog__panel > header h2 { margin: 3px 0 0; color: #102d58; font-size: 18px; }
 .driver-mobile-chart-dialog__panel > header button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 1px solid #d4dfec; border-radius: 9px; background: #f7faff; color: #173661; cursor: pointer; }
-.driver-mobile-chart-dialog__chart { width: 100%; min-height: 250px; overflow-x: auto; margin-top: 4px; }
+.driver-mobile-chart-dialog__chart { width: 100%; min-height: 250px; overflow: hidden; margin-top: 4px; }
+.driver-mobile-chart-dialog__chart > .recharts-wrapper { width: 100% !important; min-width: 0 !important; }
+.driver-mobile-chart-dialog__chart > .recharts-wrapper > svg { width: 100% !important; height: 250px !important; }
 .driver-mobile-chart-dialog__hint { margin: 4px 0 0; color: #74839a; font-size: 9px; text-align: center; }
 @media (max-width: 520px) {
   .driver-mobile-preview-chart-card__summary strong { font-size: 9px; }
