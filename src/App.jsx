@@ -1267,9 +1267,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       ? "Facturación"
       : activeNav === "Informes" && homeReportTab === "Repostaje"
         ? "Combustible"
-        : activeNav === "Informes" && homeReportTab === "General" && homeChartMetric === "net"
-          ? "NETO"
-          : "";
+        : "";
   const compactDetailHeader = Boolean(detailHeaderTitle);
 
   const filtered = useMemo(() => {

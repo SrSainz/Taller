@@ -3717,6 +3717,45 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-mobile-chart-dialog__panel { padding: 11px; }
 }
 
+/* Neto abierto: conserva la cabecera global y la navegación inferior visibles. */
+.net-detail-backdrop {
+  position: fixed;
+  z-index: 9;
+  top: 70px;
+  right: 0;
+  bottom: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom));
+  left: 0;
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+  background: #092c3a;
+}
+.net-detail-modal {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.net-detail-carousel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.net-detail-expanded { flex: 1 1 auto; min-height: 0; }
+
+@media (max-width: 820px) {
+  .net-detail-backdrop { top: 70px; }
+}
+
+@media (max-width: 520px) {
+  .net-detail-backdrop { top: 64px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .net-detail-backdrop { top: 54px; }
+}
+
 /* La escala de facturación forma parte de su propio bloque, con cortes verticales. */
 .driver-app--preview .driver-mobile-month-summary__metric--billing { min-height: 142px; align-content: start; padding-bottom: 5px; }
 .driver-app--preview .driver-mobile-month-summary__metric--billing > span { font-size: 11px; }
