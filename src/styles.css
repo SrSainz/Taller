@@ -3815,8 +3815,18 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .net-detail-card--tone-green { --net-accent: #239755; --net-surface: #f7fbf6; --net-soft: #d9f3d7; --net-pale: #e6f5e7; }
 .net-detail-card--tone-blue { --net-accent: #2f72cf; --net-surface: #f7faff; --net-soft: #dceafb; --net-pale: #e7f0fc; }
 .net-detail-card--tone-red { --net-accent: #d43b30; --net-surface: #fff8f7; --net-soft: #f9deda; --net-pale: #fff0ee; }
-.net-detail-card--collapsed {
+.net-detail-carousel {
+  display: flex;
   flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+.net-detail-card--collapsed {
+  flex: 0 0 calc((100% - 18px) / 3);
+  width: calc((100% - 18px) / 3);
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
   gap: 10px;
   padding: 12px 10px;
   border-top: 3px solid var(--net-accent, #239755);
