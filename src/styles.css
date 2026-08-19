@@ -3817,13 +3817,16 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .net-detail-card--tone-red { --net-accent: #d43b30; --net-surface: #fff8f7; --net-soft: #f9deda; --net-pale: #fff0ee; }
 .net-detail-carousel {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   flex-wrap: nowrap;
   align-items: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .net-detail-card--collapsed {
-  flex: 0 0 calc((100% - 18px) / 3);
-  width: calc((100% - 18px) / 3);
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 148px;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: stretch;
