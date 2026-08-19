@@ -2482,7 +2482,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const consumptionDifference = weeklyConsumptionAverage - otherDriversConsumptionAverage;
   const openPreviewMetric = (metric) => setExpandedPreviewMetric(metric);
   const handlePreviewGridClick = (event) => {
-    if (event.target.closest("button")) return;
+    if (event.target.closest("button")) {
+      if (event.target.closest(".driver-mobile-preview-history")) openPreviewMetric("billing");
+      return;
+    }
     const card = event.target.closest(".driver-mobile-preview-history, .driver-mobile-preview-consumption, .driver-mobile-preview-km");
     if (!card) return;
     if (card.classList.contains("driver-mobile-preview-km")) openPreviewMetric("km");
