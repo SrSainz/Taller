@@ -3107,12 +3107,9 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
               </div>
             </article>)}
           </div>
-          <div className="net-detail-carousel-dots" aria-hidden="true">{orderedDetails.map((detail, index) => <i className={index === 0 ? "is-active" : ""} key={detail.vehicle.plate} />)}</div>
         </> : <div className="net-detail-expanded">
           <button type="button" className="net-detail-back" onClick={() => { setSelectedPlate(""); closeExpenseForm(); }}><IconChevronLeft size={16} />VER LOS 3 COCHES</button>
           <article className={`net-detail-expanded__card net-detail-expanded__card--tone-${selectedTone}`}>
-            <header className="net-detail-expanded__vehicle"><strong className="net-detail-card__plate">{selectedDetail.vehicle.plate}</strong><strong className={`net-detail-card__net net-detail-card__net--large${selectedDetail.net < 0 ? " net-detail-card__net--negative" : ""}`}>{formatCurrency(selectedDetail.net)}</strong><button type="button" className="net-detail-expanded__collapse" onClick={() => setSelectedPlate("")} aria-label="Cerrar detalle del coche"><IconChevronUp size={21} /></button></header>
-            <div className="net-detail-expanded__summary"><div><span>Facturación</span><strong>{formatCurrency(selectedDetail.revenue)}</strong></div><div><span>Gastos registrados</span><strong>{formatCurrency(selectedDetail.totalExpenses)}</strong></div></div>
             {renderExpenseRows(selectedDetail)}
             {activeFormPlate === selectedDetail.vehicle.plate && <form className="net-detail-card__add-form" onSubmit={(event) => handleExpenseSubmit(event, selectedDetail.vehicle.plate)}>
               <label><span>Concepto manual</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Nóminas · Andrés" maxLength={42} autoFocus /></label>
