@@ -3769,6 +3769,45 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-app--preview .driver-mobile-preview-chart-card__heading { font-size: 7px; }
 }
 
+/* Administración > Ver aplicación: resumen superior sin tarjeta y más compacto. */
+.driver-app--preview .driver-mobile-month-summary {
+  padding: 0 2px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.driver-app--preview .driver-mobile-month-summary__columns {
+  gap: 0;
+  padding: 0 0 4px;
+  border-radius: 0;
+  background: transparent;
+}
+.driver-app--preview .driver-mobile-month-summary__metric {
+  gap: 2px;
+  padding: 0;
+}
+.driver-app--preview .driver-mobile-month-summary__metric--billing {
+  min-height: 0;
+  padding-bottom: 3px;
+}
+.driver-app--preview .driver-mobile-month-summary__metric--billing > span { font-size: 9px; }
+.driver-app--preview .driver-mobile-month-summary__metric--billing > strong { font-size: clamp(25px, 7vw, 32px); }
+.driver-app--preview .driver-mobile-billing-target {
+  margin-top: 3px;
+  padding: 4px 0 1px;
+  border-top: 0;
+}
+.driver-app--preview .driver-mobile-billing-target__track { height: 10px; }
+.driver-app--preview .driver-mobile-billing-target__labels { padding-top: 2px; font-size: 7px; }
+.driver-app--preview .driver-mobile-month-summary__metric--tips {
+  gap: 2px;
+  padding: 4px 0 0;
+  border-top: 1px solid #d9e3ef;
+}
+.driver-app--preview .driver-mobile-month-summary__metric--tips > span { font-size: 8px; }
+.driver-app--preview .driver-mobile-month-summary__metric--tips > strong { font-size: clamp(18px, 5vw, 24px); }
+
 /* Neto: cada vehÃ­culo se presenta como una tarjeta horizontal y conserva su color. */
 .net-detail-card--tone-green { --net-accent: #239755; --net-surface: #f7fbf6; --net-soft: #d9f3d7; --net-pale: #e6f5e7; }
 .net-detail-card--tone-blue { --net-accent: #2f72cf; --net-surface: #f7faff; --net-soft: #dceafb; --net-pale: #e7f0fc; }

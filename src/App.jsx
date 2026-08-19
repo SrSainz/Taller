@@ -1868,7 +1868,14 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const monthlyBilling = total(monthEntries, "billing");
     const billingGoal = 5000;
     const billingScaleMax = Math.max(7000, Math.ceil(Math.max(monthlyBilling, billingGoal) / 500) * 500);
-    const billingMilestones = Array.from({ length: Math.max(1, Math.floor((billingScaleMax - billingGoal) / 500) + 1) }, (_, index) => billingGoal + (index * 500));
+    const billingMilestones = [
+      5000,
+      5500,
+      6000,
+      6500,
+      7000,
+      ...Array.from({ length: Math.max(0, Math.floor((billingScaleMax - 7000) / 500)) }, (_, index) => 7500 + (index * 500)),
+    ];
     const weeklyCash = total(weekEntries, "cash_collected");
     const weeklyFuel = total(weekEntries, "fuel_cost");
     const weeklyTolls = total(weekEntries, "tolls");
