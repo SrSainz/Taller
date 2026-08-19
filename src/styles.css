@@ -3661,3 +3661,56 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-mobile-mini-card span { font-size: 8px; }
   .driver-mobile-week-table { min-width: 355px; }
 }
+
+/* Vista de administración del conductor: comparación ampliable y lectura rápida. */
+.driver-app--preview .driver-mobile-month-summary__columns { grid-template-columns: 1fr; gap: 8px; }
+.driver-app--preview .driver-mobile-month-summary__metric--tips { border-top: 1px solid #d9e3ef; border-left: 0; padding-top: 8px; }
+.driver-mobile-billing-target { display: grid; gap: 4px; margin-top: 8px; padding: 7px 8px 5px; border: 1px solid #d6e1ee; border-radius: 10px; background: #f8fbff; }
+.driver-mobile-billing-target__track { position: relative; height: 9px; overflow: visible; border-radius: 999px; background: #e1e9f3; }
+.driver-mobile-billing-target__track > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2c6de9, #5a91ed); }
+.driver-mobile-billing-target__milestone { position: absolute; top: 50%; width: 7px; height: 7px; border: 2px solid #fff; border-radius: 50%; background: #f2a62a; box-shadow: 0 0 0 1px #d98b0b; transform: translate(-50%, -50%); }
+.driver-mobile-billing-target__labels { display: flex; justify-content: space-between; gap: 2px; color: #64758e; font-size: 7px; font-variant-numeric: tabular-nums; line-height: 1; }
+.driver-mobile-preview-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; align-items: stretch; }
+.driver-mobile-preview-history, .driver-mobile-preview-consumption, .driver-mobile-preview-km { position: relative; min-width: 0; overflow: hidden; border: 1px solid #d9e4f0; border-radius: 10px; background: #fff; box-shadow: 0 3px 9px rgba(24,47,82,.06); cursor: zoom-in; outline: 0; }
+.driver-mobile-preview-history { order: 1; padding: 5px 4px 4px; }
+.driver-mobile-preview-km { order: 2; padding: 5px 5px 4px; }
+.driver-mobile-preview-consumption { order: 3; padding: 5px 5px 4px; }
+.driver-mobile-preview-history::before, .driver-mobile-preview-consumption::before { display: block; margin: 0 1px 3px; color: #173661; font-size: 7px; font-weight: 900; letter-spacing: .03em; line-height: 1.1; }
+.driver-mobile-preview-history::before { content: "FACTURACIÓN"; }
+.driver-mobile-preview-consumption::before { content: "CONSUMO"; }
+.driver-mobile-preview-history:hover, .driver-mobile-preview-consumption:hover, .driver-mobile-preview-km:hover, .driver-mobile-preview-km:focus-visible { border-color: #7ca5e2; box-shadow: 0 0 0 3px rgba(44,109,233,.12); }
+.driver-mobile-preview-chart-card__heading { margin-bottom: 3px; color: #173661; font-size: 7px; font-weight: 900; line-height: 1.1; }
+.driver-mobile-preview-chart-card__summary { display: grid; gap: 1px; min-width: 0; margin-bottom: 2px; }
+.driver-mobile-preview-chart-card__summary strong { overflow: hidden; color: #2c6de9; font-size: 11px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-preview-chart-card__summary span { overflow: hidden; color: #74839a; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-preview-chart-card__legend { display: flex; justify-content: space-between; gap: 3px; color: #61718a; font-size: 7px; }
+.driver-mobile-preview-chart-card__legend span { display: inline-flex; align-items: center; gap: 2px; }
+.driver-mobile-preview-chart-card__legend i, .driver-mobile-preview-history + .driver-mobile-preview-km i { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #2c6de9; }
+.driver-mobile-preview-chart-card__legend i.is-fleet { background: #9aaac0; }
+.driver-mobile-preview-history .driver-mobile-history-bars { height: 80px; margin-top: 2px; }
+.driver-mobile-preview-history .driver-mobile-history-bar span { font-size: 6px; }
+.driver-mobile-preview-history .driver-mobile-history-bar small { font-size: 6px; }
+.driver-mobile-preview-consumption .driver-mobile-consumption-compare { gap: 2px; margin-bottom: 1px; }
+.driver-mobile-preview-consumption .driver-mobile-consumption-compare span { font-size: 6px; }
+.driver-mobile-preview-consumption .driver-mobile-consumption-compare strong { font-size: 8px; }
+.driver-mobile-preview-consumption .driver-mobile-consumption-compare em { font-size: 7px; }
+.driver-mobile-week-table { min-width: 355px; }
+.driver-mobile-week-table thead th:first-child, .driver-mobile-week-table tbody th { width: 72px; }
+.driver-mobile-week-table tbody th { padding: 6px 4px; font-size: 10px; }
+.driver-mobile-week-table tbody td { padding: 6px 2px; font-size: 10px; font-variant-numeric: tabular-nums; }
+.driver-mobile-week-table__amount-editor { min-height: 28px; }
+.driver-mobile-week-table__amount-editor b { display: none; }
+.driver-mobile-week-table__amount-input { min-height: 28px; padding-inline: 0; font-size: 10px; }
+.driver-mobile-chart-dialog { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 12px; background: rgba(5,22,47,.58); }
+.driver-mobile-chart-dialog__panel { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; padding: 14px; border: 1px solid #d7e2ef; border-radius: 18px; background: #fff; box-shadow: 0 18px 50px rgba(3,24,55,.3); }
+.driver-mobile-chart-dialog__panel > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.driver-mobile-chart-dialog__panel > header span { color: #587398; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
+.driver-mobile-chart-dialog__panel > header h2 { margin: 3px 0 0; color: #102d58; font-size: 18px; }
+.driver-mobile-chart-dialog__panel > header button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 1px solid #d4dfec; border-radius: 9px; background: #f7faff; color: #173661; cursor: pointer; }
+.driver-mobile-chart-dialog__chart { width: 100%; min-height: 250px; overflow-x: auto; margin-top: 4px; }
+.driver-mobile-chart-dialog__hint { margin: 4px 0 0; color: #74839a; font-size: 9px; text-align: center; }
+@media (max-width: 520px) {
+  .driver-mobile-preview-chart-card__summary strong { font-size: 9px; }
+  .driver-mobile-preview-chart-card__summary span, .driver-mobile-preview-chart-card__legend, .driver-mobile-preview-history::before, .driver-mobile-preview-consumption::before, .driver-mobile-preview-chart-card__heading { font-size: 6px; }
+  .driver-mobile-chart-dialog__panel { padding: 11px; }
+}

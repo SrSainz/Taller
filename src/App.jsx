@@ -561,7 +561,7 @@ const buildDriverWeekPage = (anchorDate, entries, manualValues = {}) => {
   const total = (entry, key) => getDriverEntryAmount(entry, key);
   const rows = [
     { key: "cash", label: "Efectivo", values: weekEntries.map((entry) => total(entry, "cash_collected")) },
-    { key: "fuel", label: "Repostajes", values: weekEntries.map((entry) => total(entry, "fuel_cost")) },
+    { key: "fuel", label: "Repostaje", values: weekEntries.map((entry) => total(entry, "fuel_cost")) },
     { key: "tolls", label: "Peajes", values: weekEntries.map((entry) => total(entry, "tolls")) },
     { key: "wash", label: "Lavados", values: weekEntries.map((entry, index) => Object.hasOwn(manualValues?.[days[index].key] ?? {}, "wash") ? Number(manualValues[days[index].key].wash) || 0 : total(entry, "wash_expenses")) },
     { key: "other", label: "Varios", values: weekEntries.map((entry) => total(entry, "other_expenses")) },
@@ -1868,7 +1868,9 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
     const monthlyBilling = total(monthEntries, "billing");
-    const billingGoal = 0;
+    const billingGoal = 5000;
+    const billingScaleMax = Math.max(7000, Math.ceil(Math.max(monthlyBilling, billingGoal) / 500) * 500);
+    const billingMilestones = Array.from({ length: Math.max(1, Math.floor((billingScaleMax - billingGoal) / 500) + 1) }, (_, index) => billingGoal + (index * 500));
     const weeklyCash = total(weekEntries, "cash_collected");
     const weeklyFuel = total(weekEntries, "fuel_cost");
     const weeklyTolls = total(weekEntries, "tolls");
@@ -1888,7 +1890,9 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       monthlyOther: total(monthEntries, "other_expenses") + monthlyWash,
       tipsProgress: monthlyBilling > 0 ? Math.min(100, (total(monthEntries, "tips") / monthlyBilling) * 100) : 0,
       billingGoal,
-      billingProgress: billingGoal > 0 ? Math.min(100, (monthlyBilling / billingGoal) * 100) : 0,
+      billingScaleMax,
+      billingMilestones,
+      billingProgress: billingScaleMax > 0 ? Math.min(100, (monthlyBilling / billingScaleMax) * 100) : 0,
       weeklyCash,
       weeklyFuel,
       weeklyTolls,
@@ -1948,6 +1952,12 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const values = otherShifts.map((shift) => shift.km > 0 ? (Number(shift.liters) || 0) / shift.km * 100 : 0).filter((value) => value > 0);
     return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : seededDriverConsumption;
   }, [seededDriverConsumption, seededDriverShift]);
+  const otherDriversKmAverage = useMemo(() => {
+    const professionalShifts = vehiclesSeed.filter((candidate) => candidate.use === "Profesional").flatMap((candidate) => candidate.shifts ?? []);
+    const otherShifts = professionalShifts.filter((shift) => shift.id !== seededDriverShift?.id);
+    const values = otherShifts.map((shift) => Number(shift.km) || 0).filter((value) => value > 0);
+    return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  }, [seededDriverShift]);
   const weeklyConsumptionData = useMemo(() => {
     const chronologicalEntries = [...entries].sort((left, right) => String(left.entry_date ?? "").localeCompare(String(right.entry_date ?? "")));
     return driverWeekDays.map(({ date, key }) => {
@@ -1967,6 +1977,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       const driverConsumption = extractedConsumption || (litres > 0 && kilometres > 0 ? litres / kilometres * 100 : seededDriverConsumption);
       return {
         label: new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", ""),
+        kilometres,
         driverConsumption: Number(driverConsumption.toFixed(1)),
         otherConsumption: Number(otherDriversConsumptionAverage.toFixed(1)),
       };
@@ -1976,6 +1987,15 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const values = weeklyConsumptionData.map((item) => item.driverConsumption).filter((value) => value > 0);
     return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
   }, [weeklyConsumptionData]);
+  const weeklyKmData = useMemo(() => weeklyConsumptionData.map((item) => ({
+    label: item.label,
+    driverKm: Math.round(item.kilometres || 0),
+    otherKm: Math.round(otherDriversKmAverage || 0),
+  })), [otherDriversKmAverage, weeklyConsumptionData]);
+  const weeklyKmAverage = useMemo(() => {
+    const values = weeklyKmData.map((item) => item.driverKm).filter((value) => value > 0);
+    return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  }, [weeklyKmData]);
   const previousDriverEntry = useMemo(() => {
     const previous = entries
       .filter((item) => String(item.entry_date ?? "") < selectedDate)
@@ -2225,7 +2245,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const saveWeeklyAmount = async (dateKey, rowKey, rawValue) => {
     const amount = Math.max(0, Number(String(rawValue ?? "").replace(",", ".")) || 0);
     const entryFieldByRow = { cash: "cash_collected", fuel: "fuel_cost", tolls: "tolls", wash: "wash_expenses", other: "other_expenses" };
-    const rowLabelByKey = { cash: "Efectivo", fuel: "Repostajes", tolls: "Peajes", wash: "Lavados", other: "Varios" };
+    const rowLabelByKey = { cash: "Efectivo", fuel: "Repostaje", tolls: "Peajes", wash: "Lavados", other: "Varios" };
     const entryField = entryFieldByRow[rowKey];
     if (!entryField) return;
     try {
@@ -2240,7 +2260,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   };
   const weeklyRows = [
     { key: "cash", label: "Efectivo", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "cash_collected")) },
-    { key: "fuel", label: "Repostajes", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "fuel_cost")) },
+    { key: "fuel", label: "Repostaje", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "fuel_cost")) },
     { key: "tolls", label: "Peajes", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "tolls")) },
     { key: "wash", label: "Lavados", values: driverWeekEntries.map((item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses")) },
     { key: "other", label: "Varios", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "other_expenses")) },
@@ -2281,8 +2301,11 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     weeklyChartData={weeklyChartData}
     monthlyBillingHistory={monthlyBillingHistory}
     weeklyConsumptionData={weeklyConsumptionData}
+    weeklyKmData={weeklyKmData}
+    weeklyKmAverage={weeklyKmAverage}
     weeklyConsumptionAverage={weeklyConsumptionAverage}
     otherDriversConsumptionAverage={otherDriversConsumptionAverage}
+    otherDriversKmAverage={otherDriversKmAverage}
     dailyPhotoRecords={dailyPhotoRecords}
     driverReferenceImages={driverReferenceImages}
     averageConsumption={averageConsumption}
@@ -2429,7 +2452,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   );
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyConsumptionAverage, otherDriversConsumptionAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile, saveWeeklyAmount }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleFileInputRef, openCirclePicker, handleCircleFile, saveWeeklyAmount }) {
   const weekSwipeDuration = 520;
   const homeRef = useRef(null);
   const statsRef = useRef(null);
@@ -2441,6 +2464,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const weekSwipeDirectionRef = useRef(0);
   const weekSuppressClickRef = useRef(false);
   const [referenceOpen, setReferenceOpen] = useState("");
+  const [expandedPreviewMetric, setExpandedPreviewMetric] = useState("");
   const [weekSwipeOffset, setWeekSwipeOffset] = useState(0);
   const [weekSwipeActive, setWeekSwipeActive] = useState(false);
   const [weekSwipeTransition, setWeekSwipeTransition] = useState(false);
@@ -2451,6 +2475,33 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   };
   const activeBillingMonth = monthlyBillingHistory.find((month) => month.isCurrent) ?? monthlyBillingHistory[monthlyBillingHistory.length - 1] ?? { amount: 0 };
   const consumptionDifference = weeklyConsumptionAverage - otherDriversConsumptionAverage;
+  const openPreviewMetric = (metric) => setExpandedPreviewMetric(metric);
+  const handlePreviewGridClick = (event) => {
+    if (event.target.closest("button")) return;
+    const card = event.target.closest(".driver-mobile-preview-history, .driver-mobile-preview-consumption, .driver-mobile-preview-km");
+    if (!card) return;
+    if (card.classList.contains("driver-mobile-preview-km")) openPreviewMetric("km");
+    else if (card.classList.contains("driver-mobile-preview-consumption")) openPreviewMetric("consumption");
+    else openPreviewMetric("billing");
+  };
+  const handlePreviewGridKeyDown = (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const card = event.target.closest(".driver-mobile-preview-history, .driver-mobile-preview-consumption, .driver-mobile-preview-km");
+    if (!card) return;
+    event.preventDefault();
+    openPreviewMetric(card.classList.contains("driver-mobile-preview-km") ? "km" : card.classList.contains("driver-mobile-preview-consumption") ? "consumption" : "billing");
+  };
+  useEffect(() => {
+    if (!expandedPreviewMetric) return undefined;
+    const handleEscape = (event) => { if (event.key === "Escape") setExpandedPreviewMetric(""); };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [expandedPreviewMetric]);
   const scrollTo = (section, ref) => {
     setDriverNavSection(section);
     setDriverMenuOpen(false);
@@ -2470,11 +2521,12 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const currentWeekPage = driverWeekPages.find((page) => page.offset === 0) ?? driverWeekPages[1];
   const weekLabel = currentWeekPage?.days?.[0]?.date ? new Intl.DateTimeFormat("es-ES", { day: "numeric" }).format(currentWeekPage.days[0].date) : "";
   const editableWeeklyRows = new Set(["cash", "fuel", "tolls", "wash", "other"]);
+  const formatWeeklyAmount = (value) => (Number(value) || 0).toLocaleString("es-ES", { maximumFractionDigits: 0 });
   const weeklyCell = (row, value, dateKey) => {
-    if (!editableWeeklyRows.has(row.key)) return formatCurrency(value);
+    if (!editableWeeklyRows.has(row.key)) return formatWeeklyAmount(value);
     const draftKey = `${dateKey}:${row.key}`;
     const hasDraft = Object.hasOwn(weeklyDrafts, draftKey);
-    const displayedValue = hasDraft ? weeklyDrafts[draftKey] : (Number(value) || 0).toFixed(2).replace(".", ",");
+    const displayedValue = hasDraft ? weeklyDrafts[draftKey] : formatWeeklyAmount(value);
     return <span className="driver-mobile-week-table__amount-editor"><input className="driver-mobile-week-table__amount-input" type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" value={displayedValue} aria-label={`${row.label} del ${dateKey}`} placeholder="0,00" onFocus={(event) => event.currentTarget.select()} onPointerUp={(event) => event.preventDefault()} onChange={(event) => setWeeklyDrafts((current) => ({ ...current, [draftKey]: event.target.value }))} onBlur={async () => { const nextValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : displayedValue; await saveWeeklyAmount(dateKey, row.key, nextValue); setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); event.currentTarget.blur(); } }} /><b aria-hidden="true">€</b></span>;
   };
   const completeWeekSwipe = () => {
@@ -2566,6 +2618,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
               <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing"><span>Facturación</span><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong></div>
               <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--tips"><span>Propinas</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></div>
             </div>
+            {preview && <div className="driver-mobile-billing-target" aria-label={`Progreso de facturacion hacia ${periodSummary.billingScaleMax} euros`}><div className="driver-mobile-billing-target__track" role="progressbar" aria-valuemin="0" aria-valuemax={periodSummary.billingScaleMax} aria-valuenow={periodSummary.monthlyBilling}><i style={{ width: `${periodSummary.billingProgress}%` }} />{periodSummary.billingMilestones.map((milestone) => <span key={milestone} className="driver-mobile-billing-target__milestone" style={{ left: `${Math.min(100, (milestone / periodSummary.billingScaleMax) * 100)}%` }} title={`${milestone.toLocaleString("es-ES")} euros`} />)}</div><div className="driver-mobile-billing-target__labels"><span>0</span>{periodSummary.billingMilestones.map((milestone) => <span key={milestone}>{milestone.toLocaleString("es-ES")}</span>)}</div></div>}
           </article>
         </section>
         <section ref={statsRef} className="driver-mobile-section driver-mobile-section--today" aria-labelledby="driver-mobile-today-title">
@@ -2578,7 +2631,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
               return <button type="button" className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key} onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={`Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>;
             })}
           </div>
-          {preview && <div className="driver-mobile-preview-mini-grid">
+          {preview && <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
+            <article className="driver-mobile-preview-km driver-mobile-preview-chart-card" role="button" tabIndex={0} aria-label="Kilómetros realizados comparados con el resto de conductores"><div className="driver-mobile-preview-chart-card__heading">KM REALIZADOS</div><div className="driver-mobile-preview-chart-card__summary"><strong>{Math.round(weeklyKmAverage).toLocaleString("es-ES")} km</strong><span>Resto {Math.round(otherDriversKmAverage).toLocaleString("es-ES")} km</span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyKmData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverKm" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherKm" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-preview-chart-card__legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
             <article className="driver-mobile-preview-history" aria-label="Facturación de los últimos doce meses"><div className="driver-mobile-history-bars" role="list" aria-label="Histórico de facturación mensual">{monthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><span>{formatDriverBarAmount(month.amount)}</span><i style={{ height: `${month.barHeight}%` }} /><small>{month.shortLabel}</small></button>)}</div></article>
             <article className="driver-mobile-preview-consumption" aria-label="Consumo semanal comparado"><div className="driver-mobile-consumption-compare"><span>Este conductor<strong>{weeklyConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span><em className={consumptionDifference <= 0 ? "is-better" : "is-higher"}>{consumptionDifference > 0 ? "+" : ""}{consumptionDifference.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</em><span>Resto<strong>{otherDriversConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyConsumptionData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverConsumption" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherConsumption" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-consumption-legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
           </div>}
@@ -2598,6 +2652,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
           <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={row.key}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{weeklyCell(row, value, driverWeekDays[index].key)}</td>)}</tr>)}</tbody></table></div>
         </section>
         {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Facturación<input type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Peajes<input type="number" min="0" step="0.01" value={entry.tolls} onChange={(event) => updateEntry("tolls", event.target.value)} /><i>€</i></label><label>Otros gastos<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, peaje u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
+        {expandedPreviewMetric && <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}><div className="driver-mobile-chart-dialog__panel"><header><div><span>VISTA AMPLIADA</span><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "km" ? "Kilómetros realizados" : "Consumo comparado"}</h2></div><button type="button" aria-label="Cerrar gráfica ampliada" onClick={() => setExpandedPreviewMetric("")}><IconX size={18} /></button></header>{expandedPreviewMetric === "billing" && <div className="driver-mobile-chart-dialog__chart"><BarChart width={520} height={250} data={monthlyBillingHistory} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="shortLabel" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} /><Tooltip formatter={(value) => formatCurrency(value)} labelFormatter={(label) => label} /><ReferenceLine y={periodSummary.billingGoal} stroke="#f2a62a" strokeDasharray="5 4" />{periodSummary.billingMilestones.slice(1).map((milestone) => <ReferenceLine key={milestone} y={milestone} stroke="#e6edf5" strokeDasharray="2 4" />)}<Bar dataKey="amount" fill="#2c6de9" radius={[5, 5, 0, 0]} /></BarChart></div>}{expandedPreviewMetric === "km" && <div className="driver-mobile-chart-dialog__chart"><LineChart width={520} height={250} data={weeklyKmData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} /><Tooltip formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} /><Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} /><Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} /></LineChart></div>}{expandedPreviewMetric === "consumption" && <div className="driver-mobile-chart-dialog__chart"><LineChart width={520} height={250} data={weeklyConsumptionData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l`} /><Tooltip formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km`} /><Line type="monotone" dataKey="driverConsumption" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} /><Line type="monotone" dataKey="otherConsumption" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} /></LineChart></div>}<p className="driver-mobile-chart-dialog__hint">La pantalla original permanece detrás de esta vista ampliada.</p></div></div>}
         {referenceOpen && referenceLabels[referenceOpen] && <div className="driver-mobile-reference-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-reference-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setReferenceOpen(""); }}><div className="driver-mobile-reference-dialog__panel"><header><div><span>REFERENCIA VISUAL</span><h2 id="driver-mobile-reference-title">{referenceLabels[referenceOpen].title}</h2></div><button type="button" aria-label="Cerrar referencia" onClick={() => setReferenceOpen("")}><IconX size={18} /></button></header><img src={driverReferenceImages[referenceOpen]} alt={referenceLabels[referenceOpen].alt} /><p>{referenceLabels[referenceOpen].caption}. Esta imagen es un ejemplo y no modifica los datos del conductor.</p><button type="button" className="primary-button" onClick={() => setReferenceOpen("")}>Cerrar</button></div></div>}
       </div>
       <nav className="driver-mobile-bottom-nav" aria-label="Navegación del conductor"><button type="button" className={driverNavSection === "home" ? "is-active" : ""} onClick={() => scrollTo("home", homeRef)}><IconHome size={21} /><span>Inicio</span></button><button type="button" className={driverNavSection === "history" ? "is-active" : ""} onClick={() => scrollTo("history", historyRef)}><IconHistory size={21} /><span>Historial</span></button><button type="button" className={driverNavSection === "stats" ? "is-active" : ""} onClick={() => scrollTo("stats", statsRef)}><IconChartBar size={21} /><span>Estadísticas</span></button><button type="button" className={driverNavSection === "settings" ? "is-active" : ""} onClick={() => { setDriverNavSection("settings"); setDriverMenuOpen(true); setDriverNoticeOpen(false); }}><IconSettings size={21} /><span>Ajustes</span></button></nav>
