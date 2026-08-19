@@ -3716,3 +3716,16 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-mobile-preview-chart-card__summary span, .driver-mobile-preview-chart-card__legend, .driver-mobile-preview-history::before, .driver-mobile-preview-consumption::before, .driver-mobile-preview-chart-card__heading { font-size: 6px; }
   .driver-mobile-chart-dialog__panel { padding: 11px; }
 }
+
+/* La escala de facturación forma parte de su propio bloque, con cortes verticales. */
+.driver-app--preview .driver-mobile-month-summary__metric--billing { min-height: 142px; align-content: start; padding-bottom: 5px; }
+.driver-app--preview .driver-mobile-month-summary__metric--billing > span { font-size: 11px; }
+.driver-app--preview .driver-mobile-month-summary__metric--billing > strong { font-size: clamp(28px, 8vw, 38px); }
+.driver-app--preview .driver-mobile-billing-target { width: 100%; margin-top: 7px; padding: 10px 0 3px; border: 0; border-top: 1px solid #d6e1ee; border-radius: 0; background: transparent; }
+.driver-app--preview .driver-mobile-billing-target__track { height: 14px; border-radius: 5px; }
+.driver-app--preview .driver-mobile-billing-target__milestone { top: 50%; width: 2px; height: 22px; border: 0; border-radius: 0; background: #f2a62a; box-shadow: 0 0 0 1px rgba(150,94,8,.18); }
+.driver-app--preview .driver-mobile-billing-target__labels { padding-top: 3px; color: #4f6686; font-size: 8px; font-weight: 800; }
+.driver-app--preview .driver-mobile-preview-chart-card__heading { letter-spacing: .01em; }
+@media (max-width: 520px) {
+  .driver-app--preview .driver-mobile-preview-chart-card__heading { font-size: 7px; }
+}
