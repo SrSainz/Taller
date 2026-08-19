@@ -379,19 +379,47 @@ const loadPhotoInvoices = () => {
 };
 
 const expenseCategories = [
-  { label: "Leasing coche", cadence: "Mensual" },
-  { label: "Préstamo licencia", cadence: "Mensual" },
-  { label: "Gasolina", cadence: "Variable" },
-  { label: "Taller", cadence: "Variable" },
-  { label: "Seguridad Social", cadence: "Mensual" },
-  { label: "Nóminas", cadence: "Manual" },
-  { label: "Comisiones de conductores", cadence: "Variable" },
-  { label: "Impuestos trimestrales", cadence: "Trimestral" },
-  { label: "IVA intracomunitario", cadence: "Trimestral" },
-  { label: "Seguro", cadence: "Anual" },
+  { canonicalKey: "leasing", label: "Leasing coche", cadence: "Mensual" },
+  { canonicalKey: "license-loan", label: "Préstamo licencia", cadence: "Mensual" },
+  { canonicalKey: "fuel", label: "Gasolina", cadence: "Variable" },
+  { canonicalKey: "workshop", label: "Taller", cadence: "Variable" },
+  { canonicalKey: "social-security", label: "Seguridad Social", cadence: "Mensual" },
+  { canonicalKey: "payroll", label: "Nóminas", cadence: "Manual" },
+  { canonicalKey: "driver-commission", label: "Comisiones de conductores", cadence: "Variable" },
+  { canonicalKey: "taxes", label: "Impuestos trimestrales", cadence: "Trimestral" },
+  { canonicalKey: "eu-vat", label: "IVA intracomunitario", cadence: "Trimestral" },
+  { canonicalKey: "insurance", label: "Seguro", cadence: "Anual" },
   { label: "Limpieza coche", cadence: "Variable" },
   { label: "Varios", cadence: "Variable" },
 ];
+
+const normalizeNetExpenseCategory = (value = "") => String(value)
+  .normalize("NFD")
+  .replace(/\p{Diacritic}/gu, "")
+  .toLocaleLowerCase("es")
+  .replace(/\s+/g, " ")
+  .trim();
+const netExpenseCategoryAliases = {
+  "leasing coche": "leasing",
+  "prestamo licencia": "license-loan",
+  gasolina: "fuel",
+  combustible: "fuel",
+  repostaje: "fuel",
+  taller: "workshop",
+  "seguridad social": "social-security",
+  "seguros sociales": "social-security",
+  nominas: "payroll",
+  "comisiones de conductores": "driver-commission",
+  "comisiones de conductor": "driver-commission",
+  impuestos: "taxes",
+  "impuestos trimestrales": "taxes",
+  "iva intracomunitario": "eu-vat",
+  seguro: "insurance",
+  itv: "inspection",
+  "impuesto circulacion": "road-tax",
+  "seguros anexos al coche": "annex-insurance",
+};
+const getNetExpenseCategoryKey = (value) => netExpenseCategoryAliases[normalizeNetExpenseCategory(value)] ?? "";
 
 const vehicleExpenseAmounts = {};
 const netAdditionalExpenseAmounts = {};
@@ -3095,7 +3123,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
       setFormError("Selecciona una categoría o crea una nueva, e indica un importe mayor que cero.");
       return;
     }
-    onAddExpense({ periodKey, plate, label, category: selectedCategory?.label ?? label, cadence: selectedCategory?.cadence ?? "Manual", amount: Number(amount.toFixed(2)) });
+    onAddExpense({ periodKey, plate, label, category: selectedCategory?.label ?? label, categoryKey: formState.category === "__custom__" ? "" : selectedCategory?.canonicalKey ?? "", cadence: selectedCategory?.cadence ?? "Manual", amount: Number(amount.toFixed(2)) });
     setSelectedPlate(plate);
     closeExpenseForm();
   };
@@ -3119,7 +3147,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
         const ExpenseIcon = getExpenseIcon(expense.key);
         const rowClass = `net-detail-card__expense${expandable ? " net-detail-card__expense--expandable" : ""}${breakdownOpen ? " is-expanded" : ""}`;
         return <div className="net-detail-card__expense-group" key={expense.key}>
-          {expandable ? <button type="button" className={rowClass} aria-expanded={breakdownOpen} aria-controls={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} onClick={() => toggleExpenseRow(rowKey)}><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{expense.cadence}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong><IconChevronRight size={15} /></span></button> : <div className={rowClass} role="row"><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manual && <button type="button" onClick={() => onRemoveExpense(expense.id)} aria-label={`Eliminar gasto ${expense.label}`}><IconTrash size={12} /></button>}</span></div>}
+          {expandable ? <button type="button" className={rowClass} aria-expanded={breakdownOpen} aria-controls={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} onClick={() => toggleExpenseRow(rowKey)}><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{expense.cadence}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong><IconChevronRight size={15} /></span></button> : <div className={rowClass} role="row"><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{(expense.manual || expense.manualExpenseIds?.length > 0) && <button type="button" onClick={() => onRemoveExpense(expense.manual ? expense.id : expense.manualExpenseIds)} aria-label={`Eliminar gasto manual de ${expense.label}`}><IconTrash size={12} /></button>}</span></div>}
           {breakdownOpen && <div className="net-detail-card__expense-breakdown" id={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} role="rowgroup" aria-label={`Detalle de ${expense.label}`}>
             {expense.breakdown.map((breakdown) => <div className="net-detail-card__expense-breakdown-row" role="row" key={`${rowKey}-${breakdown.label}`}><span role="cell"><strong>{breakdown.label}</strong><small>{breakdown.meta}</small></span><strong role="cell">{formatCurrency(breakdown.amount)}</strong></div>)}
           </div>}
@@ -3319,7 +3347,32 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], selected, o
       const manualExpenses = manualNetExpenses
         .filter((expense) => expense.periodKey === netPeriodKey && expense.plate === vehicle.plate)
         .map((expense) => ({ ...expense, key: `manual-${expense.id}`, cadence: expense.cadence || "Manual", category: expense.category || expense.label, manual: true }));
-      expenses.push(...manualExpenses);
+      const standaloneManualExpenses = [];
+      manualExpenses.forEach((manualExpense) => {
+        const categoryKey = Object.prototype.hasOwnProperty.call(manualExpense, "categoryKey")
+          ? manualExpense.categoryKey
+          : getNetExpenseCategoryKey(manualExpense.category || manualExpense.label);
+        const canonicalExpense = categoryKey ? expenses.find((expense) => expense.key === categoryKey) : null;
+        if (!canonicalExpense) {
+          standaloneManualExpenses.push(manualExpense);
+          return;
+        }
+        const amount = Number(manualExpense.amount) || 0;
+        canonicalExpense.amount = Number((canonicalExpense.amount + amount).toFixed(2));
+        canonicalExpense.manualExpenseIds = [...(canonicalExpense.manualExpenseIds ?? []), manualExpense.id];
+        if (Array.isArray(canonicalExpense.breakdown)) {
+          const manualBreakdown = canonicalExpense.breakdown.find((breakdown) => breakdown.label === "Añadido a mano");
+          if (manualBreakdown) {
+            manualBreakdown.amount = Number((manualBreakdown.amount + amount).toFixed(2));
+          } else {
+            canonicalExpense.breakdown = [
+              ...canonicalExpense.breakdown,
+              { label: "Añadido a mano", amount: Number(amount.toFixed(2)), meta: "Gasto manual del periodo" },
+            ];
+          }
+        }
+      });
+      expenses.push(...standaloneManualExpenses);
       const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
       return { vehicle, revenue, expenses, totalExpenses, net: Number((revenue - totalExpenses).toFixed(2)) };
     });
@@ -3503,7 +3556,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], selected, o
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
-              {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(id) => setManualNetExpenses((current) => current.filter((expense) => expense.id !== id))} onClose={() => setNetDetailOpen(false)} />}
+              {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onClose={() => setNetDetailOpen(false)} />}
             </div>
           </>
         )}
