@@ -2183,7 +2183,18 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .auth-form input, .admin-create-form input, .admin-create-form select, .admin-profile-form input, .admin-driver-row select, .driver-entry-grid input, .driver-entry-grid textarea { width: 100%; min-height: 42px; box-sizing: border-box; border: 1px solid var(--line-dark); border-radius: 10px; background: #fff; color: var(--text); padding: 10px 12px; font: inherit; font-size: 13px; outline: none; transition: border-color .18s ease, box-shadow .18s ease; }
 .auth-form textarea, .driver-entry-grid textarea { resize: vertical; }
 .auth-form input:focus, .admin-create-form input:focus, .admin-create-form select:focus, .admin-profile-form input:focus, .admin-driver-row select:focus, .driver-entry-grid input:focus, .driver-entry-grid textarea:focus { border-color: var(--green-700); box-shadow: 0 0 0 3px rgba(20, 129, 108, .12); }
+.auth-password-field { position: relative; display: block; }
+.auth-password-field input { padding-right: 46px; }
+.auth-password-toggle { position: absolute; top: 50%; right: 5px; display: grid; width: 34px; height: 34px; place-items: center; transform: translateY(-50%); border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.auth-password-toggle:hover, .auth-password-toggle:focus-visible { background: var(--green-50); color: var(--green-800); outline: 0; }
 .auth-form__submit { width: 100%; justify-content: center; margin-top: 6px; min-height: 46px; }
+.auth-panel__link { display: block; margin: 17px auto 0; padding: 3px 5px; border: 0; background: transparent; color: var(--green-800); font: inherit; font-size: 12px; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.auth-panel__link:hover, .auth-panel__link:focus-visible { color: var(--green-900); outline: 0; }
+.auth-panel__link:disabled { color: var(--muted); cursor: not-allowed; }
+.auth-recovery-success { display: grid; justify-items: center; gap: 9px; padding: 22px 18px; border: 1px solid rgba(20,129,108,.2); border-radius: 14px; background: var(--green-50); color: var(--green-900); text-align: center; }
+.auth-recovery-success svg { color: var(--green-700); }
+.auth-recovery-success strong { font-size: 16px; }
+.auth-recovery-success span { color: var(--muted); font-size: 12px; line-height: 1.5; }
 .auth-panel__help { margin: 18px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
 .auth-signout { margin: 4px auto 0; }
 .driver-app { min-height: 100dvh; background: var(--canvas); color: var(--text); }

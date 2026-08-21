@@ -22,6 +22,7 @@ import {
   IconDatabase,
   IconDownload,
   IconEye,
+  IconEyeOff,
   IconFileInvoice,
   IconGasStation,
   IconGauge,
@@ -890,6 +891,12 @@ const navFromHash = () => {
   return [...navItems, conductorNavItem, ...fleetSubItems, adminNavItem, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Informes";
 };
 
+const isPasswordRecoveryLink = () => {
+  const hash = window.location.hash ?? "";
+  const search = window.location.search ?? "";
+  return /(?:^|[&#?])type=recovery(?:&|$)/.test(hash) || new URLSearchParams(search).get("type") === "recovery";
+};
+
 const isStandaloneApp = () => window.matchMedia("(display-mode: standalone)").matches || Boolean(window.navigator.standalone);
 
 const initialAppNav = () => {
@@ -998,6 +1005,7 @@ function QuickActionMenu({ step, category, onCategory, onDocumentAction, onNotic
 
 export function App() {
   const [authState, setAuthState] = useState({ loading: true, session: null, profile: null, error: null });
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   const applySession = useCallback(async (session) => {
     if (!session?.user) {
@@ -1014,8 +1022,14 @@ export function App() {
       return undefined;
     }
     let mounted = true;
-    supabase.auth.getSession().then(({ data: { session } }) => { if (mounted) applySession(session); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      if (isPasswordRecoveryLink()) setPasswordRecovery(true);
+      applySession(session);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
+      if (event === "SIGNED_OUT") setPasswordRecovery(false);
       window.setTimeout(() => { if (mounted) applySession(session); }, 0);
     });
     return () => { mounted = false; subscription.unsubscribe(); };
@@ -1026,6 +1040,10 @@ export function App() {
 
   if (authState.loading) return <AuthLoadingScreen />;
   if (!isSupabaseConfigured) return <AuthScreen configurationError />;
+  if (passwordRecovery) {
+    if (!authState.session) return <AuthScreen error={new Error("El enlace de recuperación ha caducado. Solicita uno nuevo para continuar.")} />;
+    return <PasswordRecoveryScreen onComplete={() => setPasswordRecovery(false)} />;
+  }
   if (!authState.session) return <AuthScreen error={authState.error} />;
   if (!authState.profile) return <AuthScreen error={authState.error ?? new Error("No se ha encontrado el perfil de esta cuenta.")} />;
   if (!authState.profile.active) return <AccessBlockedScreen onSignOut={signOut} />;
@@ -1749,10 +1767,13 @@ function AuthLoadingScreen() {
 }
 
 function AuthScreen({ error, configurationError = false }) {
-  const [email, setEmail] = useState("");
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("davidydiaz@gmail.com");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [recoverySent, setRecoverySent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const submit = async (event) => {
     event.preventDefault();
     setFormError("");
@@ -1765,17 +1786,96 @@ function AuthScreen({ error, configurationError = false }) {
     setSubmitting(false);
     if (signInError) setFormError("Usuario o contraseña incorrectos. Si eres conductor, solicita un restablecimiento al administrador.");
   };
+  const requestRecovery = async (event) => {
+    event.preventDefault();
+    setFormError("");
+    if (!supabase) {
+      setFormError("La conexión con Supabase todavía no está configurada.");
+      return;
+    }
+    const recoveryEmail = email.trim();
+    if (!recoveryEmail) {
+      setFormError("Introduce el correo de la cuenta que quieres recuperar.");
+      return;
+    }
+    setSubmitting(true);
+    const { error: recoveryError } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
+      redirectTo: `${window.location.origin}${window.location.pathname}`,
+    });
+    setSubmitting(false);
+    if (recoveryError) {
+      setFormError("No se ha podido enviar el correo de recuperación. Comprueba la dirección e inténtalo de nuevo.");
+      return;
+    }
+    setRecoverySent(true);
+  };
+  const openRecovery = () => {
+    setFormError("");
+    setRecoverySent(false);
+    setMode("recovery");
+  };
+  const backToLogin = () => {
+    setFormError("");
+    setRecoverySent(false);
+    setPassword("");
+    setMode("login");
+  };
   return <main className="auth-screen"><section className="auth-panel">
     <div className="auth-panel__brand"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><div><span>SOBRE RUEDAS</span><small>Gestión de flota</small></div></div>
-    <div className="auth-panel__heading"><span className="auth-eyebrow">ACCESO PRIVADO</span><h1>Entra en tu espacio</h1><p>Usa las credenciales que te ha entregado el administrador.</p></div>
+    <div className="auth-panel__heading"><span className="auth-eyebrow">{mode === "login" ? "ACCESO PRIVADO" : "RECUPERACIÓN SEGURA"}</span><h1>{mode === "login" ? "Entra en tu espacio" : "Recupera tu acceso"}</h1><p>{mode === "login" ? "Usa el correo y la contraseña de tu cuenta." : "Te enviaremos un enlace oficial de Supabase para crear una contraseña nueva."}</p></div>
     {(formError || (error && !configurationError)) && <div className="auth-alert" role="alert"><IconAlertTriangle size={18} /><span>{formError || error.message}</span></div>}
     {configurationError && <div className="auth-alert auth-alert--info" role="status"><IconDatabase size={18} /><span>La aplicación está pendiente de conectar las variables públicas de Supabase.</span></div>}
+    {mode === "login" ? <>
+      <form className="auth-form" onSubmit={submit}>
+        <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="tu@email.com" autoComplete="username" required /></label>
+        <label>Contraseña<span className="auth-password-field"><input type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Contraseña" autoComplete="current-password" required /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"} title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>{showPassword ? <IconEyeOff size={18} /> : <IconEye size={18} />}</button></span></label>
+        <button className="primary-button auth-form__submit" type="submit" disabled={submitting || configurationError}>{submitting ? "Comprobando…" : "Entrar"}<IconChevronRight size={17} /></button>
+      </form>
+      <button className="auth-panel__link" type="button" onClick={openRecovery} disabled={configurationError}>¿Has olvidado tu contraseña?</button>
+      <p className="auth-panel__help">El administrador puede gestionar los accesos de los conductores. Nunca compartas tu contraseña.</p>
+    </> : <>
+      {recoverySent ? <div className="auth-recovery-success" role="status"><IconMail size={22} /><strong>Revisa tu correo</strong><span>Si existe una cuenta con ese correo, recibirás un enlace para actualizar la contraseña.</span></div> : <form className="auth-form" onSubmit={requestRecovery}>
+        <label>Email de la cuenta<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="davidydiaz@gmail.com" autoComplete="email" required /></label>
+        <button className="primary-button auth-form__submit" type="submit" disabled={submitting || configurationError}>{submitting ? "Enviando…" : "Enviar correo de recuperación"}<IconMail size={17} /></button>
+      </form>}
+      <button className="auth-panel__link" type="button" onClick={backToLogin}>Volver al acceso</button>
+      <p className="auth-panel__help">El enlace te devolverá a esta aplicación y te permitirá guardar la nueva contraseña.</p>
+    </>}
+  </section></main>;
+}
+
+function PasswordRecoveryScreen({ onComplete }) {
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const submit = async (event) => {
+    event.preventDefault();
+    setFormError("");
+    if (password.length < 8) return setFormError("La contraseña debe tener al menos 8 caracteres.");
+    if (password !== confirmation) return setFormError("Las contraseñas no coinciden.");
+    if (!supabase) return setFormError("La conexión con Supabase todavía no está configurada.");
+    setSubmitting(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setSubmitting(false);
+    if (error) {
+      setFormError("No se ha podido actualizar la contraseña. Solicita un enlace nuevo e inténtalo otra vez.");
+      return;
+    }
+    onComplete();
+  };
+  return <main className="auth-screen"><section className="auth-panel auth-panel--password">
+    <div className="auth-panel__brand"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><div><span>SOBRE RUEDAS</span><small>Gestión de flota</small></div></div>
+    <div className="auth-panel__heading"><span className="auth-eyebrow">ENLACE VERIFICADO</span><h1>Crea tu nueva contraseña</h1><p>Elige una contraseña segura para volver a entrar en tu cuenta.</p></div>
+    {formError && <div className="auth-alert" role="alert"><IconAlertTriangle size={18} /><span>{formError}</span></div>}
     <form className="auth-form" onSubmit={submit}>
-      <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="tu@email.com" autoComplete="username" required /></label>
-      <label>Contraseña<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Contraseña" autoComplete="current-password" required /></label>
-      <button className="primary-button auth-form__submit" type="submit" disabled={submitting || configurationError}>{submitting ? "Comprobando…" : "Entrar"}<IconChevronRight size={17} /></button>
+      <label>Nueva contraseña<span className="auth-password-field"><input type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" minLength={8} required /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Ocultar nueva contraseña" : "Mostrar nueva contraseña"}>{showPassword ? <IconEyeOff size={18} /> : <IconEye size={18} />}</button></span></label>
+      <label>Repite la contraseña<span className="auth-password-field"><input type={showConfirmation ? "text" : "password"} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="new-password" minLength={8} required /><button type="button" className="auth-password-toggle" onClick={() => setShowConfirmation((current) => !current)} aria-label={showConfirmation ? "Ocultar confirmación" : "Mostrar confirmación"}>{showConfirmation ? <IconEyeOff size={18} /> : <IconEye size={18} />}</button></span></label>
+      <button className="primary-button auth-form__submit" type="submit" disabled={submitting}>{submitting ? "Guardando…" : "Actualizar contraseña"}<IconCheck size={17} /></button>
     </form>
-    <p className="auth-panel__help">¿No recuerdas la contraseña? Pide al administrador que restablezca tu acceso. No se envían contraseñas por email.</p>
+    <p className="auth-panel__help">La contraseña se actualiza directamente en Supabase Auth y no se guarda en el navegador.</p>
   </section></main>;
 }
 
