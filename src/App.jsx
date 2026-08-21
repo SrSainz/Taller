@@ -62,8 +62,9 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, getProfile, invokeAdminUsers, isSupabaseConfigured, roleFromUser, supabase, uploadDocumentRecord } from "./supabase";
+import { confirmDocumentTransactions, createCommissionReportDownloadUrl, getProfile, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, roleFromUser, supabase, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
+import { alexCommissionThresholds, buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateAlexCommission, isAlex } from "./commissionReports";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -447,13 +448,19 @@ const saveManualNetExpenses = (expenses) => {
   }
 };
 
-const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], fuelEntries = [], reportMonth = 6, reportYear = 2026 }) => {
+const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], fuelEntries = [], periodFinancials = [], reportMonth = 6, reportYear = 2026 }) => {
   const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
   const vehicleDrivers = vehicle.drivers.slice(0, 2);
   const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: 0 }));
   const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
+  const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
+  const periodEnd = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(new Date(reportYear, reportMonth + 1, 0).getDate()).padStart(2, "0")}`;
+  const periodPayrollFor = (row, driverIndex) => {
+    const stored = periodFinancials.find((item) => item.driver_id && row.driverId && item.driver_id === row.driverId && item.period_start === periodStart);
+    return Number(stored?.payroll ?? netPayrollAmounts[vehicle.plate]?.[driverIndex] ?? 0) || 0;
+  };
   const fuelBreakdown = vehicleDrivers.map((driver, driverIndex) => {
     const profile = vehicle.driverProfiles?.[driverIndex];
     const refuellings = fuelEntries.length
@@ -463,8 +470,22 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     const cost = refuellings.reduce((sum, entry) => sum + entry.cost, 0);
     return { label: driver, amount: Number(cost.toFixed(2)), meta: `${Number(liters.toFixed(1)).toLocaleString("es-ES")} L · ${refuellings.length} repostajes` };
   });
-  const payrollBreakdown = vehicleDrivers.map((driver, index) => ({ label: driver, amount: scale(netPayrollAmounts[vehicle.plate]?.[index] ?? 0), meta: "Nómina mensual" }));
-  const commissionBreakdown = resolvedDriverRows.slice(0, 2).map((row) => ({ label: row.driver, amount: Number((Number(row.revenue) * DRIVER_COMMISSION_RATE).toFixed(2)), meta: `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación` }));
+  const payrollBreakdown = resolvedDriverRows.slice(0, 2).map((row, index) => ({ label: row.driver, amount: Number(periodPayrollFor(row, index).toFixed(2)), meta: "Nómina mensual" }));
+  const commissionSummary = resolvedDriverRows.slice(0, 2).map((row, index) => {
+    const monthEntries = (row.entries ?? []).filter((entry) => String(entry.entry_date ?? "").startsWith(periodStart.slice(0, 7)));
+    const tips = monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0);
+    const tolls = monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0);
+    const payroll = payrollBreakdown[index]?.amount ?? 0;
+    const calculation = isAlex(row.driver)
+      ? calculateAlexCommission({ billing: row.revenue, tips, tolls, payroll })
+      : null;
+    const amount = calculation?.commission ?? Number((Number(row.revenue) * DRIVER_COMMISSION_RATE).toFixed(2));
+    return { driver: row.driver, driverId: row.driverId ?? "", amount, calculation, periodStart, periodEnd, vehiclePlate: vehicle.plate };
+  });
+  const commissionBreakdown = commissionSummary.map((row) => ({ label: row.driver, amount: row.amount, meta: row.calculation ? "32% + tramos por facturación" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación` }));
+  const alexCommissionReport = commissionSummary.find((row) => row.calculation)?.calculation
+    ? commissionSummary.find((row) => row.calculation)
+    : null;
   const socialBreakdown = [
     { label: "Autónomo", amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[0] ?? 0), meta: "Cuota mensual" },
     ...vehicleDrivers.map((driver, index) => ({ label: driver, amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[index + 1] ?? 0), meta: "Seguridad social" })),
@@ -479,7 +500,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     { key: "workshop", label: "Taller", amount: maintenance, cadence: "Variable" },
     { key: "fuel", label: "Gasolina", amount: fuel, cadence: "Por conductor", breakdown: fuelBreakdown },
     { key: "payroll", label: "Nóminas", amount: breakdownTotal(payrollBreakdown), cadence: "2 conductores", breakdown: payrollBreakdown },
-    { key: "driver-commission", label: "Comisiones de conductores", amount: breakdownTotal(commissionBreakdown) || commission, cadence: `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual`, breakdown: commissionBreakdown },
+    { key: "driver-commission", label: "Comisiones de conductores", amount: breakdownTotal(commissionBreakdown) || commission, cadence: alexCommissionReport ? "Alex · 32% + tramos" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual`, breakdown: commissionBreakdown, commissionReport: alexCommissionReport },
     { key: "social-security", label: "Seguros sociales", amount: breakdownTotal(socialBreakdown), cadence: "Autónomo + 2 conductores", breakdown: socialBreakdown },
     { key: "accounting", label: "Gestoría", amount: scale(additional.gestoria), cadence: "Mensual" },
     { key: "taxes", label: "Impuestos", amount: scale(amounts[7]), cadence: "Trimestral" },
@@ -1717,10 +1738,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         </header>
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
-          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
+          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
           {activeNav === "Conductores" && <DriversView vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} setModal={setModal} />}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
@@ -3297,7 +3318,7 @@ function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }
   );
 }
 
-function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemoveExpense, onClose }) {
+function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onClose }) {
   const closeButtonRef = useRef(null);
   const [selectedPlate, setSelectedPlate] = useState("");
   const [expandedExpenseRows, setExpandedExpenseRows] = useState(() => new Set());
@@ -3371,6 +3392,7 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
           {breakdownOpen && <div className="net-detail-card__expense-breakdown" id={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} role="rowgroup" aria-label={`Detalle de ${expense.label}`}>
             {expense.breakdown.map((breakdown) => <div className="net-detail-card__expense-breakdown-row" role="row" key={`${rowKey}-${breakdown.label}`}><span role="cell"><strong>{breakdown.label}</strong><small>{breakdown.meta}</small></span><strong role="cell">{formatCurrency(breakdown.amount)}</strong></div>)}
           </div>}
+          {breakdownOpen && expense.commissionReport && <AlexCommissionReportPanel report={expense.commissionReport} periodLabel={periodLabel} archivedReports={commissionReports} busy={commissionReportBusy} message={commissionReportMessage} onSavePayroll={onSaveAlexPayroll} onGenerate={onGenerateAlexReport} onDownload={onDownloadCommissionReport} />}
         </div>;
       })}
     </div>
@@ -3414,7 +3436,32 @@ function NetDetailModal({ details, periodKey, periodLabel, onAddExpense, onRemov
   );
 }
 
-function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop }) {
+function AlexCommissionReportPanel({ report, periodLabel, archivedReports = [], busy = false, message = "", onSavePayroll, onGenerate, onDownload }) {
+  const [payrollDraft, setPayrollDraft] = useState(String(report.calculation.payroll ?? 0));
+  useEffect(() => {
+    setPayrollDraft(String(report.calculation.payroll ?? 0));
+  }, [report.calculation.payroll, report.periodStart]);
+  const calculation = report.calculation;
+  const periodReports = archivedReports.filter((item) => item.driver_id === report.driverId && item.vehicle_plate === report.vehiclePlate);
+  const reachedThresholds = alexCommissionThresholds.filter((threshold) => calculation.monthlyBilling > threshold);
+  return <section className="alex-commission-report" aria-label={`Cálculo mensual de ${report.driver}`}>
+    <header className="alex-commission-report__header"><div><span>COMISIÓN DE ALEX</span><strong>{periodLabel}</strong></div><IconCurrencyEuro size={20} /></header>
+    <div className="alex-commission-report__formula">
+      <div><span>Facturación</span><strong>{formatCurrency(calculation.monthlyBilling)}</strong></div>
+      <div><span>32% de facturación</span><strong>{formatCurrency(calculation.commissionBase)}</strong></div>
+      <div><span>Bonus por tramos</span><strong>{formatCurrency(calculation.thresholdBonus)}</strong><small>{reachedThresholds.length ? `Superados: ${reachedThresholds.join(" · ")} €` : "Sin tramos superados"}</small></div>
+      <div><span>Comisión calculada</span><strong>{formatCurrency(calculation.commission)}</strong></div>
+      <div><span>+ Propinas</span><strong>{formatCurrency(calculation.tips)}</strong></div>
+      <div><span>+ Peajes</span><strong>{formatCurrency(calculation.tolls)}</strong></div>
+      <div className="alex-commission-report__total"><span>Total beneficio mes</span><strong>{formatCurrency(calculation.totalBenefitMonth)}</strong></div>
+    </div>
+    <div className="alex-commission-report__payroll"><label>Nómina de Alex<input type="number" min="0" step="0.01" inputMode="decimal" value={payrollDraft} onChange={(event) => setPayrollDraft(event.target.value)} /></label><button type="button" className="text-button" onClick={() => onSavePayroll?.(report, payrollDraft)} disabled={busy}>Guardar nómina</button><strong>Total a cobrar {formatCurrency(calculation.totalToCollect)}</strong></div>
+    <div className="alex-commission-report__actions"><button type="button" className="primary-button" onClick={() => onGenerate?.(report)} disabled={busy}><IconDownload size={16} />{busy ? "Generando…" : "Generar y archivar PDF"}</button>{message && <span role="status">{message}</span>}</div>
+    {periodReports.length > 0 && <div className="alex-commission-report__archive"><strong>INFORMES ARCHIVADOS</strong>{periodReports.map((item) => <button type="button" key={item.id} onClick={() => onDownload?.(item)}><span>{item.period_start.slice(0, 7)}</span><IconDownload size={14} /></button>)}</div>}
+  </section>;
+}
+
+function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "" }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;
@@ -3429,6 +3476,10 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   const [selectedChartBar, setSelectedChartBar] = useState("");
   const [netDetailOpen, setNetDetailOpen] = useState(false);
   const [manualNetExpenses, setManualNetExpenses] = useState(() => loadManualNetExpenses());
+  const [periodFinancials, setPeriodFinancials] = useState([]);
+  const [commissionReports, setCommissionReports] = useState([]);
+  const [commissionReportBusy, setCommissionReportBusy] = useState(false);
+  const [commissionReportMessage, setCommissionReportMessage] = useState("");
   const [billingDriverKey, setBillingDriverKey] = useState("");
   const [billingVehiclePlate, setBillingVehiclePlate] = useState("");
   useEffect(() => {
@@ -3481,6 +3532,23 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   useEffect(() => {
     saveManualNetExpenses(manualNetExpenses);
   }, [manualNetExpenses]);
+  const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
+  useEffect(() => {
+    let mounted = true;
+    if (!supabase) return undefined;
+    listDriverPeriodFinancials(periodStart)
+      .then(({ data, error }) => { if (mounted && !error) setPeriodFinancials(data ?? []); })
+      .catch(() => { if (mounted) setPeriodFinancials([]); });
+    return () => { mounted = false; };
+  }, [periodStart]);
+  useEffect(() => {
+    let mounted = true;
+    if (!supabase) return undefined;
+    listCommissionReports()
+      .then(({ data, error }) => { if (mounted && !error) setCommissionReports(data ?? []); })
+      .catch(() => { if (mounted) setCommissionReports([]); });
+    return () => { mounted = false; };
+  }, []);
   useEffect(() => {
     if (!billingDriverKey) return undefined;
     const animationFrame = window.requestAnimationFrame(() => {
@@ -3561,6 +3629,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         commission,
         periodFactor,
         driverRows: vehicleBillingRows,
+        periodFinancials,
         reportMonth,
         reportYear,
       });
@@ -3594,7 +3663,8 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       });
       expenses.push(...standaloneManualExpenses);
       const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-      return { vehicle, revenue, expenses, totalExpenses, net: Number((revenue - totalExpenses).toFixed(2)) };
+      const commissionExpense = expenses.find((expense) => expense.key === "driver-commission");
+      return { vehicle, revenue, expenses, totalExpenses, net: Number((revenue - totalExpenses).toFixed(2)), alexCommissionReport: commissionExpense?.commissionReport ?? null };
     });
   const netVehicleDetailsByPlate = new Map(netVehicleDetails.map((detail) => [detail.vehicle.plate, detail]));
   const netChartData = vehicles.map((vehicle) => {
@@ -3670,6 +3740,75 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         ? selectedChartMetrics.filter((candidate) => candidate !== metric)
         : [...selectedChartMetrics, metric];
     selectChartMetrics(nextMetrics);
+  };
+  const handleSaveAlexPayroll = async (report, rawPayroll) => {
+    const payroll = Number(String(rawPayroll ?? "").replace(",", "."));
+    if (!report?.driverId) {
+      setCommissionReportMessage("Alex debe tener un perfil de conductor asignado para guardar su nómina.");
+      return;
+    }
+    if (!Number.isFinite(payroll) || payroll < 0) {
+      setCommissionReportMessage("Introduce una nómina válida.");
+      return;
+    }
+    setCommissionReportBusy(true);
+    setCommissionReportMessage("");
+    try {
+      const saved = await upsertDriverPeriodFinancial({ driverId: report.driverId, periodStart: report.periodStart, payroll, createdBy: adminUserId });
+      setPeriodFinancials((current) => [...current.filter((item) => !(item.driver_id === saved.driver_id && item.period_start === saved.period_start)), saved]);
+      setCommissionReportMessage("Nómina de Alex guardada para este mes.");
+    } catch (error) {
+      setCommissionReportMessage(`No se pudo guardar la nómina: ${error.message}`);
+    } finally {
+      setCommissionReportBusy(false);
+    }
+  };
+  const handleGenerateAlexReport = async (report) => {
+    if (!report?.driverId) {
+      setCommissionReportMessage("Alex debe tener un perfil de conductor asignado para archivar el informe.");
+      return;
+    }
+    setCommissionReportBusy(true);
+    setCommissionReportMessage("");
+    try {
+      const fileName = buildCommissionReportFileName({ driverName: report.driver, year: report.periodStart.slice(0, 4), monthIndex: Number(report.periodStart.slice(5, 7)) - 1 });
+      const payload = { driverId: report.driverId, driverName: report.driver, vehiclePlate: report.vehiclePlate, periodStart: report.periodStart, periodEnd: report.periodEnd, calculation: report.calculation, fileName };
+      const pdfBlob = buildAlexCommissionReportPdf({ driverName: report.driver, vehiclePlate: report.vehiclePlate, year: Number(report.periodStart.slice(0, 4)), monthIndex: Number(report.periodStart.slice(5, 7)) - 1, calculation: report.calculation });
+      const saved = await uploadCommissionReport({ report: payload, pdfBlob, createdBy: adminUserId });
+      setCommissionReports((current) => [saved, ...current.filter((item) => item.id !== saved.id && !(item.driver_id === saved.driver_id && item.period_start === saved.period_start))]);
+      const objectUrl = URL.createObjectURL(pdfBlob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+      setCommissionReportMessage("PDF generado, descargado y archivado para el administrador.");
+    } catch (error) {
+      setCommissionReportMessage(`No se pudo generar el PDF: ${error.message}`);
+    } finally {
+      setCommissionReportBusy(false);
+    }
+  };
+  const handleDownloadCommissionReport = async (report) => {
+    setCommissionReportBusy(true);
+    setCommissionReportMessage("");
+    try {
+      const signedUrl = await createCommissionReportDownloadUrl(report.file_path);
+      const anchor = document.createElement("a");
+      anchor.href = signedUrl;
+      anchor.download = report.file_name;
+      anchor.target = "_blank";
+      anchor.rel = "noreferrer";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch (error) {
+      setCommissionReportMessage(`No se pudo abrir el informe: ${error.message}`);
+    } finally {
+      setCommissionReportBusy(false);
+    }
   };
   useEffect(() => {
     if (!periodMenu) return;
@@ -3776,7 +3915,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
-              {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onClose={() => setNetDetailOpen(false)} />}
+              {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onClose={() => setNetDetailOpen(false)} />}
             </div>
           </>
         )}
