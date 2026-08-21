@@ -65,6 +65,9 @@ import {
 import { confirmDocumentTransactions, createCommissionReportDownloadUrl, getProfile, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, roleFromUser, supabase, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { alexCommissionThresholds, buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateAlexCommission, isAlex } from "./commissionReports";
+import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
+import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
+import { emailMaintenanceAmountOverrides, emailMaintenanceDocuments, emailMaintenanceTypeOverrides } from "./data/emailMaintenanceSummary";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -380,6 +383,48 @@ const loadPhotoInvoices = () => {
   }
 };
 
+const normalizeText = (value = "") => String(value).normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
+
+const getImportedMaintenanceAmount = (record) => {
+  const override = emailMaintenanceAmountOverrides[record?.id];
+  if (Number.isFinite(Number(override))) return Number(override);
+  return Number(record?.amount) || 0;
+};
+
+const buildImportedMaintenanceInvoices = () => {
+  const records = [...funesmotorsportDocuments, ...emailMaintenanceDocuments];
+  const signatures = new Set();
+  return records.map((record) => {
+    const amount = getImportedMaintenanceAmount(record);
+    const typeOverride = emailMaintenanceTypeOverrides[record?.id] ?? {};
+    const signature = [
+      normalizeText(record.plate),
+      record.dateIso || record.date,
+      amount.toFixed(2),
+      normalizeText(record.concept),
+    ].join("|");
+    return {
+      ...record,
+      amount,
+      type: typeOverride.type || record.type,
+      typeLabel: typeOverride.typeLabel || record.typeLabel,
+      signature,
+      provider: record.provider || (record.source?.includes("Funes") ? "FUNESMOTORSPORT" : "Taller no identificado"),
+      id: record.documentNumber || record.id,
+      sourceDocumentId: `authorized-gmail:${record.id}`,
+      imageSrc: record.imageSrc || funesmotorsportAssetMap[record.id] || "",
+      filePath: record.imageSrc || funesmotorsportAssetMap[record.id] || "",
+      status: record.needsReview ? "Revisar" : "Asociada",
+    };
+  }).filter((record) => {
+    if (!vehicleOrder.includes(record.plate) || signatures.has(record.signature)) return false;
+    signatures.add(record.signature);
+    return record.amount > 0;
+  });
+};
+
+const importedMaintenanceInvoices = buildImportedMaintenanceInvoices();
+
 const expenseCategories = [
   { canonicalKey: "leasing", label: "Leasing coche", cadence: "Mensual" },
   { canonicalKey: "license-loan", label: "Préstamo licencia", cadence: "Mensual" },
@@ -689,7 +734,6 @@ const getDriverEntryForm = (date, item) => ({
   otherExpenses: getDriverFormValue(item?.other_expenses),
   notes: getDriverFormValue(item?.notes),
 });
-const normalizeText = (value = "") => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
 const getExtractedDocumentFields = (document) => {
   const data = document?.extracted_data ?? {};
   const fields = data.fields && typeof data.fields === "object" ? data.fields : data;
@@ -1355,12 +1399,13 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     }), [documentRecords, transactions]);
   const invoices = useMemo(() => {
     const centralIds = new Set(centralMaintenanceInvoices.map((invoice) => invoice.sourceDocumentId).filter(Boolean));
-    const centralSignatures = new Set(centralMaintenanceInvoices.map((invoice) => [
+    const knownSignatures = new Set([...centralMaintenanceInvoices, ...importedMaintenanceInvoices].map((invoice) => [
       normalizeText(invoice.plate),
       invoice.dateIso || invoice.date,
       Number(invoice.amount || 0).toFixed(2),
       normalizeText(invoice.concept),
     ].join("|")));
+    const imported = importedMaintenanceInvoices.map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
     const local = photoInvoices
       .filter((invoice) => {
         const signature = [
@@ -1369,11 +1414,45 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           Number(invoice.amount || 0).toFixed(2),
           normalizeText(invoice.concept),
         ].join("|");
-        return (!invoice.sourceDocumentId || !centralIds.has(invoice.sourceDocumentId)) && !centralSignatures.has(signature);
+        return (!invoice.sourceDocumentId || !centralIds.has(invoice.sourceDocumentId)) && !knownSignatures.has(signature);
       })
       .map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
-    return [...centralMaintenanceInvoices, ...local].map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
+    return [...centralMaintenanceInvoices, ...imported, ...local].map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
   }, [centralMaintenanceInvoices, photoInvoices]);
+  const ledgerTransactions = useMemo(() => {
+    const rows = [...transactions];
+    const signatures = new Set(rows.map((transaction) => [
+      transaction.type,
+      normalizeText(transaction.vehicle_plate),
+      transaction.occurred_on,
+      Number(transaction.amount || 0).toFixed(2),
+      normalizeText(transaction.metadata?.concept),
+    ].join("|")));
+    invoices.filter((invoice) => invoice.sourceDocumentId?.startsWith("authorized-gmail:")).forEach((invoice) => {
+      const signature = ["maintenance", normalizeText(invoice.plate), invoice.dateIso || "", Number(invoice.amount || 0).toFixed(2), normalizeText(invoice.concept)].join("|");
+      if (!invoice.dateIso || signatures.has(signature)) return;
+      signatures.add(signature);
+      rows.push({
+        id: `authorized-maintenance:${invoice.id}`,
+        type: "maintenance",
+        occurred_on: invoice.dateIso,
+        amount: Number(invoice.amount) || 0,
+        vehicle_plate: invoice.plate,
+        driver_id: null,
+        source_document_id: invoice.sourceDocumentId,
+        dedupe_key: `authorized-maintenance:${invoice.id}`,
+        metadata: {
+          concept: invoice.concept,
+          company: invoice.provider,
+          invoiceNumber: invoice.id,
+          sourceFile: invoice.sourceFile,
+          documentType: invoice.typeLabel,
+        },
+        created_at: invoice.sourceDate || invoice.dateIso,
+      });
+    });
+    return rows;
+  }, [invoices, transactions]);
   const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
     const recordedMaintenance = invoices
       .filter((invoice) => invoice.plate === vehicle.plate)
@@ -1738,10 +1817,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         </header>
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
-          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
+          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
           {activeNav === "Conductores" && <DriversView vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} setModal={setModal} />}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
