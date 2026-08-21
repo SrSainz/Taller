@@ -68,6 +68,7 @@ import { alexCommissionThresholds, buildAlexCommissionReportPdf, buildCommission
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
 import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
 import { emailMaintenanceAmountOverrides, emailMaintenanceDocuments, emailMaintenanceTypeOverrides } from "./data/emailMaintenanceSummary";
+import { maintenanceCochesDocuments } from "./data/maintenanceCochesSummary";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -392,8 +393,11 @@ const getImportedMaintenanceAmount = (record) => {
 };
 
 const buildImportedMaintenanceInvoices = () => {
-  const records = [...funesmotorsportDocuments, ...emailMaintenanceDocuments];
+  // El PDF de mantenimiento es la fuente prioritaria cuando comparte matrícula
+  // y fecha con un resumen o una captura ya importada. Así no se duplica el día.
+  const records = [...maintenanceCochesDocuments, ...emailMaintenanceDocuments, ...funesmotorsportDocuments];
   const signatures = new Set();
+  const dateSignatures = new Set();
   return records.map((record) => {
     const amount = getImportedMaintenanceAmount(record);
     const typeOverride = emailMaintenanceTypeOverrides[record?.id] ?? {};
@@ -403,12 +407,14 @@ const buildImportedMaintenanceInvoices = () => {
       amount.toFixed(2),
       normalizeText(record.concept),
     ].join("|");
+    const dateSignature = [normalizeText(record.plate), record.dateIso || record.date].join("|");
     return {
       ...record,
       amount,
       type: typeOverride.type || record.type,
       typeLabel: typeOverride.typeLabel || record.typeLabel,
       signature,
+      dateSignature,
       provider: record.provider || (record.source?.includes("Funes") ? "FUNESMOTORSPORT" : "Taller no identificado"),
       id: record.documentNumber || record.id,
       sourceDocumentId: `authorized-gmail:${record.id}`,
@@ -417,9 +423,11 @@ const buildImportedMaintenanceInvoices = () => {
       status: record.needsReview ? "Revisar" : "Asociada",
     };
   }).filter((record) => {
-    if (!vehicleOrder.includes(record.plate) || signatures.has(record.signature)) return false;
+    const keepDocumentedZero = record.sourceFile === "MANTENIMIENTO COCHES (3)_260821_140325.pdf";
+    if (!vehicleOrder.includes(record.plate) || signatures.has(record.signature) || dateSignatures.has(record.dateSignature)) return false;
     signatures.add(record.signature);
-    return record.amount > 0;
+    dateSignatures.add(record.dateSignature);
+    return record.amount > 0 || keepDocumentedZero;
   });
 };
 
