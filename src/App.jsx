@@ -371,6 +371,7 @@ const maintenanceConceptRows = [
 
 const photoInvoiceStorageKey = "talleria:photo-invoices:clean-v3";
 const processedDocumentStorageKey = "talleria:processed-documents:v1";
+const maintenanceEditsStorageKey = "sobre-ruedas:maintenance-edits:v1";
 const migratedPlates = { "3456 HTR": "0344 LCP", "7890 GYL": "9401 LTG" };
 
 const loadPhotoInvoices = () => {
@@ -384,7 +385,42 @@ const loadPhotoInvoices = () => {
   }
 };
 
+const loadMaintenanceEdits = () => {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(maintenanceEditsStorageKey) ?? "{}");
+    return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  } catch {
+    return {};
+  }
+};
+
 const normalizeText = (value = "") => String(value).normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
+
+const getMaintenanceEditKey = (record) => {
+  if (!record) return "";
+  return String(record.sourceDocumentId || record.id || [
+    normalizeText(record.plate),
+    record.dateIso || record.date,
+    normalizeText(record.concept),
+    record.km,
+  ].join("|"));
+};
+
+const isMaintenanceDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value ?? "")) && !Number.isNaN(Date.parse(`${value}T12:00:00`));
+
+const applyMaintenanceEdit = (record, edits = {}) => {
+  const editKey = getMaintenanceEditKey(record);
+  const override = edits?.[editKey];
+  if (!override) return { ...record, maintenanceEditKey: editKey };
+  const dateIso = isMaintenanceDate(override.dateIso) ? override.dateIso : record.dateIso;
+  const km = override.km !== "" && override.km !== null && Number.isFinite(Number(override.km))
+    ? Number(override.km)
+    : record.km;
+  const date = dateIso
+    ? new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateIso}T12:00:00`)).replace(".", "")
+    : record.date;
+  return { ...record, dateIso, date, km, maintenanceEditKey: editKey, maintenanceEditedAt: override.updatedAt };
+};
 
 const getImportedMaintenanceAmount = (record) => {
   const override = emailMaintenanceAmountOverrides[record?.id];
@@ -814,6 +850,13 @@ const getMaintenanceDateValue = (item) => {
   const [day, month, year] = normalizeText(item.date).split(/\s+/);
   return Date.UTC(Number(year), maintenanceMonths[month] ?? 0, Number(day));
 };
+const getMaintenanceDateInputValue = (item) => {
+  if (isMaintenanceDate(item?.dateIso)) return item.dateIso;
+  const timestamp = getMaintenanceDateValue(item);
+  if (!Number.isFinite(timestamp)) return "";
+  const date = new Date(timestamp);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+};
 const getFuelEntryDateValue = (entry) => {
   const [day, month, year] = normalizeText(entry.date).split(/\s+/);
   const [hour = 0, minute = 0] = (entry.time ?? "").split(":").map(Number);
@@ -1152,6 +1195,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState(null);
   const [photoInvoices, setPhotoInvoices] = useState(loadPhotoInvoices);
+  const [maintenanceEdits, setMaintenanceEdits] = useState(loadMaintenanceEdits);
   const [documentRecords, setDocumentRecords] = useState([]);
   const [processedDocuments, setProcessedDocuments] = useState(loadProcessedDocuments);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -1406,15 +1450,19 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       };
     }), [documentRecords, transactions]);
   const invoices = useMemo(() => {
-    const centralIds = new Set(centralMaintenanceInvoices.map((invoice) => invoice.sourceDocumentId).filter(Boolean));
-    const knownSignatures = new Set([...centralMaintenanceInvoices, ...importedMaintenanceInvoices].map((invoice) => [
+    const central = centralMaintenanceInvoices.map((invoice) => applyMaintenanceEdit(invoice, maintenanceEdits));
+    const imported = importedMaintenanceInvoices
+      .map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }))
+      .map((invoice) => applyMaintenanceEdit(invoice, maintenanceEdits));
+    const centralIds = new Set(central.map((invoice) => invoice.sourceDocumentId).filter(Boolean));
+    const knownSignatures = new Set([...central, ...imported].map((invoice) => [
       normalizeText(invoice.plate),
       invoice.dateIso || invoice.date,
       Number(invoice.amount || 0).toFixed(2),
       normalizeText(invoice.concept),
     ].join("|")));
-    const imported = importedMaintenanceInvoices.map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
     const local = photoInvoices
+      .map((invoice) => applyMaintenanceEdit({ ...invoice, owner: getVehicleOwner(invoice.plate) }, maintenanceEdits))
       .filter((invoice) => {
         const signature = [
           normalizeText(invoice.plate),
@@ -1424,11 +1472,18 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         ].join("|");
         return (!invoice.sourceDocumentId || !centralIds.has(invoice.sourceDocumentId)) && !knownSignatures.has(signature);
       })
-      .map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
-    return [...centralMaintenanceInvoices, ...imported, ...local].map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
-  }, [centralMaintenanceInvoices, photoInvoices]);
+    return [...central, ...imported, ...local].map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
+  }, [centralMaintenanceInvoices, maintenanceEdits, photoInvoices]);
   const ledgerTransactions = useMemo(() => {
-    const rows = [...transactions];
+    const rows = transactions.map((transaction) => {
+      if (transaction.type !== "maintenance") return transaction;
+      const override = maintenanceEdits?.[getMaintenanceEditKey(transaction)];
+      if (!override) return transaction;
+      const occurredOn = isMaintenanceDate(override.dateIso) ? override.dateIso : transaction.occurred_on;
+      const metadata = { ...(transaction.metadata ?? {}) };
+      if (override.km !== "" && override.km !== null && Number.isFinite(Number(override.km))) metadata.odometerKm = Number(override.km);
+      return { ...transaction, occurred_on: occurredOn, metadata };
+    });
     const signatures = new Set(rows.map((transaction) => [
       transaction.type,
       normalizeText(transaction.vehicle_plate),
@@ -1460,7 +1515,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       });
     });
     return rows;
-  }, [invoices, transactions]);
+  }, [invoices, maintenanceEdits, transactions]);
   const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
     const recordedMaintenance = invoices
       .filter((invoice) => invoice.plate === vehicle.plate)
@@ -1471,6 +1526,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         concept: invoice.concept,
         amount: Number(invoice.amount) || 0,
         invoiceId: invoice.id,
+        maintenanceEditKey: invoice.maintenanceEditKey || getMaintenanceEditKey(invoice),
       }));
     return { ...vehicle, maintenance: recordedMaintenance, monthlyFuel: [], nextServiceKm: vehicle.odometer, serviceDate: "" };
   }).map((vehicle) => {
@@ -1517,6 +1573,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   useEffect(() => {
     window.localStorage.setItem(photoInvoiceStorageKey, JSON.stringify(photoInvoices));
   }, [photoInvoices]);
+
+  useEffect(() => {
+    window.localStorage.setItem(maintenanceEditsStorageKey, JSON.stringify(maintenanceEdits));
+  }, [maintenanceEdits]);
 
   useEffect(() => {
     window.localStorage.setItem(processedDocumentStorageKey, JSON.stringify(processedDocuments));
@@ -1660,6 +1720,15 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     }
     setPhotoInvoices((current) => [localInvoice, ...current.filter((item) => item.id !== localInvoice.id)]);
     setDocumentRecords((current) => [localDocument, ...current.filter((document) => document.id !== localDocument.id)]);
+    return true;
+  };
+
+  const saveMaintenanceEdit = ({ editKey, dateIso, km }) => {
+    if (!editKey || !isMaintenanceDate(dateIso) || !Number.isFinite(Number(km)) || Number(km) < 0) return false;
+    setMaintenanceEdits((current) => ({
+      ...current,
+      [editKey]: { dateIso, km: Number(km), updatedAt: new Date().toISOString() },
+    }));
     return true;
   };
 
@@ -1864,7 +1933,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         onNotice={(message) => notify(message)}
         onDocumentAction={({ category, source, file }) => { setQuickMenuStep(""); setQuickMenuCategory(""); setModal({ type: "document-processing", category, source, file, selectedPlate }); }}
       />
-      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoiceCentral} onSaveDocument={saveProcessedDocumentCentral} vehicles={vehicles} />}
+      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoiceCentral} onSaveDocument={saveProcessedDocumentCentral} onSaveMaintenance={saveMaintenanceEdit} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
     </div>
   );
@@ -4687,6 +4756,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
+  const longPressRef = useRef({ timer: null, triggered: false, startX: 0, startY: 0 });
   const pendingMaintenanceKeyRef = useRef("");
   const handledMaintenanceSearchRef = useRef("");
   const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
@@ -4732,6 +4802,48 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [openConceptKey]);
 
+  useEffect(() => () => window.clearTimeout(longPressRef.current.timer), []);
+
+  const clearMaintenanceLongPressTimer = () => {
+    if (longPressRef.current.timer) window.clearTimeout(longPressRef.current.timer);
+    longPressRef.current.timer = null;
+  };
+
+  const startMaintenanceLongPress = (event, item) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    clearMaintenanceLongPressTimer();
+    longPressRef.current.triggered = false;
+    longPressRef.current.startX = event.clientX;
+    longPressRef.current.startY = event.clientY;
+    longPressRef.current.timer = window.setTimeout(() => {
+      longPressRef.current.triggered = true;
+      setOpenConceptKey("");
+      setModal({
+        type: "maintenance-edit",
+        item: {
+          ...item,
+          plate: workshopVehicle.plate,
+          vehiclePlate: workshopVehicle.plate,
+          editKey: item.maintenanceEditKey || item.invoiceId,
+        },
+      });
+      window.setTimeout(() => { longPressRef.current.triggered = false; }, 500);
+    }, 2000);
+  };
+
+  const moveMaintenanceLongPress = (event) => {
+    const distance = Math.hypot(event.clientX - longPressRef.current.startX, event.clientY - longPressRef.current.startY);
+    if (distance > 12) clearMaintenanceLongPressTimer();
+  };
+
+  const finishMaintenanceLongPress = () => clearMaintenanceLongPressTimer();
+  const suppressClickAfterLongPress = (event) => {
+    if (!longPressRef.current.triggered) return;
+    event.preventDefault();
+    event.stopPropagation();
+    longPressRef.current.triggered = false;
+  };
+
   const selectWorkshopVehicle = (plate) => {
     setWorkshopPlate(plate);
     window.setTimeout(() => document.getElementById("historial-mantenimiento")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 40);
@@ -4775,7 +4887,19 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
             const eventId = getMaintenanceEventDomId(workshopVehicle.plate, key);
             const detailId = `detail-${eventId}`;
             return (
-              <article id={eventId} className={`maintenance-event ${isOpen ? "is-open" : ""} ${invoice ? "has-invoice" : "without-invoice"}`} key={key}>
+              <article
+                id={eventId}
+                className={`maintenance-event ${isOpen ? "is-open" : ""} ${invoice ? "has-invoice" : "without-invoice"}`}
+                key={key}
+                title="Mantén pulsado 2 segundos para editar fecha y kilómetros"
+                onPointerDown={(event) => startMaintenanceLongPress(event, item)}
+                onPointerMove={moveMaintenanceLongPress}
+                onPointerUp={finishMaintenanceLongPress}
+                onPointerCancel={finishMaintenanceLongPress}
+                onPointerLeave={finishMaintenanceLongPress}
+                onClickCapture={suppressClickAfterLongPress}
+                onContextMenu={(event) => event.preventDefault()}
+              >
                 <button className="maintenance-event-date" onClick={() => setOpenMaintenanceKey(isOpen ? "" : key)} aria-expanded={isOpen} aria-controls={detailId}>
                   <IconCalendar size={18} /><span><strong>{formatMaintenanceDate(item)}</strong><small>{formatKm(item.km)}</small></span><IconChevronDown className="maintenance-event-toggle" size={18} />
                 </button>
@@ -5143,7 +5267,7 @@ function VehicleExpenses({ vehicle }) {
   );
 }
 
-function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, vehicles }) {
+function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onSaveMaintenance, vehicles }) {
   const item = modal.item;
   const itemOwner = getVehicleOwner(item);
   const isReading = modal.type === "reading-review";
@@ -5151,21 +5275,60 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, veh
   const isFuelInvoice = isInvoice && item?.source === "Cuenta Plenergy";
   const isPhotoInvoice = modal.type === "invoice-upload";
   const isDocumentProcessing = modal.type === "document-processing";
-  const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", support: "Contactar con soporte" };
+  const isMaintenanceEdit = modal.type === "maintenance-edit";
+  const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", "maintenance-edit": "Editar intervención", support: "Contactar con soporte" };
   const complete = (message) => { notify(message); onClose(); };
   if (isDocumentProcessing) titles[modal.type] = `${documentCategoryLabels[modal.category] ?? "Documento"} · Análisis IA`;
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}${isMaintenanceEdit ? " modal--maintenance-edit" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header><div><span>Acción rápida</span><h2 id="modal-title">{isFuelInvoice ? "Factura Plenergy" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
         {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc && <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure>}<dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>DNI {itemOwner.dni}{itemOwner.location ? ` · ${itemOwner.location}` : ""}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
+        {isMaintenanceEdit && <MaintenanceEditWorkflow item={item} onCancel={onClose} onSave={(values) => { const saved = onSaveMaintenance?.(values); if (saved !== false) complete("Intervención actualizada y reordenada por fecha"); }} />}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={async (invoice) => { const saved = await onSaveInvoice(invoice); if (saved !== false) complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
         {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument(document); if (saved !== false) complete("Documento procesado y guardado"); }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
-        {!isPhotoInvoice && !isDocumentProcessing && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Factura Plenergy archivada" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar factura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
+        {!isPhotoInvoice && !isDocumentProcessing && !isMaintenanceEdit && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Factura Plenergy archivada" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar factura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
       </section>
+    </div>
+  );
+}
+
+function MaintenanceEditWorkflow({ item, onCancel, onSave }) {
+  const [dateIso, setDateIso] = useState(() => item.dateIso || getMaintenanceDateInputValue(item));
+  const [km, setKm] = useState(() => Number.isFinite(Number(item.km)) ? Number(item.km) : "");
+  const [error, setError] = useState("");
+
+  const save = () => {
+    const normalizedKm = Number(km);
+    if (!isMaintenanceDate(dateIso)) {
+      setError("Introduce una fecha válida para la intervención.");
+      return;
+    }
+    if (!Number.isFinite(normalizedKm) || normalizedKm < 0) {
+      setError("Introduce un kilometraje válido igual o superior a cero.");
+      return;
+    }
+    setError("");
+    onSave({ editKey: item.editKey || item.maintenanceEditKey || item.invoiceId, dateIso, km: normalizedKm });
+  };
+
+  return (
+    <div className="maintenance-edit-workflow">
+      <div className="maintenance-edit-context">
+        <span>Intervención seleccionada</span>
+        <strong>{item.concept}</strong>
+        <small>{item.plate || item.vehiclePlate} · {formatCurrency(Number(item.amount) || 0)}</small>
+      </div>
+      <p className="maintenance-edit-help">Modifica la fecha o los kilómetros. Al guardar, la intervención volverá a colocarse automáticamente en el orden cronológico del historial.</p>
+      <div className="maintenance-edit-form">
+        <label>Fecha de la intervención<input type="date" value={dateIso} onChange={(event) => setDateIso(event.target.value)} /></label>
+        <label>Kilómetros del vehículo<input type="number" min="0" step="1" value={km} onChange={(event) => setKm(event.target.value)} /></label>
+      </div>
+      {error && <p className="maintenance-edit-error" role="alert">{error}</p>}
+      <footer><button type="button" className="secondary-button" onClick={onCancel}>Cancelar</button><button type="button" className="primary-button" onClick={save}><IconCheck size={18} />Guardar cambios</button></footer>
     </div>
   );
 }
