@@ -3259,6 +3259,9 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .app-shell--admin .admin-accordion__meta small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-shell--admin .admin-accordion__meta b { color: #687973; font-size: 7px; font-weight: 750; line-height: 1; }
 .app-shell--admin .admin-accordion__meta small { color: #263d37; font-size: 7px; line-height: 1.1; }
+.app-shell--admin .admin-accordion__meta > span:first-child { align-items: start; }
+.app-shell--admin .admin-accordion__meta .admin-accordion__driver-names { display: flex; min-width: 0; flex-direction: column; gap: 2px; overflow: visible; white-space: normal; }
+.app-shell--admin .admin-accordion__meta .admin-accordion__driver-names span { overflow: hidden; color: #263d37; font-size: clamp(12px, 1.2vw, 14px); font-weight: 850; line-height: 1.05; text-overflow: ellipsis; white-space: nowrap; }
 .app-shell--admin .admin-accordion__chevron { color: #74827d; }
 .app-shell--admin .admin-accordion__button--open .admin-accordion__chevron { color: #24796e; }
 .app-shell--admin .admin-accordion__icon--vehicle { background: #e4edff; color: #4771d6; }
@@ -3306,6 +3309,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .app-shell--admin .admin-accordion__meta svg { width: 12px; height: 12px; }
   .app-shell--admin .admin-accordion__meta b { font-size: 6px; }
   .app-shell--admin .admin-accordion__meta small { font-size: 6px; }
+  .app-shell--admin .admin-accordion__meta .admin-accordion__driver-names span { font-size: 12px; }
 }
 
 @media (max-width: 760px) {

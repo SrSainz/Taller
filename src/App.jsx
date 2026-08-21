@@ -3093,7 +3093,7 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
            <button className={`admin-accordion__button${openSection === vehicle.plate ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection(vehicle.plate)} aria-expanded={openSection === vehicle.plate} aria-controls={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>
              <span className="admin-accordion__icon admin-accordion__icon--vehicle"><IconCar size={21} /></span>
              <span className="admin-accordion__copy"><strong>{vehicle.plate}</strong><small>{vehicle.model}</small><span className="admin-accordion__status"><i />Activo</span></span>
-             <span className="admin-accordion__meta"><span><IconUserCircle size={14} /><b>Conductor</b><small>{vehicleDrivers[0]?.full_name || "Ninguno"}</small></span><span><IconFileInvoice size={14} /><b>Documentos</b><small>{vehicleDocuments}</small></span></span>
+             <span className="admin-accordion__meta"><span><IconUserCircle size={14} /><b>Conductores</b><small className="admin-accordion__driver-names">{vehicleDrivers.length > 0 ? vehicleDrivers.map((driver) => <span key={driver.id}>{driver.full_name}</span>) : <span>Ninguno</span>}</small></span><span><IconFileInvoice size={14} /><b>Documentos</b><small>{vehicleDocuments}</small></span></span>
              <IconChevronRight className="admin-accordion__chevron" size={18} />
            </button>
            {openSection === vehicle.plate && <div className="admin-accordion__panel" id={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>

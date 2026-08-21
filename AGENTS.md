@@ -180,6 +180,7 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Las tarjetas de NETO usan Corolla sedan transparentes generados como recursos del proyecto: verde, azul y rojo segun la matricula, con un punto de vista distinto en cada tarjeta.
 - En la vista de detalle de NETO, la barra global negra con la rueda roja y el titulo NETO es la unica cabecera nominal; el modal conserva solo total y cierre sin repetir el titulo.
 - Administración adopta la opción 2 de la referencia: cabecera clara con escudo, tres métricas compactas, tarjeta de administrador, vehículos en tarjetas horizontales con tonos azul, turquesa y morado, y Crear nuevo acceso en una tarjeta morada; las tarjetas siguen siendo acordiones funcionales.
+- En cada tarjeta cerrada de vehículo de Administración se muestran los dos conductores asignados, con sus nombres destacados para poder identificarlos sin abrir el acordeón.
 
 - Administración consume siempre el ledger central de documentos IA y sus proyecciones de `driver_entries`; los cambios de combustible, facturación, consumo y kilometraje se refrescan mediante Realtime con sondeo de respaldo y generan avisos dinámicos en el timbre, sin duplicar importes.
 - El acceso inicial de administración usa Supabase Auth con el correo del administrador; el formulario mantiene el correo preparado, ofrece mostrar/ocultar la contraseña y permite solicitar un enlace oficial de recuperación para actualizarla sin almacenar credenciales en el cliente.
