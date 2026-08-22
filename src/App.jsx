@@ -69,7 +69,8 @@ import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
 import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
 import { emailMaintenanceAmountOverrides, emailMaintenanceDocuments, emailMaintenanceTypeOverrides } from "./data/emailMaintenanceSummary";
 import { maintenanceCochesDocuments } from "./data/maintenanceCochesSummary";
-import { alexBillingByPeriod, getAlexBillingForPeriod } from "./data/alexBillingSummary";
+import { alexBillingByPeriod } from "./data/alexBillingSummary";
+import { aminBillingByPeriod } from "./data/aminBillingSummary";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -1005,9 +1006,11 @@ const distributeInteger = (total, keys, seed) => {
   return result;
 };
 
+const isAmin = (name = "") => String(name).trim().toLocaleLowerCase("es") === "amin";
 const getImportedBillingByPeriod = (driver) => {
-  if (!isAlex(driver)) return null;
-  return Object.fromEntries(Object.entries(alexBillingByPeriod).map(([period, record]) => [period, record.amount]));
+  const summary = isAlex(driver) ? alexBillingByPeriod : isAmin(driver) ? aminBillingByPeriod : null;
+  if (!summary) return null;
+  return Object.fromEntries(Object.entries(summary).map(([period, record]) => [period, record.amount]));
 };
 
 const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
@@ -1027,7 +1030,7 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
     const revenue = hasRecordedBilling ? recordedRevenue : importedRevenue;
     const billingByPeriod = importedBillingByPeriod ? { ...importedBillingByPeriod, ...(hasRecordedBilling ? { [periodKey]: recordedRevenue } : {}) } : null;
     const importedPeriodEntry = !hasRecordedBilling && importedRevenue > 0
-      ? [{ id: `alex-billing-${periodKey}`, driver_id: profile?.id ?? "", vehicle_plate: vehicle.plate, entry_date: `${periodKey}-01`, billing: importedRevenue, cash_collected: 0, tips: 0, tolls: 0, fuel_cost: 0, fuel_liters: 0, other_expenses: 0, odometer_km: 0, isImportedBilling: true }]
+      ? [{ id: `${String(driver).toLocaleLowerCase("es").replace(/\s+/g, "-")}-billing-${periodKey}`, driver_id: profile?.id ?? "", vehicle_plate: vehicle.plate, entry_date: `${periodKey}-01`, billing: importedRevenue, cash_collected: 0, tips: 0, tolls: 0, fuel_cost: 0, fuel_liters: 0, other_expenses: 0, odometer_km: 0, isImportedBilling: true }]
       : [];
     return {
       key: `${vehicle.plate}-${driver}`,
@@ -2388,9 +2391,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
     const recordedMonthlyBilling = total(monthEntries, "billing");
-    const importedMonthlyBilling = isAlex(profile.full_name)
-      ? getAlexBillingForPeriod(periodDate.getFullYear(), periodDate.getMonth())
-      : 0;
+    const importedBillingByPeriod = getImportedBillingByPeriod(profile.full_name);
+    const importedMonthlyBilling = importedBillingByPeriod?.[monthKey] ?? 0;
     const monthlyBilling = recordedMonthlyBilling > 0 ? recordedMonthlyBilling : importedMonthlyBilling;
     const billingGoal = 7000;
     const billingScaleMax = 9000;
@@ -2541,10 +2543,11 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     });
     const currentMonthKey = `${driverPeriodYear}-${String(driverPeriodMonth + 1).padStart(2, "0")}`;
     if (!monthly.has(currentMonthKey)) monthly.set(currentMonthKey, 0);
-    if (isAlex(profile.full_name)) {
-      Object.entries(alexBillingByPeriod).forEach(([monthKey, record]) => {
+    const importedBillingByPeriod = getImportedBillingByPeriod(profile.full_name);
+    if (importedBillingByPeriod) {
+      Object.entries(importedBillingByPeriod).forEach(([monthKey, amount]) => {
         const recordedAmount = monthly.get(monthKey) || 0;
-        monthly.set(monthKey, recordedAmount > 0 ? recordedAmount : Number(record.amount) || 0);
+        monthly.set(monthKey, recordedAmount > 0 ? recordedAmount : Number(amount) || 0);
       });
     }
     const currentDate = new Date(driverPeriodYear, driverPeriodMonth, 1);
@@ -2564,9 +2567,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     for (let monthDate = new Date(startDate); monthDate <= endDate; monthDate.setMonth(monthDate.getMonth() + 1)) {
       const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
       const recordedAmount = monthly.get(monthKey) || 0;
-      const importedAmount = isAlex(profile.full_name)
-        ? getAlexBillingForPeriod(monthDate.getFullYear(), monthDate.getMonth())
-        : 0;
+      const importedAmount = importedBillingByPeriod?.[monthKey] ?? 0;
       months.push([monthKey, recordedAmount > 0 ? recordedAmount : importedAmount]);
     }
     const maximum = Math.max(1, ...months.map(([, amount]) => amount));
