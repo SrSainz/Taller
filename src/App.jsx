@@ -74,6 +74,7 @@ import { aminBillingByPeriod } from "./data/aminBillingSummary";
 import { fernandoBillingByPeriod } from "./data/fernandoBillingSummary";
 import { mauricioBillingByPeriod } from "./data/mauricioBillingSummary";
 import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
+import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -595,7 +596,8 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const periodEnd = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(new Date(reportYear, reportMonth + 1, 0).getDate()).padStart(2, "0")}`;
   const periodPayrollFor = (row, driverIndex) => {
     const stored = periodFinancials.find((item) => item.driver_id && row.driverId && item.driver_id === row.driverId && item.period_start === periodStart);
-    return Number(stored?.payroll ?? netPayrollAmounts[vehicle.plate]?.[driverIndex] ?? 0) || 0;
+    const importedPayroll = getImportedPayrollForPeriod(row.driver, reportYear, reportMonth);
+    return Number(stored?.payroll ?? (importedPayroll > 0 ? importedPayroll : undefined) ?? netPayrollAmounts[vehicle.plate]?.[driverIndex] ?? 0) || 0;
   };
   const fuelBreakdown = vehicleDrivers.map((driver, driverIndex) => {
     const profile = vehicle.driverProfiles?.[driverIndex];
