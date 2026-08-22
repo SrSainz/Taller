@@ -520,6 +520,24 @@ const netExpenseCategoryAliases = {
 };
 const getNetExpenseCategoryKey = (value) => netExpenseCategoryAliases[normalizeNetExpenseCategory(value)] ?? "";
 
+const leasingContractsByPlate = Object.freeze({
+  "5043 MLC": { amount: 571.65, endPeriod: "2027-10", endDateLabel: "22/10/2027" },
+  "5750 MJV": { amount: 560.47, endPeriod: "2027-07", endDateLabel: "30/07/2027" },
+  "5754 MJV": { amount: 560.47, endPeriod: "2027-07", endDateLabel: "30/07/2027" },
+});
+const getLeasingContract = (plate) => leasingContractsByPlate[canonicalizeVehiclePlate(plate)] ?? null;
+const getLeasingAmountForPeriod = (plate, year, month) => {
+  const contract = getLeasingContract(plate);
+  const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  return contract && periodKey <= contract.endPeriod ? contract.amount : 0;
+};
+const getLeasingCadence = (plate, year, month) => {
+  const contract = getLeasingContract(plate);
+  const amount = getLeasingAmountForPeriod(plate, year, month);
+  if (!contract) return "Sin cuota configurada";
+  return amount > 0 ? `${formatCurrency(amount)} hasta ${contract.endDateLabel}` : `Finalizado ${contract.endDateLabel}`;
+};
+
 const vehicleExpenseAmounts = {};
 const netAdditionalExpenseAmounts = {};
 const netPayrollAmounts = {};
@@ -591,6 +609,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
+  const leasingAmount = getLeasingAmountForPeriod(vehicle.plate, reportYear, reportMonth);
   const gestoriaPeriodDocuments = getGestoriaDocumentsForPeriod(vehicle.plate, reportYear, reportMonth);
   const gestoriaPeriodAmount = getGestoriaExpenseForPeriod(vehicle.plate, reportYear, reportMonth);
   const vehicleDrivers = vehicle.drivers.slice(0, 2);
@@ -664,7 +683,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     { key: "social-security", label: "Seguros sociales", amount: breakdownTotal(resolvedSocialBreakdown), cadence: "Autónomo + 2 conductores", breakdown: resolvedSocialBreakdown },
     { key: "taxes", label: "Impuestos", amount: scale(amounts[7]), cadence: "Trimestral" },
     { key: "eu-vat", label: "IVA intracomunitario", amount: intracommunityVat, cadence: `${Math.round(INTRACOMMUNITY_VAT_RATE * 100)}% de facturación conjunta`, meta: `${formatCurrency(driverBillingTotal)} × ${Math.round(INTRACOMMUNITY_VAT_RATE * 100)}%` },
-    { key: "leasing", label: "Leasing coche", amount: scale(amounts[0]), cadence: "Mensual" },
+    { key: "leasing", label: "Leasing coche", amount: leasingAmount, cadence: getLeasingCadence(vehicle.plate, reportYear, reportMonth) },
     { key: "insurance", label: "Seguro", amount: scale(amounts[9]), cadence: "Anual" },
     { key: "inspection", label: "ITV", amount: scale(additional.itv), cadence: "Anual" },
     { key: "road-tax", label: "Impuesto circulación", amount: scale(additional.circulation), cadence: "Anual" },
@@ -676,7 +695,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
 const reportMonths = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const reportMonthTokens = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const fuelPeriodSuffixPattern = /\b[a-záéíóú]{3}\s+\d{4}$/i;
-const reportYears = [2024, 2025, 2026];
+const reportYears = [2024, 2025, 2026, 2027];
 const reportSeasonality = [0.82, 0.87, 0.94, 0.91, 0.98, 1.03, 1, 0.96, 1.05, 1.02, 0.93, 0.79];
 const getReportPeriodFactor = (month, year) => reportSeasonality[month] * (year === 2026 ? 1 : 0.9);
 const calendarWeekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -5645,6 +5664,7 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
   const fuelAmount = transactionTotal("fuel") || getFuelCostForPeriod(vehicle, reportMonth, reportYear);
   const maintenanceAmount = transactionTotal("maintenance") || getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear);
   const gestoriaAmount = getGestoriaExpenseForPeriod(vehicle.plate, reportYear, reportMonth);
+  const leasingAmount = getLeasingAmountForPeriod(vehicle.plate, reportYear, reportMonth);
   const driverRevenue = vehicle.use === "Profesional"
     ? vehicle.drivers.slice(0, 2).map((driver) => ({ driver, amount: Number(((getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor).toFixed(2)) }))
     : [];
@@ -5657,11 +5677,12 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
     fuel: fuelAmount,
     workshop: maintenanceAmount,
     accounting: gestoriaAmount,
+    leasing: leasingAmount,
     payroll: payrollAmount,
     "driver-commission": commissionAmount,
     "eu-vat": intracommunityVatAmount,
   };
-  const expenses = expenseCategories.map((category) => ({ ...category, amount: Number((amountsByKey[category.canonicalKey] ?? 0).toFixed(2)) }));
+  const expenses = expenseCategories.map((category) => ({ ...category, cadence: category.canonicalKey === "leasing" ? getLeasingCadence(vehicle.plate, reportYear, reportMonth) : category.cadence, amount: Number((amountsByKey[category.canonicalKey] ?? 0).toFixed(2)) }));
   const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const operating = expenses.filter((expense) => ["fuel", "workshop", "driver-commission"].includes(expense.canonicalKey) || ["Limpieza coche", "Varios"].includes(expense.label)).reduce((sum, expense) => sum + expense.amount, 0);
   const fixed = total - operating;
