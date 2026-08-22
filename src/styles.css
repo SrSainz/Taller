@@ -1196,6 +1196,16 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .expense-zero { color: #9ba6a1; font-weight: 500; }
 .expense-note { margin: 10px 2px 0; color: var(--muted); font-size: 6.5px; line-height: 1.5; }
 
+.invoice-source-note { display: grid; grid-template-columns: 25px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px 14px; margin: 0 0 18px; border: 1px solid #b8d7c9; border-radius: 9px; background: #f1faf6; color: var(--green-800); }
+.invoice-source-note > span { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.invoice-source-note strong { color: var(--text); font-size: 9px; }
+.invoice-source-note small { overflow: hidden; color: var(--muted); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.invoice-source-note__pending { color: #a26718 !important; }
+.invoice-source-file { display: flex; align-items: center; gap: 8px; padding: 11px 19px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #f5faf7; color: var(--green-800); }
+.invoice-source-file > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.invoice-source-file strong { color: var(--text); font-size: 8px; }
+.invoice-source-file small { overflow: hidden; color: var(--muted); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+
 .modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(5, 31, 25, .5); backdrop-filter: blur(3px); }
 .modal { width: min(540px, 100%); max-height: min(720px, 92vh); overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: #fff; box-shadow: 0 24px 70px rgba(3,35,28,.24); }
 .modal > header { display: flex; align-items: flex-start; justify-content: space-between; padding: 18px 19px; border-bottom: 1px solid var(--line); }

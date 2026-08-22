@@ -75,6 +75,7 @@ import { fernandoBillingByPeriod } from "./data/fernandoBillingSummary";
 import { mauricioBillingByPeriod } from "./data/mauricioBillingSummary";
 import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
+import { gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender, getGestoriaDocumentsForPeriod, getGestoriaExpenseForPeriod } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleOwner as getCanonicalVehicleOwner, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 
 const BILLING_COLOR = "#74b9f2";
@@ -483,6 +484,7 @@ const expenseCategories = [
   { canonicalKey: "driver-commission", label: "Comisiones de conductores", cadence: "Variable" },
   { canonicalKey: "taxes", label: "Impuestos trimestrales", cadence: "Trimestral" },
   { canonicalKey: "eu-vat", label: "IVA intracomunitario", cadence: "Trimestral" },
+  { canonicalKey: "accounting", label: "Gestoría", cadence: "Mensual" },
   { canonicalKey: "insurance", label: "Seguro", cadence: "Anual" },
   { label: "Limpieza coche", cadence: "Variable" },
   { label: "Varios", cadence: "Variable" },
@@ -506,6 +508,7 @@ const netExpenseCategoryAliases = {
   nominas: "payroll",
   "comisiones de conductores": "driver-commission",
   "comisiones de conductor": "driver-commission",
+  gestoria: "accounting",
   impuestos: "taxes",
   "impuestos trimestrales": "taxes",
   "iva intracomunitario": "eu-vat",
@@ -587,6 +590,8 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
+  const gestoriaPeriodDocuments = getGestoriaDocumentsForPeriod(vehicle.plate, reportYear, reportMonth);
+  const gestoriaPeriodAmount = getGestoriaExpenseForPeriod(vehicle.plate, reportYear, reportMonth);
   const vehicleDrivers = vehicle.drivers.slice(0, 2);
   const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: 0 }));
   const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
@@ -636,13 +641,24 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const resolvedPayrollBreakdown = applyNetBreakdownOverrides("payroll", payrollBreakdown, manualBreakdowns);
   const resolvedCommissionBreakdown = applyNetBreakdownOverrides("driver-commission", commissionBreakdown, manualBreakdowns);
   const resolvedSocialBreakdown = applyNetBreakdownOverrides("social-security", socialBreakdown, manualBreakdowns);
+  const accountingBreakdown = gestoriaPeriodDocuments.length
+    ? gestoriaPeriodDocuments.map((document) => ({
+      breakdownKey: document.id,
+      label: document.recurring ? "Cuota mensual de gestoría" : "Gasto extraordinario",
+      concept: document.recurring ? "Cuota mensual de gestoría" : document.concept || "Gasto de gestoría",
+      amount: Number(document.amount) || 0,
+      meta: `${document.documentNumber} · ${formatDocumentDisplayDate(document.dateIso)}`,
+      date: document.dateIso,
+    }))
+    : (Number(additional.gestoria) > 0 ? [{ breakdownKey: "gestoria-manual", label: "Gestoría", concept: "Gestoría", amount: scale(additional.gestoria), meta: "Importe registrado", date: "" }] : []);
+  const resolvedAccountingBreakdown = applyNetBreakdownOverrides("accounting", accountingBreakdown, manualBreakdowns);
   return [
     { key: "workshop", label: "Taller", amount: maintenance, cadence: "Variable" },
+    { key: "accounting", label: "Gestoría", amount: resolvedAccountingBreakdown.length ? breakdownTotal(resolvedAccountingBreakdown) : gestoriaPeriodAmount || scale(additional.gestoria), cadence: resolvedAccountingBreakdown.length ? `${resolvedAccountingBreakdown.length} documento${resolvedAccountingBreakdown.length === 1 ? "" : "s"}` : "Mensual", breakdown: resolvedAccountingBreakdown },
     { key: "fuel", label: "Gasolina", amount: breakdownTotal(resolvedFuelBreakdown), cadence: "Por conductor", breakdown: resolvedFuelBreakdown },
     { key: "payroll", label: "Nóminas", amount: breakdownTotal(resolvedPayrollBreakdown), cadence: "2 conductores", breakdown: resolvedPayrollBreakdown },
     { key: "driver-commission", label: "Comisiones de conductores", amount: resolvedCommissionBreakdown.length ? breakdownTotal(resolvedCommissionBreakdown) : commission, cadence: alexCommissionReport ? "Alex · 32% + tramos" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual`, breakdown: resolvedCommissionBreakdown, commissionReport: alexCommissionReport },
     { key: "social-security", label: "Seguros sociales", amount: breakdownTotal(resolvedSocialBreakdown), cadence: "Autónomo + 2 conductores", breakdown: resolvedSocialBreakdown },
-    { key: "accounting", label: "Gestoría", amount: scale(additional.gestoria), cadence: "Mensual" },
     { key: "taxes", label: "Impuestos", amount: scale(amounts[7]), cadence: "Trimestral" },
     { key: "eu-vat", label: "IVA intracomunitario", amount: scale(amounts[8]), cadence: "Trimestral" },
     { key: "leasing", label: "Leasing coche", amount: scale(amounts[0]), cadence: "Mensual" },
@@ -944,6 +960,80 @@ function VehiclePlateLabel({ vehicleOrPlate, className = "", showInitials = true
     {showInitials && owner?.initials && <small className="vehicle-plate-label__initials" aria-hidden="true">{owner.initials}</small>}
   </span>;
 }
+
+const getGestoriaOwner = (record) => gestoriaOwnerByKey[record?.ownerKey] ?? getVehicleOwner(record?.plate) ?? null;
+const buildGestoriaInvoices = () => gestoriaDocuments.map((record) => {
+  const plate = canonicalizeVehiclePlate(record.plate);
+  const owner = getGestoriaOwner(record);
+  const concept = record.recurring ? "Cuota mensual de gestoría" : record.concept || "Gasto de gestoría";
+  const sourceItems = record.concepts?.length ? record.concepts : [concept];
+  const amount = Number(record.amount) || 0;
+  const evenItemAmount = sourceItems.length > 1 ? Number((amount / sourceItems.length).toFixed(2)) : amount;
+  const items = sourceItems.map((item, index) => ({
+    concept: item,
+    amount: index === sourceItems.length - 1
+      ? Number((amount - evenItemAmount * Math.max(0, sourceItems.length - 1)).toFixed(2))
+      : evenItemAmount,
+  }));
+  return {
+    id: record.documentNumber || record.id,
+    documentNumber: record.documentNumber || record.id,
+    kind: "gestoria",
+    sourceDocumentId: `authorized-gestoria-gmail:${record.id}`,
+    date: formatDocumentDisplayDate(record.dateIso),
+    dateIso: record.dateIso,
+    periodKey: record.periodKey,
+    periodLabel: record.periodKey,
+    provider: "Gestoría Durán Rivas",
+    sender: gestoriaSender,
+    plate,
+    plateReference: record.plateReference || "",
+    owner,
+    ownerKey: record.ownerKey,
+    concept,
+    concepts: record.concepts ?? [],
+    amount,
+    source: "Correo · Gestoría",
+    sourceAccount: record.sourceAccount,
+    sourceFile: record.sourceFile,
+    sourceMessageId: record.sourceMessageId,
+    recurring: Boolean(record.recurring),
+    needsReview: Boolean(record.needsReview || !plate),
+    status: record.needsReview || !plate ? "Revisar" : "Asociada",
+    items,
+  };
+});
+
+const gestoriaInvoices = buildGestoriaInvoices();
+const gestoriaTransactions = gestoriaDocuments
+  .filter((record) => record.plate && !record.needsReview)
+  .map((record) => ({
+    id: `gestoria-transaction:${record.id}`,
+    type: "expense",
+    occurred_on: `${record.periodKey}-01`,
+    amount: Number(record.amount) || 0,
+    driver_id: null,
+    vehicle_plate: canonicalizeVehiclePlate(record.plate),
+    source_document_id: `authorized-gestoria-gmail:${record.id}`,
+    category: "accounting",
+    metadata: {
+      company: "Gestoría Durán Rivas",
+      provider: "Gestoría Durán Rivas",
+      sender: gestoriaSender,
+      invoiceNumber: record.documentNumber,
+      concept: record.recurring ? "Cuota mensual de gestoría" : record.concept || "Gasto de gestoría",
+      expenseCategory: "Gestoría",
+      sourceFile: record.sourceFile,
+      sourceMessageId: record.sourceMessageId,
+      invoiceDate: record.dateIso,
+      servicePeriod: record.periodKey,
+      ownerKey: record.ownerKey,
+      recurring: Boolean(record.recurring),
+    },
+    dedupe_key: `gestoria-gmail:${record.id}`,
+    created_at: record.dateIso,
+  }));
+
 const getMaintenanceDateValue = (item) => {
   if (item.dateIso) return Date.parse(item.dateIso);
   const [day, month, year] = normalizeText(item.date).split(/\s+/);
@@ -965,8 +1055,8 @@ const formatMaintenanceDate = (item) => {
   const date = new Date(getMaintenanceDateValue(item));
   return `${date.getUTCFullYear()}/${String(date.getUTCMonth() + 1).padStart(2, "0")}/${String(date.getUTCDate()).padStart(2, "0")}`;
 };
-const getMaintenanceInvoice = (item, vehicle, invoices) => invoices.find((invoice) => invoice.id === item.invoiceId)
-  ?? invoices.find((invoice) => invoice.plate === vehicle.plate
+const getMaintenanceInvoice = (item, vehicle, invoices) => invoices.find((invoice) => invoice.kind !== "gestoria" && invoice.id === item.invoiceId)
+  ?? invoices.find((invoice) => invoice.kind !== "gestoria" && invoice.plate === vehicle.plate
     && normalizeText(invoice.date) === normalizeText(item.date)
     && normalizeText(invoice.concept) === normalizeText(item.concept));
 const matchesMaintenanceConcept = (value, matches) => {
@@ -1581,6 +1671,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     const imported = importedMaintenanceInvoices
       .map((invoice) => ({ ...invoice, plate: canonicalizeVehiclePlate(invoice.plate), owner: getVehicleOwner(invoice.plate) }))
       .map((invoice) => applyMaintenanceEdit(invoice, maintenanceEdits));
+    const gestoria = gestoriaInvoices.map((invoice) => ({ ...invoice, plate: canonicalizeVehiclePlate(invoice.plate), owner: invoice.owner ?? getVehicleOwner(invoice.plate) }));
     const centralIds = new Set(central.map((invoice) => invoice.sourceDocumentId).filter(Boolean));
     const knownSignatures = new Set([...central, ...imported].map((invoice) => [
       normalizeText(invoice.plate),
@@ -1599,10 +1690,14 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         ].join("|");
         return (!invoice.sourceDocumentId || !centralIds.has(invoice.sourceDocumentId)) && !knownSignatures.has(signature);
       })
-    return [...central, ...imported, ...local].map((invoice) => ({ ...invoice, plate: canonicalizeVehiclePlate(invoice.plate), owner: getVehicleOwner(invoice.plate) }));
+    return [...central, ...imported, ...gestoria, ...local]
+      .map((invoice) => ({ ...invoice, plate: canonicalizeVehiclePlate(invoice.plate), owner: invoice.owner ?? getVehicleOwner(invoice.plate) }))
+      .sort((left, right) => String(right.dateIso ?? "").localeCompare(String(left.dateIso ?? "")));
   }, [centralMaintenanceInvoices, maintenanceEdits, photoInvoices]);
   const ledgerTransactions = useMemo(() => {
-    const rows = transactions.map(normalizeTransactionRecord).map((transaction) => {
+    const existingDedupeKeys = new Set(transactions.map((transaction) => transaction.dedupe_key).filter(Boolean));
+    const importedGestoriaRows = gestoriaTransactions.filter((transaction) => !existingDedupeKeys.has(transaction.dedupe_key));
+    const rows = [...transactions.map(normalizeTransactionRecord), ...importedGestoriaRows].map((transaction) => {
       if (transaction.type !== "maintenance") return transaction;
       const override = maintenanceEdits?.[getMaintenanceEditKey(transaction)];
       if (!override) return transaction;
@@ -1645,7 +1740,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   }, [invoices, maintenanceEdits, transactions]);
   const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
     const recordedMaintenance = invoices
-      .filter((invoice) => invoice.plate === vehicle.plate)
+      .filter((invoice) => invoice.kind !== "gestoria" && invoice.plate === vehicle.plate)
       .map((invoice) => ({
         date: invoice.date,
         dateIso: invoice.dateIso,
@@ -2051,6 +2146,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           selectedDriver={selectedDriver}
           selectedActivity={selectedActivity}
           invoices={invoices}
+          transactions={ledgerTransactions}
           inspectorTab={inspectorTab}
           setInspectorTab={setInspectorTab}
           setInspectorOpen={setInspectorOpen}
@@ -4892,20 +4988,28 @@ function ReadingsView({ setModal }) {
 
 function InvoicesView({ invoices, setModal }) {
   const total = invoices.reduce((sum, invoice) => sum + invoice.amount, 0);
+  const gestoriaCount = invoices.filter((invoice) => invoice.kind === "gestoria").length;
+  const emailCount = invoices.filter((invoice) => String(invoice.source ?? "").includes("Correo")).length;
+  const reviewCount = invoices.filter((invoice) => invoice.status === "Revisar").length;
   return (
     <section className="module-page">
-      <PageIntro eyebrow="Correo del taller" title="Facturas" description="Facturas recibidas, conceptos extraídos y asociación automática con cada vehículo." action={<button className="primary-button" onClick={() => setModal({ type: "invoice-upload" })}><IconUpload size={18} />Subir factura</button>} />
+      <PageIntro eyebrow="Correo de gestoría y taller" title="Facturas" description="Facturas recibidas, conceptos extraídos y asociación automática con cada matrícula y titular." action={<button className="primary-button" onClick={() => setModal({ type: "invoice-upload" })}><IconUpload size={18} />Subir factura</button>} />
       <div className="metric-cards">
-        <MetricCard icon={IconCurrencyEuro} label="Gasto registrado" value={formatCurrency(total)} detail={`${invoices.length} facturas este periodo`} />
-        <MetricCard icon={IconMail} label="Recibidas por correo" value="4" detail="80% del total" />
-        <MetricCard icon={IconAlertTriangle} label="Requieren revisión" value="2" detail="Una sin vehículo asociado" tone="amber" />
+        <MetricCard icon={IconCurrencyEuro} label="Gasto registrado" value={formatCurrency(total)} detail={`${invoices.length} documentos asociados`} />
+        <MetricCard icon={IconMail} label="Recibidas por correo" value={emailCount} detail={`${gestoriaCount} de Gestoría Durán Rivas`} />
+        <MetricCard icon={IconAlertTriangle} label="Requieren revisión" value={reviewCount} detail="Sin matrícula o asociación pendiente" tone="amber" />
       </div>
+      <aside className="invoice-source-note" aria-label="Origen de las facturas de gestoría">
+        <IconMail size={19} />
+        <span><strong>Gestoría Durán Rivas</strong><small>Remitente: {gestoriaSender} · {gestoriaImportMeta.importedDocuments} documentos importados desde {gestoriaImportMeta.importedAccounts.join(" y ")}</small><small className="invoice-source-note__pending">Pendiente de conectar: {gestoriaImportMeta.pendingAccounts.join(" y ")}</small></span>
+        <StatusBadge status={gestoriaImportMeta.pendingAccounts.length ? "Parcial" : "Asociada"} />
+      </aside>
       <section className="content-card">
-        <header className="card-header"><div><h2>Facturas recientes</h2><p>Ordenadas por fecha de recepción.</p></div><button className="secondary-button"><IconRefresh size={17} />Actualizar correo</button></header>
+        <header className="card-header"><div><h2>Facturas recibidas</h2><p>Incluye cuotas mensuales y gastos extraordinarios, vinculados por titular y matrícula.</p></div><span className="source-label"><IconMail size={15} />Gmail · Gestoría</span></header>
         <div className="table-scroll">
           <table className="module-table">
-            <thead><tr><th>Factura</th><th>Taller</th><th>Vehículo</th><th>Concepto</th><th>Origen</th><th>Importe</th><th>Estado</th><th /></tr></thead>
-            <tbody>{invoices.map((invoice) => <tr key={invoice.id}><td><strong>{invoice.id}</strong><small>{invoice.date}</small></td><td>{invoice.provider}</td><td><VehiclePlateLabel vehicleOrPlate={invoice.plate} className="invoice-vehicle-plate" />{invoice.owner && <small>{invoice.owner.name}</small>}</td><td>{invoice.concept}</td><td><span className="source-label">{invoice.source === "Correo" ? <IconMail size={15} /> : invoice.source === "Foto" ? <IconCamera size={15} /> : <IconUpload size={15} />}{invoice.source}</span></td><td><strong>{formatCurrency(invoice.amount)}</strong></td><td><StatusBadge status={invoice.status} /></td><td><button className="table-action" onClick={() => setModal({ type: "invoice", item: invoice })}>Ver factura<IconChevronRight size={16} /></button></td></tr>)}</tbody>
+            <thead><tr><th>Factura</th><th>Proveedor</th><th>Matrícula / titular</th><th>Concepto</th><th>Origen</th><th>Importe</th><th>Estado</th><th /></tr></thead>
+            <tbody>{invoices.map((invoice) => <tr key={invoice.sourceDocumentId ?? invoice.id}><td><strong>{invoice.documentNumber ?? invoice.id}</strong><small>{invoice.date}{invoice.periodKey ? ` · Periodo ${invoice.periodKey}` : ""}</small></td><td>{invoice.provider}</td><td>{invoice.plate ? <VehiclePlateLabel vehicleOrPlate={invoice.plate} className="invoice-vehicle-plate" /> : <strong>Sin matrícula</strong>}{invoice.plateReference && <small>Referencia: {invoice.plateReference}</small>}{invoice.owner && <small>{invoice.owner.name}{invoice.owner.initials ? ` · ${invoice.owner.initials}` : ""}</small>}</td><td>{invoice.concept}</td><td><span className="source-label">{String(invoice.source ?? "").includes("Correo") ? <IconMail size={15} /> : invoice.source === "Foto" ? <IconCamera size={15} /> : <IconUpload size={15} />}{invoice.source}</span></td><td><strong>{formatCurrency(invoice.amount)}</strong></td><td><StatusBadge status={invoice.status} /></td><td><button className="table-action" onClick={() => setModal({ type: "invoice", item: invoice })}>Ver factura<IconChevronRight size={16} /></button></td></tr>)}</tbody>
           </table>
         </div>
       </section>
@@ -5375,7 +5479,7 @@ function HelpView({ openFaq, setOpenFaq, setModal }) {
   );
 }
 
-function VehicleInspector({ selected, selectedDriver, selectedActivity, invoices, inspectorTab, setInspectorTab, setInspectorOpen, setModal, selectDriver, openShift, setOpenShift, notify }) {
+function VehicleInspector({ selected, selectedDriver, selectedActivity, invoices, transactions = [], inspectorTab, setInspectorTab, setInspectorOpen, setModal, selectDriver, openShift, setOpenShift, notify }) {
   const remaining = selected.nextServiceKm - selected.odometer;
   return (
     <aside className="inspector" aria-label={`Detalle de ${selected.plate}`}>
@@ -5409,7 +5513,7 @@ function VehicleInspector({ selected, selectedDriver, selectedActivity, invoices
         )}
         {inspectorTab === "Mantenimiento" && <VehicleMaintenanceLedger vehicle={selected} invoices={invoices} onOpenInvoice={(invoice) => setModal({ type: "invoice", item: invoice })} />}
         {inspectorTab === "Gasolina" && <VehicleFuelLedger vehicle={selected} />}
-        {inspectorTab === "Gastos" && <VehicleExpenses vehicle={selected} />}
+        {inspectorTab === "Gastos" && <VehicleExpenses vehicle={selected} transactions={transactions} />}
         <section className="next-service"><span className={remaining <= 4500 ? "urgent" : ""}><IconTools size={18} /><strong>{formatKm(remaining)} restantes</strong></span><p>{selected.serviceDate} · objetivo {formatKm(selected.nextServiceKm)}</p></section>
       </div>
     </aside>
@@ -5420,6 +5524,7 @@ function VehicleMaintenanceLedger({ vehicle, invoices, onOpenInvoice }) {
   const rows = maintenanceConceptRows.map((category) => {
     const maintenance = vehicle.maintenance.find((item) => matchesMaintenanceConcept(item.concept, category.matches));
     const invoiceMatches = (item) =>
+      item.kind !== "gestoria" &&
       item.plate === vehicle.plate &&
       (matchesMaintenanceConcept(item.concept, category.matches) || item.items?.some((line) => matchesMaintenanceConcept(line.concept, category.matches)));
     const invoice = invoices.find((item) => invoiceMatches(item) && (!maintenance || item.date === maintenance.date))
@@ -5527,20 +5632,34 @@ function WorkshopHistory({ vehicle, onCreateInvoice }) {
   );
 }
 
-function VehicleExpenses({ vehicle }) {
+function VehicleExpenses({ vehicle, transactions = [] }) {
   const reportMonth = 6;
   const reportYear = 2026;
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
-  const amounts = [...(vehicleExpenseAmounts[vehicle.plate] ?? expenseCategories.map(() => 0))];
-  amounts[2] = getFuelCostForPeriod(vehicle, reportMonth, reportYear);
-  amounts[3] = getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear);
-  amounts[5] = 0;
-  amounts[6] = Number((vehicle.drivers.reduce((sum, driver) => sum + (getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor * DRIVER_COMMISSION_RATE, 0)).toFixed(2));
-  const expenses = expenseCategories.map((category, index) => ({ ...category, amount: amounts[index] ?? 0 }));
+  const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
+  const periodTransactions = transactions.filter((transaction) => String(transaction.occurred_on ?? "").startsWith(periodStart.slice(0, 7)) && transaction.vehicle_plate === vehicle.plate);
+  const transactionTotal = (type) => periodTransactions.filter((transaction) => transaction.type === type).reduce((sum, transaction) => sum + (Number(transaction.amount) || 0), 0);
+  const fuelAmount = transactionTotal("fuel") || getFuelCostForPeriod(vehicle, reportMonth, reportYear);
+  const maintenanceAmount = transactionTotal("maintenance") || getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear);
+  const gestoriaAmount = getGestoriaExpenseForPeriod(vehicle.plate, reportYear, reportMonth);
+  const driverRevenue = vehicle.use === "Profesional"
+    ? vehicle.drivers.slice(0, 2).map((driver) => ({ driver, amount: Number(((getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor).toFixed(2)) }))
+    : [];
+  const commissionAmount = Number((driverRevenue.reduce((sum, entry) => sum + entry.amount, 0) * DRIVER_COMMISSION_RATE).toFixed(2));
+  const payrollAmount = vehicle.use === "Profesional"
+    ? Number(vehicle.drivers.slice(0, 2).reduce((sum, driver) => sum + getImportedPayrollForPeriod(driver, reportYear, reportMonth), 0).toFixed(2))
+    : 0;
+  const amountsByKey = {
+    fuel: fuelAmount,
+    workshop: maintenanceAmount,
+    accounting: gestoriaAmount,
+    payroll: payrollAmount,
+    "driver-commission": commissionAmount,
+  };
+  const expenses = expenseCategories.map((category) => ({ ...category, amount: Number((amountsByKey[category.canonicalKey] ?? 0).toFixed(2)) }));
   const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const operating = expenses.filter((expense) => ["Gasolina", "Taller", "Comisiones de conductores", "Limpieza coche", "Varios"].includes(expense.label)).reduce((sum, expense) => sum + expense.amount, 0);
+  const operating = expenses.filter((expense) => ["fuel", "workshop", "driver-commission"].includes(expense.canonicalKey) || ["Limpieza coche", "Varios"].includes(expense.label)).reduce((sum, expense) => sum + expense.amount, 0);
   const fixed = total - operating;
-  const driverRevenue = vehicle.drivers.map((driver) => ({ driver, amount: Number(((getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor).toFixed(2)) }));
   const totalRevenue = driverRevenue.reduce((sum, entry) => sum + entry.amount, 0);
   const profitMargin = totalRevenue - total;
   const marginPercent = totalRevenue > 0 ? (profitMargin / totalRevenue) * 100 : 0;
@@ -5564,7 +5683,7 @@ function VehicleExpenses({ vehicle }) {
       <div className="expense-breakdown"><div><span>Fijos y fiscales</span><strong>{formatCurrency(fixed)}</strong></div><div><span>Operativos</span><strong>{formatCurrency(operating)}</strong></div></div>
       <div className="expense-table" role="table" aria-label={`Gastos de ${vehicle.plate} en julio de 2026`}>
         <div className="expense-row expense-row--header" role="row"><span>Categoría</span><span>Periodo</span><span>Importe</span></div>
-        {expenses.map((expense) => <div className="expense-row" role="row" key={expense.label}><span role="cell"><strong>{expense.label}</strong></span><span role="cell"><small>{expense.amount === 0 && expense.label === "Nóminas" ? "Añadir manualmente" : expense.amount === 0 ? "No aplica" : expense.cadence}</small></span><strong role="cell" className={expense.amount === 0 ? "expense-zero" : ""}>{formatCurrency(expense.amount)}</strong></div>)}
+        {expenses.map((expense) => <div className="expense-row" role="row" key={expense.canonicalKey ?? expense.label}><span role="cell"><strong>{expense.label}</strong></span><span role="cell"><small>{expense.amount === 0 && expense.label === "Nóminas" ? "Añadir manualmente" : expense.amount === 0 && expense.label === "Gestoría" ? "Sin factura en el periodo" : expense.amount === 0 ? "No aplica" : expense.cadence}</small></span><strong role="cell" className={expense.amount === 0 ? "expense-zero" : ""}>{formatCurrency(expense.amount)}</strong></div>)}
       </div>
       <p className="expense-note">Importes asociados únicamente a {vehicle.plate}. Los trimestrales y anuales muestran el pago registrado en el periodo.</p>
     </section>
@@ -5573,9 +5692,10 @@ function VehicleExpenses({ vehicle }) {
 
 function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onSaveMaintenance, vehicles }) {
   const item = modal.item;
-  const itemOwner = getVehicleOwner(item);
+  const itemOwner = item?.owner ?? getVehicleOwner(item);
   const isReading = modal.type === "reading-review";
   const isInvoice = modal.type === "invoice";
+  const isGestoriaInvoice = isInvoice && item?.kind === "gestoria";
   const isFuelInvoice = isInvoice && item?.source === "Cuenta Plenergy";
   const isPhotoInvoice = modal.type === "invoice-upload";
   const isDocumentProcessing = modal.type === "document-processing";
@@ -5586,9 +5706,9 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}${isMaintenanceEdit ? " modal--maintenance-edit" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <header><div><span>Acción rápida</span><h2 id="modal-title">{isFuelInvoice ? "Factura Plenergy" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
+        <header><div><span>Acción rápida</span><h2 id="modal-title">{isFuelInvoice ? "Factura Plenergy" : isGestoriaInvoice ? "Factura de gestoría" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
-        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc && <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure>}<dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>DNI {itemOwner.dni}{itemOwner.location ? ` · ${itemOwner.location}` : ""}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
+        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.documentNumber ?? item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc && <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate || item.plateReference || "la flota"}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure>}{isGestoriaInvoice && !item.imageSrc && <div className="invoice-source-file"><IconMail size={17} /><span><strong>Adjunto rescatado del correo</strong><small>{item.sourceFile || "Archivo de Gestoría Durán Rivas"} · {item.sourceAccount}</small></span></div>}<dl><div><dt>Vehículo</dt><dd>{item.plate || `Sin matrícula${item.plateReference ? ` · ref. ${item.plateReference}` : ""}`}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>{[itemOwner.dni ? `DNI ${itemOwner.dni}` : "", itemOwner.location, itemOwner.initials].filter(Boolean).join(" · ")}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div>{item.periodKey && <div><dt>Periodo imputado</dt><dd>{item.periodKey}</dd></div>}<div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
         {isMaintenanceEdit && <MaintenanceEditWorkflow item={item} onCancel={onClose} onSave={(values) => { const saved = onSaveMaintenance?.(values); if (saved !== false) complete("Intervención actualizada y reordenada por fecha"); }} />}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={async (invoice) => { const saved = await onSaveInvoice(invoice); if (saved !== false) complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
