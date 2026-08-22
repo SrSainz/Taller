@@ -3855,7 +3855,10 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-app--preview .driver-mobile-month-summary__metric--billing > strong { font-size: clamp(28px, 8vw, 38px); }
 .driver-app--preview .driver-mobile-billing-target { width: 100%; margin-top: 7px; padding: 10px 0 3px; border: 0; border-top: 1px solid #d6e1ee; border-radius: 0; background: transparent; }
 .driver-app--preview .driver-mobile-billing-target__track { height: 14px; border-radius: 5px; }
-.driver-app--preview .driver-mobile-billing-target__milestone { top: 50%; width: 2px; height: 22px; border: 0; border-radius: 0; background: #f2a62a; box-shadow: 0 0 0 1px rgba(150,94,8,.18); }
+.driver-app--preview .driver-mobile-billing-target__milestone { top: 50%; width: 10px; height: 10px; border: 2px solid #2c6de9; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(44,109,233,.18); }
+.driver-app--preview .driver-mobile-billing-target__milestone.is-reached { border-color: #fff; background: #2c6de9; box-shadow: 0 0 0 1px #2c6de9; }
+.driver-app--preview .driver-mobile-billing-target__milestone.is-goal { border-color: #f2a62a; box-shadow: 0 0 0 1px rgba(150,94,8,.18); }
+.driver-app--preview .driver-mobile-billing-target__milestone.is-goal.is-reached { border-color: #fff; background: #f2a62a; box-shadow: 0 0 0 1px #d98b0b; }
 .driver-app--preview .driver-mobile-billing-target__labels { padding-top: 3px; color: #4f6686; font-size: 8px; font-weight: 800; }
 .driver-app--preview .driver-mobile-preview-chart-card__heading { letter-spacing: .01em; }
 @media (max-width: 520px) {
@@ -4086,11 +4089,20 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 }
 
 /* Objetivos y pendiente de mantenimiento en la vista del conductor. */
+.driver-mobile-billing-target__header { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; color: #4f6686; font-size: 8px; font-weight: 800; line-height: 1; }
+.driver-mobile-billing-target__header > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-billing-target__header > strong { flex: 0 0 auto; color: #2c6de9; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 900; }
+.driver-mobile-billing-target__header > strong small { color: inherit; font-size: 7px; font-weight: 800; }
+.driver-mobile-billing-target.is-goal-reached .driver-mobile-billing-target__header > strong { color: #159b79; }
 .driver-mobile-billing-target__scale { position: relative; padding-bottom: 17px; }
 .driver-mobile-billing-target__track { height: 12px; border-radius: 5px; }
-.driver-mobile-billing-target__milestone { top: 50%; width: 2px; height: 26px; border: 0; border-radius: 0; background: #f2a62a; box-shadow: 0 0 0 1px rgba(150,94,8,.16); transform: translate(-50%, -50%); }
+.driver-mobile-billing-target__milestone { top: 50%; width: 10px; height: 10px; border: 2px solid #2c6de9; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(44,109,233,.18); transform: translate(-50%, -50%); }
+.driver-mobile-billing-target__milestone.is-reached { border-color: #fff; background: #2c6de9; box-shadow: 0 0 0 1px #2c6de9; }
+.driver-mobile-billing-target__milestone.is-goal { border-color: #f2a62a; box-shadow: 0 0 0 1px rgba(150,94,8,.18); }
+.driver-mobile-billing-target__milestone.is-goal.is-reached { border-color: #fff; background: #f2a62a; box-shadow: 0 0 0 1px #d98b0b; }
 .driver-mobile-billing-target__labels { position: absolute; right: 0; bottom: 0; left: 0; display: block; height: 12px; padding: 0; }
 .driver-mobile-billing-target__labels span { position: absolute; top: 0; color: #4f6686; font-size: 8px; font-variant-numeric: tabular-nums; font-weight: 800; line-height: 1; transform: translateX(-50%); white-space: nowrap; }
+.driver-mobile-billing-target__labels span.is-goal { color: #b57209; }
 .driver-mobile-billing-target__labels span.is-start { transform: none; }
 .driver-mobile-billing-target__labels span.is-end { transform: translateX(-100%); }
 .driver-mobile-month-summary__tips-layout { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
