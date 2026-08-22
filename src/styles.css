@@ -4133,6 +4133,16 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 /* La pantalla inicial de Neto conserva los tres coches fijos y no crea scroll vertical. */
 .net-detail-modal:not(.net-detail-modal--expanded) { height: min(92dvh, 820px); max-height: min(92dvh, 820px); }
 .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-carousel { flex: 1 1 auto; min-height: 0; overflow: hidden; touch-action: pan-x; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed { gap: 7px; padding: 8px 10px; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual { flex-basis: 28%; overflow: hidden; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual img { width: 100%; height: clamp(64px, 11vh, 82px); max-height: 82px; object-fit: contain; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-content { gap: 5px; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__plate { padding: 4px 7px; font-size: 13px; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__net--large { font-size: 23px; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line { gap: 2px; padding: 4px 7px; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line span { min-height: 17px; font-size: 9px; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line strong { font-size: 15px; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__expand { min-height: 30px; }
 
 @media (max-width: 720px) {
   .net-detail-card__expense-breakdown-row { padding-left: 8px; }
