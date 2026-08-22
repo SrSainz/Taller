@@ -2383,6 +2383,10 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .admin-accordion__copy { display: grid; min-width: 0; gap: 3px; }
 .admin-accordion__copy strong { overflow: hidden; color: var(--text); font-size: 14px; font-weight: 850; letter-spacing: .02em; text-overflow: ellipsis; white-space: nowrap; }
 .admin-accordion__copy small { overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.admin-accordion__vehicle-subline { min-width: 0; display: flex; align-items: center; gap: 5px; }
+.admin-accordion__vehicle-subline small { min-width: 0; flex: 0 1 auto; }
+.admin-accordion__driver-names { min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: visible !important; color: var(--text); text-overflow: clip !important; white-space: normal !important; }
+.admin-accordion__driver-names span { overflow: visible; color: var(--text); font-size: 10px; font-weight: 800; line-height: 1.05; text-overflow: clip; white-space: nowrap; }
 .admin-accordion__chevron { color: var(--muted); transition: transform .2s ease, color .2s ease; }
 .admin-accordion__button--open .admin-accordion__chevron { color: var(--green-800); transform: rotate(180deg); }
 .admin-accordion__panel { padding: 17px; border-top: 1px solid var(--line); background: #fbfdfc; }
@@ -3300,7 +3304,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .app-shell--admin .admin-vehicles-heading button { padding: 2px 0; border: 0; background: transparent; color: #297b70; font: inherit; font-size: 8px; font-weight: 750; cursor: pointer; }
 .app-shell--admin .admin-accordion { overflow: hidden; border: 1px solid #e0e9e6; border-radius: 13px; background: #fff; box-shadow: 0 3px 9px rgba(29, 73, 62, .045); }
 .app-shell--admin .admin-accordion--admin { border-color: #d9eae5; }
-.app-shell--admin .admin-accordion__button { min-height: 64px; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.15fr) auto; gap: 9px; padding: 9px 11px; background: #fff; }
+.app-shell--admin .admin-accordion__button { min-height: 64px; grid-template-columns: auto minmax(0, 1fr) minmax(64px, .42fr) auto; gap: 9px; padding: 9px 11px; background: #fff; }
 .app-shell--admin .admin-accordion--admin .admin-accordion__button { grid-template-columns: auto minmax(0, 1fr) auto; min-height: 62px; }
 .app-shell--admin .admin-accordion__button:hover { background: #f9fcfb; }
 .app-shell--admin .admin-accordion__icon { width: 34px; height: 34px; border-radius: 10px; }
@@ -3308,9 +3312,13 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .app-shell--admin .admin-accordion__copy strong { overflow: hidden; color: #243631; font-size: 12px; line-height: 1.05; text-overflow: ellipsis; white-space: nowrap; }
 .app-shell--admin .admin-accordion__copy .admin-accordion__admin-name { font-size: 13px; letter-spacing: .02em; }
 .app-shell--admin .admin-accordion__copy small { overflow: hidden; color: #70817b; font-size: 8px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell--admin .admin-accordion__vehicle-subline { gap: 5px; }
+.app-shell--admin .admin-accordion__vehicle-subline small { flex: 0 1 auto; }
+.app-shell--admin .admin-accordion__driver-names { align-items: flex-start; gap: 2px; }
+.app-shell--admin .admin-accordion__driver-names span { overflow: visible; color: #263d37; font-size: clamp(10px, 1.05vw, 12px); font-weight: 850; line-height: 1.05; text-overflow: clip; white-space: nowrap; }
 .app-shell--admin .admin-accordion__status { display: inline-flex; align-items: center; gap: 3px; color: #2b9d55; font-size: 7px; font-weight: 750; line-height: 1; }
 .app-shell--admin .admin-accordion__status i { width: 6px; height: 6px; display: block; border-radius: 50%; background: #2ab15d; }
-.app-shell--admin .admin-accordion__meta { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 7px; }
+.app-shell--admin .admin-accordion__meta { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 7px; }
 .app-shell--admin .admin-accordion__meta > span { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 4px; align-items: center; }
 .app-shell--admin .admin-accordion__meta svg { grid-row: 1 / span 2; color: #758580; }
 .app-shell--admin .admin-accordion__meta b,
@@ -3318,8 +3326,6 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .app-shell--admin .admin-accordion__meta b { color: #687973; font-size: 7px; font-weight: 750; line-height: 1; }
 .app-shell--admin .admin-accordion__meta small { color: #263d37; font-size: 7px; line-height: 1.1; }
 .app-shell--admin .admin-accordion__meta > span:first-child { align-items: start; }
-.app-shell--admin .admin-accordion__meta .admin-accordion__driver-names { display: flex; min-width: 0; flex-direction: column; gap: 2px; overflow: visible; white-space: normal; }
-.app-shell--admin .admin-accordion__meta .admin-accordion__driver-names span { overflow: hidden; color: #263d37; font-size: clamp(12px, 1.2vw, 14px); font-weight: 850; line-height: 1.05; text-overflow: ellipsis; white-space: nowrap; }
 .app-shell--admin .admin-accordion__chevron { color: #74827d; }
 .app-shell--admin .admin-accordion__button--open .admin-accordion__chevron { color: #24796e; }
 .app-shell--admin .admin-accordion__icon--vehicle { background: #e4edff; color: #4771d6; }
@@ -3355,19 +3361,20 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .app-shell--admin .admin-vehicles-heading { min-height: 18px; padding-top: 2px; }
   .app-shell--admin .admin-vehicles-heading strong { font-size: 9px; }
   .app-shell--admin .admin-vehicles-heading button { font-size: 7px; }
-  .app-shell--admin .admin-accordion__button { min-height: 62px; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.2fr) auto; gap: 7px; padding: 8px 8px; }
+  .app-shell--admin .admin-accordion__button { min-height: 62px; grid-template-columns: auto minmax(0, 1fr) minmax(58px, .38fr) auto; gap: 7px; padding: 8px 8px; }
   .app-shell--admin .admin-accordion--admin .admin-accordion__button { grid-template-columns: auto minmax(0, 1fr) auto; min-height: 58px; }
   .app-shell--admin .admin-accordion__icon { width: 31px; height: 31px; border-radius: 9px; }
   .app-shell--admin .admin-accordion__copy strong { font-size: 11px; }
   .app-shell--admin .admin-accordion__copy .admin-accordion__admin-name { font-size: 12px; }
   .app-shell--admin .admin-accordion__copy small { font-size: 7px; }
+  .app-shell--admin .admin-accordion__vehicle-subline { gap: 4px; }
   .app-shell--admin .admin-accordion__status { font-size: 6.5px; }
   .app-shell--admin .admin-accordion__meta { gap: 4px; }
   .app-shell--admin .admin-accordion__meta > span { column-gap: 3px; }
   .app-shell--admin .admin-accordion__meta svg { width: 12px; height: 12px; }
   .app-shell--admin .admin-accordion__meta b { font-size: 6px; }
   .app-shell--admin .admin-accordion__meta small { font-size: 6px; }
-  .app-shell--admin .admin-accordion__meta .admin-accordion__driver-names span { font-size: 12px; }
+  .app-shell--admin .admin-accordion__driver-names span { font-size: 10px; }
 }
 
 @media (max-width: 760px) {
