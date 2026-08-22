@@ -1942,7 +1942,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   };
 
   if (previewDriver) {
-    return <DriverApp session={session} profile={previewDriver} preview onExitPreview={() => { setPreviewDriver(null); refreshDriverEntries().catch(() => undefined); }} onSignOut={onSignOut} />;
+    return <DriverApp session={session} profile={previewDriver} preview onExitPreview={() => setPreviewDriver(null)} onSignOut={onSignOut} />;
   }
 
   return (
