@@ -537,7 +537,33 @@ const saveManualNetExpenses = (expenses) => {
   }
 };
 
-const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], fuelEntries = [], periodFinancials = [], reportMonth = 6, reportYear = 2026 }) => {
+const manualNetBreakdownsStorageKey = "talleria:manual-net-breakdowns:clean-v1";
+const loadManualNetBreakdowns = () => {
+  try {
+    if (typeof window === "undefined") return [];
+    const stored = JSON.parse(window.localStorage.getItem(manualNetBreakdownsStorageKey) ?? "[]");
+    return Array.isArray(stored)
+      ? stored.filter((breakdown) => breakdown?.id && breakdown?.periodKey && breakdown?.plate && breakdown?.expenseKey && breakdown?.breakdownKey && breakdown?.driverLabel && breakdown?.concept && Number.isFinite(Number(breakdown.amount)) && Number(breakdown.amount) >= 0).map((breakdown) => ({ ...breakdown, amount: Number(breakdown.amount) }))
+      : [];
+  } catch {
+    return [];
+  }
+};
+const saveManualNetBreakdowns = (breakdowns) => {
+  try {
+    window.localStorage.setItem(manualNetBreakdownsStorageKey, JSON.stringify(breakdowns));
+  } catch {
+    // El detalle sigue funcionando aunque el dispositivo no permita persistencia local.
+  }
+};
+const getNetBreakdownKey = (breakdown, index = 0) => breakdown.breakdownKey || breakdown.driverId || normalizeNetExpenseCategory(breakdown.label) || `fila-${index}`;
+const applyNetBreakdownOverrides = (expenseKey, breakdowns, manualBreakdowns = []) => breakdowns.map((breakdown, index) => {
+  const breakdownKey = getNetBreakdownKey(breakdown, index);
+  const override = manualBreakdowns.find((candidate) => candidate.expenseKey === expenseKey && candidate.breakdownKey === breakdownKey);
+  return override ? { ...breakdown, amount: Number(override.amount), concept: override.concept, manualBreakdownId: override.id } : breakdown;
+});
+
+const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], fuelEntries = [], periodFinancials = [], manualBreakdowns = [], reportMonth = 6, reportYear = 2026 }) => {
   const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
@@ -557,9 +583,9 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
       : getDriverFuelEntriesForPeriod(vehicle, driver, reportMonth, reportYear);
     const liters = refuellings.reduce((sum, entry) => sum + entry.liters, 0);
     const cost = refuellings.reduce((sum, entry) => sum + entry.cost, 0);
-    return { label: driver, amount: Number(cost.toFixed(2)), meta: `${Number(liters.toFixed(1)).toLocaleString("es-ES")} L · ${refuellings.length} repostajes` };
+    return { breakdownKey: profile?.id || normalizeNetExpenseCategory(driver), driverId: profile?.id ?? "", label: driver, amount: Number(cost.toFixed(2)), meta: `${Number(liters.toFixed(1)).toLocaleString("es-ES")} L · ${refuellings.length} repostajes` };
   });
-  const payrollBreakdown = resolvedDriverRows.slice(0, 2).map((row, index) => ({ label: row.driver, amount: Number(periodPayrollFor(row, index).toFixed(2)), meta: "Nómina mensual" }));
+  const payrollBreakdown = resolvedDriverRows.slice(0, 2).map((row, index) => ({ breakdownKey: row.driverId || normalizeNetExpenseCategory(row.driver), driverId: row.driverId ?? "", label: row.driver, amount: Number(periodPayrollFor(row, index).toFixed(2)), meta: "Nómina mensual" }));
   const commissionSummary = resolvedDriverRows.slice(0, 2).map((row, index) => {
     const monthEntries = (row.entries ?? []).filter((entry) => String(entry.entry_date ?? "").startsWith(periodStart.slice(0, 7)));
     const tips = monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0);
@@ -571,13 +597,13 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     const amount = calculation?.commission ?? Number((Number(row.revenue) * DRIVER_COMMISSION_RATE).toFixed(2));
     return { driver: row.driver, driverId: row.driverId ?? "", amount, calculation, periodStart, periodEnd, vehiclePlate: vehicle.plate };
   });
-  const commissionBreakdown = commissionSummary.map((row) => ({ label: row.driver, amount: row.amount, meta: row.calculation ? "32% + tramos por facturación" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación` }));
+  const commissionBreakdown = commissionSummary.map((row) => ({ breakdownKey: row.driverId || normalizeNetExpenseCategory(row.driver), driverId: row.driverId ?? "", label: row.driver, amount: row.amount, meta: row.calculation ? "32% + tramos por facturación" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación` }));
   const alexCommissionReport = commissionSummary.find((row) => row.calculation)?.calculation
     ? commissionSummary.find((row) => row.calculation)
     : null;
   const socialBreakdown = [
-    { label: "Autónomo", amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[0] ?? 0), meta: "Cuota mensual" },
-    ...vehicleDrivers.map((driver, index) => ({ label: driver, amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[index + 1] ?? 0), meta: "Seguridad social" })),
+    { breakdownKey: "autonomo", label: "Autónomo", amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[0] ?? 0), meta: "Cuota mensual" },
+    ...vehicleDrivers.map((driver, index) => ({ breakdownKey: vehicle.driverProfiles?.[index]?.id || normalizeNetExpenseCategory(driver), driverId: vehicle.driverProfiles?.[index]?.id ?? "", label: driver, amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[index + 1] ?? 0), meta: "Seguridad social" })),
   ];
   const breakdownTotal = (rows) => rows.reduce((sum, row) => sum + row.amount, 0);
   const fuelTotal = breakdownTotal(fuelBreakdown);
@@ -585,12 +611,16 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     const adjustment = Number((fuel - fuelTotal).toFixed(2));
     fuelBreakdown[fuelBreakdown.length - 1].amount = Number((fuelBreakdown[fuelBreakdown.length - 1].amount + adjustment).toFixed(2));
   }
+  const resolvedFuelBreakdown = applyNetBreakdownOverrides("fuel", fuelBreakdown, manualBreakdowns);
+  const resolvedPayrollBreakdown = applyNetBreakdownOverrides("payroll", payrollBreakdown, manualBreakdowns);
+  const resolvedCommissionBreakdown = applyNetBreakdownOverrides("driver-commission", commissionBreakdown, manualBreakdowns);
+  const resolvedSocialBreakdown = applyNetBreakdownOverrides("social-security", socialBreakdown, manualBreakdowns);
   return [
     { key: "workshop", label: "Taller", amount: maintenance, cadence: "Variable" },
-    { key: "fuel", label: "Gasolina", amount: fuel, cadence: "Por conductor", breakdown: fuelBreakdown },
-    { key: "payroll", label: "Nóminas", amount: breakdownTotal(payrollBreakdown), cadence: "2 conductores", breakdown: payrollBreakdown },
-    { key: "driver-commission", label: "Comisiones de conductores", amount: breakdownTotal(commissionBreakdown) || commission, cadence: alexCommissionReport ? "Alex · 32% + tramos" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual`, breakdown: commissionBreakdown, commissionReport: alexCommissionReport },
-    { key: "social-security", label: "Seguros sociales", amount: breakdownTotal(socialBreakdown), cadence: "Autónomo + 2 conductores", breakdown: socialBreakdown },
+    { key: "fuel", label: "Gasolina", amount: breakdownTotal(resolvedFuelBreakdown), cadence: "Por conductor", breakdown: resolvedFuelBreakdown },
+    { key: "payroll", label: "Nóminas", amount: breakdownTotal(resolvedPayrollBreakdown), cadence: "2 conductores", breakdown: resolvedPayrollBreakdown },
+    { key: "driver-commission", label: "Comisiones de conductores", amount: resolvedCommissionBreakdown.length ? breakdownTotal(resolvedCommissionBreakdown) : commission, cadence: alexCommissionReport ? "Alex · 32% + tramos" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual`, breakdown: resolvedCommissionBreakdown, commissionReport: alexCommissionReport },
+    { key: "social-security", label: "Seguros sociales", amount: breakdownTotal(resolvedSocialBreakdown), cadence: "Autónomo + 2 conductores", breakdown: resolvedSocialBreakdown },
     { key: "accounting", label: "Gestoría", amount: scale(additional.gestoria), cadence: "Mensual" },
     { key: "taxes", label: "Impuestos", amount: scale(amounts[7]), cadence: "Trimestral" },
     { key: "eu-vat", label: "IVA intracomunitario", amount: scale(amounts[8]), cadence: "Trimestral" },
@@ -3522,16 +3552,35 @@ function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }
   );
 }
 
-function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onClose }) {
+function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onSaveBreakdown, onClose }) {
   const closeButtonRef = useRef(null);
+  const breakdownAmountRef = useRef(null);
+  const breakdownPressTimerRef = useRef(null);
+  const breakdownLongPressRef = useRef(false);
   const [selectedPlate, setSelectedPlate] = useState("");
   const [expandedExpenseRows, setExpandedExpenseRows] = useState(() => new Set());
   const [activeFormPlate, setActiveFormPlate] = useState("");
   const [formState, setFormState] = useState({ label: "", amount: "" });
   const [formError, setFormError] = useState("");
+  const [activeBreakdownEditor, setActiveBreakdownEditor] = useState("");
+  const [breakdownFormState, setBreakdownFormState] = useState({ expenseKey: "", breakdownKey: "", driverLabel: "", concept: "", amount: "" });
+  const [breakdownFormError, setBreakdownFormError] = useState("");
+  const [focusBreakdownAmount, setFocusBreakdownAmount] = useState(false);
   useEffect(() => {
     closeButtonRef.current?.focus();
   }, []);
+  useEffect(() => () => {
+    if (breakdownPressTimerRef.current) window.clearTimeout(breakdownPressTimerRef.current);
+  }, []);
+  useEffect(() => {
+    if (!focusBreakdownAmount || !activeBreakdownEditor) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      breakdownAmountRef.current?.focus();
+      breakdownAmountRef.current?.select();
+      setFocusBreakdownAmount(false);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeBreakdownEditor, focusBreakdownAmount]);
   const total = details.reduce((sum, detail) => sum + detail.net, 0);
   const orderedDetails = [...details].sort((left, right) => vehicleOrder.indexOf(left.vehicle.plate) - vehicleOrder.indexOf(right.vehicle.plate));
   const selectedDetail = orderedDetails.find((detail) => detail.vehicle.plate === selectedPlate) ?? null;
@@ -3540,6 +3589,8 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
     setSelectedPlate((current) => current === plate ? "" : plate);
     setExpandedExpenseRows(new Set());
     setActiveFormPlate("");
+    setActiveBreakdownEditor("");
+    setBreakdownFormError("");
   };
   const toggleExpenseRow = (rowKey) => {
     setExpandedExpenseRows((current) => {
@@ -3551,6 +3602,7 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
   };
   const openExpenseForm = (plate) => {
     setActiveFormPlate(plate);
+    setActiveBreakdownEditor("");
     setFormState({ category: "", label: "", amount: "" });
     setFormError("");
   };
@@ -3571,6 +3623,53 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
     onAddExpense({ periodKey, plate, label, category: selectedCategory?.label ?? label, categoryKey: formState.category === "__custom__" ? "" : selectedCategory?.canonicalKey ?? "", cadence: selectedCategory?.cadence ?? "Manual", amount: Number(amount.toFixed(2)) });
     setSelectedPlate(plate);
     closeExpenseForm();
+  };
+  const closeBreakdownEditor = () => {
+    setActiveBreakdownEditor("");
+    setBreakdownFormState({ expenseKey: "", breakdownKey: "", driverLabel: "", concept: "", amount: "" });
+    setBreakdownFormError("");
+    setFocusBreakdownAmount(false);
+  };
+  const getBreakdownEditorKey = (rowKey, breakdown, index) => `${rowKey}-${getNetBreakdownKey(breakdown, index)}`;
+  const openBreakdownEditor = (expense, breakdown, rowKey, index, focusAmount = false) => {
+    const breakdownKey = getNetBreakdownKey(breakdown, index);
+    setActiveBreakdownEditor(getBreakdownEditorKey(rowKey, breakdown, index));
+    setBreakdownFormState({ expenseKey: expense.key, breakdownKey, driverLabel: breakdown.label, concept: breakdown.concept || expense.label, amount: String(Number(breakdown.amount ?? 0)) });
+    setBreakdownFormError("");
+    setFocusBreakdownAmount(focusAmount);
+  };
+  const clearBreakdownPress = () => {
+    if (breakdownPressTimerRef.current) {
+      window.clearTimeout(breakdownPressTimerRef.current);
+      breakdownPressTimerRef.current = null;
+    }
+  };
+  const startBreakdownPress = (expense, breakdown, rowKey, index) => {
+    clearBreakdownPress();
+    breakdownLongPressRef.current = false;
+    breakdownPressTimerRef.current = window.setTimeout(() => {
+      breakdownLongPressRef.current = true;
+      openBreakdownEditor(expense, breakdown, rowKey, index, true);
+      breakdownPressTimerRef.current = null;
+    }, 2000);
+  };
+  const handleBreakdownTriggerClick = (expense, breakdown, rowKey, index) => {
+    if (breakdownLongPressRef.current) {
+      breakdownLongPressRef.current = false;
+      return;
+    }
+    openBreakdownEditor(expense, breakdown, rowKey, index);
+  };
+  const handleBreakdownSubmit = (event, plate) => {
+    event.preventDefault();
+    const concept = breakdownFormState.concept.trim();
+    const amount = Number(String(breakdownFormState.amount).replace(",", "."));
+    if (!concept || !Number.isFinite(amount) || amount < 0) {
+      setBreakdownFormError("Indica un concepto y un importe igual o mayor que cero.");
+      return;
+    }
+    onSaveBreakdown?.({ periodKey, plate, expenseKey: breakdownFormState.expenseKey, breakdownKey: breakdownFormState.breakdownKey, driverLabel: breakdownFormState.driverLabel, concept, amount: Number(amount.toFixed(2)) });
+    closeBreakdownEditor();
   };
   const getExpenseIcon = (key) => {
     if (key === "fuel") return IconGasStation;
@@ -3594,7 +3693,22 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
         return <div className="net-detail-card__expense-group" key={expense.key}>
           {expandable ? <button type="button" className={rowClass} aria-expanded={breakdownOpen} aria-controls={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} onClick={() => toggleExpenseRow(rowKey)}><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{expense.cadence}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong><IconChevronRight size={15} /></span></button> : <div className={rowClass} role="row"><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{(expense.manual || expense.manualExpenseIds?.length > 0) && <button type="button" onClick={() => onRemoveExpense(expense.manual ? expense.id : expense.manualExpenseIds)} aria-label={`Eliminar gasto manual de ${expense.label}`}><IconTrash size={12} /></button>}</span></div>}
           {breakdownOpen && <div className="net-detail-card__expense-breakdown" id={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} role="rowgroup" aria-label={`Detalle de ${expense.label}`}>
-            {expense.breakdown.map((breakdown) => <div className="net-detail-card__expense-breakdown-row" role="row" key={`${rowKey}-${breakdown.label}`}><span role="cell"><strong>{breakdown.label}</strong><small>{breakdown.meta}</small></span><strong role="cell">{formatCurrency(breakdown.amount)}</strong></div>)}
+            {expense.breakdown.map((breakdown, breakdownIndex) => {
+              const breakdownEditorKey = getBreakdownEditorKey(rowKey, breakdown, breakdownIndex);
+              const breakdownEditorId = `net-breakdown-editor-${rowKey.replace(/\s/g, "-")}-${breakdownIndex}`;
+              const editingBreakdown = activeBreakdownEditor === breakdownEditorKey;
+              return <div className={`net-detail-card__expense-breakdown-entry${editingBreakdown ? " is-editing" : ""}`} key={`${rowKey}-${getNetBreakdownKey(breakdown, breakdownIndex)}`}>
+                <button type="button" className="net-detail-card__expense-breakdown-row" role="row" aria-expanded={editingBreakdown} aria-controls={editingBreakdown ? breakdownEditorId : undefined} title="Pulsa dos segundos para editar directamente el importe" onPointerDown={(event) => { if (event.pointerType === "mouse" && event.button !== 0) return; startBreakdownPress(expense, breakdown, rowKey, breakdownIndex); }} onPointerUp={clearBreakdownPress} onPointerCancel={clearBreakdownPress} onPointerLeave={clearBreakdownPress} onClick={() => handleBreakdownTriggerClick(expense, breakdown, rowKey, breakdownIndex)}>
+                  <span role="cell"><strong>{breakdown.label}</strong><small>{breakdown.concept ? `${breakdown.concept} · ${breakdown.meta}` : breakdown.meta}</small></span><strong role="cell">{formatCurrency(breakdown.amount)}</strong>
+                </button>
+                {editingBreakdown && <form className="net-detail-card__breakdown-editor" id={breakdownEditorId} onSubmit={(event) => handleBreakdownSubmit(event, selectedDetail.vehicle.plate)}>
+                  <label><span>Concepto</span><input type="text" value={breakdownFormState.concept} onChange={(event) => setBreakdownFormState((current) => ({ ...current, concept: event.target.value }))} maxLength={60} autoFocus={false} /></label>
+                  <label><span>Importe</span><input ref={breakdownAmountRef} type="number" value={breakdownFormState.amount} onChange={(event) => setBreakdownFormState((current) => ({ ...current, amount: event.target.value }))} min="0" step="0.01" inputMode="decimal" /></label>
+                  <div className="net-detail-card__breakdown-editor-actions"><button type="button" className="net-detail-card__form-cancel" onClick={closeBreakdownEditor}>Cancelar</button><button type="submit" className="net-detail-card__form-save">Guardar</button></div>
+                  {breakdownFormError && <p>{breakdownFormError}</p>}
+                </form>}
+              </div>;
+            })}
           </div>}
           {breakdownOpen && expense.commissionReport && <AlexCommissionReportPanel report={expense.commissionReport} periodLabel={periodLabel} archivedReports={commissionReports} busy={commissionReportBusy} message={commissionReportMessage} onSavePayroll={onSaveAlexPayroll} onGenerate={onGenerateAlexReport} onDownload={onDownloadCommissionReport} />}
         </div>;
@@ -3680,6 +3794,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   const [selectedChartBar, setSelectedChartBar] = useState("");
   const [netDetailOpen, setNetDetailOpen] = useState(false);
   const [manualNetExpenses, setManualNetExpenses] = useState(() => loadManualNetExpenses());
+  const [manualNetBreakdowns, setManualNetBreakdowns] = useState(() => loadManualNetBreakdowns());
   const [periodFinancials, setPeriodFinancials] = useState([]);
   const [commissionReports, setCommissionReports] = useState([]);
   const [commissionReportBusy, setCommissionReportBusy] = useState(false);
@@ -3736,6 +3851,9 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   useEffect(() => {
     saveManualNetExpenses(manualNetExpenses);
   }, [manualNetExpenses]);
+  useEffect(() => {
+    saveManualNetBreakdowns(manualNetBreakdowns);
+  }, [manualNetBreakdowns]);
   const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
   useEffect(() => {
     let mounted = true;
@@ -3834,6 +3952,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         periodFactor,
         driverRows: vehicleBillingRows,
         periodFinancials,
+        manualBreakdowns: manualNetBreakdowns.filter((breakdown) => breakdown.periodKey === netPeriodKey && breakdown.plate === vehicle.plate),
         reportMonth,
         reportYear,
       });
@@ -4119,7 +4238,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
-              {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onClose={() => setNetDetailOpen(false)} />}
+              {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onSaveBreakdown={(breakdown) => setManualNetBreakdowns((current) => { const next = current.filter((candidate) => !(candidate.periodKey === netPeriodKey && candidate.plate === breakdown.plate && candidate.expenseKey === breakdown.expenseKey && candidate.breakdownKey === breakdown.breakdownKey)); return [...next, { ...breakdown, id: `breakdown-${Date.now()}-${current.length}`, periodKey: netPeriodKey }]; })} onClose={() => setNetDetailOpen(false)} />}
             </div>
           </>
         )}

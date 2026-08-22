@@ -4108,3 +4108,33 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-mobile-month-summary__tips-layout { gap: 7px; }
   .driver-mobile-maintenance-note__trigger { padding-inline: 7px; font-size: 8px; }
 }
+
+/* Neto: cada partida por conductor se puede revisar y editar sin salir del desglose. */
+.net-detail-card__expense-breakdown-entry { min-width: 0; border-bottom: 1px dashed #d9e7df; }
+.net-detail-card__expense-breakdown-entry:last-child { border-bottom: 0; }
+.net-detail-card__expense-breakdown-row { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 34px; padding: 6px 8px 6px 48px; border: 0; border-bottom: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.net-detail-card__expense-breakdown-row:hover, .net-detail-card__expense-breakdown-row:focus-visible { background: rgba(255,255,255,.65); outline: 0; }
+.net-detail-card__expense-breakdown-row:focus-visible { box-shadow: inset 0 0 0 2px rgba(39, 140, 59, .22); }
+.net-detail-card__expense-breakdown-row > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.net-detail-card__expense-breakdown-row > span strong { overflow: hidden; color: #345145; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.net-detail-card__expense-breakdown-row > span small { overflow: hidden; color: #789087; font-size: 7px; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.net-detail-card__expense-breakdown-row > strong { color: var(--net-accent); font-size: 11px; white-space: nowrap; }
+.net-detail-card__expense-breakdown-entry.is-editing .net-detail-card__expense-breakdown-row { background: rgba(255,255,255,.84); }
+.net-detail-card__breakdown-editor { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: 6px; padding: 8px 8px 9px 48px; border-top: 1px solid rgba(120, 164, 137, .2); background: rgba(255,255,255,.72); }
+.net-detail-card__breakdown-editor label { min-width: 0; display: grid; gap: 3px; }
+.net-detail-card__breakdown-editor label span { color: #567064; font-size: 7px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.net-detail-card__breakdown-editor input { width: 100%; height: 30px; min-width: 0; padding: 0 7px; border: 1px solid #c4d8ca; border-radius: 6px; background: #fff; color: #243a30; font: inherit; font-size: 10px; outline: 0; }
+.net-detail-card__breakdown-editor input:focus { border-color: var(--net-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--net-accent) 16%, transparent); }
+.net-detail-card__breakdown-editor-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 5px; }
+.net-detail-card__breakdown-editor-actions button { min-height: 27px; padding-inline: 9px; border-radius: 6px; font-size: 8px; }
+.net-detail-card__breakdown-editor-actions .net-detail-card__form-save { border: 1px solid var(--net-accent); background: var(--net-accent); color: #fff; }
+.net-detail-card__breakdown-editor p { grid-column: 1 / -1; margin: 0; color: #b4382e; font-size: 8px; }
+
+/* La pantalla inicial de Neto conserva los tres coches fijos y no crea scroll vertical. */
+.net-detail-modal:not(.net-detail-modal--expanded) { height: min(92dvh, 820px); max-height: min(92dvh, 820px); }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-carousel { flex: 1 1 auto; min-height: 0; overflow: hidden; touch-action: pan-x; }
+
+@media (max-width: 720px) {
+  .net-detail-card__expense-breakdown-row { padding-left: 8px; }
+  .net-detail-card__breakdown-editor { padding-left: 8px; }
+}
