@@ -2550,6 +2550,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const currentDate = new Date(driverPeriodYear, driverPeriodMonth, 1);
     const fallbackStartDate = new Date(driverPeriodYear, driverPeriodMonth - 11, 1);
     const historyDates = [...monthly.keys()]
+      .filter((monthKey) => (monthly.get(monthKey) || 0) > 0)
       .map((monthKey) => {
         const [year, month] = String(monthKey).split("-").map(Number);
         return Number.isFinite(year) && Number.isFinite(month) ? new Date(year, month - 1, 1) : null;
