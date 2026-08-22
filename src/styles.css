@@ -4129,6 +4129,17 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-billing-target__labels span.is-goal { color: #b57209; }
 .driver-mobile-billing-target__labels span.is-start { transform: none; }
 .driver-mobile-billing-target__labels span.is-end { transform: translateX(-100%); }
+.driver-app--preview .driver-mobile-billing-target { margin-top: 5px; padding: 7px 0 2px; }
+.driver-app--preview .driver-mobile-billing-target__header { display: grid; justify-items: start; gap: 3px; align-items: start; }
+.driver-app--preview .driver-mobile-billing-target__header > span { overflow: visible; color: #345a93; font-size: 12px; font-weight: 900; line-height: 1; }
+.driver-app--preview .driver-mobile-billing-target__header > strong { font-size: 20px; line-height: 1; }
+.driver-app--preview .driver-mobile-billing-target__header > strong small { margin-left: 3px; font-size: 8px; }
+.driver-app--preview .driver-mobile-billing-target__track { height: 14px; border-radius: 6px; }
+.driver-app--preview .driver-mobile-billing-target__scale { padding-bottom: 19px; }
+.driver-app--preview .driver-mobile-billing-target__milestone { transform: translate(calc(-50% - 3px), -50%); }
+.driver-app--preview .driver-mobile-billing-target__labels span { transform: translateX(calc(-50% - 3px)); }
+.driver-app--preview .driver-mobile-billing-target__labels span.is-start { transform: none; }
+.driver-app--preview .driver-mobile-billing-target__labels span.is-end { transform: translateX(calc(-100% - 3px)); }
 .driver-mobile-month-summary__tips-layout { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
 .driver-mobile-month-summary__tips-value { min-width: 0; display: grid; gap: 3px; }
 .driver-mobile-month-summary__tips-value > span { color: #4b5870; font-size: 10px; font-weight: 750; }
