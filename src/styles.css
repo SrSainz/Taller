@@ -3860,6 +3860,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-app--preview .driver-mobile-billing-target__milestone.is-goal { border-color: #f2a62a; box-shadow: 0 0 0 1px rgba(150,94,8,.18); }
 .driver-app--preview .driver-mobile-billing-target__milestone.is-goal.is-reached { border-color: #fff; background: #f2a62a; box-shadow: 0 0 0 1px #d98b0b; }
 .driver-app--preview .driver-mobile-billing-target__labels { padding-top: 3px; color: #4f6686; font-size: 8px; font-weight: 800; }
+.driver-app--preview .driver-mobile-billing-target__labels span { font-size: 6px; letter-spacing: -.02em; }
 .driver-app--preview .driver-mobile-preview-chart-card__heading { letter-spacing: .01em; }
 @media (max-width: 520px) {
   .driver-app--preview .driver-mobile-preview-chart-card__heading { font-size: 7px; }
