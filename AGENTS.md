@@ -204,6 +204,7 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - En Neto, el gasto `IVA intracomunitario` de cada coche profesional se calcula automáticamente como el 8 % de la facturación conjunta de sus dos conductores del periodo, se muestra como gasto del coche y se descuenta del neto resultante.
 - En Neto, `Leasing coche` usa cuotas contractuales fijas por matrícula: `5043 MLC` 571,65 € hasta el mes de octubre de 2027 (fecha contractual 22/10/2027), y `5750 MJV` y `5754 MJV` 560,47 € hasta julio de 2027 (fecha contractual 30/07/2027); después de cada vencimiento la cuota deja de imputarse.
 - En Neto, `Préstamo licencia` usa cuotas mensuales fijas por matrícula durante todos los meses: `5043 MLC` 696,55 €, y `5750 MJV` y `5754 MJV` 516,78 € cada uno; no se ajustan por estacionalidad.
+- En Neto, `Gasolina` debe imputar una media mensual fija de 1.000,00 € en cada coche profesional (`5043 MLC`, `5750 MJV` y `5754 MJV`) desde enero de 2024 hasta agosto de 2026, incluyendo todos los meses de 2024 y 2025 y enero-agosto de 2026.
 - La ITV se muestra en Neto como gasto recurrente anual de noviembre para todas las matrículas, con 29,90 € por coche como importe de referencia de los documentos históricos; fuera de noviembre no se imputa al total mensual.
 - En Neto, `Seguros sociales` es un gasto mensual recurrente fijo por coche profesional: 299,57 € de autónomo y 644,20 € por cada uno de sus dos conductores, es decir, 1.587,97 € mensuales por coche; se desglosa en la fila del autónomo y las dos filas de conductores.
 

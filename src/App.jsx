@@ -545,6 +545,17 @@ const licenseLoanAmountsByPlate = Object.freeze({
 });
 const getLicenseLoanAmountForPeriod = (plate) => Number(licenseLoanAmountsByPlate[canonicalizeVehiclePlate(plate)] ?? 0);
 const getLicenseLoanCadence = (plate) => getLicenseLoanAmountForPeriod(plate) > 0 ? "Mensual · cuota fija" : "Sin cuota configurada";
+const netFuelAverageAmountsByPlate = Object.freeze({
+  "5043 MLC": 1000,
+  "5750 MJV": 1000,
+  "5754 MJV": 1000,
+});
+const getNetFuelAmountForPeriod = (plate, year, month) => {
+  const amount = netFuelAverageAmountsByPlate[canonicalizeVehiclePlate(plate)];
+  const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  return amount != null && periodKey >= "2024-01" && periodKey <= "2026-08" ? amount : null;
+};
+const getNetFuelCadence = (plate, year, month) => getNetFuelAmountForPeriod(plate, year, month) == null ? "Por conductor" : "Media mensual fija · 1.000,00 €";
 const annualRecurringExpenses = Object.freeze({
   inspection: { month: 10, amount: 29.90, cadence: "Noviembre · recurrente anual" },
 });
@@ -632,6 +643,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
   const leasingAmount = getLeasingAmountForPeriod(vehicle.plate, reportYear, reportMonth);
   const licenseLoanAmount = getLicenseLoanAmountForPeriod(vehicle.plate);
+  const configuredFuelAmount = getNetFuelAmountForPeriod(vehicle.plate, reportYear, reportMonth);
   const inspectionAmount = getAnnualRecurringExpenseAmount("inspection", vehicle.plate, reportMonth);
   const gestoriaPeriodDocuments = getGestoriaDocumentsForPeriod(vehicle.plate, reportYear, reportMonth);
   const gestoriaPeriodAmount = getGestoriaExpenseForPeriod(vehicle.plate, reportYear, reportMonth);
@@ -678,8 +690,9 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   ];
   const breakdownTotal = (rows) => rows.reduce((sum, row) => sum + row.amount, 0);
   const fuelTotal = breakdownTotal(fuelBreakdown);
-  if (fuelBreakdown.length && Math.abs(fuelTotal - fuel) > 0.01) {
-    const adjustment = Number((fuel - fuelTotal).toFixed(2));
+  const targetFuelAmount = configuredFuelAmount ?? fuel;
+  if (fuelBreakdown.length && Math.abs(fuelTotal - targetFuelAmount) > 0.01) {
+    const adjustment = Number((targetFuelAmount - fuelTotal).toFixed(2));
     fuelBreakdown[fuelBreakdown.length - 1].amount = Number((fuelBreakdown[fuelBreakdown.length - 1].amount + adjustment).toFixed(2));
   }
   const resolvedFuelBreakdown = applyNetBreakdownOverrides("fuel", fuelBreakdown, manualBreakdowns);
@@ -700,7 +713,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   return [
     { key: "workshop", label: "Taller", amount: maintenance, cadence: "Variable" },
     { key: "accounting", label: "Gestoría", amount: resolvedAccountingBreakdown.length ? breakdownTotal(resolvedAccountingBreakdown) : gestoriaPeriodAmount || scale(additional.gestoria), cadence: resolvedAccountingBreakdown.length ? `${resolvedAccountingBreakdown.length} documento${resolvedAccountingBreakdown.length === 1 ? "" : "s"}` : "Mensual", breakdown: resolvedAccountingBreakdown },
-    { key: "fuel", label: "Gasolina", amount: breakdownTotal(resolvedFuelBreakdown), cadence: "Por conductor", breakdown: resolvedFuelBreakdown },
+    { key: "fuel", label: "Gasolina", amount: breakdownTotal(resolvedFuelBreakdown), cadence: getNetFuelCadence(vehicle.plate, reportYear, reportMonth), breakdown: resolvedFuelBreakdown },
     { key: "payroll", label: "Nóminas", amount: breakdownTotal(resolvedPayrollBreakdown), cadence: "2 conductores", breakdown: resolvedPayrollBreakdown },
     { key: "driver-commission", label: "Comisiones de conductores", amount: resolvedCommissionBreakdown.length ? breakdownTotal(resolvedCommissionBreakdown) : commission, cadence: alexCommissionReport ? "Alex · 32% + tramos" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual`, breakdown: resolvedCommissionBreakdown, commissionReport: alexCommissionReport },
     { key: "social-security", label: "Seguros sociales", amount: breakdownTotal(resolvedSocialBreakdown), cadence: "Autónomo + 2 conductores", breakdown: resolvedSocialBreakdown },
