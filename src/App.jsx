@@ -3397,7 +3397,6 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
              <IconChevronRight className="admin-accordion__chevron" size={18} />
            </button>
            {openSection === vehicle.plate && <div className="admin-accordion__panel" id={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>
-             <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">CONDUCTORES ASIGNADOS</span><h2>{vehicle.plate}</h2><p>Activa, pausa, restablece o abre la vista de cada cuenta.</p></div><IconUsers size={23} /></header>
               {loading ? <p className="empty-state">Cargando cuentas…</p> : vehicleDrivers.length === 0 ? <p className="admin-vehicle-empty">Todavía no hay conductores asignados a este coche.</p> : <div className="admin-vehicle-drivers">{vehicleDrivers.map((driver) => {
                 const focused = focusedDriverId === driver.id || editingDriverId === driver.id || generatedPassword?.driverId === driver.id;
                 return <article className={`admin-vehicle-driver${focused ? " is-focused" : ""}`} key={driver.id}>
