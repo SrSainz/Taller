@@ -1005,8 +1005,8 @@ const distributeInteger = (total, keys, seed) => {
   return result;
 };
 
-const getImportedBillingByPeriod = (driver, plate) => {
-  if (!isAlex(driver) || plate !== "5750 MJV") return null;
+const getImportedBillingByPeriod = (driver) => {
+  if (!isAlex(driver)) return null;
   return Object.fromEntries(Object.entries(alexBillingByPeriod).map(([period, record]) => [period, record.amount]));
 };
 
@@ -1022,7 +1022,7 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
     const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
     const recordedRevenue = Number(entries.reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0).toFixed(2));
     const hasRecordedBilling = entries.some((entry) => Number(entry.billing) > 0);
-    const importedBillingByPeriod = getImportedBillingByPeriod(driver, vehicle.plate);
+    const importedBillingByPeriod = getImportedBillingByPeriod(driver);
     const importedRevenue = importedBillingByPeriod?.[periodKey] ?? 0;
     const revenue = hasRecordedBilling ? recordedRevenue : importedRevenue;
     const billingByPeriod = importedBillingByPeriod ? { ...importedBillingByPeriod, ...(hasRecordedBilling ? { [periodKey]: recordedRevenue } : {}) } : null;
@@ -2388,7 +2388,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
     const recordedMonthlyBilling = total(monthEntries, "billing");
-    const importedMonthlyBilling = isAlex(profile.full_name) && profile.vehicle_plate === "5750 MJV"
+    const importedMonthlyBilling = isAlex(profile.full_name)
       ? getAlexBillingForPeriod(periodDate.getFullYear(), periodDate.getMonth())
       : 0;
     const monthlyBilling = recordedMonthlyBilling > 0 ? recordedMonthlyBilling : importedMonthlyBilling;
@@ -2544,7 +2544,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       const monthDate = new Date(driverPeriodYear, driverPeriodMonth - (11 - index), 1);
       const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
       const recordedAmount = monthly.get(monthKey) || 0;
-      const importedAmount = isAlex(profile.full_name) && profile.vehicle_plate === "5750 MJV"
+      const importedAmount = isAlex(profile.full_name)
         ? getAlexBillingForPeriod(monthDate.getFullYear(), monthDate.getMonth())
         : 0;
       return [monthKey, recordedAmount > 0 ? recordedAmount : importedAmount];
