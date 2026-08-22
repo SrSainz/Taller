@@ -550,7 +550,12 @@ const getAnnualRecurringExpenseCadence = (key) => annualRecurringExpenses[key]?.
 const vehicleExpenseAmounts = {};
 const netAdditionalExpenseAmounts = {};
 const netPayrollAmounts = {};
-const netSocialSecurityAmounts = {};
+const netSocialSecurityAmounts = Object.freeze({
+  "5043 MLC": Object.freeze([299.57, 644.20, 644.20]),
+  "5750 MJV": Object.freeze([299.57, 644.20, 644.20]),
+  "5754 MJV": Object.freeze([299.57, 644.20, 644.20]),
+});
+const getNetSocialSecurityAmount = (plate, index) => Number(netSocialSecurityAmounts[canonicalizeVehiclePlate(plate)]?.[index] ?? 0);
 
 const manualNetExpensesStorageKey = "talleria:manual-net-expenses:clean-v3";
 const getNetExpensePeriodRange = (periodKey) => {
@@ -660,8 +665,8 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     ? commissionSummary.find((row) => row.calculation)
     : null;
   const socialBreakdown = [
-    { breakdownKey: "autonomo", label: "Autónomo", amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[0] ?? 0), meta: "Cuota mensual" },
-    ...vehicleDrivers.map((driver, index) => ({ breakdownKey: vehicle.driverProfiles?.[index]?.id || normalizeNetExpenseCategory(driver), driverId: vehicle.driverProfiles?.[index]?.id ?? "", label: driver, amount: scale(netSocialSecurityAmounts[vehicle.plate]?.[index + 1] ?? 0), meta: "Seguridad social" })),
+    { breakdownKey: "autonomo", label: "Autónomo", amount: getNetSocialSecurityAmount(vehicle.plate, 0), meta: "Cuota mensual fija" },
+    ...vehicleDrivers.map((driver, index) => ({ breakdownKey: vehicle.driverProfiles?.[index]?.id || normalizeNetExpenseCategory(driver), driverId: vehicle.driverProfiles?.[index]?.id ?? "", label: driver, amount: getNetSocialSecurityAmount(vehicle.plate, index + 1), meta: "Cuota mensual fija" })),
   ];
   const breakdownTotal = (rows) => rows.reduce((sum, row) => sum + row.amount, 0);
   const fuelTotal = breakdownTotal(fuelBreakdown);
@@ -5684,12 +5689,16 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
   const payrollAmount = vehicle.use === "Profesional"
     ? Number(vehicle.drivers.slice(0, 2).reduce((sum, driver) => sum + getImportedPayrollForPeriod(driver, reportYear, reportMonth), 0).toFixed(2))
     : 0;
+  const socialSecurityAmount = vehicle.use === "Profesional"
+    ? [0, 1, 2].reduce((sum, index) => sum + getNetSocialSecurityAmount(vehicle.plate, index), 0)
+    : 0;
   const amountsByKey = {
     fuel: fuelAmount,
     workshop: maintenanceAmount,
     accounting: gestoriaAmount,
     leasing: leasingAmount,
     inspection: inspectionAmount,
+    "social-security": socialSecurityAmount,
     payroll: payrollAmount,
     "driver-commission": commissionAmount,
     "eu-vat": intracommunityVatAmount,
