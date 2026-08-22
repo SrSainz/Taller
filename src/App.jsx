@@ -69,6 +69,7 @@ import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
 import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
 import { emailMaintenanceAmountOverrides, emailMaintenanceDocuments, emailMaintenanceTypeOverrides } from "./data/emailMaintenanceSummary";
 import { maintenanceCochesDocuments } from "./data/maintenanceCochesSummary";
+import { alexBillingByPeriod, getAlexBillingForPeriod } from "./data/alexBillingSummary";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -652,7 +653,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
 const reportMonths = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const reportMonthTokens = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const fuelPeriodSuffixPattern = /\b[a-záéíóú]{3}\s+\d{4}$/i;
-const reportYears = [2025, 2026];
+const reportYears = [2024, 2025, 2026];
 const reportSeasonality = [0.82, 0.87, 0.94, 0.91, 0.98, 1.03, 1, 0.96, 1.05, 1.02, 0.93, 0.79];
 const getReportPeriodFactor = (month, year) => reportSeasonality[month] * (year === 2026 ? 1 : 0.9);
 const calendarWeekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -1004,6 +1005,11 @@ const distributeInteger = (total, keys, seed) => {
   return result;
 };
 
+const getImportedBillingByPeriod = (driver, plate) => {
+  if (!isAlex(driver) || plate !== "5750 MJV") return null;
+  return Object.fromEntries(Object.entries(alexBillingByPeriod).map(([period, record]) => [period, record.amount]));
+};
+
 const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
   .filter((vehicle) => vehicle.use === "Profesional")
   .flatMap((vehicle) => vehicle.drivers.map((driver, driverIndex) => {
@@ -1013,6 +1019,16 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
       const entryDate = new Date(`${entry.entry_date}T12:00:00`);
       return entryDate.getMonth() === month && entryDate.getFullYear() === year;
     });
+    const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const recordedRevenue = Number(entries.reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0).toFixed(2));
+    const hasRecordedBilling = entries.some((entry) => Number(entry.billing) > 0);
+    const importedBillingByPeriod = getImportedBillingByPeriod(driver, vehicle.plate);
+    const importedRevenue = importedBillingByPeriod?.[periodKey] ?? 0;
+    const revenue = hasRecordedBilling ? recordedRevenue : importedRevenue;
+    const billingByPeriod = importedBillingByPeriod ? { ...importedBillingByPeriod, ...(hasRecordedBilling ? { [periodKey]: recordedRevenue } : {}) } : null;
+    const importedPeriodEntry = !hasRecordedBilling && importedRevenue > 0
+      ? [{ id: `alex-billing-${periodKey}`, driver_id: profile?.id ?? "", vehicle_plate: vehicle.plate, entry_date: `${periodKey}-01`, billing: importedRevenue, cash_collected: 0, tips: 0, tolls: 0, fuel_cost: 0, fuel_liters: 0, other_expenses: 0, odometer_km: 0, isImportedBilling: true }]
+      : [];
     return {
       key: `${vehicle.plate}-${driver}`,
       driver,
@@ -1020,8 +1036,10 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
       plate: vehicle.plate,
       model: vehicle.model,
       trips: 0,
-      revenue: Number(entries.reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0).toFixed(2)),
-      entries: allEntries,
+      revenue,
+      entries: [...allEntries, ...importedPeriodEntry],
+      billingByPeriod,
+      billingSource: hasRecordedBilling ? "ledger" : importedRevenue > 0 ? "document" : "none",
     };
   }));
 
@@ -1032,13 +1050,16 @@ const getDriverCalendarRows = (vehicle, row, month, year) => {
     const entryDate = new Date(`${entry.entry_date}T12:00:00`);
     return entryDate.getMonth() === month && entryDate.getFullYear() === year;
   });
-  const billingDays = realEntries.length
-    ? realEntries.reduce((days, entry) => {
+  const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const periodRevenue = row.billingByPeriod ? (row.billingByPeriod[periodKey] ?? 0) : row.revenue;
+  const billingEntries = realEntries.filter((entry) => Number(entry.billing) > 0);
+  const billingDays = billingEntries.length
+    ? billingEntries.reduce((days, entry) => {
       const day = Number(entry.entry_date.slice(8, 10));
       days.set(day, Number(((days.get(day) ?? 0) + (Number(entry.billing) || 0)).toFixed(2)));
       return days;
     }, new Map())
-    : getDriverBillingDays(row.driver, row.plate, month, year, row.revenue);
+    : getDriverBillingDays(row.driver, row.plate, month, year, periodRevenue);
   const billingDayKeys = [...billingDays.keys()];
   const seed = `${row.driver}-${row.plate}-${month}-${year}`.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0);
   const tripsByDay = distributeInteger(row.trips, billingDayKeys, seed);
@@ -2366,7 +2387,11 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     });
     const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
-    const monthlyBilling = total(monthEntries, "billing");
+    const recordedMonthlyBilling = total(monthEntries, "billing");
+    const importedMonthlyBilling = isAlex(profile.full_name) && profile.vehicle_plate === "5750 MJV"
+      ? getAlexBillingForPeriod(periodDate.getFullYear(), periodDate.getMonth())
+      : 0;
+    const monthlyBilling = recordedMonthlyBilling > 0 ? recordedMonthlyBilling : importedMonthlyBilling;
     const billingGoal = 5000;
     const billingScaleMax = 7000;
     const billingMilestones = [5000, 5500, 6000, 6500, 7000];
@@ -2400,7 +2425,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       weeklyProgress: weeklyCash > 0 ? Math.max(0, Math.min(100, (weeklyNet / weeklyCash) * 100)) : 0,
       weekEntries: weekEntries.length,
     };
-  }, [entries, profile.full_name, selectedDate, vehicle, weeklyManualValues]);
+  }, [entries, profile.full_name, profile.vehicle_plate, selectedDate, vehicle, weeklyManualValues]);
 
   const selectedDayDocumentData = useMemo(() => selectedDayDocuments.reduce((summary, document) => {
     const data = document.extracted_data ?? {};
@@ -2518,7 +2543,11 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const months = Array.from({ length: 12 }, (_, index) => {
       const monthDate = new Date(driverPeriodYear, driverPeriodMonth - (11 - index), 1);
       const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
-      return [monthKey, monthly.get(monthKey) || 0];
+      const recordedAmount = monthly.get(monthKey) || 0;
+      const importedAmount = isAlex(profile.full_name) && profile.vehicle_plate === "5750 MJV"
+        ? getAlexBillingForPeriod(monthDate.getFullYear(), monthDate.getMonth())
+        : 0;
+      return [monthKey, recordedAmount > 0 ? recordedAmount : importedAmount];
     });
     const maximum = Math.max(1, ...months.map(([, amount]) => amount));
     return months.map(([monthKey, amount]) => {
@@ -2536,7 +2565,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         isCurrent: monthKey === currentMonthKey,
       };
     });
-  }, [entries, driverPeriodMonth, driverPeriodYear, seededDriverShift]);
+  }, [entries, driverPeriodMonth, driverPeriodYear, profile.full_name, profile.vehicle_plate, seededDriverShift]);
   const imageDocument = (predicate) => documentPreviews.find((document) => predicate(document) && document.signedUrl)?.signedUrl ?? "";
   const driverImages = {
     fuelReceipt: circlePreviewUrls.fuel || imageDocument((document) => document.extracted_data?.recordType === "fuel" || document.category === "consumption" && document.extracted_data?.metric === "fuel_receipt"),
