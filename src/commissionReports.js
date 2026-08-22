@@ -1,26 +1,53 @@
-const ALEX_COMMISSION_RATE = 0.32;
-const ALEX_FIRST_BONUS_THRESHOLD = 5000;
-const ALEX_FIRST_BONUS = 250;
-const ALEX_INCREMENT_THRESHOLDS = [5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000];
+const DRIVER_COMMISSION_RATES = Object.freeze({
+  alex: 0.32,
+  amin: 0.32,
+  fernando: 0.32,
+  mauricio: 0.32,
+  andres: 0.30,
+  tirso: 0.30,
+});
+const FIRST_BONUS_THRESHOLD = 5000;
+const FIRST_BONUS = 250;
+const BONUS_STEP_THRESHOLD = 500;
+const BONUS_STEP = 50;
 const money = (value) => Number((Math.max(0, Number(value) || 0)).toFixed(2));
 const signedMoney = (value) => Number((Number(value) || 0).toFixed(2));
 
-export const alexCommissionThresholds = [ALEX_FIRST_BONUS_THRESHOLD, ...ALEX_INCREMENT_THRESHOLDS];
+const normalizeDriverName = (name = "") => String(name)
+  .normalize("NFD")
+  .replace(/\p{Diacritic}/gu, "")
+  .trim()
+  .toLocaleLowerCase("es");
 
-export const isAlex = (name = "") => String(name).trim().toLocaleLowerCase("es") === "alex";
+export const getDriverCommissionRate = (driverName = "") => DRIVER_COMMISSION_RATES[normalizeDriverName(driverName)] ?? 0;
 
-export const calculateAlexCommission = ({ billing = 0, tips = 0, tolls = 0, payroll = 0 } = {}) => {
+export const calculateCommissionThresholdBonus = (billing = 0) => {
   const monthlyBilling = money(billing);
-  const commissionBase = money(monthlyBilling * ALEX_COMMISSION_RATE);
-  const thresholdBonus = monthlyBilling > ALEX_FIRST_BONUS_THRESHOLD
-    ? ALEX_FIRST_BONUS + (ALEX_INCREMENT_THRESHOLDS.filter((threshold) => monthlyBilling > threshold).length * 50)
-    : 0;
+  if (monthlyBilling < FIRST_BONUS_THRESHOLD) return 0;
+  return money(FIRST_BONUS + (Math.floor((monthlyBilling - FIRST_BONUS_THRESHOLD) / BONUS_STEP_THRESHOLD) * BONUS_STEP));
+};
+
+export const getCommissionThresholdsForBilling = (billing = 0) => {
+  const monthlyBilling = money(billing);
+  if (monthlyBilling < FIRST_BONUS_THRESHOLD) return [];
+  const thresholdCount = Math.floor((monthlyBilling - FIRST_BONUS_THRESHOLD) / BONUS_STEP_THRESHOLD) + 1;
+  return Array.from({ length: thresholdCount }, (_, index) => FIRST_BONUS_THRESHOLD + (index * BONUS_STEP_THRESHOLD));
+};
+
+export const isAlex = (name = "") => normalizeDriverName(name) === "alex";
+
+export const calculateDriverCommission = ({ driverName = "", billing = 0, tips = 0, tolls = 0, payroll = 0 } = {}) => {
+  const monthlyBilling = money(billing);
+  const commissionRate = getDriverCommissionRate(driverName);
+  const commissionBase = money(monthlyBilling * commissionRate);
+  const thresholdBonus = commissionRate > 0 ? calculateCommissionThresholdBonus(monthlyBilling) : 0;
   const commission = money(commissionBase + thresholdBonus);
   const totalBenefitMonth = money(commission + tips + tolls);
   const totalToCollect = signedMoney(totalBenefitMonth - payroll);
   return {
+    driverName,
     monthlyBilling,
-    commissionRate: ALEX_COMMISSION_RATE,
+    commissionRate,
     commissionBase,
     thresholdBonus,
     commission,
@@ -31,6 +58,8 @@ export const calculateAlexCommission = ({ billing = 0, tips = 0, tolls = 0, payr
     totalToCollect,
   };
 };
+
+export const calculateAlexCommission = ({ billing = 0, tips = 0, tolls = 0, payroll = 0 } = {}) => calculateDriverCommission({ driverName: "Alex", billing, tips, tolls, payroll });
 
 const ascii = (value = "") => String(value)
   .normalize("NFD")

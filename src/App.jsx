@@ -64,7 +64,7 @@ import {
 } from "./documentAnalysis";
 import { confirmDocumentTransactions, createCommissionReportDownloadUrl, getProfile, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, roleFromUser, supabase, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
-import { alexCommissionThresholds, buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateAlexCommission, isAlex } from "./commissionReports";
+import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
 import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
 import { emailMaintenanceAmountOverrides, emailMaintenanceDocuments, emailMaintenanceTypeOverrides } from "./data/emailMaintenanceSummary";
@@ -81,8 +81,8 @@ import { canonicalizeVehiclePlate, getVehicleOwner as getCanonicalVehicleOwner, 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
 const SUMMARY_CHART_COLOR = "#1976c9";
-const DRIVER_COMMISSION_RATE = 0.1;
 const INTRACOMMUNITY_VAT_RATE = 0.08;
+const calculateNetDriverCommission = (driverName, billing) => calculateDriverCommission({ driverName, billing }).commission;
 const chartMetricOptions = [
   { value: "summary", label: "Resumen" },
   { value: "billing", label: "Facturación" },
@@ -674,16 +674,16 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     const tips = monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0);
     const tolls = monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0);
     const payroll = payrollBreakdown[index]?.amount ?? 0;
-    const calculation = isAlex(row.driver)
-      ? calculateAlexCommission({ billing: row.revenue, tips, tolls, payroll })
-      : null;
-    const amount = calculation?.commission ?? Number((Number(row.revenue) * DRIVER_COMMISSION_RATE).toFixed(2));
-    return { driver: row.driver, driverId: row.driverId ?? "", amount, calculation, periodStart, periodEnd, vehiclePlate: vehicle.plate };
+    const commissionCalculation = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, tips, tolls, payroll });
+    const calculation = isAlex(row.driver) ? commissionCalculation : null;
+    return { driver: row.driver, driverId: row.driverId ?? "", amount: commissionCalculation.commission, commissionCalculation, calculation, periodStart, periodEnd, vehiclePlate: vehicle.plate };
   });
-  const commissionBreakdown = commissionSummary.map((row) => ({ breakdownKey: row.driverId || normalizeNetExpenseCategory(row.driver), driverId: row.driverId ?? "", label: row.driver, amount: row.amount, meta: row.calculation ? "32% + tramos por facturación" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación` }));
+  const commissionBreakdown = commissionSummary.map((row) => ({ breakdownKey: row.driverId || normalizeNetExpenseCategory(row.driver), driverId: row.driverId ?? "", label: row.driver, amount: row.amount, meta: `${Math.round(row.commissionCalculation.commissionRate * 100)}% + bonos desde 5.000 €` }));
   const alexCommissionReport = commissionSummary.find((row) => row.calculation)?.calculation
     ? commissionSummary.find((row) => row.calculation)
     : null;
+  const commissionRates = [...new Set(commissionSummary.map((row) => `${Math.round(row.commissionCalculation.commissionRate * 100)}%`))];
+  const commissionCadence = commissionRates.length ? `${commissionRates.join(" y ")} + bonos por tramos` : "Según facturación mensual";
   const socialBreakdown = [
     { breakdownKey: "autonomo", label: "Autónomo", amount: getNetSocialSecurityAmount(vehicle.plate, 0), meta: "Cuota mensual fija" },
     ...vehicleDrivers.map((driver, index) => ({ breakdownKey: vehicle.driverProfiles?.[index]?.id || normalizeNetExpenseCategory(driver), driverId: vehicle.driverProfiles?.[index]?.id ?? "", label: driver, amount: getNetSocialSecurityAmount(vehicle.plate, index + 1), meta: "Cuota mensual fija" })),
@@ -715,7 +715,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     { key: "accounting", label: "Gestoría", amount: resolvedAccountingBreakdown.length ? breakdownTotal(resolvedAccountingBreakdown) : gestoriaPeriodAmount || scale(additional.gestoria), cadence: resolvedAccountingBreakdown.length ? `${resolvedAccountingBreakdown.length} documento${resolvedAccountingBreakdown.length === 1 ? "" : "s"}` : "Mensual", breakdown: resolvedAccountingBreakdown },
     { key: "fuel", label: "Gasolina", amount: breakdownTotal(resolvedFuelBreakdown), cadence: getNetFuelCadence(vehicle.plate, reportYear, reportMonth), breakdown: resolvedFuelBreakdown },
     { key: "payroll", label: "Nóminas", amount: breakdownTotal(resolvedPayrollBreakdown), cadence: "2 conductores", breakdown: resolvedPayrollBreakdown },
-    { key: "driver-commission", label: "Comisiones de conductores", amount: resolvedCommissionBreakdown.length ? breakdownTotal(resolvedCommissionBreakdown) : commission, cadence: alexCommissionReport ? "Alex · 32% + tramos" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual`, breakdown: resolvedCommissionBreakdown, commissionReport: alexCommissionReport },
+    { key: "driver-commission", label: "Comisiones de conductores", amount: resolvedCommissionBreakdown.length ? breakdownTotal(resolvedCommissionBreakdown) : commission, cadence: commissionCadence, breakdown: resolvedCommissionBreakdown, commissionReport: alexCommissionReport },
     { key: "social-security", label: "Seguros sociales", amount: breakdownTotal(resolvedSocialBreakdown), cadence: "Autónomo + 2 conductores", breakdown: resolvedSocialBreakdown },
     { key: "taxes", label: "Impuestos", amount: scale(amounts[7]), cadence: "Trimestral" },
     { key: "eu-vat", label: "IVA intracomunitario", amount: intracommunityVat, cadence: `${Math.round(INTRACOMMUNITY_VAT_RATE * 100)}% de facturación conjunta`, meta: `${formatCurrency(driverBillingTotal)} × ${Math.round(INTRACOMMUNITY_VAT_RATE * 100)}%` },
@@ -4135,7 +4135,7 @@ function AlexCommissionReportPanel({ report, periodLabel, archivedReports = [], 
   }, [report.calculation.payroll, report.periodStart]);
   const calculation = report.calculation;
   const periodReports = archivedReports.filter((item) => item.driver_id === report.driverId && item.vehicle_plate === report.vehiclePlate);
-  const reachedThresholds = alexCommissionThresholds.filter((threshold) => calculation.monthlyBilling > threshold);
+  const reachedThresholds = getCommissionThresholdsForBilling(calculation.monthlyBilling);
   return <section className="alex-commission-report" aria-label={`Cálculo mensual de ${report.driver}`}>
     <header className="alex-commission-report__header"><div><span>COMISIÓN DE ALEX</span><strong>{periodLabel}</strong></div><IconCurrencyEuro size={20} /></header>
     <div className="alex-commission-report__formula">
@@ -4316,7 +4316,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       const vehicleIndex = vehicles.findIndex((candidate) => candidate.plate === vehicle.plate);
       const vehicleBillingRows = billingRows.filter((row) => row.plate === vehicle.plate);
       const revenue = vehicleBillingTotals[vehicleIndex] ?? vehicleBillingRows.reduce((sum, row) => sum + row.revenue, 0);
-      const commission = Number((vehicleBillingRows.reduce((sum, row) => sum + row.revenue * DRIVER_COMMISSION_RATE, 0)).toFixed(2));
+      const commission = Number(vehicleBillingRows.reduce((sum, row) => sum + calculateNetDriverCommission(row.driver, row.revenue), 0).toFixed(2));
       const expenses = buildNetExpenseBreakdown({
         vehicle,
         fuel: vehicleStats[vehicleIndex]?.cost ?? 0,
@@ -5792,7 +5792,7 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
   const driverRevenue = vehicle.use === "Profesional"
     ? vehicle.drivers.slice(0, 2).map((driver) => ({ driver, amount: Number(((getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor).toFixed(2)) }))
     : [];
-  const commissionAmount = Number((driverRevenue.reduce((sum, entry) => sum + entry.amount, 0) * DRIVER_COMMISSION_RATE).toFixed(2));
+  const commissionAmount = Number(driverRevenue.reduce((sum, entry) => sum + calculateNetDriverCommission(entry.driver, entry.amount), 0).toFixed(2));
   const intracommunityVatAmount = Number((driverRevenue.reduce((sum, entry) => sum + entry.amount, 0) * INTRACOMMUNITY_VAT_RATE).toFixed(2));
   const payrollAmount = vehicle.use === "Profesional"
     ? Number(vehicle.drivers.slice(0, 2).reduce((sum, driver) => sum + getImportedPayrollForPeriod(driver, reportYear, reportMonth), 0).toFixed(2))
