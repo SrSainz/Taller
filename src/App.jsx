@@ -82,6 +82,7 @@ const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
 const SUMMARY_CHART_COLOR = "#1976c9";
 const DRIVER_COMMISSION_RATE = 0.1;
+const INTRACOMMUNITY_VAT_RATE = 0.08;
 const chartMetricOptions = [
   { value: "summary", label: "Resumen" },
   { value: "billing", label: "Facturación" },
@@ -483,7 +484,7 @@ const expenseCategories = [
   { canonicalKey: "payroll", label: "Nóminas", cadence: "Manual" },
   { canonicalKey: "driver-commission", label: "Comisiones de conductores", cadence: "Variable" },
   { canonicalKey: "taxes", label: "Impuestos trimestrales", cadence: "Trimestral" },
-  { canonicalKey: "eu-vat", label: "IVA intracomunitario", cadence: "Trimestral" },
+  { canonicalKey: "eu-vat", label: "IVA intracomunitario", cadence: "8% de facturación" },
   { canonicalKey: "accounting", label: "Gestoría", cadence: "Mensual" },
   { canonicalKey: "insurance", label: "Seguro", cadence: "Anual" },
   { label: "Limpieza coche", cadence: "Variable" },
@@ -595,6 +596,8 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const vehicleDrivers = vehicle.drivers.slice(0, 2);
   const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: 0 }));
   const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
+  const driverBillingTotal = resolvedDriverRows.slice(0, 2).reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
+  const intracommunityVat = Number((driverBillingTotal * INTRACOMMUNITY_VAT_RATE).toFixed(2));
   const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
   const periodEnd = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(new Date(reportYear, reportMonth + 1, 0).getDate()).padStart(2, "0")}`;
   const periodPayrollFor = (row, driverIndex) => {
@@ -660,7 +663,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     { key: "driver-commission", label: "Comisiones de conductores", amount: resolvedCommissionBreakdown.length ? breakdownTotal(resolvedCommissionBreakdown) : commission, cadence: alexCommissionReport ? "Alex · 32% + tramos" : `${Math.round(DRIVER_COMMISSION_RATE * 100)}% de facturación mensual`, breakdown: resolvedCommissionBreakdown, commissionReport: alexCommissionReport },
     { key: "social-security", label: "Seguros sociales", amount: breakdownTotal(resolvedSocialBreakdown), cadence: "Autónomo + 2 conductores", breakdown: resolvedSocialBreakdown },
     { key: "taxes", label: "Impuestos", amount: scale(amounts[7]), cadence: "Trimestral" },
-    { key: "eu-vat", label: "IVA intracomunitario", amount: scale(amounts[8]), cadence: "Trimestral" },
+    { key: "eu-vat", label: "IVA intracomunitario", amount: intracommunityVat, cadence: `${Math.round(INTRACOMMUNITY_VAT_RATE * 100)}% de facturación conjunta`, meta: `${formatCurrency(driverBillingTotal)} × ${Math.round(INTRACOMMUNITY_VAT_RATE * 100)}%` },
     { key: "leasing", label: "Leasing coche", amount: scale(amounts[0]), cadence: "Mensual" },
     { key: "insurance", label: "Seguro", amount: scale(amounts[9]), cadence: "Anual" },
     { key: "inspection", label: "ITV", amount: scale(additional.itv), cadence: "Anual" },
@@ -5646,6 +5649,7 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
     ? vehicle.drivers.slice(0, 2).map((driver) => ({ driver, amount: Number(((getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor).toFixed(2)) }))
     : [];
   const commissionAmount = Number((driverRevenue.reduce((sum, entry) => sum + entry.amount, 0) * DRIVER_COMMISSION_RATE).toFixed(2));
+  const intracommunityVatAmount = Number((driverRevenue.reduce((sum, entry) => sum + entry.amount, 0) * INTRACOMMUNITY_VAT_RATE).toFixed(2));
   const payrollAmount = vehicle.use === "Profesional"
     ? Number(vehicle.drivers.slice(0, 2).reduce((sum, driver) => sum + getImportedPayrollForPeriod(driver, reportYear, reportMonth), 0).toFixed(2))
     : 0;
@@ -5655,6 +5659,7 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
     accounting: gestoriaAmount,
     payroll: payrollAmount,
     "driver-commission": commissionAmount,
+    "eu-vat": intracommunityVatAmount,
   };
   const expenses = expenseCategories.map((category) => ({ ...category, amount: Number((amountsByKey[category.canonicalKey] ?? 0).toFixed(2)) }));
   const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
