@@ -3852,7 +3852,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-chart-dialog__billing-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; padding: 4px 0 10px; scrollbar-width: thin; scrollbar-color: #9db7dc transparent; }
 .driver-mobile-chart-dialog__billing-scroll:focus-visible { outline: 2px solid rgba(44,109,233,.5); outline-offset: 2px; }
 .driver-mobile-chart-dialog__billing-canvas { width: max-content; min-width: 100%; display: inline-block; }
-.driver-mobile-chart-dialog__billing-canvas .recharts-wrapper { width: auto !important; min-width: 760px; }
+.driver-mobile-chart-dialog__billing-canvas .recharts-wrapper { width: 100% !important; min-width: 0; }
 .driver-mobile-chart-dialog__billing-canvas .recharts-surface { max-width: none; }
 .driver-mobile-chart-dialog__chart--billing + .driver-mobile-chart-dialog__hint { margin-top: 0; font-weight: 750; }
 @media (max-width: 520px) {
