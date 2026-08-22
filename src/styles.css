@@ -3804,10 +3804,33 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-chart-dialog__chart > .recharts-wrapper { width: 100% !important; min-width: 0 !important; }
 .driver-mobile-chart-dialog__chart > .recharts-wrapper > svg { width: 100% !important; height: 250px !important; }
 .driver-mobile-chart-dialog__hint { margin: 4px 0 0; color: #74839a; font-size: 9px; text-align: center; }
+
+/* Histórico mensual del conductor: tira desplazable y lectura vertical por barra. */
+.driver-mobile-history-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; scrollbar-color: #9db7dc transparent; }
+.driver-mobile-history-scroll:focus-visible { outline: 2px solid rgba(44,109,233,.5); outline-offset: 2px; }
+.driver-mobile-preview-history .driver-mobile-history-bars { width: max-content; min-width: 100%; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 38px; gap: 4px; }
+.driver-mobile-preview-history .driver-mobile-history-bar { grid-template-rows: minmax(0, 1fr) 25px; gap: 2px; padding-inline: 1px; }
+.driver-mobile-preview-history .driver-mobile-history-bar i { display: flex; align-items: center; justify-content: center; justify-self: center; width: 24px; min-height: 22px; overflow: hidden; border-radius: 5px 5px 2px 2px; }
+.driver-mobile-preview-history .driver-mobile-history-bar i span { display: block; max-height: 100%; overflow: hidden; color: #fff; font-size: 6px; font-weight: 900; line-height: .9; text-overflow: clip; white-space: nowrap; writing-mode: vertical-rl; transform: rotate(180deg); }
+.driver-mobile-preview-history .driver-mobile-history-bar small { display: grid; align-content: start; justify-items: center; gap: 1px; height: 25px; overflow: visible; color: #526783; font-size: 7px; font-weight: 850; line-height: 1; text-align: center; text-overflow: clip; white-space: normal; }
+.driver-mobile-preview-history .driver-mobile-history-bar small b, .driver-mobile-preview-history .driver-mobile-history-bar small em { display: block; font-style: normal; font-weight: 900; line-height: 1; }
+.driver-mobile-preview-history .driver-mobile-history-bar small b { color: #526783; text-transform: uppercase; }
+.driver-mobile-preview-history .driver-mobile-history-bar small em { color: #7890b1; font-size: 6px; }
+.driver-mobile-preview-history .driver-mobile-history-bar.is-selected small b, .driver-mobile-preview-history .driver-mobile-history-bar.is-selected small em { color: #1d55ad; }
+.driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--billing) { width: min(900px, calc(100vw - 24px)); }
+.driver-mobile-chart-dialog__chart--billing { min-height: 376px; overflow: visible; }
+.driver-mobile-chart-dialog__billing-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; padding: 4px 0 10px; scrollbar-width: thin; scrollbar-color: #9db7dc transparent; }
+.driver-mobile-chart-dialog__billing-scroll:focus-visible { outline: 2px solid rgba(44,109,233,.5); outline-offset: 2px; }
+.driver-mobile-chart-dialog__billing-canvas { width: max-content; min-width: 100%; display: inline-block; }
+.driver-mobile-chart-dialog__billing-canvas .recharts-wrapper { width: auto !important; min-width: 760px; }
+.driver-mobile-chart-dialog__billing-canvas .recharts-surface { max-width: none; }
+.driver-mobile-chart-dialog__chart--billing + .driver-mobile-chart-dialog__hint { margin-top: 0; font-weight: 750; }
 @media (max-width: 520px) {
   .driver-mobile-preview-chart-card__summary strong { font-size: 9px; }
   .driver-mobile-preview-chart-card__summary span, .driver-mobile-preview-chart-card__legend, .driver-mobile-preview-history::before, .driver-mobile-preview-consumption::before, .driver-mobile-preview-chart-card__heading { font-size: 6px; }
   .driver-mobile-chart-dialog__panel { padding: 11px; }
+  .driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--billing) { width: calc(100vw - 24px); }
+  .driver-mobile-chart-dialog__chart--billing { min-height: 376px; }
 }
 
 /* Neto abierto: conserva la cabecera global y la navegación inferior visibles. */

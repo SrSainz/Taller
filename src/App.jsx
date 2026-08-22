@@ -2541,32 +2541,51 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     });
     const currentMonthKey = `${driverPeriodYear}-${String(driverPeriodMonth + 1).padStart(2, "0")}`;
     if (!monthly.has(currentMonthKey)) monthly.set(currentMonthKey, 0);
-    const months = Array.from({ length: 12 }, (_, index) => {
-      const monthDate = new Date(driverPeriodYear, driverPeriodMonth - (11 - index), 1);
+    if (isAlex(profile.full_name)) {
+      Object.entries(alexBillingByPeriod).forEach(([monthKey, record]) => {
+        const recordedAmount = monthly.get(monthKey) || 0;
+        monthly.set(monthKey, recordedAmount > 0 ? recordedAmount : Number(record.amount) || 0);
+      });
+    }
+    const currentDate = new Date(driverPeriodYear, driverPeriodMonth, 1);
+    const fallbackStartDate = new Date(driverPeriodYear, driverPeriodMonth - 11, 1);
+    const historyDates = [...monthly.keys()]
+      .map((monthKey) => {
+        const [year, month] = String(monthKey).split("-").map(Number);
+        return Number.isFinite(year) && Number.isFinite(month) ? new Date(year, month - 1, 1) : null;
+      })
+      .filter(Boolean);
+    const earliestDataDate = historyDates.reduce((earliest, date) => date < earliest ? date : earliest, historyDates[0] ?? currentDate);
+    const latestDataDate = historyDates.reduce((latest, date) => date > latest ? date : latest, currentDate);
+    const startDate = earliestDataDate < fallbackStartDate ? earliestDataDate : fallbackStartDate;
+    const endDate = latestDataDate > currentDate ? latestDataDate : currentDate;
+    const months = [];
+    for (let monthDate = new Date(startDate); monthDate <= endDate; monthDate.setMonth(monthDate.getMonth() + 1)) {
       const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
       const recordedAmount = monthly.get(monthKey) || 0;
       const importedAmount = isAlex(profile.full_name)
         ? getAlexBillingForPeriod(monthDate.getFullYear(), monthDate.getMonth())
         : 0;
-      return [monthKey, recordedAmount > 0 ? recordedAmount : importedAmount];
-    });
+      months.push([monthKey, recordedAmount > 0 ? recordedAmount : importedAmount]);
+    }
     const maximum = Math.max(1, ...months.map(([, amount]) => amount));
     return months.map(([monthKey, amount]) => {
       const [year, month] = monthKey.split("-").map(Number);
       const monthDate = new Date(year, month - 1, 1);
+      const shortLabel = new Intl.DateTimeFormat("es-ES", { month: "short" }).format(monthDate).replace(/\./g, "");
       return {
         key: monthKey,
         year,
         monthIndex: month - 1,
-        label: new Intl.DateTimeFormat("es-ES", { month: "short", year: "numeric" }).format(monthDate).replace(/\./g, ""),
-        shortLabel: new Intl.DateTimeFormat("es-ES", { month: "short" }).format(monthDate).replace(/\./g, ""),
+        label: `${shortLabel} ${year}`,
+        shortLabel,
         amount,
         barWidth: Math.max(7, amount / maximum * 100),
         barHeight: amount > 0 ? Math.max(14, amount / maximum * 100) : 5,
         isCurrent: monthKey === currentMonthKey,
       };
     });
-  }, [entries, driverPeriodMonth, driverPeriodYear, profile.full_name, profile.vehicle_plate, seededDriverShift]);
+  }, [entries, driverPeriodMonth, driverPeriodYear, profile.full_name]);
   const imageDocument = (predicate) => documentPreviews.find((document) => predicate(document) && document.signedUrl)?.signedUrl ?? "";
   const driverImages = {
     fuelReceipt: circlePreviewUrls.fuel || imageDocument((document) => document.extracted_data?.recordType === "fuel" || document.category === "consumption" && document.extracted_data?.metric === "fuel_receipt"),
@@ -3189,7 +3208,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
           </div>
           {preview && <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
             <article className="driver-mobile-preview-km driver-mobile-preview-chart-card" role="button" tabIndex={0} aria-label="Kilómetros realizados frente al resto de conductores"><div className="driver-mobile-preview-chart-card__heading">KM REALIZADOS VS RESTO</div><div className="driver-mobile-preview-chart-card__summary"><strong>{Math.round(weeklyKmAverage).toLocaleString("es-ES")} km</strong><span>Resto conductores: {Math.round(otherDriversKmAverage).toLocaleString("es-ES")} km</span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyKmData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherKm" name="Resto conductores" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-preview-chart-card__legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
-            <article className="driver-mobile-preview-history" aria-label="Facturación de los últimos doce meses"><div className="driver-mobile-history-bars" role="list" aria-label="Histórico de facturación mensual">{monthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><span>{formatDriverBarAmount(month.amount)}</span><i style={{ height: `${month.barHeight}%` }} /><small>{month.shortLabel}</small></button>)}</div></article>
+            <article className="driver-mobile-preview-history" aria-label="Facturación mensual histórica"><div className="driver-mobile-history-scroll" role="region" tabIndex="0" aria-label="Histórico de facturación mensual. Desliza horizontalmente para ver todos los meses"><div className="driver-mobile-history-bars" role="list">{monthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{month.shortLabel}</b><em>{month.year}</em></small></button>)}</div></div></article>
             <article className="driver-mobile-preview-consumption" aria-label="Consumo semanal comparado"><div className="driver-mobile-consumption-compare"><span>Este conductor<strong>{weeklyConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span><em className={consumptionDifference <= 0 ? "is-better" : "is-higher"}>{consumptionDifference > 0 ? "+" : ""}{consumptionDifference.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</em><span>Resto<strong>{otherDriversConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyConsumptionData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverConsumption" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherConsumption" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-consumption-legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
           </div>}
           <div className="driver-mobile-mini-grid">
@@ -3208,7 +3227,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
           <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={row.key}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{weeklyCell(row, value, driverWeekDays[index].key)}</td>)}</tr>)}</tbody></table></div>
         </section>
         {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Facturación<input type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Peajes<input type="number" min="0" step="0.01" value={entry.tolls} onChange={(event) => updateEntry("tolls", event.target.value)} /><i>€</i></label><label>Otros gastos<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, peaje u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
-        {expandedPreviewMetric && <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}><div className="driver-mobile-chart-dialog__panel"><header><div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "km" ? "Kilómetros realizados" : "Consumo comparado"}</h2></div><button type="button" aria-label="Cerrar gráfica ampliada" onClick={() => setExpandedPreviewMetric("")}><IconX size={18} /></button></header>{expandedPreviewMetric === "billing" && <div className="driver-mobile-chart-dialog__chart"><BarChart width={520} height={250} data={monthlyBillingHistory} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="shortLabel" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} /><Tooltip formatter={(value) => formatCurrency(value)} labelFormatter={(label) => label} /><ReferenceLine y={periodSummary.billingGoal} stroke="#f2a62a" strokeDasharray="5 4" />{periodSummary.billingMilestones.slice(1).map((milestone) => <ReferenceLine key={milestone} y={milestone} stroke="#e6edf5" strokeDasharray="2 4" />)}<Bar dataKey="amount" fill="#2c6de9" radius={[5, 5, 0, 0]} /></BarChart></div>}{expandedPreviewMetric === "km" && <div className="driver-mobile-chart-dialog__chart"><LineChart width={520} height={250} data={weeklyKmData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} /><Tooltip formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} /><Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} /><Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} /></LineChart></div>}{expandedPreviewMetric === "consumption" && <div className="driver-mobile-chart-dialog__chart"><LineChart width={520} height={250} data={weeklyConsumptionData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l`} /><Tooltip formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km`} /><Line type="monotone" dataKey="driverConsumption" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} /><Line type="monotone" dataKey="otherConsumption" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} /></LineChart></div>}</div></div>}
+        {expandedPreviewMetric && <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}><div className="driver-mobile-chart-dialog__panel"><header><div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "km" ? "Kilómetros realizados" : "Consumo comparado"}</h2></div><button type="button" aria-label="Cerrar gráfica ampliada" onClick={() => setExpandedPreviewMetric("")}><IconX size={18} /></button></header>{expandedPreviewMetric === "billing" && <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--billing"><div className="driver-mobile-chart-dialog__billing-scroll" role="region" aria-label="Facturación mensual por año. Desliza horizontalmente para ver todos los meses"><div className="driver-mobile-chart-dialog__billing-canvas"><BarChart width={Math.max(760, monthlyBillingHistory.length * 68)} height={340} data={monthlyBillingHistory} margin={{ top: 26, right: 22, bottom: 62, left: 76 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="key" interval={0} tick={<DriverBillingMonthTick />} tickLine={false} axisLine={{ stroke: "#cbd8e8" }} /><YAxis width={66} tick={{ fontSize: 14, fontWeight: 850, fill: "#526783" }} tickLine={false} axisLine={false} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} domain={[0, Math.max(periodSummary.billingScaleMax, ...monthlyBillingHistory.map((month) => month.amount))]} /><Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} labelFormatter={(label, payload) => payload?.[0]?.payload?.label ?? label} /><ReferenceLine y={periodSummary.billingGoal} stroke="#f2a62a" strokeDasharray="5 4" />{periodSummary.billingMilestones.slice(1).map((milestone) => <ReferenceLine key={milestone} y={milestone} stroke="#e6edf5" strokeDasharray="2 4" />)}<Bar dataKey="amount" fill="#2c6de9" radius={[5, 5, 0, 0]} minPointSize={24} isAnimationActive={false}><LabelList dataKey="amount" content={<DriverBillingBarValueLabel />} /></Bar></BarChart></div></div><p className="driver-mobile-chart-dialog__hint">Desliza a derecha e izquierda para consultar los meses de cada año.</p></div>}{expandedPreviewMetric === "km" && <div className="driver-mobile-chart-dialog__chart"><LineChart width={520} height={250} data={weeklyKmData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} /><Tooltip formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} /><Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} /><Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} /></LineChart></div>}{expandedPreviewMetric === "consumption" && <div className="driver-mobile-chart-dialog__chart"><LineChart width={520} height={250} data={weeklyConsumptionData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l`} /><Tooltip formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km`} /><Line type="monotone" dataKey="driverConsumption" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} /><Line type="monotone" dataKey="otherConsumption" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} /></LineChart></div>}</div></div>}
         {referenceOpen && referenceLabels[referenceOpen] && <div className="driver-mobile-reference-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-reference-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setReferenceOpen(""); }}><div className="driver-mobile-reference-dialog__panel"><header><div><span>REFERENCIA VISUAL</span><h2 id="driver-mobile-reference-title">{referenceLabels[referenceOpen].title}</h2></div><button type="button" aria-label="Cerrar referencia" onClick={() => setReferenceOpen("")}><IconX size={18} /></button></header><img src={driverReferenceImages[referenceOpen]} alt={referenceLabels[referenceOpen].alt} /><p>{referenceLabels[referenceOpen].caption}. Esta imagen es un ejemplo y no modifica los datos del conductor.</p><button type="button" className="primary-button" onClick={() => setReferenceOpen("")}>Cerrar</button></div></div>}
         {circleReview && <DriverCircleReviewDialog review={circleReview} profile={profile} driverId={profile.id} onClose={closeCircleReview} onSave={saveCircleReview} />}
       </div>
@@ -5523,6 +5542,43 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
         {!isPhotoInvoice && !isDocumentProcessing && !isMaintenanceEdit && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Factura Plenergy archivada" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar factura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
       </section>
     </div>
+  );
+}
+
+function DriverBillingMonthTick({ x, y, payload }) {
+  const month = payload?.payload?.shortLabel ?? String(payload?.value ?? "").split(" ")[0];
+  const year = payload?.payload?.year ?? String(payload?.value ?? "").split(" ").slice(-1)[0];
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x="0" y="0" dy="9" textAnchor="middle" fill="#526783" fontSize="13" fontWeight="850">
+        <tspan x="0" dy="0">{String(month).toUpperCase()}</tspan>
+        <tspan x="0" dy="16">{year}</tspan>
+      </text>
+    </g>
+  );
+}
+
+function DriverBillingBarValueLabel({ x, y, width, height, value }) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y)) || !Number.isFinite(Number(width)) || !Number.isFinite(Number(height))) return null;
+  const centerX = Number(x) + Number(width) / 2;
+  const centerY = Number(y) + Number(height) / 2;
+  const label = formatCurrency(numericValue);
+  const fontSize = Math.max(9, Math.min(13, Number(width) * 0.24, Number(height) * 0.22));
+  return (
+    <text
+      x={centerX}
+      y={centerY}
+      fill="#fff"
+      fontSize={fontSize}
+      fontWeight="850"
+      textAnchor="middle"
+      dominantBaseline="central"
+      transform={`rotate(-90 ${centerX} ${centerY})`}
+      style={{ paintOrder: "stroke", stroke: "rgba(10,55,132,.28)", strokeWidth: 2.5, strokeLinecap: "round", strokeLinejoin: "round" }}
+    >
+      {label}
+    </text>
   );
 }
 
