@@ -538,6 +538,13 @@ const getLeasingCadence = (plate, year, month) => {
   if (!contract) return "Sin cuota configurada";
   return amount > 0 ? `${formatCurrency(amount)} hasta ${contract.endDateLabel}` : `Finalizado ${contract.endDateLabel}`;
 };
+const licenseLoanAmountsByPlate = Object.freeze({
+  "5043 MLC": 696.55,
+  "5750 MJV": 516.78,
+  "5754 MJV": 516.78,
+});
+const getLicenseLoanAmountForPeriod = (plate) => Number(licenseLoanAmountsByPlate[canonicalizeVehiclePlate(plate)] ?? 0);
+const getLicenseLoanCadence = (plate) => getLicenseLoanAmountForPeriod(plate) > 0 ? "Mensual · cuota fija" : "Sin cuota configurada";
 const annualRecurringExpenses = Object.freeze({
   inspection: { month: 10, amount: 29.90, cadence: "Noviembre · recurrente anual" },
 });
@@ -624,6 +631,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
   const leasingAmount = getLeasingAmountForPeriod(vehicle.plate, reportYear, reportMonth);
+  const licenseLoanAmount = getLicenseLoanAmountForPeriod(vehicle.plate);
   const inspectionAmount = getAnnualRecurringExpenseAmount("inspection", vehicle.plate, reportMonth);
   const gestoriaPeriodDocuments = getGestoriaDocumentsForPeriod(vehicle.plate, reportYear, reportMonth);
   const gestoriaPeriodAmount = getGestoriaExpenseForPeriod(vehicle.plate, reportYear, reportMonth);
@@ -702,7 +710,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     { key: "insurance", label: "Seguro", amount: scale(amounts[9]), cadence: "Anual" },
     { key: "inspection", label: "ITV", amount: inspectionAmount || scale(additional.itv), cadence: getAnnualRecurringExpenseCadence("inspection") },
     { key: "road-tax", label: "Impuesto circulación", amount: scale(additional.circulation), cadence: "Anual" },
-    { key: "license-loan", label: "Préstamo licencia", amount: scale(amounts[1]), cadence: "Mensual" },
+    { key: "license-loan", label: "Préstamo licencia", amount: licenseLoanAmount, cadence: getLicenseLoanCadence(vehicle.plate) },
     { key: "annex-insurance", label: "Seguros anexos al coche", amount: scale(additional.annexInsurance), cadence: "Mensual" },
   ];
 };
@@ -5680,6 +5688,7 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
   const maintenanceAmount = transactionTotal("maintenance") || getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear);
   const gestoriaAmount = getGestoriaExpenseForPeriod(vehicle.plate, reportYear, reportMonth);
   const leasingAmount = getLeasingAmountForPeriod(vehicle.plate, reportYear, reportMonth);
+  const licenseLoanAmount = getLicenseLoanAmountForPeriod(vehicle.plate);
   const inspectionAmount = getAnnualRecurringExpenseAmount("inspection", vehicle.plate, reportMonth);
   const driverRevenue = vehicle.use === "Profesional"
     ? vehicle.drivers.slice(0, 2).map((driver) => ({ driver, amount: Number(((getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor).toFixed(2)) }))
@@ -5697,13 +5706,14 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
     workshop: maintenanceAmount,
     accounting: gestoriaAmount,
     leasing: leasingAmount,
+    "license-loan": licenseLoanAmount,
     inspection: inspectionAmount,
     "social-security": socialSecurityAmount,
     payroll: payrollAmount,
     "driver-commission": commissionAmount,
     "eu-vat": intracommunityVatAmount,
   };
-  const expenses = expenseCategories.map((category) => ({ ...category, cadence: category.canonicalKey === "leasing" ? getLeasingCadence(vehicle.plate, reportYear, reportMonth) : category.canonicalKey === "inspection" ? getAnnualRecurringExpenseCadence("inspection") : category.cadence, amount: Number((amountsByKey[category.canonicalKey] ?? 0).toFixed(2)) }));
+  const expenses = expenseCategories.map((category) => ({ ...category, cadence: category.canonicalKey === "leasing" ? getLeasingCadence(vehicle.plate, reportYear, reportMonth) : category.canonicalKey === "license-loan" ? getLicenseLoanCadence(vehicle.plate) : category.canonicalKey === "inspection" ? getAnnualRecurringExpenseCadence("inspection") : category.cadence, amount: Number((amountsByKey[category.canonicalKey] ?? 0).toFixed(2)) }));
   const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const operating = expenses.filter((expense) => ["fuel", "workshop", "driver-commission"].includes(expense.canonicalKey) || ["Limpieza coche", "Varios"].includes(expense.label)).reduce((sum, expense) => sum + expense.amount, 0);
   const fixed = total - operating;
