@@ -5371,6 +5371,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
     const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
     return { item, invoice, details, key: getMaintenanceRecordKey(item, index) };
   });
+  const maintenanceTotal = maintenanceRecords.reduce((total, record) => total + (Number(record.invoice?.amount ?? record.item.amount) || 0), 0);
   useEffect(() => {
     setWorkshopPlate(initialPlate);
   }, [initialPlate]);
@@ -5478,7 +5479,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
             <span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt="" /></span>
             <span><h2><VehiclePlateLabel vehicleOrPlate={workshopVehicle} className="maintenance-history-plate" /></h2></span>
           </div>
-          <div className="maintenance-history-total"><small>{sortedMaintenance.length ? `${sortedMaintenance.length} intervenciones` : "Sin intervenciones"}</small></div>
+          <div className="maintenance-history-total" aria-label={`Gasto total de mantenimiento de ${workshopVehicle.plate}`}><small>Gasto total</small><strong>{formatCurrency(maintenanceTotal)}</strong><small>{sortedMaintenance.length ? `${sortedMaintenance.length} intervenciones` : "Sin intervenciones"}</small></div>
         </header>
         <div className="maintenance-history-scroll">
         <div className="maintenance-timeline" aria-label={`Historial de mantenimiento de ${workshopVehicle.plate}`}>
