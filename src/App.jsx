@@ -73,6 +73,7 @@ import { alexBillingByPeriod } from "./data/alexBillingSummary";
 import { aminBillingByPeriod } from "./data/aminBillingSummary";
 import { fernandoBillingByPeriod } from "./data/fernandoBillingSummary";
 import { mauricioBillingByPeriod } from "./data/mauricioBillingSummary";
+import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -1011,8 +1012,9 @@ const distributeInteger = (total, keys, seed) => {
 const isAmin = (name = "") => String(name).trim().toLocaleLowerCase("es") === "amin";
 const isFernando = (name = "") => String(name).trim().toLocaleLowerCase("es") === "fernando";
 const isMauricio = (name = "") => String(name).trim().toLocaleLowerCase("es") === "mauricio";
+const isTirso = (name = "") => String(name).trim().toLocaleLowerCase("es") === "tirso";
 const getImportedBillingByPeriod = (driver) => {
-  const summary = isAlex(driver) ? alexBillingByPeriod : isAmin(driver) ? aminBillingByPeriod : isFernando(driver) ? fernandoBillingByPeriod : isMauricio(driver) ? mauricioBillingByPeriod : null;
+  const summary = isAlex(driver) ? alexBillingByPeriod : isAmin(driver) ? aminBillingByPeriod : isFernando(driver) ? fernandoBillingByPeriod : isMauricio(driver) ? mauricioBillingByPeriod : isTirso(driver) ? tirsoBillingByPeriod : null;
   if (!summary) return null;
   return Object.fromEntries(Object.entries(summary).map(([period, record]) => [period, record.amount]));
 };
