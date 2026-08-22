@@ -118,7 +118,7 @@ export const buildAlexCommissionReportPdf = ({ driverName = "Alex", vehiclePlate
     textCommand("F2", 13, 430, 484, pdfMoney(report.commissionBase), "0.14 0.20 0.24"),
     textCommand("F1", 12, 55, 451, "Complementos por tramos", "0.14 0.20 0.24"),
     textCommand("F2", 13, 430, 451, pdfMoney(report.thresholdBonus), "0.14 0.20 0.24"),
-    textCommand("F1", 11, 72, 423, "+ 250 EUR si supera 5.000 EUR; + 50 EUR por cada tramo de 500 EUR superado", "0.37 0.44 0.47"),
+    textCommand("F1", 11, 72, 423, "+ 250 EUR al alcanzar 5.000 EUR; + 50 EUR por cada tramo adicional de 500 EUR", "0.37 0.44 0.47"),
     textCommand("F1", 12, 55, 384, "Comision calculada", "0.14 0.20 0.24"),
     textCommand("F2", 15, 430, 384, pdfMoney(report.commission), "0.14 0.20 0.24"),
     ruleCommand(42, 360, 511),
