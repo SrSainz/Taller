@@ -4130,6 +4130,11 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .net-detail-card__breakdown-editor-actions .net-detail-card__form-save { border: 1px solid var(--net-accent); background: var(--net-accent); color: #fff; }
 .net-detail-card__breakdown-editor p { grid-column: 1 / -1; margin: 0; color: #b4382e; font-size: 8px; }
 
+/* Neto registra también el día exacto de cada ajuste o gasto añadido. */
+.net-detail-card__add-form { grid-template-columns: minmax(0, 1fr) minmax(116px, 132px) minmax(86px, 104px); }
+.net-detail-card__breakdown-editor { grid-template-columns: minmax(0, 1fr) minmax(116px, 132px) 104px; }
+.net-detail-card__add-form input[type="date"], .net-detail-card__breakdown-editor input[type="date"] { color-scheme: light; }
+
 /* La pantalla inicial de Neto conserva los tres coches fijos y no crea scroll vertical. */
 .net-detail-modal:not(.net-detail-modal--expanded) { height: min(92dvh, 820px); max-height: min(92dvh, 820px); }
 .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-carousel { flex: 1 1 auto; min-height: 0; overflow: hidden; touch-action: pan-x; }
@@ -4147,4 +4152,9 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 @media (max-width: 720px) {
   .net-detail-card__expense-breakdown-row { padding-left: 8px; }
   .net-detail-card__breakdown-editor { padding-left: 8px; }
+}
+
+@media (max-width: 480px) {
+  .net-detail-card__add-form { grid-template-columns: minmax(0, 1fr) minmax(94px, 112px); }
+  .net-detail-card__breakdown-editor { grid-template-columns: minmax(0, 1fr) minmax(94px, 112px); }
 }

@@ -518,12 +518,28 @@ const netPayrollAmounts = {};
 const netSocialSecurityAmounts = {};
 
 const manualNetExpensesStorageKey = "talleria:manual-net-expenses:clean-v3";
+const getNetExpensePeriodRange = (periodKey) => {
+  const [rawYear, rawMonth] = String(periodKey ?? "").split("-").map(Number);
+  const year = Number.isInteger(rawYear) && rawYear >= 2000 ? rawYear : new Date().getFullYear();
+  const month = Number.isInteger(rawMonth) && rawMonth >= 0 && rawMonth <= 11 ? rawMonth : new Date().getMonth();
+  const min = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return { min, max: `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}` };
+};
+const isNetExpenseDateInPeriod = (value, periodKey) => {
+  const range = getNetExpensePeriodRange(periodKey);
+  return isMaintenanceDate(value) && String(value) >= range.min && String(value) <= range.max;
+};
+const getNetExpenseDateForPeriod = (value, periodKey) => isNetExpenseDateInPeriod(value, periodKey) ? String(value) : getNetExpensePeriodRange(periodKey).min;
+const formatNetExpenseDate = (value) => isMaintenanceDate(value)
+  ? new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${value}T12:00:00`))
+  : "";
 const loadManualNetExpenses = () => {
   try {
     if (typeof window === "undefined") return [];
     const stored = JSON.parse(window.localStorage.getItem(manualNetExpensesStorageKey) ?? "[]");
     return Array.isArray(stored)
-      ? stored.filter((expense) => expense?.id && expense?.periodKey && expense?.plate && expense?.label && Number(expense.amount) > 0).map((expense) => ({ ...expense, amount: Number(expense.amount) }))
+      ? stored.filter((expense) => expense?.id && expense?.periodKey && expense?.plate && expense?.label && Number(expense.amount) > 0).map((expense) => ({ ...expense, amount: Number(expense.amount), date: isMaintenanceDate(expense.date) ? expense.date : "" }))
       : [];
   } catch {
     return [];
@@ -543,7 +559,7 @@ const loadManualNetBreakdowns = () => {
     if (typeof window === "undefined") return [];
     const stored = JSON.parse(window.localStorage.getItem(manualNetBreakdownsStorageKey) ?? "[]");
     return Array.isArray(stored)
-      ? stored.filter((breakdown) => breakdown?.id && breakdown?.periodKey && breakdown?.plate && breakdown?.expenseKey && breakdown?.breakdownKey && breakdown?.driverLabel && breakdown?.concept && Number.isFinite(Number(breakdown.amount)) && Number(breakdown.amount) >= 0).map((breakdown) => ({ ...breakdown, amount: Number(breakdown.amount) }))
+      ? stored.filter((breakdown) => breakdown?.id && breakdown?.periodKey && breakdown?.plate && breakdown?.expenseKey && breakdown?.breakdownKey && breakdown?.driverLabel && breakdown?.concept && Number.isFinite(Number(breakdown.amount)) && Number(breakdown.amount) >= 0).map((breakdown) => ({ ...breakdown, amount: Number(breakdown.amount), date: isMaintenanceDate(breakdown.date) ? breakdown.date : "" }))
       : [];
   } catch {
     return [];
@@ -560,7 +576,7 @@ const getNetBreakdownKey = (breakdown, index = 0) => breakdown.breakdownKey || b
 const applyNetBreakdownOverrides = (expenseKey, breakdowns, manualBreakdowns = []) => breakdowns.map((breakdown, index) => {
   const breakdownKey = getNetBreakdownKey(breakdown, index);
   const override = manualBreakdowns.find((candidate) => candidate.expenseKey === expenseKey && candidate.breakdownKey === breakdownKey);
-  return override ? { ...breakdown, amount: Number(override.amount), concept: override.concept, manualBreakdownId: override.id } : breakdown;
+  return override ? { ...breakdown, amount: Number(override.amount), concept: override.concept, date: override.date || breakdown.date || "", manualBreakdownId: override.id } : breakdown;
 });
 
 const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], fuelEntries = [], periodFinancials = [], manualBreakdowns = [], reportMonth = 6, reportYear = 2026 }) => {
@@ -3560,10 +3576,10 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
   const [selectedPlate, setSelectedPlate] = useState("");
   const [expandedExpenseRows, setExpandedExpenseRows] = useState(() => new Set());
   const [activeFormPlate, setActiveFormPlate] = useState("");
-  const [formState, setFormState] = useState({ label: "", amount: "" });
+  const [formState, setFormState] = useState({ category: "", label: "", amount: "", date: "" });
   const [formError, setFormError] = useState("");
   const [activeBreakdownEditor, setActiveBreakdownEditor] = useState("");
-  const [breakdownFormState, setBreakdownFormState] = useState({ expenseKey: "", breakdownKey: "", driverLabel: "", concept: "", amount: "" });
+  const [breakdownFormState, setBreakdownFormState] = useState({ expenseKey: "", breakdownKey: "", driverLabel: "", concept: "", amount: "", date: "" });
   const [breakdownFormError, setBreakdownFormError] = useState("");
   const [focusBreakdownAmount, setFocusBreakdownAmount] = useState(false);
   useEffect(() => {
@@ -3585,6 +3601,7 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
   const orderedDetails = [...details].sort((left, right) => vehicleOrder.indexOf(left.vehicle.plate) - vehicleOrder.indexOf(right.vehicle.plate));
   const selectedDetail = orderedDetails.find((detail) => detail.vehicle.plate === selectedPlate) ?? null;
   const selectedTone = selectedDetail ? (netVehicleImages[selectedDetail.vehicle.plate]?.tone ?? "green") : "green";
+  const netExpenseDateRange = getNetExpensePeriodRange(periodKey);
   const toggleVehicle = (plate) => {
     setSelectedPlate((current) => current === plate ? "" : plate);
     setExpandedExpenseRows(new Set());
@@ -3603,12 +3620,12 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
   const openExpenseForm = (plate) => {
     setActiveFormPlate(plate);
     setActiveBreakdownEditor("");
-    setFormState({ category: "", label: "", amount: "" });
+    setFormState({ category: "", label: "", amount: "", date: getNetExpenseDateForPeriod("", periodKey) });
     setFormError("");
   };
   const closeExpenseForm = () => {
     setActiveFormPlate("");
-    setFormState({ category: "", label: "", amount: "" });
+    setFormState({ category: "", label: "", amount: "", date: "" });
     setFormError("");
   };
   const handleExpenseSubmit = (event, plate) => {
@@ -3616,17 +3633,17 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
     const selectedCategory = expenseCategories.find((category) => category.label === formState.category);
     const label = formState.category === "__custom__" ? formState.label.trim() : selectedCategory?.label ?? "";
     const amount = Number(String(formState.amount).replace(",", "."));
-    if (!label || !Number.isFinite(amount) || amount <= 0) {
-      setFormError("Selecciona una categoría o crea una nueva, e indica un importe mayor que cero.");
+    if (!label || !Number.isFinite(amount) || amount <= 0 || !isNetExpenseDateInPeriod(formState.date, periodKey)) {
+      setFormError("Selecciona una categoría, un día del periodo y un importe mayor que cero.");
       return;
     }
-    onAddExpense({ periodKey, plate, label, category: selectedCategory?.label ?? label, categoryKey: formState.category === "__custom__" ? "" : selectedCategory?.canonicalKey ?? "", cadence: selectedCategory?.cadence ?? "Manual", amount: Number(amount.toFixed(2)) });
+    onAddExpense({ periodKey, plate, label, category: selectedCategory?.label ?? label, categoryKey: formState.category === "__custom__" ? "" : selectedCategory?.canonicalKey ?? "", cadence: selectedCategory?.cadence ?? "Manual", amount: Number(amount.toFixed(2)), date: formState.date });
     setSelectedPlate(plate);
     closeExpenseForm();
   };
   const closeBreakdownEditor = () => {
     setActiveBreakdownEditor("");
-    setBreakdownFormState({ expenseKey: "", breakdownKey: "", driverLabel: "", concept: "", amount: "" });
+    setBreakdownFormState({ expenseKey: "", breakdownKey: "", driverLabel: "", concept: "", amount: "", date: "" });
     setBreakdownFormError("");
     setFocusBreakdownAmount(false);
   };
@@ -3634,7 +3651,7 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
   const openBreakdownEditor = (expense, breakdown, rowKey, index, focusAmount = false) => {
     const breakdownKey = getNetBreakdownKey(breakdown, index);
     setActiveBreakdownEditor(getBreakdownEditorKey(rowKey, breakdown, index));
-    setBreakdownFormState({ expenseKey: expense.key, breakdownKey, driverLabel: breakdown.label, concept: breakdown.concept || expense.label, amount: String(Number(breakdown.amount ?? 0)) });
+    setBreakdownFormState({ expenseKey: expense.key, breakdownKey, driverLabel: breakdown.label, concept: breakdown.concept || expense.label, amount: String(Number(breakdown.amount ?? 0)), date: getNetExpenseDateForPeriod(breakdown.date, periodKey) });
     setBreakdownFormError("");
     setFocusBreakdownAmount(focusAmount);
   };
@@ -3664,11 +3681,11 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
     event.preventDefault();
     const concept = breakdownFormState.concept.trim();
     const amount = Number(String(breakdownFormState.amount).replace(",", "."));
-    if (!concept || !Number.isFinite(amount) || amount < 0) {
-      setBreakdownFormError("Indica un concepto y un importe igual o mayor que cero.");
+    if (!concept || !Number.isFinite(amount) || amount < 0 || !isNetExpenseDateInPeriod(breakdownFormState.date, periodKey)) {
+      setBreakdownFormError("Indica un concepto, un día del periodo y un importe igual o mayor que cero.");
       return;
     }
-    onSaveBreakdown?.({ periodKey, plate, expenseKey: breakdownFormState.expenseKey, breakdownKey: breakdownFormState.breakdownKey, driverLabel: breakdownFormState.driverLabel, concept, amount: Number(amount.toFixed(2)) });
+    onSaveBreakdown?.({ periodKey, plate, expenseKey: breakdownFormState.expenseKey, breakdownKey: breakdownFormState.breakdownKey, driverLabel: breakdownFormState.driverLabel, concept, amount: Number(amount.toFixed(2)), date: breakdownFormState.date });
     closeBreakdownEditor();
   };
   const getExpenseIcon = (key) => {
@@ -3681,6 +3698,18 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
     if (key === "leasing" || key === "license-loan") return IconCar;
     return IconFileInvoice;
   };
+  const getBreakdownMeta = (breakdown) => [
+    breakdown.concept,
+    breakdown.meta,
+    breakdown.date ? `Día ${formatNetExpenseDate(breakdown.date)}` : "",
+  ].filter(Boolean).join(" · ");
+  const getExpenseCadence = (expense) => {
+    if (expense.manual) return ["Añadido a mano", expense.date ? `Día ${formatNetExpenseDate(expense.date)}` : ""].filter(Boolean).join(" · ");
+    const manualDates = [...new Set((expense.manualExpenseDates ?? []).filter(Boolean))];
+    if (manualDates.length === 1) return `Gasto manual · Día ${formatNetExpenseDate(manualDates[0])}`;
+    if (manualDates.length > 1) return `Gastos manuales · ${manualDates.length} días`;
+    return expense.cadence;
+  };
   const renderExpenseRows = (detail) => <div className="net-detail-card__expenses" id={`net-expenses-${detail.vehicle.plate.replace(/\s/g, "-")}`} role="table" aria-label={`Gastos de ${detail.vehicle.plate}`}>
     <div className="net-detail-card__expenses-heading" role="row"><strong>GASTOS</strong><strong>IMPORTE</strong></div>
     <div className="net-detail-card__expenses-scroll">
@@ -3691,7 +3720,7 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
         const ExpenseIcon = getExpenseIcon(expense.key);
         const rowClass = `net-detail-card__expense${expandable ? " net-detail-card__expense--expandable" : ""}${breakdownOpen ? " is-expanded" : ""}`;
         return <div className="net-detail-card__expense-group" key={expense.key}>
-          {expandable ? <button type="button" className={rowClass} aria-expanded={breakdownOpen} aria-controls={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} onClick={() => toggleExpenseRow(rowKey)}><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{expense.cadence}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong><IconChevronRight size={15} /></span></button> : <div className={rowClass} role="row"><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{expense.manual ? "Añadido a mano" : expense.cadence}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{(expense.manual || expense.manualExpenseIds?.length > 0) && <button type="button" onClick={() => onRemoveExpense(expense.manual ? expense.id : expense.manualExpenseIds)} aria-label={`Eliminar gasto manual de ${expense.label}`}><IconTrash size={12} /></button>}</span></div>}
+          {expandable ? <button type="button" className={rowClass} aria-expanded={breakdownOpen} aria-controls={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} onClick={() => toggleExpenseRow(rowKey)}><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{getExpenseCadence(expense)}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong><IconChevronRight size={15} /></span></button> : <div className={rowClass} role="row"><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{getExpenseCadence(expense)}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{(expense.manual || expense.manualExpenseIds?.length > 0) && <button type="button" onClick={() => onRemoveExpense(expense.manual ? expense.id : expense.manualExpenseIds)} aria-label={`Eliminar gasto manual de ${expense.label}`}><IconTrash size={12} /></button>}</span></div>}
           {breakdownOpen && <div className="net-detail-card__expense-breakdown" id={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} role="rowgroup" aria-label={`Detalle de ${expense.label}`}>
             {expense.breakdown.map((breakdown, breakdownIndex) => {
               const breakdownEditorKey = getBreakdownEditorKey(rowKey, breakdown, breakdownIndex);
@@ -3699,10 +3728,11 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
               const editingBreakdown = activeBreakdownEditor === breakdownEditorKey;
               return <div className={`net-detail-card__expense-breakdown-entry${editingBreakdown ? " is-editing" : ""}`} key={`${rowKey}-${getNetBreakdownKey(breakdown, breakdownIndex)}`}>
                 <button type="button" className="net-detail-card__expense-breakdown-row" role="row" aria-expanded={editingBreakdown} aria-controls={editingBreakdown ? breakdownEditorId : undefined} title="Pulsa dos segundos para editar directamente el importe" onPointerDown={(event) => { if (event.pointerType === "mouse" && event.button !== 0) return; startBreakdownPress(expense, breakdown, rowKey, breakdownIndex); }} onPointerUp={clearBreakdownPress} onPointerCancel={clearBreakdownPress} onPointerLeave={clearBreakdownPress} onClick={() => handleBreakdownTriggerClick(expense, breakdown, rowKey, breakdownIndex)}>
-                  <span role="cell"><strong>{breakdown.label}</strong><small>{breakdown.concept ? `${breakdown.concept} · ${breakdown.meta}` : breakdown.meta}</small></span><strong role="cell">{formatCurrency(breakdown.amount)}</strong>
+                  <span role="cell"><strong>{breakdown.label}</strong><small>{getBreakdownMeta(breakdown)}</small></span><strong role="cell">{formatCurrency(breakdown.amount)}</strong>
                 </button>
                 {editingBreakdown && <form className="net-detail-card__breakdown-editor" id={breakdownEditorId} onSubmit={(event) => handleBreakdownSubmit(event, selectedDetail.vehicle.plate)}>
                   <label><span>Concepto</span><input type="text" value={breakdownFormState.concept} onChange={(event) => setBreakdownFormState((current) => ({ ...current, concept: event.target.value }))} maxLength={60} autoFocus={false} /></label>
+                  <label><span>Día del gasto</span><input type="date" value={breakdownFormState.date} min={netExpenseDateRange.min} max={netExpenseDateRange.max} onChange={(event) => setBreakdownFormState((current) => ({ ...current, date: event.target.value }))} /></label>
                   <label><span>Importe</span><input ref={breakdownAmountRef} type="number" value={breakdownFormState.amount} onChange={(event) => setBreakdownFormState((current) => ({ ...current, amount: event.target.value }))} min="0" step="0.01" inputMode="decimal" /></label>
                   <div className="net-detail-card__breakdown-editor-actions"><button type="button" className="net-detail-card__form-cancel" onClick={closeBreakdownEditor}>Cancelar</button><button type="submit" className="net-detail-card__form-save">Guardar</button></div>
                   {breakdownFormError && <p>{breakdownFormError}</p>}
@@ -3742,6 +3772,7 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
             {activeFormPlate === selectedDetail.vehicle.plate && <form className="net-detail-card__add-form" onSubmit={(event) => handleExpenseSubmit(event, selectedDetail.vehicle.plate)}>
               <label className="net-detail-card__add-form-category"><span>Categoría del gasto</span><select value={formState.category} onChange={(event) => setFormState((current) => ({ ...current, category: event.target.value, label: "" }))} autoFocus><option value="">Selecciona una categoría…</option>{expenseCategories.map((category) => <option value={category.label} key={category.label}>{category.label}</option>)}<option value="__custom__">+ Crear nueva categoría</option></select></label>
               {formState.category === "__custom__" && <label className="net-detail-card__add-form-custom"><span>Nueva categoría</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Nóminas · Andrés" maxLength={42} /></label>}
+              <label className="net-detail-card__add-form-date"><span>Día del gasto</span><input type="date" value={formState.date} min={netExpenseDateRange.min} max={netExpenseDateRange.max} onChange={(event) => setFormState((current) => ({ ...current, date: event.target.value }))} /></label>
               <label><span>Importe</span><input type="number" value={formState.amount} onChange={(event) => setFormState((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" min="0.01" step="0.01" inputMode="decimal" /></label>
               <div><button type="button" className="net-detail-card__form-cancel" onClick={closeExpenseForm}>Cancelar</button><button type="submit" className="net-detail-card__form-save">Guardar gasto</button></div>
               {formError && <p>{formError}</p>}
@@ -3972,14 +4003,17 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         const amount = Number(manualExpense.amount) || 0;
         canonicalExpense.amount = Number((canonicalExpense.amount + amount).toFixed(2));
         canonicalExpense.manualExpenseIds = [...(canonicalExpense.manualExpenseIds ?? []), manualExpense.id];
+        canonicalExpense.manualExpenseDates = [...(canonicalExpense.manualExpenseDates ?? []), manualExpense.date].filter(Boolean);
         if (Array.isArray(canonicalExpense.breakdown)) {
           const manualBreakdown = canonicalExpense.breakdown.find((breakdown) => breakdown.label === "Añadido a mano");
           if (manualBreakdown) {
             manualBreakdown.amount = Number((manualBreakdown.amount + amount).toFixed(2));
+            manualBreakdown.date = manualBreakdown.date && manualExpense.date && manualBreakdown.date !== manualExpense.date ? "" : manualBreakdown.date || manualExpense.date || "";
+            manualBreakdown.meta = manualBreakdown.date ? "Gasto manual" : "Gastos manuales del periodo";
           } else {
             canonicalExpense.breakdown = [
               ...canonicalExpense.breakdown,
-              { label: "Añadido a mano", amount: Number(amount.toFixed(2)), meta: "Gasto manual del periodo" },
+              { label: "Añadido a mano", amount: Number(amount.toFixed(2)), meta: manualExpense.date ? "Gasto manual" : "Gasto manual del periodo", date: manualExpense.date || "" },
             ];
           }
         }
