@@ -1,3 +1,5 @@
+import { canonicalizeVehiclePlate } from "./data/vehicleRegistry";
+
 const money = (value) => Math.max(0, Number(value) || 0);
 const isoDate = (value, fallback = "") => /^\d{4}-\d{2}-\d{2}$/.test(String(value ?? "")) ? String(value) : fallback;
 const normalized = (value) => String(value ?? "").trim().toLocaleLowerCase("es");
@@ -11,7 +13,7 @@ export const hashDocumentFile = async (file) => {
 };
 
 export const buildDedupeKey = ({ fileHash, type, date, amount, driverId, vehiclePlate, sourceIdentity = "" }) =>
-  [fileHash || "nohash", type, date, money(amount).toFixed(2), driverId || "", normalized(vehiclePlate).replace(/\s+/g, ""), normalized(sourceIdentity).replace(/\s+/g, "")].join(":");
+  [fileHash || "nohash", type, date, money(amount).toFixed(2), driverId || "", normalized(canonicalizeVehiclePlate(vehiclePlate)).replace(/\s+/g, ""), normalized(sourceIdentity).replace(/\s+/g, "")].join(":");
 
 export const operationsFromDocument = ({ category, fields = {}, driverId = "", vehiclePlate = "", fileHash = "", fallbackDate = "" }) => {
   const values = normalizedFields(fields);
@@ -19,7 +21,7 @@ export const operationsFromDocument = ({ category, fields = {}, driverId = "", v
     ? isoDate(values.serviceDate || values.issueDate || values.date || values.periodStart, fallbackDate)
     : isoDate(values.date || values.serviceDate || values.issueDate, fallbackDate);
   if (!date) return [];
-  const plate = String(values.vehicle || vehiclePlate || "").toUpperCase().trim();
+  const plate = canonicalizeVehiclePlate(values.vehicle || vehiclePlate);
   const sourceIdentity = values.invoiceNumber || values.ticketNumber || values.reference || [values.company, values.provider, values.gasStation, values.concept, values.expenseCategory].filter(Boolean).join("|");
   const documentText = normalized([values.supplyType, values.fuelType, values.concept, values.expenseCategory, values.documentType].filter(Boolean).join(" "));
   const isFuelDocument = category === "consumption" || /gasolin|diesel|di[eé]sel|gas[oó]leo|combustible|repostaje|estaci[oó]n de servicio/.test(documentText);
@@ -64,7 +66,7 @@ export const transactionsToDriverEntries = (transactions = []) => {
   transactions.forEach((transaction) => {
     if (!transaction.driver_id || !transaction.occurred_on) return;
     const key = `${transaction.driver_id}:${transaction.occurred_on}`;
-    const row = rows.get(key) ?? { id: key, driver_id: transaction.driver_id, vehicle_plate: transaction.vehicle_plate || "", entry_date: transaction.occurred_on, billing: 0, cash_collected: 0, tips: 0, fuel_cost: 0, fuel_liters: 0, odometer_km: 0, tolls: 0, wash_expenses: 0, other_expenses: 0 };
+    const row = rows.get(key) ?? { id: key, driver_id: transaction.driver_id, vehicle_plate: canonicalizeVehiclePlate(transaction.vehicle_plate), entry_date: transaction.occurred_on, billing: 0, cash_collected: 0, tips: 0, fuel_cost: 0, fuel_liters: 0, odometer_km: 0, tolls: 0, wash_expenses: 0, other_expenses: 0 };
     const amount = money(transaction.amount);
     if (transaction.type === "billing") row.billing += amount;
     if (transaction.type === "cash") row.cash_collected += amount;
@@ -84,12 +86,12 @@ const driverEntryAmountKeys = ["billing", "cash_collected", "tips", "fuel_cost",
 export const mergeDriverEntries = (legacyEntries = [], centralEntries = []) => {
   const rows = new Map((legacyEntries ?? [])
     .filter((entry) => entry?.driver_id && entry?.entry_date)
-    .map((entry) => [`${entry.driver_id}:${entry.entry_date}`, { ...entry }]));
+    .map((entry) => [`${entry.driver_id}:${entry.entry_date}`, { ...entry, vehicle_plate: canonicalizeVehiclePlate(entry.vehicle_plate) }]));
   (centralEntries ?? []).forEach((centralEntry) => {
     if (!centralEntry?.driver_id || !centralEntry?.entry_date) return;
     const key = `${centralEntry.driver_id}:${centralEntry.entry_date}`;
     const legacyEntry = rows.get(key) ?? {};
-    const merged = { ...legacyEntry, ...centralEntry };
+    const merged = { ...legacyEntry, ...centralEntry, vehicle_plate: canonicalizeVehiclePlate(centralEntry.vehicle_plate || legacyEntry.vehicle_plate) };
     driverEntryAmountKeys.forEach((field) => {
       const centralValue = money(centralEntry[field]);
       const legacyValue = money(legacyEntry[field]);

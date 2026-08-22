@@ -75,6 +75,7 @@ import { fernandoBillingByPeriod } from "./data/fernandoBillingSummary";
 import { mauricioBillingByPeriod } from "./data/mauricioBillingSummary";
 import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
+import { canonicalizeVehiclePlate, getVehicleOwner as getCanonicalVehicleOwner, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -162,7 +163,6 @@ const utilityItems = [
 const adminNavItem = { label: "Administraci\u00f3n", slug: "administracion", icon: IconShieldCheck };
 const topbarItems = [navItems[4], ...utilityItems];
 
-const vehicleOrder = ["5043 MLC", "5750 MJV", "5754 MJV", "0344 LCP", "9401 LTG"];
 const vehicleBrandLogos = {
   Toyota: "/brands/toyota.svg",
   Lexus: "/brands/lexus.svg",
@@ -175,11 +175,7 @@ const netVehicleImages = {
   "5754 MJV": { src: "/net-vehicles/toyota-corolla-red.png", tone: "red", view: "trasera de tres cuartos" },
 };
 
-const vehicleOwnerSeed = {
-  "5754 MJV": { name: "Aida Pérez Salt", dni: "500-944-52S" },
-  "5750 MJV": { name: "Aida Díaz Pérez", dni: "01-93-803-7B", location: "Burgos" },
-  "5043 MLC": { name: "David Díaz Muñoz", dni: "504-446-50S", location: "Sevilla" },
-};
+const vehicleOwnerSeed = vehicleOwnerByPlate;
 
 const vehiclesSeed = [
   {
@@ -384,7 +380,7 @@ const loadPhotoInvoices = () => {
   try {
     const stored = JSON.parse(window.localStorage.getItem(photoInvoiceStorageKey) ?? "[]");
     return Array.isArray(stored)
-      ? stored.filter((invoice) => invoice?.id && invoice?.plate && Array.isArray(invoice?.items)).map((invoice) => ({ ...invoice, plate: migratedPlates[invoice.plate] ?? invoice.plate }))
+      ? stored.filter((invoice) => invoice?.id && invoice?.plate && Array.isArray(invoice?.items)).map((invoice) => ({ ...invoice, plate: canonicalizeVehiclePlate(migratedPlates[invoice.plate] ?? invoice.plate) }))
       : [];
   } catch {
     return [];
@@ -441,17 +437,19 @@ const buildImportedMaintenanceInvoices = () => {
   const signatures = new Set();
   const dateSignatures = new Set();
   return records.map((record) => {
+    const plate = canonicalizeVehiclePlate(record.plate);
     const amount = getImportedMaintenanceAmount(record);
     const typeOverride = emailMaintenanceTypeOverrides[record?.id] ?? {};
     const signature = [
-      normalizeText(record.plate),
+      normalizeText(plate),
       record.dateIso || record.date,
       amount.toFixed(2),
       normalizeText(record.concept),
     ].join("|");
-    const dateSignature = [normalizeText(record.plate), record.dateIso || record.date].join("|");
+    const dateSignature = [normalizeText(plate), record.dateIso || record.date].join("|");
     return {
       ...record,
+      plate,
       amount,
       type: typeOverride.type || record.type,
       typeLabel: typeOverride.typeLabel || record.typeLabel,
@@ -545,7 +543,7 @@ const loadManualNetExpenses = () => {
     if (typeof window === "undefined") return [];
     const stored = JSON.parse(window.localStorage.getItem(manualNetExpensesStorageKey) ?? "[]");
     return Array.isArray(stored)
-      ? stored.filter((expense) => expense?.id && expense?.periodKey && expense?.plate && expense?.label && Number(expense.amount) > 0).map((expense) => ({ ...expense, amount: Number(expense.amount), date: isMaintenanceDate(expense.date) ? expense.date : "" }))
+      ? stored.filter((expense) => expense?.id && expense?.periodKey && expense?.plate && expense?.label && Number(expense.amount) > 0).map((expense) => ({ ...expense, plate: canonicalizeVehiclePlate(expense.plate), amount: Number(expense.amount), date: isMaintenanceDate(expense.date) ? expense.date : "" }))
       : [];
   } catch {
     return [];
@@ -565,7 +563,7 @@ const loadManualNetBreakdowns = () => {
     if (typeof window === "undefined") return [];
     const stored = JSON.parse(window.localStorage.getItem(manualNetBreakdownsStorageKey) ?? "[]");
     return Array.isArray(stored)
-      ? stored.filter((breakdown) => breakdown?.id && breakdown?.periodKey && breakdown?.plate && breakdown?.expenseKey && breakdown?.breakdownKey && breakdown?.driverLabel && breakdown?.concept && Number.isFinite(Number(breakdown.amount)) && Number(breakdown.amount) >= 0).map((breakdown) => ({ ...breakdown, amount: Number(breakdown.amount), date: isMaintenanceDate(breakdown.date) ? breakdown.date : "" }))
+      ? stored.filter((breakdown) => breakdown?.id && breakdown?.periodKey && breakdown?.plate && breakdown?.expenseKey && breakdown?.breakdownKey && breakdown?.driverLabel && breakdown?.concept && Number.isFinite(Number(breakdown.amount)) && Number(breakdown.amount) >= 0).map((breakdown) => ({ ...breakdown, plate: canonicalizeVehiclePlate(breakdown.plate), amount: Number(breakdown.amount), date: isMaintenanceDate(breakdown.date) ? breakdown.date : "" }))
       : [];
   } catch {
     return [];
@@ -860,6 +858,23 @@ const getExtractedDocumentFields = (document) => {
   const fields = data.fields && typeof data.fields === "object" ? data.fields : data;
   return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value && typeof value === "object" && "value" in value ? value.value : value]));
 };
+const normalizeTransactionRecord = (transaction = {}) => ({
+  ...transaction,
+  vehicle_plate: canonicalizeVehiclePlate(transaction.vehicle_plate),
+});
+const normalizeDriverEntryRecord = (entry = {}) => ({
+  ...entry,
+  vehicle_plate: canonicalizeVehiclePlate(entry.vehicle_plate),
+});
+const normalizeDriverProfileRecord = (driver = {}) => ({
+  ...driver,
+  vehicle_plate: canonicalizeVehiclePlate(driver.vehicle_plate),
+});
+const normalizeDocumentRecord = (document = {}) => {
+  const extracted = getExtractedDocumentFields(document);
+  const vehiclePlate = canonicalizeVehiclePlate(document.vehicle_plate || extracted.vehicle);
+  return { ...document, vehicle_plate: vehiclePlate };
+};
 const formatDocumentDisplayDate = (dateIso) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso ?? ""))) return "Fecha pendiente";
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateIso}T12:00:00`)).replace(".", "");
@@ -918,10 +933,17 @@ const getMaintenanceRecordKey = (item, index = 0) => `${item.date}-${item.concep
 const getMaintenanceEventDomId = (plate, key) => `maintenance-event-${normalizeText(`${plate}-${key}`).replace(/[^a-z0-9]+/g, "-")}`;
 const maintenanceMonths = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
 const getVehicleBrand = (vehicle) => vehicle.model.split(" ")[0];
-const getVehicleOwner = (vehicleOrPlate) => {
+const getVehicleOwner = (vehicleOrPlate) => getCanonicalVehicleOwner(vehicleOrPlate);
+function VehiclePlateLabel({ vehicleOrPlate, className = "", showInitials = true }) {
   const plate = typeof vehicleOrPlate === "string" ? vehicleOrPlate : vehicleOrPlate?.plate;
-  return vehicleOrPlate?.owner ?? vehicleOwnerSeed[plate] ?? null;
-};
+  const owner = getVehicleOwner(vehicleOrPlate);
+  const classes = ["vehicle-plate-label", className].filter(Boolean).join(" ");
+  if (!plate) return null;
+  return <span className={classes} title={owner ? `Titular: ${owner.name}` : undefined} aria-label={owner ? `${plate}, titular ${owner.name}` : plate}>
+    <strong>{plate}</strong>
+    {showInitials && owner?.initials && <small className="vehicle-plate-label__initials" aria-hidden="true">{owner.initials}</small>}
+  </span>;
+}
 const getMaintenanceDateValue = (item) => {
   if (item.dateIso) return Date.parse(item.dateIso);
   const [day, month, year] = normalizeText(item.date).split(/\s+/);
@@ -1338,7 +1360,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     }
     let mounted = true;
     invokeAdminUsers({ action: "list" })
-      .then((response) => { if (mounted) setDriverProfiles(response.profiles ?? []); })
+      .then((response) => { if (mounted) setDriverProfiles((response.profiles ?? []).map(normalizeDriverProfileRecord)); })
       .catch(() => { if (mounted) setDriverProfiles([]); });
     return () => { mounted = false; };
   }, [isAdmin]);
@@ -1389,10 +1411,12 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     ]);
     if (transactionResult.error) throw transactionResult.error;
     if (entryResult.error) throw entryResult.error;
-    const centralEntries = transactionsToDriverEntries(transactionResult.data ?? []);
-    setTransactions(transactionResult.data ?? []);
-    setDriverEntries(mergeDriverEntries(entryResult.data ?? [], centralEntries));
-    announceAdminDataChanges({ source: "transactions", nextTransactions: transactionResult.data ?? [], nextDriverEntries: entryResult.data ?? [] });
+    const nextTransactions = (transactionResult.data ?? []).map(normalizeTransactionRecord);
+    const nextEntries = (entryResult.data ?? []).map(normalizeDriverEntryRecord);
+    const centralEntries = transactionsToDriverEntries(nextTransactions);
+    setTransactions(nextTransactions);
+    setDriverEntries(mergeDriverEntries(nextEntries, centralEntries));
+    announceAdminDataChanges({ source: "transactions", nextTransactions, nextDriverEntries: nextEntries });
   }, [announceAdminDataChanges, isAdmin]);
 
   const refreshDocuments = useCallback(async () => {
@@ -1403,8 +1427,9 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       .order("created_at", { ascending: false })
       .limit(500);
     if (error) throw error;
-    setDocumentRecords(data ?? []);
-    announceAdminDataChanges({ source: "documents", nextDocuments: data ?? [] });
+    const nextDocuments = (data ?? []).map(normalizeDocumentRecord);
+    setDocumentRecords(nextDocuments);
+    announceAdminDataChanges({ source: "documents", nextDocuments });
   }, [announceAdminDataChanges, isAdmin]);
 
   useEffect(() => {
@@ -1542,7 +1567,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         date: formatDocumentDisplayDate(transaction.occurred_on),
         dateIso: transaction.occurred_on,
         provider,
-        plate: transaction.vehicle_plate,
+        plate: canonicalizeVehiclePlate(transaction.vehicle_plate),
         concept,
         amount: Number(transaction.amount) || 0,
         source: "Documento IA",
@@ -1554,7 +1579,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const invoices = useMemo(() => {
     const central = centralMaintenanceInvoices.map((invoice) => applyMaintenanceEdit(invoice, maintenanceEdits));
     const imported = importedMaintenanceInvoices
-      .map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }))
+      .map((invoice) => ({ ...invoice, plate: canonicalizeVehiclePlate(invoice.plate), owner: getVehicleOwner(invoice.plate) }))
       .map((invoice) => applyMaintenanceEdit(invoice, maintenanceEdits));
     const centralIds = new Set(central.map((invoice) => invoice.sourceDocumentId).filter(Boolean));
     const knownSignatures = new Set([...central, ...imported].map((invoice) => [
@@ -1564,7 +1589,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       normalizeText(invoice.concept),
     ].join("|")));
     const local = photoInvoices
-      .map((invoice) => applyMaintenanceEdit({ ...invoice, owner: getVehicleOwner(invoice.plate) }, maintenanceEdits))
+      .map((invoice) => applyMaintenanceEdit({ ...invoice, plate: canonicalizeVehiclePlate(invoice.plate), owner: getVehicleOwner(invoice.plate) }, maintenanceEdits))
       .filter((invoice) => {
         const signature = [
           normalizeText(invoice.plate),
@@ -1574,10 +1599,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         ].join("|");
         return (!invoice.sourceDocumentId || !centralIds.has(invoice.sourceDocumentId)) && !knownSignatures.has(signature);
       })
-    return [...central, ...imported, ...local].map((invoice) => ({ ...invoice, owner: getVehicleOwner(invoice.plate) }));
+    return [...central, ...imported, ...local].map((invoice) => ({ ...invoice, plate: canonicalizeVehiclePlate(invoice.plate), owner: getVehicleOwner(invoice.plate) }));
   }, [centralMaintenanceInvoices, maintenanceEdits, photoInvoices]);
   const ledgerTransactions = useMemo(() => {
-    const rows = transactions.map((transaction) => {
+    const rows = transactions.map(normalizeTransactionRecord).map((transaction) => {
       if (transaction.type !== "maintenance") return transaction;
       const override = maintenanceEdits?.[getMaintenanceEditKey(transaction)];
       if (!override) return transaction;
@@ -1634,7 +1659,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   }).map((vehicle) => {
     if (vehicle.use !== "Profesional") return { ...vehicle, driverProfiles: [] };
     const assignedProfiles = driverProfiles
-      .filter((driver) => driver.vehicle_plate === vehicle.plate)
+      .filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate)
       .sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name));
     if (!assignedProfiles.length) return { ...vehicle, driverProfiles: [] };
     const resolvedDrivers = vehicle.drivers.map((seedDriver, index) => assignedProfiles[index]?.full_name || seedDriver);
@@ -1714,10 +1739,11 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
 
   const savePhotoInvoiceLegacy = async (invoice) => {
     const { file, ...localInvoice } = invoice;
-    setPhotoInvoices((current) => [localInvoice, ...current.filter((item) => item.id !== localInvoice.id)]);
+    const normalizedInvoice = { ...localInvoice, plate: canonicalizeVehiclePlate(localInvoice.plate) };
+    setPhotoInvoices((current) => [normalizedInvoice, ...current.filter((item) => item.id !== normalizedInvoice.id)]);
     if (file && supabase && session.user?.id) {
       try {
-        await uploadDocumentRecord({ ownerId: session.user.id, category: "billing", vehiclePlate: localInvoice.plate, file, extractedData: localInvoice, overallConfidence: 96, status: "review" });
+        await uploadDocumentRecord({ ownerId: session.user.id, category: "billing", vehiclePlate: normalizedInvoice.plate, file, extractedData: normalizedInvoice, overallConfidence: 96, status: "review" });
       } catch (error) {
         notify(`Factura guardada localmente; no se pudo subir el adjunto: ${error.message}`);
       }
@@ -1734,8 +1760,9 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         const fields = savedDocument.fields ?? {};
         const documentDate = savedDocument.category === "billing" ? fields.serviceDate || fields.issueDate || new Date().toISOString().slice(0, 10) : fields.date || new Date().toISOString().slice(0, 10);
         const fileHash = await hashDocumentFile(file);
-        const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate: fields.vehicle || selectedPlate, file, fileHash, documentDate, extractedData: fields, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
-        const operations = operationsFromDocument({ category: savedDocument.category, fields, vehiclePlate: fields.vehicle || selectedPlate, fileHash, fallbackDate: documentDate });
+        const vehiclePlate = resolveVehiclePlate(fields.vehicle);
+        const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate, file, fileHash, documentDate, extractedData: { ...fields, vehicle: vehiclePlate }, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
+        const operations = operationsFromDocument({ category: savedDocument.category, fields: { ...fields, vehicle: vehiclePlate }, vehiclePlate, fileHash, fallbackDate: documentDate });
         if (!operations.length) throw new Error("No se ha reconocido ningún importe económico. Revisa los campos antes de confirmar.");
         const result = await confirmDocumentTransactions(uploaded.id, operations);
         if (result?.duplicate && !result?.created) throw new Error("Este documento ya estaba registrado y no se ha vuelto a sumar.");
@@ -1750,7 +1777,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     if (savedDocument.category === "billing" && !cloudSaved) {
       const fields = savedDocument.fields ?? {};
       const amount = Number(fields.total) || Number(fields.netAmount) || 0;
-      const vehiclePlate = vehicles.some((vehicle) => vehicle.plate === fields.vehicle) ? fields.vehicle : selectedPlate;
+      const vehiclePlate = resolveVehiclePlate(fields.vehicle);
       if (amount > 0 && vehiclePlate) {
         const dateIso = /^\d{4}-\d{2}-\d{2}$/.test(String(fields.issueDate ?? "")) ? fields.issueDate : new Date().toISOString().slice(0, 10);
         const displayDate = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateIso}T12:00:00`)).replace(".", "");
@@ -1771,7 +1798,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     notify(savedDocument.lowConfidence ? `Datos guardados${cloudSaved ? " en Supabase" : ""}; revisa los campos de baja confianza` : `Datos clasificados y guardados${cloudSaved ? " en Supabase" : ""} correctamente`);
   };
 
-  const resolveVehiclePlate = (value) => vehicles.find((vehicle) => normalizeText(vehicle.plate) === normalizeText(value))?.plate ?? selectedPlate;
+  const resolveVehiclePlate = (value) => {
+    const normalizedPlate = canonicalizeVehiclePlate(value);
+    return vehicles.find((vehicle) => vehicle.plate === normalizedPlate)?.plate ?? selectedPlate;
+  };
   const addLocalDocumentTransactions = (documentId, operations) => {
     const duplicate = operations.some((operation) => transactions.some((transaction) => transaction.dedupe_key === operation.dedupeKey));
     if (duplicate) return { duplicate: true };
@@ -1794,7 +1824,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   };
 
   const savePhotoInvoiceCentral = async (invoice) => {
-    const { file, ...localInvoice } = invoice;
+    const { file, ...rawInvoice } = invoice;
+    const localInvoice = { ...rawInvoice, plate: canonicalizeVehiclePlate(rawInvoice.plate) };
     if (file && supabase && session.user?.id) {
       try {
         const fileHash = await hashDocumentFile(file);
@@ -1803,7 +1834,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         const operations = operationsFromDocument({ category: "billing", fields, vehiclePlate: localInvoice.plate, fileHash, fallbackDate: localInvoice.dateIso });
         const result = await confirmDocumentTransactions(uploaded.id, operations);
         if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
-        setDocumentRecords((current) => [uploaded, ...current.filter((document) => document.id !== uploaded.id)]);
+        const normalizedUploaded = normalizeDocumentRecord(uploaded);
+        setDocumentRecords((current) => [normalizedUploaded, ...current.filter((document) => document.id !== normalizedUploaded.id)]);
         await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
         return true;
       } catch (error) {
@@ -1821,7 +1853,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       return false;
     }
     setPhotoInvoices((current) => [localInvoice, ...current.filter((item) => item.id !== localInvoice.id)]);
-    setDocumentRecords((current) => [localDocument, ...current.filter((document) => document.id !== localDocument.id)]);
+    const normalizedLocalDocument = normalizeDocumentRecord(localDocument);
+    setDocumentRecords((current) => [normalizedLocalDocument, ...current.filter((document) => document.id !== normalizedLocalDocument.id)]);
     return true;
   };
 
@@ -1851,14 +1884,16 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate, file, fileHash, documentDate, extractedData: { ...fields, vehicle: vehiclePlate }, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
         const result = await confirmDocumentTransactions(uploaded.id, operations);
         if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
-        setDocumentRecords((current) => [uploaded, ...current.filter((record) => record.id !== uploaded.id)]);
+        const normalizedUploaded = normalizeDocumentRecord(uploaded);
+        setDocumentRecords((current) => [normalizedUploaded, ...current.filter((record) => record.id !== normalizedUploaded.id)]);
         await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
         cloudSaved = true;
       } else {
         const result = addLocalDocumentTransactions(savedDocument.id, operations);
         if (result.duplicate) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
         const localDocument = { ...savedDocument, vehicle_plate: vehiclePlate, extracted_data: { ...fields, vehicle: vehiclePlate }, status: "approved", created_at: new Date().toISOString() };
-        setDocumentRecords((current) => [localDocument, ...current.filter((record) => record.id !== localDocument.id)]);
+        const normalizedLocalDocument = normalizeDocumentRecord(localDocument);
+        setDocumentRecords((current) => [normalizedLocalDocument, ...current.filter((record) => record.id !== normalizedLocalDocument.id)]);
       }
     } catch (error) {
       const duplicate = error?.code === "23505" || error?.code === "DUPLICATE_DOCUMENT" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
@@ -2190,11 +2225,12 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const [circlePreviewUrls, setCirclePreviewUrls] = useState({});
   const [circleMetricValues, setCircleMetricValues] = useState({});
   const [weeklyManualValues, setWeeklyManualValues] = useState(() => loadDriverWeeklyManualValues(activeProfileId));
-  const [maintenanceNote, setMaintenanceNote] = useState(() => loadDriverMaintenanceNote(profile.vehicle_plate ?? activeProfileId));
+  const profileVehiclePlate = canonicalizeVehiclePlate(profile.vehicle_plate);
+  const [maintenanceNote, setMaintenanceNote] = useState(() => loadDriverMaintenanceNote(profileVehiclePlate || activeProfileId));
   const circleFileInputRef = useRef(null);
   const circleUploadKeyRef = useRef("");
   const circlePreviewUrlsRef = useRef({});
-  const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profile.vehicle_plate);
+  const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profileVehiclePlate);
 
   useEffect(() => {
     circlePreviewUrlsRef.current = circlePreviewUrls;
@@ -2205,8 +2241,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   }, [activeProfileId]);
 
   useEffect(() => {
-    setMaintenanceNote(loadDriverMaintenanceNote(profile.vehicle_plate ?? activeProfileId));
-  }, [activeProfileId, profile.vehicle_plate]);
+    setMaintenanceNote(loadDriverMaintenanceNote(profileVehiclePlate || activeProfileId));
+  }, [activeProfileId, profileVehiclePlate]);
 
   useEffect(() => {
     if (!activeProfileId || typeof window === "undefined") return;
@@ -2232,8 +2268,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       if (!mounted) return;
       if (entryResult.error) setMessage(entryResult.error.message);
       if (documentResult.error) setMessage(documentResult.error.message);
-      setEntries(entryResult.data ?? []);
-      setDocuments(documentResult.data ?? []);
+      setEntries((entryResult.data ?? []).map(normalizeDriverEntryRecord));
+      setDocuments((documentResult.data ?? []).map(normalizeDocumentRecord));
       setDocumentsLoading(false);
     }).catch((error) => { if (mounted) { setMessage(error.message); setDocumentsLoading(false); } });
     return () => { mounted = false; };
@@ -2320,7 +2356,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const numberFor = (key) => patch[key] === undefined ? getDriverEntryAmount(existing, key) : Math.max(0, Number(patch[key]) || 0);
     const values = {
       driver_id: activeProfileId,
-      vehicle_plate: profile.vehicle_plate,
+      vehicle_plate: profileVehiclePlate,
       entry_date: dateKey,
       fuel_cost: numberFor("fuel_cost"),
       fuel_liters: numberFor("fuel_liters"),
@@ -2341,8 +2377,9 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     }
     const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").single();
     if (error) throw error;
-    setEntries((current) => [data, ...current.filter((candidate) => candidate.id !== data.id && String(candidate.entry_date) !== dateKey)]);
-    return data;
+    const normalizedData = normalizeDriverEntryRecord(data);
+    setEntries((current) => [normalizedData, ...current.filter((candidate) => candidate.id !== normalizedData.id && String(candidate.entry_date) !== dateKey)]);
+    return normalizedData;
   };
   const saveEntry = async (event) => {
     event.preventDefault();
@@ -2366,7 +2403,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       if (file && supabase) {
         try {
           const extractedData = { date: entry.entryDate, cost: data.fuel_cost, consumption: data.fuel_liters, unit: "L", odometerKm: data.odometer_km, billing: data.billing, cashCollected: data.cash_collected, tips: data.tips, tolls: data.tolls, otherExpenses: data.other_expenses };
-          savedDocument = await uploadDocumentRecord({ ownerId: activeProfileId, category: "consumption", vehiclePlate: profile.vehicle_plate, file, extractedData, status: "review" });
+          savedDocument = await uploadDocumentRecord({ ownerId: activeProfileId, category: "consumption", vehiclePlate: profileVehiclePlate, file, extractedData, status: "review" });
           savedDocument = { ...savedDocument, extracted_data: extractedData };
           uploadMessage = " y el justificante se ha archivado";
         } catch (uploadError) {
@@ -2375,7 +2412,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       } else if (file) {
         uploadMessage = "; la imagen se ha quedado preparada en este dispositivo";
       }
-      if (savedDocument) setDocuments((current) => [savedDocument, ...current.filter((document) => document.id !== savedDocument.id)]);
+      if (savedDocument) {
+        const normalizedDocument = normalizeDocumentRecord(savedDocument);
+        setDocuments((current) => [normalizedDocument, ...current.filter((document) => document.id !== normalizedDocument.id)]);
+      }
       setFile(null);
       setSaving(false);
       setMessage(`Registro del ${entry.entryDate} guardado${uploadMessage}.`);
@@ -2436,7 +2476,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       weeklyProgress: weeklyCash > 0 ? Math.max(0, Math.min(100, (weeklyNet / weeklyCash) * 100)) : 0,
       weekEntries: weekEntries.length,
     };
-  }, [entries, profile.full_name, profile.vehicle_plate, selectedDate, vehicle, weeklyManualValues]);
+  }, [entries, profile.full_name, profileVehiclePlate, selectedDate, vehicle, weeklyManualValues]);
 
   const selectedDayDocumentData = useMemo(() => selectedDayDocuments.reduce((summary, document) => {
     const data = document.extracted_data ?? {};
@@ -2705,7 +2745,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         const uploaded = await uploadDocumentRecord({
           ownerId: activeProfileId,
           category: documentCategory,
-          vehiclePlate: fields.vehicle || profile.vehicle_plate,
+          vehiclePlate: canonicalizeVehiclePlate(fields.vehicle || profileVehiclePlate),
           file,
           fileHash,
           documentDate: targetDate,
@@ -2716,9 +2756,9 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         });
         const operations = operationsFromDocument({
           category: documentCategory,
-          fields: { ...fields, date: targetDate, serviceDate: targetDate, vehicle: fields.vehicle || profile.vehicle_plate },
+          fields: { ...fields, date: targetDate, serviceDate: targetDate, vehicle: canonicalizeVehiclePlate(fields.vehicle || profileVehiclePlate) },
           driverId: activeProfileId,
-          vehiclePlate: profile.vehicle_plate,
+          vehiclePlate: profileVehiclePlate,
           fileHash,
           fallbackDate: targetDate,
         });
@@ -2729,7 +2769,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         const uploaded = await uploadDocumentRecord({
           ownerId: activeProfileId,
           category: documentCategory,
-          vehiclePlate: fields.vehicle || profile.vehicle_plate,
+          vehiclePlate: canonicalizeVehiclePlate(fields.vehicle || profileVehiclePlate),
           file,
           fileHash,
           documentDate: targetDate,
@@ -2744,7 +2784,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
           id: `local-circle-${Date.now()}`,
           owner_id: activeProfileId,
           category: documentCategory,
-          vehicle_plate: profile.vehicle_plate,
+          vehicle_plate: profileVehiclePlate,
           file_name: file.name,
           mime_type: file.type,
           file_size: file.size,
@@ -2780,9 +2820,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       if (Object.keys(entryPatch).length > 0 && (!centralEconomic || !supabase)) await upsertDriverEntry(targetDate, entryPatch);
       if (centralEconomic && supabase) {
         const { data: refreshedEntries } = await supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180);
-        if (refreshedEntries) setEntries(refreshedEntries);
+        if (refreshedEntries) setEntries(refreshedEntries.map(normalizeDriverEntryRecord));
       }
-      setDocuments((current) => [savedDocument, ...current.filter((document) => document.id !== savedDocument.id)]);
+      const normalizedDocument = normalizeDocumentRecord(savedDocument);
+      setDocuments((current) => [normalizedDocument, ...current.filter((document) => document.id !== normalizedDocument.id)]);
       setCirclePreviewUrls((current) => ({ ...current, [recordKey]: URL.createObjectURL(file) }));
       setCircleUpload({ key: recordKey, status: supabase ? "saved" : "local", fileName: file.name });
       setCircleReview(null);
@@ -2815,7 +2856,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const handleMaintenanceNoteSave = (value) => {
     const nextNote = String(value ?? "").trim();
     setMaintenanceNote(nextNote);
-    saveDriverMaintenanceNote(profile.vehicle_plate ?? activeProfileId, nextNote);
+    saveDriverMaintenanceNote(profileVehiclePlate || activeProfileId, nextNote);
     setMessage(nextNote ? "Pendiente de mantenimiento guardado." : "Pendiente de mantenimiento vacío.");
   };
   const weeklyRows = [
@@ -2912,7 +2953,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
           <div className="driver-welcome__identity"><span>HOLA</span><h1>{profile.full_name.toUpperCase()}</h1></div>
           <div className="driver-welcome__vehicle">
             <span>MATRÍCULA</span>
-            <strong>{vehicle?.plate ?? profile.vehicle_plate ?? "PENDIENTE"}</strong>
+            <VehiclePlateLabel vehicleOrPlate={vehicle?.plate ?? profileVehiclePlate} className="driver-welcome__plate" />
             {vehicle?.owner && <>
               <strong className="driver-welcome__owner-name">{vehicle.owner.name}</strong>
               <strong className="driver-welcome__owner-dni">{vehicle.owner.dni}</strong>
@@ -3184,7 +3225,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
       <header className="driver-mobile-topbar">
         {preview && <button type="button" className="driver-mobile-topbar__back" onClick={onExitPreview} aria-label="Volver a administración" title="Volver a administración"><IconChevronLeft size={24} /></button>}
         <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir menú del conductor" aria-expanded={driverMenuOpen} onClick={() => { setDriverMenuOpen((current) => !current); setDriverNoticeOpen(false); }}><IconMenu2 size={23} /></button>
-        <div className="driver-mobile-topbar__title"><strong>{profile.full_name.toUpperCase()}</strong><small>{vehicle?.plate ?? profile.vehicle_plate ?? "PENDIENTE"}</small></div>
+        <div className="driver-mobile-topbar__title"><strong>{profile.full_name.toUpperCase()}</strong><VehiclePlateLabel vehicleOrPlate={vehicle?.plate ?? profileVehiclePlate} className="driver-mobile-topbar__plate" /></div>
         <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir notificaciones" aria-expanded={driverNoticeOpen} onClick={() => { setDriverNoticeOpen((current) => !current); setDriverMenuOpen(false); }}><IconBell size={23} /></button>
         {driverMenuOpen && <aside className="driver-mobile-topbar__popover driver-mobile-topbar__popover--menu" aria-label="Menú del conductor">
           <button type="button" onClick={() => scrollTo("home", homeRef)}><IconHome size={16} />Inicio</button>
@@ -3271,7 +3312,7 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
     setLoading(true);
     try {
       const response = await invokeAdminUsers({ action: "list" });
-      setDrivers(response.profiles ?? []);
+      setDrivers((response.profiles ?? []).map(normalizeDriverProfileRecord));
     } catch (error) {
       setMessage(error.message);
     } finally {
@@ -3309,10 +3350,11 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
     setSaving(true);
     try {
       const response = await invokeAdminUsers({ action: "create", ...form });
-      setDrivers((current) => [...current, response.profile].sort((a, b) => a.full_name.localeCompare(b.full_name)));
-      setGeneratedPassword({ driverId: response.profile?.id, value: response.password });
-      setFocusedDriverId(response.profile?.id ?? "");
-      setOpenSection(response.profile?.vehicle_plate ?? form.vehiclePlate);
+      const createdProfile = normalizeDriverProfileRecord(response.profile);
+      setDrivers((current) => [...current, createdProfile].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+      setGeneratedPassword({ driverId: createdProfile?.id, value: response.password });
+      setFocusedDriverId(createdProfile?.id ?? "");
+      setOpenSection(createdProfile?.vehicle_plate ?? form.vehiclePlate);
       setForm({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", password: "" });
       notify("Cuenta de conductor creada");
     } catch (error) {
@@ -3327,10 +3369,11 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
     setGeneratedPassword(null);
     try {
       const response = await invokeAdminUsers({ action: "reset_password", userId: driver.id, password: nextPassword });
-      setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? response.profile : candidate));
+      const updatedProfile = normalizeDriverProfileRecord(response.profile);
+      setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? updatedProfile : candidate));
       setGeneratedPassword({ driverId: driver.id, value: response.password });
       setFocusedDriverId(driver.id);
-      setOpenSection(driver.vehicle_plate);
+      setOpenSection(canonicalizeVehiclePlate(driver.vehicle_plate));
       notify(`Acceso restablecido para ${driver.full_name}`);
     } catch (error) {
       setMessage(error.message);
@@ -3339,7 +3382,8 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
   const updateDriver = async (driver, changes) => {
     try {
       const response = await invokeAdminUsers({ action: "update", userId: driver.id, ...changes });
-      setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? response.profile : candidate));
+      const updatedProfile = normalizeDriverProfileRecord(response.profile);
+      setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? updatedProfile : candidate));
     } catch (error) {
       setMessage(error.message);
     }
@@ -3347,7 +3391,7 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
   const startDriverEdit = (driver) => {
     setEditingDriverId(driver.id);
     setFocusedDriverId(driver.id);
-    setDriverProfileForm({ fullName: driver.full_name ?? "", email: driver.email ?? "", vehiclePlate: driver.vehicle_plate ?? driverVehicleOptions[0]?.plate ?? "", active: Boolean(driver.active) });
+    setDriverProfileForm({ fullName: driver.full_name ?? "", email: driver.email ?? "", vehiclePlate: canonicalizeVehiclePlate(driver.vehicle_plate) || driverVehicleOptions[0]?.plate || "", active: Boolean(driver.active) });
     setMessage("");
   };
   const updateDriverProfileForm = (key, value) => setDriverProfileForm((current) => ({ ...current, [key]: value }));
@@ -3357,9 +3401,10 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
     setSaving(true);
     try {
       const response = await invokeAdminUsers({ action: "update", userId: driver.id, ...driverProfileForm });
-      setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? response.profile : candidate));
+      const updatedProfile = normalizeDriverProfileRecord(response.profile);
+      setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? updatedProfile : candidate));
       setEditingDriverId("");
-      notify(`Perfil de ${response.profile.full_name} actualizado`);
+      notify(`Perfil de ${updatedProfile.full_name} actualizado`);
     } catch (error) {
       setMessage(error.message);
     } finally {
@@ -3387,11 +3432,11 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
     notify("Contraseña de administrador actualizada");
   };
   const driversForVehicle = (vehicle) => drivers
-    .filter((driver) => driver.vehicle_plate === vehicle.plate)
+    .filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate)
     .sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name));
   const activeDriverCount = drivers.filter((driver) => driver.active).length;
   const documentCount = invoices.length;
-  const vehicleDocumentCount = (vehicle) => invoices.filter((invoice) => invoice.plate === vehicle.plate || invoice.vehicle_plate === vehicle.plate).length;
+  const vehicleDocumentCount = (vehicle) => invoices.filter((invoice) => canonicalizeVehiclePlate(invoice.plate || invoice.vehicle_plate) === vehicle.plate).length;
   const toggleSection = (section) => setOpenSection((current) => current === section ? "" : section);
   const toggleDriver = (driverId) => setFocusedDriverId((current) => current === driverId ? "" : driverId);
 
@@ -3422,7 +3467,7 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
          return <section className="admin-accordion" key={vehicle.plate}>
            <button className={`admin-accordion__button${openSection === vehicle.plate ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection(vehicle.plate)} aria-expanded={openSection === vehicle.plate} aria-controls={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>
              <span className="admin-accordion__icon admin-accordion__icon--vehicle"><IconCar size={21} /></span>
-             <span className="admin-accordion__copy"><strong>{vehicle.plate}</strong><span className="admin-accordion__documents"><IconFileInvoice size={13} /><b>Documentos</b><small>{vehicleDocuments}</small></span><span className="admin-accordion__vehicle-subline"><small>{vehicle.model}</small><span className="admin-accordion__status"><i />Activo</span></span></span>
+             <span className="admin-accordion__copy"><VehiclePlateLabel vehicleOrPlate={vehicle} className="admin-vehicle-plate" /><span className="admin-accordion__documents"><IconFileInvoice size={13} /><b>Documentos</b><small>{vehicleDocuments}</small></span><span className="admin-accordion__vehicle-subline"><small>{vehicle.model}</small><span className="admin-accordion__status"><i />Activo</span></span></span>
              <small className="admin-accordion__driver-names" aria-label="Conductores asignados">{vehicleDrivers.length > 0 ? vehicleDrivers.map((driver) => <span key={driver.id}>{driver.full_name}</span>) : <span>Ninguno</span>}</small>
              <IconChevronRight className="admin-accordion__chevron" size={18} />
            </button>
@@ -3494,7 +3539,7 @@ function FleetView({ filtered, filter, query, selected, selectedDrivers, setFilt
                 const latestMaintenance = vehicle.maintenance[0] ?? { amount: 0, concept: "Sin intervenciones" };
                 return (
                   <tr className={selected.plate === vehicle.plate ? "is-selected" : ""} key={vehicle.plate} onClick={() => selectVehicle(vehicle)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") selectVehicle(vehicle); }}>
-                    <td className="plate"><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td>
+                    <td className="plate"><VehiclePlateLabel vehicleOrPlate={vehicle} className="fleet-vehicle-plate" /><small>{vehicle.model}</small></td>
                     <td>
                       {vehicle.use === "Profesional" ? (
                         <div className="driver-selector" aria-label={`Conductores de ${vehicle.plate}`}>
@@ -3815,7 +3860,7 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
             {orderedDetails.map(({ vehicle, revenue, totalExpenses, net }) => <article className={`net-detail-card net-detail-card--collapsed net-detail-card--tone-${netVehicleImages[vehicle.plate]?.tone ?? "green"}`} key={vehicle.plate}>
               <div className={`net-detail-card__vehicle-visual net-detail-card__vehicle-visual--${netVehicleImages[vehicle.plate]?.tone ?? "green"}`}><img src={netVehicleImages[vehicle.plate]?.src ?? vehicleBrandLogos[getVehicleBrand(vehicle)]} alt={`Toyota Corolla sedan, vista ${netVehicleImages[vehicle.plate]?.view ?? "frontal"}`} loading="eager" /></div>
               <div className="net-detail-card__collapsed-content">
-              <strong className="net-detail-card__plate">{vehicle.plate}</strong>
+              <VehiclePlateLabel vehicleOrPlate={vehicle} className="net-detail-card__plate" />
               <strong className={`net-detail-card__net net-detail-card__net--large${net < 0 ? " net-detail-card__net--negative" : ""}`}>{formatCurrency(net)}</strong>
               <div className="net-detail-card__collapsed-line"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
               <div className="net-detail-card__collapsed-line"><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div>
@@ -4424,7 +4469,7 @@ function FuelVehicleOverview({ stats, billingRows = [], selected, onSelectVehicl
               <button className={`fuel-vehicle-banner${unified ? " fuel-vehicle-banner--unified" : ""} ${active ? "active" : ""}`} onClick={() => onSelectVehicle(vehicle)} aria-pressed={active} aria-label={`${unified ? "Ver detalle de" : "Ver repostajes de"} ${vehicle.plate}, ${vehicle.model}`}>
               <span className="fuel-vehicle-number">{index + 1}</span>
               <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
-              <span className="fuel-vehicle-identity"><small>{brand}</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></span>
+              <span className="fuel-vehicle-identity"><small>{brand}</small><VehiclePlateLabel vehicleOrPlate={vehicle} className="fuel-vehicle-plate" /><span>{vehicle.model}</span></span>
               <span className="fuel-vehicle-type"><UseBadge value={vehicle.use} /></span>
               {unified ? <span className="fuel-vehicle-summary">
                 <span><small>Facturación mensual</small><strong>{formatCurrency(monthlyBilling)}</strong><span>{vehicle.use === "Profesional" ? "2 conductores" : "Sin actividad comercial"}</span></span>
@@ -4451,7 +4496,7 @@ function FuelLedgerDetail({ selected, entries, periodLabel, onOpenInvoice }) {
   return (
     <section className="content-card fuel-detail report-section-card">
       <header className="fuel-detail__header">
-        <div className="fuel-detail__identity"><span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt={`Logotipo de ${selectedBrand}`} /></span><span><small>Vehículo seleccionado</small><strong>{selected.plate}</strong><small>{selected.model}</small></span></div>
+        <div className="fuel-detail__identity"><span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt={`Logotipo de ${selectedBrand}`} /></span><span><small>Vehículo seleccionado</small><VehiclePlateLabel vehicleOrPlate={selected} className="fuel-detail__plate" /><small>{selected.model}</small></span></div>
         <div className="fuel-detail__totals"><span><small>Consumo mensual</small><strong>{selectedLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Gasto mensual</small><strong>{formatCurrency(selectedCost)}</strong></span></div>
       </header>
       {selected.fuelSchedule?.length > 0 ? (
@@ -4493,7 +4538,7 @@ function FuelExpenseReport({ stats, total }) {
   return (
     <section className="content-card report-table-card">
       <header className="card-header"><div><h2>Gasto de combustible</h2><p>Acumulado mensual de los cinco vehículos.</p></div><strong className="report-header-total">{formatCurrency(total)}</strong></header>
-      <div className="table-scroll"><table className="module-table report-table"><thead><tr><th>Vehículo</th><th>Repostajes</th><th>Litros</th><th>Coste medio</th><th>Gasto mensual</th></tr></thead><tbody>{stats.map(({ vehicle, refuels, liters, cost }) => <tr key={vehicle.plate}><td><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td><td>{refuels}</td><td>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</td><td>{formatCurrency(refuels ? cost / refuels : 0)}</td><td><strong>{formatCurrency(cost)}</strong></td></tr>)}</tbody></table></div>
+      <div className="table-scroll"><table className="module-table report-table"><thead><tr><th>Vehículo</th><th>Repostajes</th><th>Litros</th><th>Coste medio</th><th>Gasto mensual</th></tr></thead><tbody>{stats.map(({ vehicle, refuels, liters, cost }) => <tr key={vehicle.plate}><td><VehiclePlateLabel vehicleOrPlate={vehicle} className="report-vehicle-plate" /><small>{vehicle.model}</small></td><td>{refuels}</td><td>{liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</td><td>{formatCurrency(refuels ? cost / refuels : 0)}</td><td><strong>{formatCurrency(cost)}</strong></td></tr>)}</tbody></table></div>
     </section>
   );
 }
@@ -4524,7 +4569,7 @@ function FuelIncomeReport({ rows, total, month, year, periodMenu, selectedDriver
           <caption className="sr-only">Ingresos mensuales, viajes y vehículo asignado por conductor</caption>
           <colgroup><col className="report-income-table__driver" /><col className="report-income-table__vehicle" /><col className="report-income-table__trips" /><col className="report-income-table__revenue" /></colgroup>
           <thead><tr><th scope="col">Conductor</th><th scope="col">Vehículo</th><th scope="col">Viajes</th><th scope="col">Ingreso mensual</th></tr></thead>
-          <tbody>{rows.map((row) => <tr className={`${selectedDriverKey === row.key ? "report-income-row--selected " : ""}${selectedVehiclePlate === row.plate ? "report-income-row--vehicle-selected" : ""}`} key={row.key}><td><button type="button" className="report-income-driver-button" onClick={() => onSelectDriver(row.key)} aria-expanded={selectedDriverKey === row.key} aria-controls="driver-billing-calendar"><span>{row.driver}</span><small>Ver calendario</small></button></td><td><button type="button" className="report-income-vehicle-button" onClick={() => onSelectVehicle(row.plate)} aria-expanded={selectedVehiclePlate === row.plate} aria-controls="vehicle-billing-summary" aria-label={`Ver facturación conjunta de ${row.plate}`}><strong>{row.plate}</strong><small>{row.model}</small></button></td><td><strong>{row.trips}</strong></td><td><strong>{formatCurrency(row.revenue)}</strong></td></tr>)}</tbody>
+          <tbody>{rows.map((row) => <tr className={`${selectedDriverKey === row.key ? "report-income-row--selected " : ""}${selectedVehiclePlate === row.plate ? "report-income-row--vehicle-selected" : ""}`} key={row.key}><td><button type="button" className="report-income-driver-button" onClick={() => onSelectDriver(row.key)} aria-expanded={selectedDriverKey === row.key} aria-controls="driver-billing-calendar"><span>{row.driver}</span><small>Ver calendario</small></button></td><td><button type="button" className="report-income-vehicle-button" onClick={() => onSelectVehicle(row.plate)} aria-expanded={selectedVehiclePlate === row.plate} aria-controls="vehicle-billing-summary" aria-label={`Ver facturación conjunta de ${row.plate}`}><VehiclePlateLabel vehicleOrPlate={row.plate} className="report-income-vehicle-plate" /><small>{row.model}</small></button></td><td><strong>{row.trips}</strong></td><td><strong>{formatCurrency(row.revenue)}</strong></td></tr>)}</tbody>
         </table>
       </div>
     </section>
@@ -4536,7 +4581,7 @@ function VehicleBillingSummary({ vehicle, rows, month, year }) {
   return (
     <section className="content-card vehicle-billing-summary" id="vehicle-billing-summary" aria-labelledby="vehicle-billing-summary-title">
       <header className="vehicle-billing-summary__header">
-        <div><span className="vehicle-billing-summary__label"><IconCar size={15} />Facturación conjunta</span><h3 id="vehicle-billing-summary-title">{vehicle.plate}</h3><small>{vehicle.model} · {reportMonths[month]} {year}</small></div>
+        <div><span className="vehicle-billing-summary__label"><IconCar size={15} />Facturación conjunta</span><h3 id="vehicle-billing-summary-title"><VehiclePlateLabel vehicleOrPlate={vehicle} className="vehicle-billing-summary__plate" /></h3><small>{vehicle.model} · {reportMonths[month]} {year}</small></div>
         <strong>{formatCurrency(total)}</strong>
       </header>
       <div className="vehicle-billing-summary__drivers">
@@ -4560,7 +4605,7 @@ function DriverBillingCalendar({ row, month, year, onClose }) {
       <header className="driver-billing-calendar__header">
         <div className="driver-billing-calendar__identity">
           <span className="avatar report-driver-avatar">{row.driver.slice(0, 2).toUpperCase()}</span>
-          <span><strong id="driver-billing-calendar-title">{row.driver}</strong><small>{row.plate} · {row.model}</small></span>
+          <span><strong id="driver-billing-calendar-title">{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-billing-calendar__plate" /><small>{row.model}</small></span>
         </div>
         <div className="driver-billing-calendar__summary"><span><small>{reportMonths[month]} {year}</small><strong>{formatCurrency(row.revenue)}</strong></span><button type="button" onClick={onClose} aria-label={`Cerrar calendario de ${row.driver}`}><IconX size={17} /></button></div>
       </header>
@@ -4579,7 +4624,7 @@ function FuelDriversReport({ vehicles, selectedDriverKey, onSelectDriver }) {
   const professional = vehicles.filter((vehicle) => vehicle.use === "Profesional");
   return (
     <section className="report-drivers-grid" aria-label="Conductores y turnos profesionales">
-      {professional.map((vehicle) => <article className="report-driver-vehicle" key={vehicle.plate}><header><span><IconCar size={18} /></span><div><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></div></header><div>{vehicle.fuelSchedule.map((shift) => {
+      {professional.map((vehicle) => <article className="report-driver-vehicle" key={vehicle.plate}><header><span><IconCar size={18} /></span><div><VehiclePlateLabel vehicleOrPlate={vehicle} className="report-driver-vehicle__plate" /><small>{vehicle.model}</small></div></header><div>{vehicle.fuelSchedule.map((shift) => {
         const driverKey = `${vehicle.plate}-${shift.driver}`;
         return <button type="button" className={selectedDriverKey === driverKey ? "report-driver-shift report-driver-shift--selected" : "report-driver-shift"} onClick={() => onSelectDriver(driverKey)} aria-expanded={selectedDriverKey === driverKey} aria-controls="driver-billing-calendar" key={shift.label}><span className="avatar report-driver-avatar">{shift.driver.slice(0, 2).toUpperCase()}</span><span><strong>{shift.driver}</strong><small>{shift.label}</small></span><IconClock size={16} /></button>;
       })}</div></article>)}
@@ -4782,17 +4827,17 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
       <div className="drivers-summary-grid">
         <button type="button" className="drivers-summary-card drivers-summary-card--billing" onClick={scrollToDrivers}>
           <header><span className="drivers-summary-card__icon"><IconFileInvoice size={16} /></span><span><strong>Facturación</strong><small>{reportMonths[reportMonth]} {reportYear} · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalBilling)}</strong></header>
-          <div>{professionalVehicles.map((vehicle) => { const total = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0); return <span key={vehicle.plate}><small className="drivers-summary-card__vehicle-plate">{vehicle.plate}</small><strong className="drivers-summary-card__vehicle-total">{formatCurrency(total)}</strong></span>; })}</div>
+          <div>{professionalVehicles.map((vehicle) => { const total = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0); return <span key={vehicle.plate}><VehiclePlateLabel vehicleOrPlate={vehicle} className="drivers-summary-card__vehicle-plate" /><strong className="drivers-summary-card__vehicle-total">{formatCurrency(total)}</strong></span>; })}</div>
         </button>
         <button type="button" className="drivers-summary-card drivers-summary-card--fuel" onClick={scrollToDrivers}>
           <header><span className="drivers-summary-card__icon"><IconGasStation size={16} /></span><span><strong>Consumo</strong><small>{reportMonths[reportMonth]} {reportYear} · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalFuel)}</strong></header>
-          <div>{fuelSummaries.map((summary) => <span key={summary.vehicle.plate}><small className="drivers-summary-card__vehicle-plate">{summary.vehicle.plate}</small><strong className="drivers-summary-card__vehicle-total">{formatCurrency(summary.cost)}</strong></span>)}</div>
+          <div>{fuelSummaries.map((summary) => <span key={summary.vehicle.plate}><VehiclePlateLabel vehicleOrPlate={summary.vehicle} className="drivers-summary-card__vehicle-plate" /><strong className="drivers-summary-card__vehicle-total">{formatCurrency(summary.cost)}</strong></span>)}</div>
         </button>
       </div>
 
       <div ref={driverGridRef} className="drivers-list" aria-label="Seis conductores profesionales">
         {driverRows.map((row) => <button type="button" className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key} onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}>
-          <span className="driver-list-card__identity"><strong>{row.driver}</strong><small><strong className="driver-list-card__plate">{row.plate}</strong></small></span>
+          <span className="driver-list-card__identity"><strong>{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-list-card__plate" /></span>
           <span className="driver-list-card__metric driver-list-card__metric--billing" aria-label={`Facturación ${formatCurrency(row.revenue)}`}><strong>{formatCurrency(row.revenue)}</strong></span>
           <span className="driver-list-card__metric driver-list-card__metric--fuel" aria-label={`Consumo ${formatCurrency(row.fuelCost)}`}><strong>{formatCurrency(row.fuelCost)}</strong></span>
         </button>)}
@@ -4860,7 +4905,7 @@ function InvoicesView({ invoices, setModal }) {
         <div className="table-scroll">
           <table className="module-table">
             <thead><tr><th>Factura</th><th>Taller</th><th>Vehículo</th><th>Concepto</th><th>Origen</th><th>Importe</th><th>Estado</th><th /></tr></thead>
-            <tbody>{invoices.map((invoice) => <tr key={invoice.id}><td><strong>{invoice.id}</strong><small>{invoice.date}</small></td><td>{invoice.provider}</td><td><strong>{invoice.plate}</strong>{invoice.owner && <small>{invoice.owner.name}</small>}</td><td>{invoice.concept}</td><td><span className="source-label">{invoice.source === "Correo" ? <IconMail size={15} /> : invoice.source === "Foto" ? <IconCamera size={15} /> : <IconUpload size={15} />}{invoice.source}</span></td><td><strong>{formatCurrency(invoice.amount)}</strong></td><td><StatusBadge status={invoice.status} /></td><td><button className="table-action" onClick={() => setModal({ type: "invoice", item: invoice })}>Ver factura<IconChevronRight size={16} /></button></td></tr>)}</tbody>
+            <tbody>{invoices.map((invoice) => <tr key={invoice.id}><td><strong>{invoice.id}</strong><small>{invoice.date}</small></td><td>{invoice.provider}</td><td><VehiclePlateLabel vehicleOrPlate={invoice.plate} className="invoice-vehicle-plate" />{invoice.owner && <small>{invoice.owner.name}</small>}</td><td>{invoice.concept}</td><td><span className="source-label">{invoice.source === "Correo" ? <IconMail size={15} /> : invoice.source === "Foto" ? <IconCamera size={15} /> : <IconUpload size={15} />}{invoice.source}</span></td><td><strong>{formatCurrency(invoice.amount)}</strong></td><td><StatusBadge status={invoice.status} /></td><td><button className="table-action" onClick={() => setModal({ type: "invoice", item: invoice })}>Ver factura<IconChevronRight size={16} /></button></td></tr>)}</tbody>
           </table>
         </div>
       </section>
@@ -4893,7 +4938,7 @@ function LegacyMaintenanceView({ initialPlate, setModal, vehicles }) {
           <header className="card-header"><div><h2>Vehículos</h2><p>Profesionales primero y particulares después.</p></div></header>
           <div className="schedule-list">{schedule.map((vehicle, index) => {
             const remaining = vehicle.nextServiceKm - vehicle.odometer;
-            return <button key={vehicle.plate} className="schedule-row" onClick={() => showWorkshop(vehicle.plate)}><span className={`schedule-index ${remaining <= 5000 ? "urgent" : ""}`}>{index + 1}</span><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><span><strong>{formatKm(remaining)}</strong><small>{vehicle.serviceDate}</small></span><IconChevronRight size={18} /></button>;
+            return <button key={vehicle.plate} className="schedule-row" onClick={() => showWorkshop(vehicle.plate)}><span className={`schedule-index ${remaining <= 5000 ? "urgent" : ""}`}>{index + 1}</span><span><VehiclePlateLabel vehicleOrPlate={vehicle} className="schedule-vehicle-plate" /><small>{vehicle.model}</small></span><span><strong>{formatKm(remaining)}</strong><small>{vehicle.serviceDate}</small></span><IconChevronRight size={18} /></button>;
           })}</div>
         </section>
         <aside className="content-card maintenance-summary">
@@ -4910,7 +4955,7 @@ function LegacyMaintenanceView({ initialPlate, setModal, vehicles }) {
           <nav className="workshop-vehicle-list" aria-label="Vehículos con historial de taller">
             {vehicles.map((vehicle) => {
               const latest = vehicle.maintenance[0];
-              return <button className={vehicle.plate === workshopVehicle.plate ? "active" : ""} key={vehicle.plate} onClick={() => setWorkshopPlate(vehicle.plate)} aria-current={vehicle.plate === workshopVehicle.plate ? "true" : undefined}><span><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></span><span><strong>{formatCurrency(latest.amount)}</strong><small>{latest.concept}</small></span><IconChevronRight size={17} /></button>;
+              return <button className={vehicle.plate === workshopVehicle.plate ? "active" : ""} key={vehicle.plate} onClick={() => setWorkshopPlate(vehicle.plate)} aria-current={vehicle.plate === workshopVehicle.plate ? "true" : undefined}><span><VehiclePlateLabel vehicleOrPlate={vehicle} className="workshop-vehicle-plate" /><small>{vehicle.model}</small></span><span><strong>{formatCurrency(latest.amount)}</strong><small>{latest.concept}</small></span><IconChevronRight size={17} /></button>;
             })}
           </nav>
           <WorkshopHistory vehicle={workshopVehicle} />
@@ -4920,7 +4965,7 @@ function LegacyMaintenanceView({ initialPlate, setModal, vehicles }) {
         <header className="card-header"><div><h2>Últimas intervenciones</h2><p>Consulta rápida de fecha, kilometraje, concepto e importe.</p></div></header>
         <div className="table-scroll"><table className="module-table"><thead><tr><th>Vehículo</th><th>Fecha</th><th>Kilometraje</th><th>Concepto</th><th>Importe</th><th /></tr></thead><tbody>{vehicles.map((vehicle) => {
           const item = vehicle.maintenance[0];
-          return <tr key={vehicle.plate}><td><strong>{vehicle.plate}</strong><small>{vehicle.model}</small></td><td>{item.date}</td><td>{formatKm(item.km)}</td><td>{item.concept}</td><td><strong>{formatCurrency(item.amount)}</strong></td><td><button className="table-action" onClick={() => showWorkshop(vehicle.plate)}>Historial<IconChevronRight size={16} /></button></td></tr>;
+          return <tr key={vehicle.plate}><td><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-table-plate" /><small>{vehicle.model}</small></td><td>{item.date}</td><td>{formatKm(item.km)}</td><td>{item.concept}</td><td><strong>{formatCurrency(item.amount)}</strong></td><td><button className="table-action" onClick={() => showWorkshop(vehicle.plate)}>Historial<IconChevronRight size={16} /></button></td></tr>;
         })}</tbody></table></div>
       </section>
     </section>
@@ -5119,7 +5164,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
             <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} key={vehicle.plate} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
               <span className="maintenance-vehicle-number">{index + 1}</span>
               <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
-              <span className="maintenance-vehicle-identity"><small>{brand}</small><strong>{vehicle.plate}</strong><span>{vehicle.model}</span></span>
+              <span className="maintenance-vehicle-identity"><small>{brand}</small><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" /><span>{vehicle.model}</span></span>
               <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
               <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
             </button>
@@ -5131,7 +5176,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
         <header className="maintenance-history-header">
           <div className="maintenance-history-vehicle">
             <span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt="" /></span>
-            <span><h2>{workshopVehicle.plate}</h2></span>
+            <span><h2><VehiclePlateLabel vehicleOrPlate={workshopVehicle} className="maintenance-history-plate" /></h2></span>
           </div>
           <div className="maintenance-history-total"><small>{sortedMaintenance.length ? `${sortedMaintenance.length} intervenciones` : "Sin intervenciones"}</small></div>
         </header>
@@ -5334,7 +5379,7 @@ function VehicleInspector({ selected, selectedDriver, selectedActivity, invoices
   const remaining = selected.nextServiceKm - selected.odometer;
   return (
     <aside className="inspector" aria-label={`Detalle de ${selected.plate}`}>
-      <header className="inspector-header"><div><span className="inspector-eyebrow">Vehículo seleccionado</span><strong>{selected.plate}</strong><small>{selected.model}</small><UseBadge value={selected.use} /></div><button className="icon-button" aria-label="Cerrar detalle" onClick={() => setInspectorOpen(false)}><IconX size={21} /></button></header>
+      <header className="inspector-header"><div><span className="inspector-eyebrow">Vehículo seleccionado</span><VehiclePlateLabel vehicleOrPlate={selected} className="inspector-vehicle-plate" /><small>{selected.model}</small><UseBadge value={selected.use} /></div><button className="icon-button" aria-label="Cerrar detalle" onClick={() => setInspectorOpen(false)}><IconX size={21} /></button></header>
       {selected.use === "Profesional" ? (
         <div className="inspector-driver-picker"><span>Conductor</span><div>{selected.drivers.map((driver) => <button className={selectedDriver === driver ? "driver-pill driver-pill--active" : "driver-pill"} key={driver} onClick={() => selectDriver(selected, driver)}>{driver}</button>)}</div></div>
       ) : <div className="inspector-no-driver"><IconHome size={18} /><span>Sin conductor asociado</span></div>}
@@ -5397,7 +5442,7 @@ function VehicleMaintenanceLedger({ vehicle, invoices, onOpenInvoice }) {
         <small>{registered} de {rows.length} registrados</small>
       </header>
       <div className="inspector-ledger-summary">
-        <span>Historial de {vehicle.plate}</span>
+        <span>Historial de <VehiclePlateLabel vehicleOrPlate={vehicle} className="inspector-ledger__plate" /></span>
         <strong>{vehicle.maintenance.length} intervenciones</strong>
         <small>Último registro por cada concepto</small>
       </div>
@@ -5633,8 +5678,8 @@ function DriverCircleReviewDialog({ review, profile, driverId, onClose, onSave }
   const category = review.recordKey === "billing" ? "billing" : "consumption";
   return <div className="modal-backdrop" role="presentation">
     <section className="modal modal--document-processing" role="dialog" aria-modal="true" aria-labelledby="driver-circle-review-title">
-      <header className="modal__header"><div><span>REGISTRO DEL CONDUCTOR</span><h2 id="driver-circle-review-title">Revisar documento</h2><p>{profile.full_name} · {profile.vehicle_plate}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar revisión"><IconX size={19} /></button></header>
-      <DocumentProcessingWorkflow category={category} source="upload" file={review.file} defaultVehicle={profile.vehicle_plate} driverId={driverId} onCancel={onClose} onSave={onSave} />
+      <header className="modal__header"><div><span>REGISTRO DEL CONDUCTOR</span><h2 id="driver-circle-review-title">Revisar documento</h2><p>{profile.full_name} · {canonicalizeVehiclePlate(profile.vehicle_plate)}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar revisión"><IconX size={19} /></button></header>
+      <DocumentProcessingWorkflow category={category} source="upload" file={review.file} defaultVehicle={canonicalizeVehiclePlate(profile.vehicle_plate)} driverId={driverId} onCancel={onClose} onSave={onSave} />
     </section>
   </div>;
 }
