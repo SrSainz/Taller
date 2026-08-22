@@ -788,6 +788,16 @@ const formatBillingMilestone = (value) => {
   if (amount < 1000) return String(amount);
   return `${Math.floor(amount / 1000)}.${String(amount % 1000).padStart(3, "0")}`;
 };
+const DRIVER_BILLING_MILESTONE_START_PERCENT = 30;
+const DRIVER_BILLING_MILESTONE_END_PERCENT = 98;
+const getDriverBillingVisualPosition = (value, milestones = [], scaleMax = 9000) => {
+  const numericValue = Math.max(0, Number(value) || 0);
+  const firstMilestone = Number(milestones[0]) || 0;
+  if (!firstMilestone || !scaleMax) return 0;
+  if (numericValue <= firstMilestone) return Math.min(DRIVER_BILLING_MILESTONE_START_PERCENT, (numericValue / firstMilestone) * DRIVER_BILLING_MILESTONE_START_PERCENT);
+  if (numericValue >= scaleMax) return numericValue > scaleMax ? 100 : DRIVER_BILLING_MILESTONE_END_PERCENT;
+  return DRIVER_BILLING_MILESTONE_START_PERCENT + ((numericValue - firstMilestone) / (scaleMax - firstMilestone)) * (DRIVER_BILLING_MILESTONE_END_PERCENT - DRIVER_BILLING_MILESTONE_START_PERCENT);
+};
 const formatShortCurrency = (value) => `${Math.round(value).toLocaleString("es-ES")} €`;
 const formatDriverBarAmount = (value) => Number(value) >= 1000 ? `${(Number(value) / 1000).toLocaleString("es-ES", { maximumFractionDigits: 1 })}k` : `${Math.round(Number(value) || 0)}`;
 const getDriverDateKey = (date = new Date()) => {
@@ -2600,6 +2610,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const billingGoal = 7000;
     const billingScaleMax = 9000;
     const billingMilestones = [5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000];
+    const billingCurrentMilestone = billingMilestones.reduce((current, milestone) => monthlyBilling >= milestone ? milestone : current, null);
     const weeklyCash = total(weekEntries, "cash_collected");
     const weeklyFuel = total(weekEntries, "fuel_cost");
     const weeklyTolls = total(weekEntries, "tolls");
@@ -2621,8 +2632,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       billingGoal,
       billingScaleMax,
       billingMilestones,
+      billingCurrentMilestone,
       billingProgress: billingGoal > 0 ? (monthlyBilling / billingGoal) * 100 : 0,
       billingBarProgress: billingScaleMax > 0 ? Math.min(100, (monthlyBilling / billingScaleMax) * 100) : 0,
+      billingTargetBarProgress: getDriverBillingVisualPosition(monthlyBilling, billingMilestones, billingScaleMax),
       weeklyCash,
       weeklyFuel,
       weeklyTolls,
@@ -3213,6 +3226,40 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   );
 }
 
+function DriverBillingTarget({ periodSummary }) {
+  const { monthlyBilling, billingGoal, billingProgress, billingScaleMax, billingMilestones, billingCurrentMilestone, billingTargetBarProgress } = periodSummary;
+  return <div className={`driver-mobile-billing-target${billingProgress >= 100 ? " is-goal-reached" : ""}`} aria-label={`Escala de facturación hasta ${formatBillingMilestone(billingScaleMax)} euros, objetivo de ${formatBillingMilestone(billingGoal)} euros: ${Math.round(billingProgress)}%`}>
+    <div className="driver-mobile-billing-target__header">
+      <div className="driver-mobile-billing-target__billing">
+        <span>Facturación</span>
+        <strong>{formatCurrency(monthlyBilling)}</strong>
+      </div>
+      <div className="driver-mobile-billing-target__goal">
+        <span>Objetivo {formatBillingMilestone(billingGoal)} €</span>
+        <strong>{Math.round(billingProgress)}%<small> del objetivo</small></strong>
+      </div>
+    </div>
+    <div className="driver-mobile-billing-target__scale">
+      <div className="driver-mobile-billing-target__track" role="progressbar" aria-valuemin="0" aria-valuemax={billingScaleMax} aria-valuenow={Math.min(billingScaleMax, monthlyBilling)} aria-valuetext={`${formatCurrency(monthlyBilling)} · ${Math.round(billingProgress)}% del objetivo`}>
+        <i style={{ width: `${billingTargetBarProgress}%` }} />
+        {billingMilestones.map((milestone) => {
+          const isGoal = milestone === billingGoal;
+          const isCurrent = milestone === billingCurrentMilestone;
+          return <span key={milestone} className={`driver-mobile-billing-target__milestone${monthlyBilling >= milestone ? " is-reached" : ""}${isCurrent ? " is-current" : ""}${isGoal ? " is-goal" : ""}`} style={{ left: `${getDriverBillingVisualPosition(milestone, billingMilestones, billingScaleMax)}%` }} aria-hidden="true" />;
+        })}
+      </div>
+      <div className="driver-mobile-billing-target__labels">
+        <span className="is-start" style={{ left: "0%" }}>0</span>
+        {billingMilestones.map((milestone, index) => {
+          const isGoal = milestone === billingGoal;
+          const isCurrent = milestone === billingCurrentMilestone;
+          return <span key={milestone} className={`${index === billingMilestones.length - 1 ? "is-end " : ""}${isGoal ? "is-goal " : ""}${isCurrent ? "is-current" : ""}`} style={{ left: `${getDriverBillingVisualPosition(milestone, billingMilestones, billingScaleMax)}%` }}>{formatBillingMilestone(milestone)}</span>;
+        })}
+      </div>
+    </div>
+  </div>;
+}
+
 function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, saveMaintenanceNote }) {
   const weekSwipeDuration = 520;
   const homeRef = useRef(null);
@@ -3435,7 +3482,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
           <article className="driver-mobile-month-summary">
             <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{(vehicle?.owner?.dni ?? "").replaceAll("-", "")}</b></span></div>
             <div className="driver-mobile-month-summary__columns">
-              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing"><span>Facturación</span><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong>{preview && <div className={`driver-mobile-billing-target${periodSummary.billingProgress >= 100 ? " is-goal-reached" : ""}`} aria-label={`Escala de facturación hasta 9.000 euros, objetivo de 7.000 euros: ${Math.round(periodSummary.billingProgress)}%`}><div className="driver-mobile-billing-target__header"><span>Objetivo {formatBillingMilestone(periodSummary.billingGoal)} €</span><strong>{Math.round(periodSummary.billingProgress)}%<small> del objetivo</small></strong></div><div className="driver-mobile-billing-target__scale"><div className="driver-mobile-billing-target__track" role="progressbar" aria-valuemin="0" aria-valuemax={periodSummary.billingScaleMax} aria-valuenow={Math.min(periodSummary.billingScaleMax, periodSummary.monthlyBilling)} aria-valuetext={`${formatCurrency(periodSummary.monthlyBilling)} · ${Math.round(periodSummary.billingProgress)}% del objetivo`}><i style={{ width: `${periodSummary.billingBarProgress}%` }} />{periodSummary.billingMilestones.map((milestone) => <span key={milestone} className={`driver-mobile-billing-target__milestone${periodSummary.monthlyBilling >= milestone ? " is-reached" : ""}${milestone === periodSummary.billingGoal ? " is-goal" : ""}`} style={{ left: `${Math.min(100, (milestone / periodSummary.billingScaleMax) * 100)}%` }} aria-hidden="true" />)}</div><div className="driver-mobile-billing-target__labels"><span className="is-start">0</span>{periodSummary.billingMilestones.map((milestone, index) => <span key={milestone} className={`${index === periodSummary.billingMilestones.length - 1 ? "is-end " : ""}${milestone === periodSummary.billingGoal ? "is-goal" : ""}`} style={{ left: `${Math.min(100, (milestone / periodSummary.billingScaleMax) * 100)}%` }}>{formatBillingMilestone(milestone)}</span>)}</div></div></div>}</div>
+              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing">{preview ? <DriverBillingTarget periodSummary={periodSummary} /> : <><span>Facturación</span><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong></>}</div>
               <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--tips"><div className="driver-mobile-month-summary__tips-layout"><div className="driver-mobile-month-summary__tips-value"><span>Propinas</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></div><button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span></button></div>{maintenanceNoteOpen && <form id="driver-maintenance-note" className="driver-mobile-maintenance-note" onSubmit={(event) => { event.preventDefault(); saveMaintenanceNote(maintenanceNoteDraft); setMaintenanceNoteOpen(false); }}><label htmlFor="driver-maintenance-note-input">Qué conviene hacer en la próxima revisión</label><textarea ref={maintenanceNoteInputRef} id="driver-maintenance-note-input" rows="3" value={maintenanceNoteDraft} onChange={(event) => setMaintenanceNoteDraft(event.target.value)} placeholder="Escribe aquí lo que debería revisarse o cambiarse en el coche…" /><div className="driver-mobile-maintenance-note__actions"><button type="button" className="secondary-button" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen(false); }}>Cancelar</button><button type="submit" className="primary-button"><IconCheck size={15} />Guardar</button></div></form>}</div>
             </div>
           </article>
