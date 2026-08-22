@@ -72,6 +72,7 @@ import { maintenanceCochesDocuments } from "./data/maintenanceCochesSummary";
 import { alexBillingByPeriod } from "./data/alexBillingSummary";
 import { aminBillingByPeriod } from "./data/aminBillingSummary";
 import { fernandoBillingByPeriod } from "./data/fernandoBillingSummary";
+import { mauricioBillingByPeriod } from "./data/mauricioBillingSummary";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -1009,8 +1010,9 @@ const distributeInteger = (total, keys, seed) => {
 
 const isAmin = (name = "") => String(name).trim().toLocaleLowerCase("es") === "amin";
 const isFernando = (name = "") => String(name).trim().toLocaleLowerCase("es") === "fernando";
+const isMauricio = (name = "") => String(name).trim().toLocaleLowerCase("es") === "mauricio";
 const getImportedBillingByPeriod = (driver) => {
-  const summary = isAlex(driver) ? alexBillingByPeriod : isAmin(driver) ? aminBillingByPeriod : isFernando(driver) ? fernandoBillingByPeriod : null;
+  const summary = isAlex(driver) ? alexBillingByPeriod : isAmin(driver) ? aminBillingByPeriod : isFernando(driver) ? fernandoBillingByPeriod : isMauricio(driver) ? mauricioBillingByPeriod : null;
   if (!summary) return null;
   return Object.fromEntries(Object.entries(summary).map(([period, record]) => [period, record.amount]));
 };
