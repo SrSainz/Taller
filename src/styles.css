@@ -2793,6 +2793,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   user-select: none;
   -webkit-touch-callout: none;
 }
+
 .modal--maintenance-edit { width: min(500px, 100%); }
 .maintenance-edit-workflow { display: grid; gap: 15px; padding: 18px 19px 19px; }
 .maintenance-edit-context { display: grid; gap: 4px; padding: 13px 14px; border: 1px solid #111; border-radius: 10px; background: #fff8e9; color: #111; }
@@ -4068,4 +4069,35 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .net-detail-expanded .net-detail-card__add-form {
     grid-template-columns: minmax(0, 1fr) minmax(96px, .55fr);
   }
+}
+
+/* Objetivos y pendiente de mantenimiento en la vista del conductor. */
+.driver-mobile-billing-target__scale { position: relative; padding-bottom: 17px; }
+.driver-mobile-billing-target__track { height: 12px; border-radius: 5px; }
+.driver-mobile-billing-target__milestone { top: 50%; width: 2px; height: 26px; border: 0; border-radius: 0; background: #f2a62a; box-shadow: 0 0 0 1px rgba(150,94,8,.16); transform: translate(-50%, -50%); }
+.driver-mobile-billing-target__labels { position: absolute; right: 0; bottom: 0; left: 0; display: block; height: 12px; padding: 0; }
+.driver-mobile-billing-target__labels span { position: absolute; top: 0; color: #4f6686; font-size: 8px; font-variant-numeric: tabular-nums; font-weight: 800; line-height: 1; transform: translateX(-50%); white-space: nowrap; }
+.driver-mobile-billing-target__labels span.is-start { transform: none; }
+.driver-mobile-billing-target__labels span.is-end { transform: translateX(-100%); }
+.driver-mobile-month-summary__tips-layout { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.driver-mobile-month-summary__tips-value { min-width: 0; display: grid; gap: 3px; }
+.driver-mobile-month-summary__tips-value > span { color: #4b5870; font-size: 10px; font-weight: 750; }
+.driver-mobile-month-summary__tips-value > strong { color: #159b79; font-size: clamp(22px, 6vw, 30px); font-weight: 900; letter-spacing: -.04em; line-height: 1; white-space: nowrap; }
+.driver-mobile-maintenance-note__trigger { min-width: 0; display: inline-flex; flex: 0 1 auto; align-items: center; justify-content: center; gap: 5px; min-height: 32px; padding: 6px 9px; border: 1px solid #efc267; border-radius: 8px; background: #fff8e8; color: #9a5d04; font: inherit; font-size: 9px; font-weight: 850; line-height: 1.1; text-align: center; cursor: pointer; }
+.driver-mobile-maintenance-note__trigger:hover, .driver-mobile-maintenance-note__trigger:focus-visible { border-color: #d99518; background: #fff1c9; outline: 0; box-shadow: 0 0 0 3px rgba(242,166,42,.16); }
+.driver-mobile-maintenance-note__trigger span { min-width: 0; color: inherit; font-size: inherit; font-weight: inherit; line-height: inherit; }
+.driver-mobile-maintenance-note { display: grid; gap: 6px; margin-top: 8px; padding: 8px; border: 1px solid #efc267; border-radius: 9px; background: #fffaf0; }
+.driver-mobile-maintenance-note > label { color: #815006; font-size: 9px; font-weight: 850; }
+.driver-mobile-maintenance-note > textarea { width: 100%; min-height: 62px; resize: vertical; padding: 7px 8px; border: 1px solid #e4c77e; border-radius: 7px; background: #fff; color: #26344c; font: inherit; font-size: 10px; line-height: 1.35; outline: 0; }
+.driver-mobile-maintenance-note > textarea:focus { border-color: #d99518; box-shadow: 0 0 0 3px rgba(242,166,42,.15); }
+.driver-mobile-maintenance-note__actions { display: flex; justify-content: flex-end; gap: 6px; }
+.driver-mobile-maintenance-note__actions button { min-height: 28px; display: inline-flex; align-items: center; gap: 4px; padding: 0 9px; font-size: 9px; }
+.driver-mobile-maintenance-note__actions .primary-button { background: #9a5d04; }
+.driver-app--preview .driver-mobile-month-summary__tips-layout { align-items: center; }
+.driver-app--preview .driver-mobile-month-summary__tips-value > span { font-size: 8px; }
+.driver-app--preview .driver-mobile-month-summary__tips-value > strong { font-size: clamp(18px, 5vw, 24px); }
+.driver-app--preview .driver-mobile-maintenance-note__trigger { min-height: 30px; padding: 5px 8px; font-size: 8px; }
+@media (max-width: 380px) {
+  .driver-mobile-month-summary__tips-layout { gap: 7px; }
+  .driver-mobile-maintenance-note__trigger { padding-inline: 7px; font-size: 8px; }
 }

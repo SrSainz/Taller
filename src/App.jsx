@@ -657,6 +657,11 @@ const readingSeed = [
 
 const formatKm = (value) => `${new Intl.NumberFormat("es-ES").format(value)} km`;
 const formatCurrency = (value) => `${value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+const formatBillingMilestone = (value) => {
+  const amount = Math.round(Number(value) || 0);
+  if (amount < 1000) return String(amount);
+  return `${Math.floor(amount / 1000)}.${String(amount % 1000).padStart(3, "0")}`;
+};
 const formatShortCurrency = (value) => `${Math.round(value).toLocaleString("es-ES")} €`;
 const formatDriverBarAmount = (value) => Number(value) >= 1000 ? `${(Number(value) / 1000).toLocaleString("es-ES", { maximumFractionDigits: 1 })}k` : `${Math.round(Number(value) || 0)}`;
 const getDriverDateKey = (date = new Date()) => {
@@ -680,6 +685,7 @@ const getDriverWeekStart = (date) => {
 };
 const getDriverEntryAmount = (entry, key) => Number(entry?.[key]) || 0;
 const driverWeeklyManualStorageKey = "sobre-ruedas-driver-weekly-manual-v1";
+const driverMaintenanceNoteStorageKey = "sobre-ruedas-driver-maintenance-note-v1";
 const loadDriverWeeklyManualValues = (driverId) => {
   if (!driverId || typeof window === "undefined") return {};
   try {
@@ -687,6 +693,24 @@ const loadDriverWeeklyManualValues = (driverId) => {
     return stored?.[driverId] && typeof stored[driverId] === "object" ? stored[driverId] : {};
   } catch {
     return {};
+  }
+};
+const loadDriverMaintenanceNote = (vehiclePlate) => {
+  if (!vehiclePlate || typeof window === "undefined") return "";
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(driverMaintenanceNoteStorageKey) ?? "{}");
+    return typeof stored?.[vehiclePlate] === "string" ? stored[vehiclePlate] : "";
+  } catch {
+    return "";
+  }
+};
+const saveDriverMaintenanceNote = (vehiclePlate, note) => {
+  if (!vehiclePlate || typeof window === "undefined") return;
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(driverMaintenanceNoteStorageKey) ?? "{}");
+    window.localStorage.setItem(driverMaintenanceNoteStorageKey, JSON.stringify({ ...stored, [vehiclePlate]: note }));
+  } catch {
+    // La nota se mantiene en memoria aunque el navegador no permita guardar preferencias locales.
   }
 };
 const buildDriverWeekPage = (anchorDate, entries, manualValues = {}) => {
@@ -2088,6 +2112,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const [circlePreviewUrls, setCirclePreviewUrls] = useState({});
   const [circleMetricValues, setCircleMetricValues] = useState({});
   const [weeklyManualValues, setWeeklyManualValues] = useState(() => loadDriverWeeklyManualValues(activeProfileId));
+  const [maintenanceNote, setMaintenanceNote] = useState(() => loadDriverMaintenanceNote(profile.vehicle_plate ?? activeProfileId));
   const circleFileInputRef = useRef(null);
   const circleUploadKeyRef = useRef("");
   const circlePreviewUrlsRef = useRef({});
@@ -2100,6 +2125,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   useEffect(() => {
     setWeeklyManualValues(loadDriverWeeklyManualValues(activeProfileId));
   }, [activeProfileId]);
+
+  useEffect(() => {
+    setMaintenanceNote(loadDriverMaintenanceNote(profile.vehicle_plate ?? activeProfileId));
+  }, [activeProfileId, profile.vehicle_plate]);
 
   useEffect(() => {
     if (!activeProfileId || typeof window === "undefined") return;
@@ -2293,15 +2322,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
     const monthlyBilling = total(monthEntries, "billing");
     const billingGoal = 5000;
-    const billingScaleMax = Math.max(7000, Math.ceil(Math.max(monthlyBilling, billingGoal) / 500) * 500);
-    const billingMilestones = [
-      5000,
-      5500,
-      6000,
-      6500,
-      7000,
-      ...Array.from({ length: Math.max(0, Math.floor((billingScaleMax - 7000) / 500)) }, (_, index) => 7500 + (index * 500)),
-    ];
+    const billingScaleMax = 7000;
+    const billingMilestones = [5000, 5500, 6000, 6500, 7000];
     const weeklyCash = total(weekEntries, "cash_collected");
     const weeklyFuel = total(weekEntries, "fuel_cost");
     const weeklyTolls = total(weekEntries, "tolls");
@@ -2685,6 +2707,12 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       setMessage(`No se ha podido guardar ${rowLabelByKey[rowKey].toLowerCase()}: ${error.message}`);
     }
   };
+  const handleMaintenanceNoteSave = (value) => {
+    const nextNote = String(value ?? "").trim();
+    setMaintenanceNote(nextNote);
+    saveDriverMaintenanceNote(profile.vehicle_plate ?? activeProfileId, nextNote);
+    setMessage(nextNote ? "Pendiente de mantenimiento guardado." : "Pendiente de mantenimiento vacío.");
+  };
   const weeklyRows = [
     { key: "cash", label: "Efectivo", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "cash_collected")) },
     { key: "fuel", label: "Repostaje", values: driverWeekEntries.map((item) => getDriverEntryAmount(item, "fuel_cost")) },
@@ -2763,6 +2791,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     handleCircleFile={handleCircleFile}
     saveCircleReview={saveCircleReview}
     saveWeeklyAmount={saveWeeklyAmount}
+    maintenanceNote={maintenanceNote}
+    saveMaintenanceNote={handleMaintenanceNoteSave}
   />;
 
   return (
@@ -2882,7 +2912,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   );
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, saveMaintenanceNote }) {
   const weekSwipeDuration = 520;
   const homeRef = useRef(null);
   const statsRef = useRef(null);
@@ -2899,6 +2929,9 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const [weekSwipeActive, setWeekSwipeActive] = useState(false);
   const [weekSwipeTransition, setWeekSwipeTransition] = useState(false);
   const [weeklyDrafts, setWeeklyDrafts] = useState({});
+  const [maintenanceNoteOpen, setMaintenanceNoteOpen] = useState(false);
+  const [maintenanceNoteDraft, setMaintenanceNoteDraft] = useState(maintenanceNote ?? "");
+  const maintenanceNoteInputRef = useRef(null);
   const referenceLabels = {
     consumption: { title: "Ejemplo de consumo", caption: "Historial del vehículo", alt: "Ejemplo de historial de consumo del vehículo" },
     billing: { title: "Ejemplo de facturación", caption: "Resumen semanal", alt: "Ejemplo de resumen semanal de facturación" },
@@ -3026,6 +3059,21 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   };
   useEffect(() => () => window.clearTimeout(weekSwipeTimerRef.current), []);
 
+  useEffect(() => {
+    if (!maintenanceNoteOpen) setMaintenanceNoteDraft(maintenanceNote ?? "");
+  }, [maintenanceNote, maintenanceNoteOpen]);
+
+  useEffect(() => {
+    if (!maintenanceNoteOpen) return undefined;
+    const frame = window.requestAnimationFrame(() => maintenanceNoteInputRef.current?.focus());
+    const closeOnEscape = (event) => { if (event.key === "Escape") setMaintenanceNoteOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [maintenanceNoteOpen]);
+
   return (
     <main className={`driver-app driver-mobile-app${preview ? " driver-app--preview" : ""}`}>
       <header className="driver-mobile-topbar">
@@ -3048,8 +3096,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
           <article className="driver-mobile-month-summary">
             <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{(vehicle?.owner?.dni ?? "").replaceAll("-", "")}</b></span></div>
             <div className="driver-mobile-month-summary__columns">
-              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing"><span>Facturación</span><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong>{preview && <div className="driver-mobile-billing-target" aria-label={`Progreso de facturacion hacia ${periodSummary.billingScaleMax} euros`}><div className="driver-mobile-billing-target__track" role="progressbar" aria-valuemin="0" aria-valuemax={periodSummary.billingScaleMax} aria-valuenow={periodSummary.monthlyBilling}><i style={{ width: `${periodSummary.billingProgress}%` }} />{periodSummary.billingMilestones.map((milestone) => <span key={milestone} className="driver-mobile-billing-target__milestone" style={{ left: `${Math.min(100, (milestone / periodSummary.billingScaleMax) * 100)}%` }} title={`${milestone.toLocaleString("es-ES")} euros`} />)}</div><div className="driver-mobile-billing-target__labels"><span>0</span>{periodSummary.billingMilestones.map((milestone) => <span key={milestone}>{milestone.toLocaleString("es-ES")}</span>)}</div></div>}</div>
-              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--tips"><span>Propinas</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></div>
+              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing"><span>Facturación</span><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong>{preview && <div className="driver-mobile-billing-target" aria-label="Escala de facturación de 0 a 7.000 euros"><div className="driver-mobile-billing-target__scale"><div className="driver-mobile-billing-target__track" role="progressbar" aria-valuemin="0" aria-valuemax={periodSummary.billingScaleMax} aria-valuenow={periodSummary.monthlyBilling}><i style={{ width: `${periodSummary.billingProgress}%` }} />{periodSummary.billingMilestones.map((milestone) => <span key={milestone} className="driver-mobile-billing-target__milestone" style={{ left: `${Math.min(100, (milestone / periodSummary.billingScaleMax) * 100)}%` }} aria-hidden="true" />)}</div><div className="driver-mobile-billing-target__labels"><span className="is-start">0</span>{periodSummary.billingMilestones.map((milestone, index) => <span key={milestone} className={index === periodSummary.billingMilestones.length - 1 ? "is-end" : ""} style={{ left: `${Math.min(100, (milestone / periodSummary.billingScaleMax) * 100)}%` }}>{formatBillingMilestone(milestone)}</span>)}</div></div></div>}</div>
+              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--tips"><div className="driver-mobile-month-summary__tips-layout"><div className="driver-mobile-month-summary__tips-value"><span>Propinas</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></div><button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span></button></div>{maintenanceNoteOpen && <form id="driver-maintenance-note" className="driver-mobile-maintenance-note" onSubmit={(event) => { event.preventDefault(); saveMaintenanceNote(maintenanceNoteDraft); setMaintenanceNoteOpen(false); }}><label htmlFor="driver-maintenance-note-input">Qué conviene hacer en la próxima revisión</label><textarea ref={maintenanceNoteInputRef} id="driver-maintenance-note-input" rows="3" value={maintenanceNoteDraft} onChange={(event) => setMaintenanceNoteDraft(event.target.value)} placeholder="Escribe aquí lo que debería revisarse o cambiarse en el coche…" /><div className="driver-mobile-maintenance-note__actions"><button type="button" className="secondary-button" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen(false); }}>Cancelar</button><button type="submit" className="primary-button"><IconCheck size={15} />Guardar</button></div></form>}</div>
             </div>
           </article>
         </section>
