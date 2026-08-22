@@ -3298,6 +3298,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const [weekSwipeActive, setWeekSwipeActive] = useState(false);
   const [weekSwipeTransition, setWeekSwipeTransition] = useState(false);
   const [weeklyDrafts, setWeeklyDrafts] = useState({});
+  const [weeklyEditKey, setWeeklyEditKey] = useState("");
+  const weeklyLongPressTimerRef = useRef(null);
   const [maintenanceNoteOpen, setMaintenanceNoteOpen] = useState(false);
   const [maintenanceNoteDraft, setMaintenanceNoteDraft] = useState(maintenanceNote ?? "");
   const maintenanceNoteInputRef = useRef(null);
@@ -3393,12 +3395,43 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const weekLabel = currentWeekPage?.days?.[0]?.date ? new Intl.DateTimeFormat("es-ES", { day: "numeric" }).format(currentWeekPage.days[0].date) : "";
   const editableWeeklyRows = new Set(["cash", "fuel", "tolls", "wash", "other"]);
   const formatWeeklyAmount = (value) => (Number(value) || 0).toLocaleString("es-ES", { maximumFractionDigits: 0 });
-  const weeklyCell = (row, value, dateKey) => {
+  const clearWeeklyLongPress = () => {
+    if (weeklyLongPressTimerRef.current === null) return;
+    window.clearTimeout(weeklyLongPressTimerRef.current);
+    weeklyLongPressTimerRef.current = null;
+  };
+  const openWeeklyEditor = (draftKey, value) => {
+    setWeeklyDrafts((current) => Object.hasOwn(current, draftKey) ? current : { ...current, [draftKey]: formatWeeklyAmount(value) });
+    setWeeklyEditKey(draftKey);
+  };
+  const startWeeklyLongPress = (draftKey, value, event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    clearWeeklyLongPress();
+    weeklyLongPressTimerRef.current = window.setTimeout(() => {
+      weeklyLongPressTimerRef.current = null;
+      openWeeklyEditor(draftKey, value);
+    }, 2000);
+  };
+  useEffect(() => () => clearWeeklyLongPress(), []);
+  useEffect(() => {
+    if (!weeklyEditKey) return undefined;
+    const closeWeeklyEditorOutside = (event) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".driver-mobile-week-table__amount-editor")) return;
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLInputElement && activeElement.classList.contains("driver-mobile-week-table__amount-input")) activeElement.blur();
+      setWeeklyEditKey("");
+    };
+    document.addEventListener("pointerdown", closeWeeklyEditorOutside, true);
+    return () => document.removeEventListener("pointerdown", closeWeeklyEditorOutside, true);
+  }, [weeklyEditKey]);
+  const weeklyCell = (row, value, dateKey, isEditorHost = false) => {
     if (!editableWeeklyRows.has(row.key)) return formatWeeklyAmount(value);
     const draftKey = `${dateKey}:${row.key}`;
     const hasDraft = Object.hasOwn(weeklyDrafts, draftKey);
     const displayedValue = hasDraft ? weeklyDrafts[draftKey] : formatWeeklyAmount(value);
-    return <span className="driver-mobile-week-table__amount-editor"><input className="driver-mobile-week-table__amount-input" type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" value={displayedValue} aria-label={`${row.label} del ${dateKey}`} placeholder="0,00" onFocus={(event) => event.currentTarget.select()} onPointerUp={(event) => event.preventDefault()} onChange={(event) => setWeeklyDrafts((current) => ({ ...current, [draftKey]: event.target.value }))} onBlur={async () => { const nextValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : displayedValue; await saveWeeklyAmount(dateKey, row.key, nextValue); setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); event.currentTarget.blur(); } }} /><b aria-hidden="true">€</b></span>;
+    if (weeklyEditKey !== draftKey || !isEditorHost) return <button type="button" className="driver-mobile-week-table__amount-trigger" aria-label={`Editar ${row.label} del ${dateKey}`} title="Mantén pulsado dos segundos para editar" onPointerDown={(event) => startWeeklyLongPress(draftKey, value, event)} onPointerUp={clearWeeklyLongPress} onPointerCancel={clearWeeklyLongPress} onPointerLeave={clearWeeklyLongPress} onContextMenu={(event) => event.preventDefault()} onKeyDown={(event) => { if (event.key !== "Enter" && event.key !== " ") return; event.preventDefault(); openWeeklyEditor(draftKey, value); }}>{displayedValue}</button>;
+    return <span className="driver-mobile-week-table__amount-editor"><input autoFocus className="driver-mobile-week-table__amount-input" type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" value={displayedValue} aria-label={`${row.label} del ${dateKey}`} placeholder="0,00" onFocus={(event) => event.currentTarget.select()} onPointerUp={(event) => event.preventDefault()} onChange={(event) => setWeeklyDrafts((current) => ({ ...current, [draftKey]: event.target.value }))} onBlur={async () => { const nextValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : displayedValue; await saveWeeklyAmount(dateKey, row.key, nextValue); setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); setWeeklyEditKey((current) => current === draftKey ? "" : current); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); setWeeklyEditKey(""); event.currentTarget.blur(); } }} /><b aria-hidden="true">€</b></span>;
   };
   const completeWeekSwipe = () => {
     const direction = weekSwipeDirectionRef.current;
@@ -3529,7 +3562,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         <section ref={historyRef} className="driver-mobile-section driver-mobile-section--history" aria-labelledby="driver-mobile-week-title">
           <div ref={weekSwipeViewportRef} className={`driver-mobile-week-swipe-wrap${weekSwipeActive ? " is-dragging" : ""}`} role="region" aria-label="Semana desplazable" onPointerDown={handleWeekPointerDown} onPointerMove={handleWeekPointerMove} onPointerUp={handleWeekPointerEnd} onPointerCancel={handleWeekPointerEnd} onClickCapture={handleWeekClickCapture}>
             <div className={`driver-mobile-week-track${weekSwipeTransition ? " is-animating" : ""}`} onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "transform") completeWeekSwipe(); }} style={{ transform: `translate3d(calc(-33.333333% + ${weekSwipeOffset}px), 0, 0)` }}>
-              {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={`${page.key}-${row.key}`}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{weeklyCell(row, value, page.days[index].key)}</td>)}</tr>)}</tbody></table></div>)}
+              {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={`${page.key}-${row.key}`}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{weeklyCell(row, value, page.days[index].key, page.offset === 0)}</td>)}</tr>)}</tbody></table></div>)}
             </div>
           </div>
           <header className="driver-mobile-section__heading driver-mobile-section__heading--week"><div><h2 id="driver-mobile-week-title">SEMANA DEL {weekLabel}</h2><small>Selecciona un día para revisar sus registros</small></div><div className="driver-mobile-week-actions"><button type="button" aria-label="Semana anterior" onClick={() => shiftDriverWeek(-1)}><IconChevronLeft size={16} /></button><button type="button" aria-label="Semana siguiente" onClick={() => shiftDriverWeek(1)}><IconChevronRight size={16} /></button></div></header>
