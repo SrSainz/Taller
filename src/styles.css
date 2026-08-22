@@ -2373,7 +2373,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .admin-accordion { overflow: hidden; border: 1px solid rgba(28, 43, 46, .12); border-radius: 17px; background: #fff; box-shadow: 0 8px 22px rgba(29, 52, 51, .055); }
 .admin-accordion--admin { border-color: rgba(26, 121, 102, .26); }
 .admin-accordion--create { border-color: rgba(26, 121, 102, .3); background: #fbfffd; }
-.admin-accordion__button { display: grid; width: 100%; min-height: 70px; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 13px 17px; border: 0; background: #fff; color: var(--text); text-align: left; cursor: pointer; transition: background .18s ease; }
+.admin-accordion__button { display: grid; width: 100%; min-height: 70px; grid-template-columns: auto minmax(0, 1fr) minmax(86px, auto) auto; align-items: center; gap: 12px; padding: 13px 17px; border: 0; background: #fff; color: var(--text); text-align: left; cursor: pointer; transition: background .18s ease; }
 .admin-accordion__button:hover, .admin-accordion__button--open { background: #f4faf7; }
 .admin-accordion--create .admin-accordion__button { background: #f1faf5; }
 .admin-accordion--create .admin-accordion__button:hover, .admin-accordion--create .admin-accordion__button--open { background: #e8f7ef; }
@@ -2383,9 +2383,12 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .admin-accordion__copy { display: grid; min-width: 0; gap: 3px; }
 .admin-accordion__copy strong { overflow: hidden; color: var(--text); font-size: 14px; font-weight: 850; letter-spacing: .02em; text-overflow: ellipsis; white-space: nowrap; }
 .admin-accordion__copy small { overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.admin-accordion__documents { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 9px; line-height: 1.2; }
+.admin-accordion__documents b { font-size: 9px; font-weight: 750; }
+.admin-accordion__documents small { color: var(--text); font-size: 9px; font-weight: 800; }
 .admin-accordion__vehicle-subline { min-width: 0; display: flex; align-items: center; gap: 5px; }
 .admin-accordion__vehicle-subline small { min-width: 0; flex: 0 1 auto; }
-.admin-accordion__driver-names { min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: visible !important; color: var(--text); text-overflow: clip !important; white-space: normal !important; }
+.admin-accordion__driver-names { min-width: 86px; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; overflow: visible !important; color: var(--text); text-align: right; text-overflow: clip !important; white-space: normal !important; }
 .admin-accordion__driver-names span { overflow: visible; color: var(--text); font-size: 10px; font-weight: 800; line-height: 1.05; text-overflow: clip; white-space: nowrap; }
 .admin-accordion__chevron { color: var(--muted); transition: transform .2s ease, color .2s ease; }
 .admin-accordion__button--open .admin-accordion__chevron { color: var(--green-800); transform: rotate(180deg); }
@@ -2423,7 +2426,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 }
 
 @media (max-width: 520px) {
-  .admin-accordion__button { min-height: 64px; padding: 11px 13px; }
+  .admin-accordion__button { min-height: 64px; grid-template-columns: auto minmax(0, 1fr) minmax(76px, auto) auto; padding: 11px 13px; }
   .admin-accordion__icon { width: 36px; height: 36px; border-radius: 11px; }
   .admin-accordion__copy strong { font-size: 12px; }
   .admin-accordion__panel { padding: 14px; }
@@ -3314,10 +3317,14 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .app-shell--admin .admin-accordion__copy small { overflow: hidden; color: #70817b; font-size: 8px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
 .app-shell--admin .admin-accordion__vehicle-subline { gap: 5px; }
 .app-shell--admin .admin-accordion__vehicle-subline small { flex: 0 1 auto; }
-.app-shell--admin .admin-accordion__driver-names { align-items: flex-start; gap: 2px; }
+.app-shell--admin .admin-accordion__driver-names { align-items: flex-end; justify-self: end; gap: 2px; text-align: right; }
 .app-shell--admin .admin-accordion__driver-names span { overflow: visible; color: #263d37; font-size: clamp(10px, 1.05vw, 12px); font-weight: 850; line-height: 1.05; text-overflow: clip; white-space: nowrap; }
 .app-shell--admin .admin-accordion__status { display: inline-flex; align-items: center; gap: 3px; color: #2b9d55; font-size: 7px; font-weight: 750; line-height: 1; }
 .app-shell--admin .admin-accordion__status i { width: 6px; height: 6px; display: block; border-radius: 50%; background: #2ab15d; }
+.app-shell--admin .admin-accordion__documents { display: inline-flex; align-items: center; gap: 3px; color: #687973; font-size: 7px; line-height: 1; }
+.app-shell--admin .admin-accordion__documents svg { color: #758580; }
+.app-shell--admin .admin-accordion__documents b { color: #687973; font-size: 7px; font-weight: 750; }
+.app-shell--admin .admin-accordion__documents small { color: #263d37; font-size: 7px; font-weight: 800; }
 .app-shell--admin .admin-accordion__meta { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 7px; }
 .app-shell--admin .admin-accordion__meta > span { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 4px; align-items: center; }
 .app-shell--admin .admin-accordion__meta svg { grid-row: 1 / span 2; color: #758580; }
