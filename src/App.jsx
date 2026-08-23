@@ -3836,9 +3836,8 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
   };
   const driverInitials = (name) => String(name ?? "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
 
-  return <section className="admin-page">
+  return <section className="admin-page" aria-busy={loading}>
      {message && <div className="admin-alert" role="alert"><IconAlertTriangle size={18} />{message}</div>}
-     <div className="admin-vehicles-heading"><div><strong>VEHÍCULOS PROFESIONALES</strong><small>{loading ? "Sincronizando accesos…" : "Selecciona un conductor para ver su aplicación"}</small></div></div>
      <div className="admin-access-stack">
        {driverVehicleOptions.map((vehicle) => {
          const vehicleDrivers = driversForVehicle(vehicle);
@@ -3856,10 +3855,9 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
                const editing = editingDriverId === driver.id;
                return <article className={`admin-driver-card${menuOpen ? " is-open" : ""}`} key={driverKey}>
                  <button className="admin-driver-card__trigger" type="button" onClick={() => openDriverApplication(driver, driverKey)} onPointerDown={(event) => { if (event.pointerType !== "mouse" || event.button === 0) startDriverLongPress(driverKey); }} onPointerUp={stopDriverLongPress} onPointerLeave={stopDriverLongPress} onPointerCancel={stopDriverLongPress} onContextMenu={(event) => event.preventDefault()} aria-label={`Abrir aplicación de ${driver.full_name}`}>
-                   <span className="admin-driver-card__avatar">{avatarPath ? <img src={avatarPath} alt="" /> : <span>{driverInitials(driver.full_name)}</span>}<i className={driver.active ? "is-active" : ""} aria-hidden="true" /></span>
-                   <strong>{driver.full_name}</strong>
-                   <small>{driver.active ? "Acceso activo" : "Acceso pausado"}</small>
-                 </button>
+                    <span className="admin-driver-card__avatar">{avatarPath ? <img src={avatarPath} alt="" /> : <span>{driverInitials(driver.full_name)}</span>}<i className={driver.active ? "is-active" : ""} aria-hidden="true" /></span>
+                    <strong>{driver.full_name}</strong>
+                  </button>
                  {menuOpen && <div className="admin-driver-card__menu" role="menu" aria-label={`Acciones de ${driver.full_name}`}>
                    <header><div><strong>{driver.full_name}</strong><small>Menú de acceso · mantén pulsado 1 s para abrir</small></div><button type="button" className="icon-button" onClick={() => setDriverActionId("")} aria-label="Cerrar menú del conductor"><IconX size={15} /></button></header>
                    <div className="admin-driver-card__actions"><button type="button" role="menuitem" className="text-button" onClick={() => startDriverEdit(driver)}><IconUserCircle size={15} />Editar perfil</button><button type="button" role="menuitem" className="text-button" onClick={() => toggleDriverAccess(driver)}>{driver.active ? <IconShieldCheck size={15} /> : <IconCircleCheck size={15} />}{driver.active ? "Pausar acceso" : "Activar acceso"}</button><button type="button" role="menuitem" className="text-button text-button--accent" onClick={() => resetDriver(driver)}><IconRefresh size={15} />Restablecer contraseña</button></div>
