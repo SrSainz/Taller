@@ -2466,7 +2466,6 @@ function AccessBlockedScreen({ onSignOut }) {
 
 function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview }) {
   const activeProfileId = profile.id ?? session.user.id;
-  const driverApplicationLink = getDriverApplicationLink();
   const [selectedDate, setSelectedDate] = useState(getDriverDateKey());
   const [entry, setEntry] = useState(() => getDriverEntryForm(getDriverDateKey()));
   const [entries, setEntries] = useState([]);
@@ -3165,7 +3164,6 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     onExitPreview={onExitPreview}
     onSignOut={onSignOut}
     profile={profile}
-    driverApplicationLink={driverApplicationLink}
     vehicle={vehicle}
     periodSummary={periodSummary}
     driverPeriodMonth={driverPeriodMonth}
@@ -3373,7 +3371,7 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, driverApplicationLink, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, saveMaintenanceNote }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, saveMaintenanceNote }) {
   const weekSwipeDuration = 520;
   const homeRef = useRef(null);
   const statsRef = useRef(null);
@@ -3623,7 +3621,6 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, dr
       </header>
       <div className="driver-mobile-body">
         {message && <div className="driver-mobile-message" role="status">{message}</div>}
-        {preview && <section className="driver-mobile-preview-access" aria-label="Enlace de aplicación del conductor"><IconLink size={15} /><span><strong>ENLACE DE APLICACIÓN</strong><small>Para iniciar sesión con sus credenciales</small></span><a href={driverApplicationLink} target="_blank" rel="noreferrer">{driverApplicationLink}</a></section>}
         <input ref={circleFileInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Elegir cámara o archivo para el registro" onChange={handleCircleFile} />
         <section ref={homeRef} className="driver-mobile-section driver-mobile-section--home" aria-label="Resumen del conductor">
           <article className="driver-mobile-month-summary">

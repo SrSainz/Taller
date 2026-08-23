@@ -4754,46 +4754,6 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   border-color: #9bcdbd;
   background: #e5f5ee;
 }
-.driver-mobile-preview-access {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 5px 7px;
-  padding: 8px 10px;
-  border: 1px solid #cfe5dc;
-  border-radius: 10px;
-  background: #eff9f5;
-  color: #176f61;
-}
-.driver-mobile-preview-access > span {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-.driver-mobile-preview-access strong {
-  color: #1a6e60;
-  font-size: 8px;
-  letter-spacing: .04em;
-  line-height: 1;
-}
-.driver-mobile-preview-access small {
-  color: #668279;
-  font-size: 7px;
-  line-height: 1.15;
-}
-.driver-mobile-preview-access > a {
-  grid-column: 1 / -1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  padding: 5px 6px;
-  border-radius: 6px;
-  background: #fff;
-  color: #176f61;
-  font-size: 8px;
-  line-height: 1.15;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
 .app-shell--admin .admin-accordion--create {
   min-height: 0;
   overflow: hidden;
