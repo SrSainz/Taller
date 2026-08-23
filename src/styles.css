@@ -4963,7 +4963,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-app--updated .driver-mobile-body { gap: 8px; padding-top: 8px; padding-inline: 9px; }
 .driver-mobile-app--updated .driver-mobile-record-grid { gap: 4px; }
 .driver-mobile-app--updated .driver-mobile-record-card { gap: 4px; }
-.driver-mobile-app--updated .driver-mobile-record-card > span { min-height: 16px; font-size: 9px; font-weight: 900; }
+.driver-mobile-app--updated .driver-mobile-record-card > span, .driver-app--preview .driver-mobile-record-card > span { min-height: 15px; overflow: visible; font-size: 8.5px; font-weight: 900; letter-spacing: 0; line-height: 1.08; white-space: normal; }
 .driver-mobile-app--updated .driver-mobile-record-card__image { width: clamp(50px, 13vw, 62px); border-width: 3px; }
 .driver-app--live .driver-mobile-preview-mini-grid { margin-top: 4px; }
 
