@@ -4545,7 +4545,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 }
 .app-shell--admin .topbar-title .admin-title-control span {
   color: #197b6e;
-  font-size: clamp(18px, 3vw, 22px);
+  font-size: clamp(9px, 1.5vw, 11px);
   font-weight: 900;
   letter-spacing: .03em;
   line-height: .94;
@@ -4646,8 +4646,8 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   min-height: 0;
   grid-template-rows: auto auto;
   align-content: center;
-  row-gap: 7px;
-  padding: 6px 4px 8px;
+  row-gap: 11px;
+  padding: 5px 4px;
   border-radius: 9px;
 }
 .app-shell--admin .admin-driver-card__avatar {
@@ -4721,7 +4721,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
     column-gap: 4px;
   }
   .app-shell--admin .topbar-title .admin-title-control span {
-    font-size: 18px;
+    font-size: 9px;
     letter-spacing: .015em;
   }
   .app-shell--admin .topbar-title .admin-title-control strong {
@@ -4757,7 +4757,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
     height: 50px;
   }
   .app-shell--admin .admin-driver-card__trigger {
-    row-gap: 5px;
+    row-gap: 9px;
     padding-inline: 2px;
   }
   .app-shell--admin .admin-driver-card__trigger strong {

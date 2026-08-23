@@ -3844,8 +3844,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
          const vehicleDocuments = vehicleDocumentCount(vehicle);
          return <section className="admin-vehicle-card" key={vehicle.plate} aria-label={`Coche ${vehicle.plate}`}>
            <header className="admin-vehicle-card__header">
-             <div className="admin-vehicle-card__identity"><span className="admin-vehicle-card__icon"><IconCar size={21} /></span><div><VehiclePlateLabel vehicleOrPlate={vehicle} className="admin-vehicle-plate" /><span className="admin-vehicle-card__model">{vehicle.model}</span><span className="admin-vehicle-card__status"><i />Activo</span><span className="admin-accordion__documents"><IconFileInvoice size={13} /><b>Documentos</b><small>{vehicleDocuments}</small></span></div></div>
-             <div className="admin-vehicle-card__summary"><strong>{vehicleDrivers.length} CONDUCTORES</strong><small>Accesos directos</small></div>
+              <div className="admin-vehicle-card__identity"><span className="admin-vehicle-card__icon"><IconCar size={21} /></span><div><VehiclePlateLabel vehicleOrPlate={vehicle} className="admin-vehicle-plate" /><span className="admin-accordion__documents"><IconFileInvoice size={13} /><b>Documentos</b><small>{vehicleDocuments}</small></span></div></div>
            </header>
            <div className="admin-vehicle-card__drivers">
              {vehicleDrivers.map((driver) => {
