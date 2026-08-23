@@ -2780,6 +2780,9 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     });
     const currentMonthKey = `${driverPeriodYear}-${String(driverPeriodMonth + 1).padStart(2, "0")}`;
     if (!monthly.has(currentMonthKey)) monthly.set(currentMonthKey, 0);
+    const calendarToday = new Date();
+    const calendarCurrentMonthKey = `${calendarToday.getFullYear()}-${String(calendarToday.getMonth() + 1).padStart(2, "0")}`;
+    if (!monthly.has(calendarCurrentMonthKey)) monthly.set(calendarCurrentMonthKey, 0);
     const importedBillingByPeriod = getImportedBillingByPeriod(profile.full_name);
     if (importedBillingByPeriod) {
       Object.entries(importedBillingByPeriod).forEach(([monthKey, amount]) => {
@@ -2788,6 +2791,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       });
     }
     const currentDate = new Date(driverPeriodYear, driverPeriodMonth, 1);
+    const calendarCurrentDate = new Date(calendarToday.getFullYear(), calendarToday.getMonth(), 1);
     const fallbackStartDate = new Date(driverPeriodYear, driverPeriodMonth - 11, 1);
     const historyDates = [...monthly.keys()]
       .filter((monthKey) => (monthly.get(monthKey) || 0) > 0)
@@ -2799,7 +2803,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const earliestDataDate = historyDates.reduce((earliest, date) => date < earliest ? date : earliest, historyDates[0] ?? currentDate);
     const latestDataDate = historyDates.reduce((latest, date) => date > latest ? date : latest, currentDate);
     const startDate = earliestDataDate < fallbackStartDate ? earliestDataDate : fallbackStartDate;
-    const endDate = latestDataDate > currentDate ? latestDataDate : currentDate;
+    const endDate = [latestDataDate, currentDate, calendarCurrentDate].reduce((latest, date) => date > latest ? date : latest, latestDataDate);
     const months = [];
     for (let monthDate = new Date(startDate); monthDate <= endDate; monthDate.setMonth(monthDate.getMonth() + 1)) {
       const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
@@ -3368,7 +3372,9 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     const frame = window.requestAnimationFrame(() => {
       const scrollElement = billingChartScrollRef.current;
       if (!scrollElement) return;
-      const currentIndex = monthlyBillingHistory.findIndex((month) => month.isCurrent);
+      const calendarToday = new Date();
+      const calendarCurrentMonthKey = `${calendarToday.getFullYear()}-${String(calendarToday.getMonth() + 1).padStart(2, "0")}`;
+      const currentIndex = monthlyBillingHistory.findIndex((month) => month.key === calendarCurrentMonthKey);
       const endIndex = currentIndex >= 0 ? currentIndex + 1 : monthlyBillingHistory.length;
       const startIndex = Math.max(0, endIndex - DRIVER_BILLING_VISIBLE_MONTHS);
       const chartDataWidth = Math.max(1, billingChartWidth - DRIVER_BILLING_CHART_LEFT_MARGIN - DRIVER_BILLING_CHART_Y_AXIS_WIDTH - DRIVER_BILLING_CHART_RIGHT_MARGIN);
