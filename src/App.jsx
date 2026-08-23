@@ -5811,11 +5811,11 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     <section className={`module-page drivers-page${selectedDriver ? " drivers-page--calendar-open" : ""}`}>
       <div className="drivers-summary-grid">
         <button type="button" className="drivers-summary-card drivers-summary-card--billing" onClick={scrollToDrivers}>
-          <header><span className="drivers-summary-card__icon"><IconFileInvoice size={16} /></span><span><strong>Facturación</strong><small>{reportMonths[reportMonth]} {reportYear} · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalBilling)}</strong></header>
+          <header><span className="drivers-summary-card__icon"><IconFileInvoice size={16} /></span><span><strong>Facturación</strong><small><span className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</span> · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalBilling)}</strong></header>
           <div>{professionalVehicles.map((vehicle) => { const total = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0); return <span key={vehicle.plate}><VehiclePlateLabel vehicleOrPlate={vehicle} className="drivers-summary-card__vehicle-plate" /><strong className="drivers-summary-card__vehicle-total">{formatCurrency(total)}</strong></span>; })}</div>
         </button>
         <button type="button" className="drivers-summary-card drivers-summary-card--fuel" onClick={scrollToDrivers}>
-          <header><span className="drivers-summary-card__icon"><IconGasStation size={16} /></span><span><strong>Consumo</strong><small>{reportMonths[reportMonth]} {reportYear} · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalFuel)}</strong></header>
+          <header><span className="drivers-summary-card__icon"><IconGasStation size={16} /></span><span><strong>Consumo</strong><small><span className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</span> · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalFuel)}</strong></header>
           <div>{fuelSummaries.map((summary) => <span key={summary.vehicle.plate}><VehiclePlateLabel vehicleOrPlate={summary.vehicle} className="drivers-summary-card__vehicle-plate" /><strong className="drivers-summary-card__vehicle-total">{formatCurrency(summary.cost)}</strong></span>)}</div>
         </button>
       </div>

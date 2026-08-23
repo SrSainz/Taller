@@ -644,6 +644,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-summary-card > header > span:nth-child(2) { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .drivers-summary-card > header strong { font-size: 15px; }
 .drivers-summary-card > header small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.drivers-summary-card__period { color: var(--maintenance-orange-strong); font-weight: 900; text-transform: uppercase; }
 .drivers-summary-card__total { white-space: nowrap; }
 .drivers-summary-card--billing .drivers-summary-card__total { color: var(--billing-strong); font-size: 22px; }
 .drivers-summary-card--fuel .drivers-summary-card__total { color: #c3382f; font-size: 22px; }
