@@ -2058,8 +2058,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   }, [activeNav]);
 
   useEffect(() => {
-    if (activeNav === "Facturas") markInvoicesSeen();
-  }, [activeNav, markInvoicesSeen]);
+    if (activeNav === "Facturas" && unreadInvoiceCount > 0) markInvoicesSeen();
+  }, [activeNav, markInvoicesSeen, unreadInvoiceCount]);
 
   const selected = vehicles.find((vehicle) => vehicle.plate === selectedPlate) ?? vehicles[0];
   const selectedDriver = selectedDrivers[selected.plate] ?? selected.drivers[0];
@@ -2347,7 +2347,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           {!compactDetailHeader && <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             {!(activeNav === "Informes" && homeReportTab === "General") && <span className="date"><IconCalendar size={18} />28 jul 2026</span>}
-            <button type="button" className={`topbar-route-button topbar-route-button--facturas${activeNav === "Facturas" ? " topbar-route-button--active" : ""}`} onClick={() => navigate(navItems[3])} aria-label={`Abrir Facturas${unreadInvoiceCount ? ` · ${unreadInvoiceCount} nuevas` : ""}`} aria-current={activeNav === "Facturas" ? "page" : undefined} title="Facturas"><IconFileInvoice size={14} /><span>Facturas</span>{unreadInvoiceCount > 0 && <i>{Math.min(unreadInvoiceCount, 99)}</i>}</button>
+            <button type="button" className={`topbar-route-button topbar-route-button--facturas${activeNav === "Facturas" ? " topbar-route-button--active" : ""}`} onClick={() => navigate(navItems[3])} aria-label="Abrir Facturas" aria-current={activeNav === "Facturas" ? "page" : undefined} title="Facturas"><IconFileInvoice size={14} /><span>Facturas</span>{unreadInvoiceCount > 0 && <i>{Math.min(unreadInvoiceCount, 99)}</i>}</button>
             <button className="bell-button" aria-label={`Notificaciones${unreadAdminNotifications.length ? ` · ${unreadAdminNotifications.length} nuevas` : ""}`} aria-expanded={notificationsOpen} onClick={() => { const nextOpen = !notificationsOpen; if (nextOpen) markAdminNotificationsSeen(adminNotifications); setNotificationsOpen(nextOpen); setTopbarMenuOpen(false); }}><IconBell size={17} />{unreadAdminNotifications.length > 0 && <i>{Math.min(unreadAdminNotifications.length, 99)}</i>}</button>
             <button className="topbar-menu-button" aria-label="Abrir accesos de gestión" aria-expanded={topbarMenuOpen} aria-controls="topbar-management-menu" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }} title="Accesos de gestión"><IconMenu2 size={18} /></button>
             <button className="profile" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }}><span className="avatar">{profileInitials}</span><span><strong>{profileName}</strong><small>{isAdmin ? "Administrador" : "Conductor"}</small></span><IconChevronDown size={17} /></button>
