@@ -197,6 +197,7 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - La vista inicial de Administración es una composición compacta de una sola pantalla: desaparecen los textos introductorios y las etiquetas de acceso bajo los retratos, las tarjetas muestran solo la matrícula y sus documentos, los nombres quedan claramente debajo de cada foto y ADMINISTRADOR se mantiene con un rótulo reducido; las tarjetas conservan sus acciones de toque y pulsación larga.
 - Los retratos de conductores en Administración son círculos reales y los nombres quedan debajo sin quedar ocultos; la cabecera de la aplicación del conductor muestra el retrato, el nombre y la matrícula.
 - El cuadro comparativo de consumo de la vista del conductor se titula «CONSUMO VS RESTO».
+- La vista inicial de Administración reparte toda la altura útil entre las tres tarjetas de coche con sus retratos y la barra de «Crear nuevo acceso», sin dejar un hueco inferior vacío.
 
 - Administración consume siempre el ledger central de documentos IA y sus proyecciones de `driver_entries`; los cambios de combustible, facturación, consumo y kilometraje se refrescan mediante Realtime con sondeo de respaldo y generan avisos dinámicos en el timbre, sin duplicar importes.
 - El acceso inicial de administración usa Supabase Auth con el correo del administrador; el formulario mantiene el correo preparado, ofrece mostrar/ocultar la contraseña y permite solicitar un enlace oficial de recuperación para actualizarla sin almacenar credenciales en el cliente.

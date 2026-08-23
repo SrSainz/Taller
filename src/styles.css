@@ -4854,3 +4854,22 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
     font-size: 9px;
   }
 }
+
+/* Administración: cuando está en la vista inicial, las tarjetas llenan el espacio útil. */
+.app-shell--admin .admin-page:not(:has(.admin-accordion__button--open)) .admin-access-stack {
+  flex: 1 1 auto;
+  grid-template-rows: repeat(3, minmax(0, 1fr)) minmax(46px, 54px);
+}
+.app-shell--admin .admin-driver-card__avatar {
+  width: 70px;
+  height: 70px;
+}
+.app-shell--admin .admin-driver-card__trigger {
+  row-gap: 8px;
+}
+@media (max-width: 380px) {
+  .app-shell--admin .admin-driver-card__avatar {
+    width: 62px;
+    height: 62px;
+  }
+}
