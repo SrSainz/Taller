@@ -5697,18 +5697,39 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
 
       {selectedDriver && selectedDayDetail && <section className="driver-day-detail" aria-label={`Detalle de ${selectedDriver.driver}`}>
         <div className="driver-day-detail__columns">
-          <article className="driver-day-panel driver-day-panel--billing"><header><IconFileInvoice size={17} /><strong>Facturación</strong></header><div className="driver-day-panel__metrics"><span><small>Ingreso del día</small><strong>{formatCurrency(selectedDayDetail.billing)}</strong></span><span><small>Viajes</small><strong>{selectedDayDetail.trips}</strong></span></div><DriverDayDocumentButtons documents={selectedDayBillingDocuments} onOpen={openDriverSourceDocument} /></article>
-          <article className="driver-day-panel driver-day-panel--fuel"><header><IconGasStation size={17} /><strong>Repostaje</strong></header><div className="driver-day-panel__metrics"><span><small>Consumo diario</small><strong>{selectedDayDetail.fuelLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Importe</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div><div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.length > 0 ? selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}`}><span><strong>{entry.time}</strong><small>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L · {formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>) : <small>Sin repostaje registrado este día.</small>}</div><DriverDayDocumentButtons documents={selectedDayFuelDocuments} onOpen={openDriverSourceDocument} /></article>
-          <article className="driver-day-panel driver-day-panel--mileage"><header><IconGauge size={17} /><strong>Kilómetros</strong></header><div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><span><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div><DriverDayDocumentButtons documents={selectedDayMileageDocuments} onOpen={openDriverSourceDocument} /></article>
+          <article className="driver-day-panel driver-day-panel--billing">
+            <header>
+              <span className="driver-day-panel__heading"><IconFileInvoice size={17} /><strong>Facturación</strong></span>
+              <DriverDayDocumentButtons compact documents={selectedDayBillingDocuments} onOpen={openDriverSourceDocument} />
+            </header>
+            <div className="driver-day-panel__metrics"><span><small>Ingreso del día</small><strong>{formatCurrency(selectedDayDetail.billing)}</strong></span><span><small>Viajes</small><strong>{selectedDayDetail.trips}</strong></span></div>
+          </article>
+          <article className="driver-day-panel driver-day-panel--fuel">
+            <header>
+              <span className="driver-day-panel__heading"><IconGasStation size={17} /><strong>Repostaje</strong></span>
+              <DriverDayDocumentButtons compact documents={selectedDayFuelDocuments} onOpen={openDriverSourceDocument} />
+            </header>
+            <div className="driver-day-panel__metrics"><span><small>Consumo diario</small><strong>{selectedDayDetail.fuelLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Importe</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div>
+            <div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.length > 0 ? selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}`}><span><strong>{entry.time}</strong><small>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L · {formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>) : <small>Sin repostaje registrado este día.</small>}</div>
+          </article>
+          <article className="driver-day-panel driver-day-panel--mileage">
+            <header>
+              <span className="driver-day-panel__heading"><IconGauge size={17} /><strong>Kilómetros</strong></span>
+              <DriverDayDocumentButtons compact documents={selectedDayMileageDocuments} onOpen={openDriverSourceDocument} />
+            </header>
+            <div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><span><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div>
+          </article>
         </div>
       </section>}
     </section>
   );
 }
 
-function DriverDayDocumentButtons({ documents = [], onOpen }) {
-  if (!documents.length) return <div className="driver-day-panel__documents-empty"><IconCamera size={14} /><span>Sin foto original archivada</span></div>;
-  return <div className="driver-day-panel__documents" aria-label="Fotos originales archivadas">{documents.map((document) => <button type="button" className="driver-day-panel__document" key={document.id} onClick={() => onOpen(document)} aria-label={`Ver foto original de ${getDriverDocumentKindLabel(document)}`}><IconCamera size={14} /><span><strong>{getDriverDocumentKindLabel(document)}</strong><small>{document.file_name || "Ver foto original"}</small></span><IconChevronRight size={14} /></button>)}</div>;
+function DriverDayDocumentButtons({ documents = [], onOpen, compact = false }) {
+  if (!documents.length) {
+    return <span className={`driver-day-panel__documents-empty${compact ? " driver-day-panel__documents-empty--header" : ""}`} title="Sin foto original archivada"><IconCamera size={compact ? 15 : 14} /><span aria-hidden="true">{compact ? "0" : "Sin foto original archivada"}</span>{compact && <span className="sr-only">Sin foto original archivada</span>}</span>;
+  }
+  return <div className={`driver-day-panel__documents${compact ? " driver-day-panel__documents--header" : ""}`} aria-label="Fotos originales archivadas">{documents.map((document, index) => <button type="button" className={`driver-day-panel__document${compact ? " driver-day-panel__document--header" : ""}`} key={document.id} onClick={() => onOpen(document)} aria-label={`Ver foto original de ${getDriverDocumentKindLabel(document)}`} title={`${getDriverDocumentKindLabel(document)} · ${document.file_name || "Foto original"}`}><IconCamera size={compact ? 15 : 14} />{compact ? <span aria-hidden="true">{documents.length > 1 ? index + 1 : "Foto"}</span> : <><span><strong>{getDriverDocumentKindLabel(document)}</strong><small>{document.file_name || "Ver foto original"}</small></span><IconChevronRight size={14} /></>}</button>)}</div>;
 }
 
 function ReadingsView({ setModal }) {

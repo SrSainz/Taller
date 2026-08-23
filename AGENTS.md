@@ -142,6 +142,7 @@ When implementing from a selected generated mock, treat that image as the source
 - General summary bars use the Conductores blue as the default visual treatment; individual metric selections keep their established Facturación, Mantenimiento, Combustible, and Neto colors.
 - The Neto detail opens with a black NETO header showing the combined total of the three professional vehicles on the left and compact month/year selectors on the right; changing the period recalculates the three vehicle cards and all expense details. The cards retain enlarged amounts and prominent “Ver gastos” and “Añadir gastos” actions.
 - Conductores calendar pages omit the upper Facturacion/Repostaje legend and swipe helper; the freed height makes each day cell slightly larger while the lower Facturacion/Repostaje panels use more compact containers with enlarged values.
+- En el detalle diario de Conductores, las acciones de foto de Facturación, Repostaje y Kilómetros se muestran compactas a la derecha de sus encabezados; no se mantienen bandas de documentos debajo de los indicadores. Repostajes permanece junto a Importe en la fila de métricas para conservar espacio al calendario.
 - The General chart keeps the Mes/Año period controls functional but hides their visible labels and compacts them into the upper row so the chart starts higher and its bars receive the released height.
 - General KPI amounts and the vertical values rendered inside Facturación, Mantenimiento, Combustible, and Neto bars use a slightly larger readable scale without changing chart geometry.
 
