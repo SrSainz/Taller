@@ -1238,6 +1238,11 @@ const isAmin = (name = "") => String(name).trim().toLocaleLowerCase("es") === "a
 const isFernando = (name = "") => String(name).trim().toLocaleLowerCase("es") === "fernando";
 const isMauricio = (name = "") => String(name).trim().toLocaleLowerCase("es") === "mauricio";
 const isTirso = (name = "") => String(name).trim().toLocaleLowerCase("es") === "tirso";
+const driverBillingGoals = Object.freeze({ alex: 7000, amin: 8000, andres: 6500, fernando: 6500, mauricio: 6500, tirso: 6500 });
+const getDriverBillingGoal = (name = "") => {
+  const driverKey = String(name).trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return driverBillingGoals[driverKey] ?? 7000;
+};
 const getImportedBillingByPeriod = (driver) => {
   const summary = isAlex(driver) ? alexBillingByPeriod : isAmin(driver) ? aminBillingByPeriod : isFernando(driver) ? fernandoBillingByPeriod : isMauricio(driver) ? mauricioBillingByPeriod : isTirso(driver) ? tirsoBillingByPeriod : null;
   if (!summary) return null;
@@ -2713,7 +2718,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const importedMonthlyTips = importedTipsByPeriod?.[monthKey] ?? 0;
     const monthlyBilling = recordedMonthlyBilling > 0 ? recordedMonthlyBilling : importedMonthlyBilling;
     const monthlyTips = recordedMonthlyTips > 0 ? recordedMonthlyTips : importedMonthlyTips;
-    const billingGoal = isMauricio(profile.full_name) ? 6500 : 7000;
+    const billingGoal = getDriverBillingGoal(profile.full_name);
     const billingScaleMax = 9000;
     const billingMilestones = [5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000];
     const billingCurrentMilestone = billingMilestones.reduce((current, milestone) => monthlyBilling >= milestone ? milestone : current, null);
