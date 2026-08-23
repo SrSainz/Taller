@@ -4134,6 +4134,24 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   background: color-mix(in srgb, var(--net-soft, #d9f3d7) 72%, white);
   color: var(--net-accent, #287a4c);
 }
+.net-detail-historical-billing { flex: 0 0 auto; margin: 8px 12px 0; overflow: hidden; border: 1px solid #b9d6c6; border-radius: 10px; background: #f5fbf7; }
+.net-detail-historical-billing > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-bottom: 1px solid #d8e9de; background: #eaf6ef; }
+.net-detail-historical-billing > header > div:first-child { min-width: 0; display: grid; gap: 2px; }
+.net-detail-historical-billing > header strong { color: #176b43; font-size: 9px; letter-spacing: .04em; }
+.net-detail-historical-billing > header small { overflow: hidden; color: #60766b; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.net-detail-historical-billing > header > div:last-child { display: grid; gap: 2px; flex: 0 0 auto; text-align: right; }
+.net-detail-historical-billing > header span { color: #60766b; font-size: 7px; }
+.net-detail-historical-billing > header > div:last-child strong { font-size: 13px; }
+.net-detail-historical-billing__rows { display: grid; max-height: 126px; overflow-y: auto; }
+.net-detail-historical-billing__rows > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border-bottom: 1px solid #e0ece4; }
+.net-detail-historical-billing__rows > div:last-child { border-bottom: 0; }
+.net-detail-historical-billing__rows > div > span { min-width: 0; display: grid; gap: 2px; }
+.net-detail-historical-billing__rows strong { color: #18382a; font-size: 9px; }
+.net-detail-historical-billing__rows small { overflow: hidden; color: #71837a; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.net-detail-historical-billing__rows > div > strong { flex: 0 0 auto; color: #176b43; font-size: 10px; }
+.net-detail-historical-billing > p { margin: 0; padding: 8px 10px; color: #71837a; font-size: 8px; }
+.net-detail-historical-billing > footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border-top: 1px solid #d8e9de; background: #fff; color: #60766b; font-size: 7px; }
+.net-detail-historical-billing > footer strong { color: #176b43; font-size: 10px; }
 
 .net-detail-expanded__card--tone-green { --net-accent: #239755; --net-soft: #d9f3d7; --net-pale: #e6f5e7; }
 .net-detail-expanded__card--tone-blue { --net-accent: #2f72cf; --net-soft: #dceafb; --net-pale: #e7f0fc; }
