@@ -697,7 +697,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const vehicleDrivers = (driverNames.length ? driverNames : vehicle.drivers).slice(0, 2);
   const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: 0 }));
   const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
-  const driverBillingTotal = Number((resolvedDriverRows.slice(0, 2).reduce((sum, row) => sum + (Number(row.revenue) || 0), 0) + (Number(additionalHistoricalBilling) || 0)).toFixed(2));
+  const driverBillingTotal = Number((resolvedDriverRows.reduce((sum, row) => sum + (Number(row.revenue) || 0), 0) + (Number(additionalHistoricalBilling) || 0)).toFixed(2));
   const intracommunityVatRate = getIntracommunityVatRateForPeriod(reportYear, reportMonth);
   const intracommunityVat = Number((driverBillingTotal * intracommunityVatRate).toFixed(2));
   const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
@@ -716,8 +716,8 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     const cost = refuellings.reduce((sum, entry) => sum + entry.cost, 0);
     return { breakdownKey: profile?.id || normalizeNetExpenseCategory(driver), driverId: profile?.id ?? "", label: driver, amount: Number(cost.toFixed(2)), meta: `${Number(liters.toFixed(1)).toLocaleString("es-ES")} L · ${refuellings.length} repostajes` };
   });
-  const payrollBreakdown = resolvedDriverRows.slice(0, 2).map((row, index) => ({ breakdownKey: row.driverId || normalizeNetExpenseCategory(row.driver), driverId: row.driverId ?? "", label: row.driver, amount: Number(periodPayrollFor(row, index).toFixed(2)), meta: "Nómina mensual" }));
-  const commissionSummary = resolvedDriverRows.slice(0, 2).map((row, index) => {
+  const payrollBreakdown = resolvedDriverRows.map((row, index) => ({ breakdownKey: row.driverId || normalizeNetExpenseCategory(row.driver), driverId: row.driverId ?? "", label: row.driver, amount: Number(periodPayrollFor(row, index).toFixed(2)), meta: "Nómina mensual" }));
+  const commissionSummary = resolvedDriverRows.map((row, index) => {
     const monthEntries = (row.entries ?? []).filter((entry) => String(entry.entry_date ?? "").startsWith(periodStart.slice(0, 7)));
     const tips = monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0);
     const tolls = monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0);
@@ -1384,9 +1384,9 @@ const getHistoricalBillingRowsForPeriod = (vehicles, driverEntries = [], month, 
   }).filter(Boolean);
 };
 
-const getNetDriverRowsForVehicle = ({ vehicle, billingRows = [], historicalBillingRows = [] }) => {
+const getNetDriverRowsForVehicle = ({ vehicle, billingRows = [], historicalBillingRows = [], includeHistoricalDrivers = false }) => {
   const driverNames = historicalDriverNamesByPlate[vehicle.plate] ?? vehicle.drivers.slice(0, 2);
-  return driverNames.map((driver, index) => {
+  const currentDriverRows = driverNames.map((driver, index) => {
     const driverKey = getImportedDriverKey(driver);
     const liveRow = billingRows.find((row) => getImportedDriverKey(row.driver) === driverKey && row.billingSource === "ledger");
     const historicalRow = historicalBillingRows.find((row) => getImportedDriverKey(row.driver) === driverKey);
@@ -1395,6 +1395,12 @@ const getNetDriverRowsForVehicle = ({ vehicle, billingRows = [], historicalBilli
     if (historicalRow) return { ...historicalRow, driverId: profile?.id ?? historicalRow.driverId, plate: vehicle.plate, model: vehicle.model };
     return { key: `${vehicle.plate}-${driver}-${index}`, driver, driverId: profile?.id ?? "", plate: vehicle.plate, model: vehicle.model, trips: 0, revenue: 0, entries: [], billingSource: "none" };
   });
+  if (!includeHistoricalDrivers) return currentDriverRows;
+  const knownDriverKeys = new Set(currentDriverRows.map((row) => getImportedDriverKey(row.driver)));
+  const additionalDriverRows = historicalBillingRows
+    .filter((row) => row.isHistoricalOnly && row.plate === vehicle.plate && !row.missingVehicle && !knownDriverKeys.has(getImportedDriverKey(row.driver)))
+    .map((row) => ({ ...row, driverId: "", plate: vehicle.plate, model: vehicle.model, billingSource: "document" }));
+  return [...currentDriverRows, ...additionalDriverRows];
 };
 
 const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transactions = []) => {
@@ -4795,6 +4801,20 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
       })}
     </div>
   </div>;
+  const renderDriverBillingRows = (detail) => {
+    if (reportYear !== 2026) return null;
+    const driverRows = detail.driverRows ?? [];
+    return <section className="net-detail-card__driver-billing" aria-label={`Facturación de conductores de ${detail.vehicle.plate}`}>
+      <header><strong>FACTURACIÓN POR CONDUCTOR</strong><strong>IMPORTE</strong></header>
+      <div className="net-detail-card__driver-billing-rows">
+        {driverRows.map((row) => <div key={row.key}>
+          <span><strong>{row.driver}</strong><small>{row.billingSource === "ledger" ? "Registro de la aplicación" : "Documento mensual"}</small></span>
+          <strong>{formatCurrency(row.revenue)}</strong>
+        </div>)}
+      </div>
+      <footer><span>Facturación del coche</span><strong>{formatCurrency(detail.revenue)}</strong></footer>
+    </section>;
+  };
   return (
     <div className="net-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className={`net-detail-modal${selectedDetail ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-label="Detalle de NETO">
@@ -4814,20 +4834,23 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
           </div>
           <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
         </header>
-        <section className="net-detail-historical-billing" aria-label={`Facturación histórica documental de ${periodLabel}`}>
+        {reportYear !== 2026 && <section className="net-detail-historical-billing" aria-label={`Facturación histórica documental de ${periodLabel}`}>
           <header><div><strong>FACTURACIÓN HISTÓRICA</strong><small>Fuente documental separada · no modifica perfiles ni registros diarios</small></div><div><span>Total documental</span><strong>{formatCurrency(historicalDocumentTotal)}</strong></div></header>
           {historicalBillingRows.length > 0 ? <div className="net-detail-historical-billing__rows">{historicalBillingRows.map((row) => <div key={row.key}><span><strong>{row.driver}</strong><small>{row.plate || "Matrícula pendiente"} · {row.missingVehicle ? "No sumado: matrícula pendiente" : row.usedInNet ? "Usado en Neto" : "No sumado: existe registro real"} · {row.extractedLabel}</small></span><strong>{formatCurrency(row.revenue)}</strong></div>)}</div> : <p>No hay facturación documental cargada para este periodo.</p>}
           <footer><span>Importe documental aplicado al cálculo</span><strong>{formatCurrency(historicalAppliedTotal)}</strong></footer>
-        </section>
+        </section>}
         {!selectedDetail ? <>
           <div className="net-detail-carousel" aria-label="Vehículos profesionales con resultado neto">
-            {orderedDetails.map(({ vehicle, revenue, totalExpenses, net }) => <article className={`net-detail-card net-detail-card--collapsed net-detail-card--tone-${netVehicleImages[vehicle.plate]?.tone ?? "green"}`} key={vehicle.plate}>
+            {orderedDetails.map(({ vehicle, revenue, totalExpenses, net, driverRows = [] }) => <article className={`net-detail-card net-detail-card--collapsed net-detail-card--tone-${netVehicleImages[vehicle.plate]?.tone ?? "green"}`} key={vehicle.plate}>
               <div className={`net-detail-card__vehicle-visual net-detail-card__vehicle-visual--${netVehicleImages[vehicle.plate]?.tone ?? "green"}`}><img src={netVehicleImages[vehicle.plate]?.src ?? vehicleBrandLogos[getVehicleBrand(vehicle)]} alt={`Toyota Corolla sedan, vista ${netVehicleImages[vehicle.plate]?.view ?? "frontal"}`} loading="eager" /></div>
               <div className="net-detail-card__collapsed-content">
               <VehiclePlateLabel vehicleOrPlate={vehicle} className="net-detail-card__plate" />
               <strong className={`net-detail-card__net net-detail-card__net--large${net < 0 ? " net-detail-card__net--negative" : ""}`}>{formatCurrency(net)}</strong>
               <div className="net-detail-card__collapsed-line"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
               <div className="net-detail-card__collapsed-line"><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div>
+              {reportYear === 2026 && <div className="net-detail-card__collapsed-drivers" aria-label={`Conductores y facturación de ${vehicle.plate}`}>
+                {driverRows.map((row) => <div key={row.key}><span>{row.driver}</span><strong>{formatCurrency(row.revenue)}</strong></div>)}
+              </div>}
               <button type="button" className="net-detail-card__expand" onClick={() => toggleVehicle(vehicle.plate)} aria-label={`Abrir gastos de ${vehicle.plate}`}><IconChevronDown size={21} /></button>
               </div>
             </article>)}
@@ -4835,6 +4858,7 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
         </> : <div className="net-detail-expanded">
           <button type="button" className="net-detail-back" onClick={() => { setSelectedPlate(""); closeExpenseForm(); }}><IconChevronLeft size={16} />VER LOS 3 COCHES</button>
           <article className={`net-detail-expanded__card net-detail-expanded__card--tone-${selectedTone}`}>
+            {renderDriverBillingRows(selectedDetail)}
             {renderExpenseRows(selectedDetail)}
             {activeFormPlate === selectedDetail.vehicle.plate && <form className="net-detail-card__add-form" onSubmit={(event) => handleExpenseSubmit(event, selectedDetail.vehicle.plate)}>
               <label className="net-detail-card__add-form-category"><span>Categoría del gasto</span><select value={formState.category} onChange={(event) => setFormState((current) => ({ ...current, category: event.target.value, label: "" }))} autoFocus><option value="">Selecciona una categoría…</option>{expenseCategories.map((category) => <option value={category.label} key={category.label}>{category.label}</option>)}<option value="__custom__">+ Crear nueva categoría</option></select></label>
@@ -5060,8 +5084,9 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     .map((vehicle) => {
       const vehicleIndex = vehicles.findIndex((candidate) => candidate.plate === vehicle.plate);
       const vehicleHistoricalBilling = historicalBillingRows.filter((row) => row.plate === vehicle.plate);
-      const vehicleBillingRows = getNetDriverRowsForVehicle({ vehicle, billingRows, historicalBillingRows: vehicleHistoricalBilling });
-      const additionalHistoricalBillingRows = vehicleHistoricalBilling.filter((row) => row.isHistoricalOnly && row.usedInNet);
+      const includeHistoricalDrivers = reportYear === 2026;
+      const vehicleBillingRows = getNetDriverRowsForVehicle({ vehicle, billingRows, historicalBillingRows: vehicleHistoricalBilling, includeHistoricalDrivers });
+      const additionalHistoricalBillingRows = includeHistoricalDrivers ? [] : vehicleHistoricalBilling.filter((row) => row.isHistoricalOnly && row.usedInNet);
       const additionalHistoricalBilling = additionalHistoricalBillingRows.reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
       const revenue = Number((vehicleBillingRows.reduce((sum, row) => sum + (Number(row.revenue) || 0), 0) + additionalHistoricalBilling).toFixed(2));
       const commission = Number(vehicleBillingRows.reduce((sum, row) => sum + calculateNetDriverCommission(row.driver, row.revenue), 0).toFixed(2));
@@ -5120,6 +5145,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         expenses,
         totalExpenses,
         net: Number((revenue - totalExpenses).toFixed(2)),
+        driverRows: vehicleBillingRows,
         historicalBilling: vehicleHistoricalBilling,
         alexCommissionReport: commissionExpense?.commissionReport ?? null,
       };
