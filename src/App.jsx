@@ -18,6 +18,7 @@ import {
   IconChevronUp,
   IconCircleCheck,
   IconClock,
+  IconCopy,
   IconCurrencyEuro,
   IconDatabase,
   IconDownload,
@@ -30,6 +31,7 @@ import {
   IconHistory,
   IconHome,
   IconKey,
+  IconLink,
   IconMail,
   IconMenu2,
   IconMessageCircle,
@@ -38,6 +40,7 @@ import {
   IconLogout,
   IconRobot,
   IconSearch,
+  IconShare3,
   IconSettings,
   IconShieldCheck,
   IconSparkles,
@@ -2463,6 +2466,7 @@ function AccessBlockedScreen({ onSignOut }) {
 
 function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview }) {
   const activeProfileId = profile.id ?? session.user.id;
+  const driverApplicationLink = getDriverApplicationLink();
   const [selectedDate, setSelectedDate] = useState(getDriverDateKey());
   const [entry, setEntry] = useState(() => getDriverEntryForm(getDriverDateKey()));
   const [entries, setEntries] = useState([]);
@@ -3161,6 +3165,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     onExitPreview={onExitPreview}
     onSignOut={onSignOut}
     profile={profile}
+    driverApplicationLink={driverApplicationLink}
     vehicle={vehicle}
     periodSummary={periodSummary}
     driverPeriodMonth={driverPeriodMonth}
@@ -3368,7 +3373,7 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, saveMaintenanceNote }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, driverApplicationLink, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, saveMaintenanceNote }) {
   const weekSwipeDuration = 520;
   const homeRef = useRef(null);
   const statsRef = useRef(null);
@@ -3620,6 +3625,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
       </header>
       <div className="driver-mobile-body">
         {message && <div className="driver-mobile-message" role="status">{message}</div>}
+        {preview && <section className="driver-mobile-preview-access" aria-label="Enlace de aplicación del conductor"><IconLink size={15} /><span><strong>ENLACE DE APLICACIÓN</strong><small>Para iniciar sesión con sus credenciales</small></span><a href={driverApplicationLink} target="_blank" rel="noreferrer">{driverApplicationLink}</a></section>}
         <input ref={circleFileInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Elegir cámara o archivo para el registro" onChange={handleCircleFile} />
         <section ref={homeRef} className="driver-mobile-section driver-mobile-section--home" aria-label="Resumen del conductor">
           <article className="driver-mobile-month-summary">
@@ -3672,6 +3678,23 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
 
 const driverVehicleOptions = vehicleOrder.map((plate) => vehiclesSeed.find((vehicle) => vehicle.plate === plate)).filter((vehicle) => vehicle?.use === "Profesional");
 const generateDriverPassword = () => `Rueda-${Math.random().toString(36).slice(2, 7)}-${new Date().getFullYear()}!`;
+const getDriverApplicationLink = () => typeof window === "undefined" ? "" : `${window.location.origin}${window.location.pathname}`;
+const copyTextToClipboard = async (value) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("El navegador no permite copiar el enlace.");
+};
 
 function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) {
   const [drivers, setDrivers] = useState([]);
@@ -3684,7 +3707,9 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
   const [form, setForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", password: "" });
   const [editingDriverId, setEditingDriverId] = useState("");
   const [driverProfileForm, setDriverProfileForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", active: true });
+  const [copiedDriverKey, setCopiedDriverKey] = useState("");
   const longPressRef = useRef({ timer: null, key: "", triggered: false });
+  const driverApplicationLink = getDriverApplicationLink();
 
   const loadDrivers = useCallback(async () => {
     setLoading(true);
@@ -3753,6 +3778,27 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
     }
   };
   const driverActionKey = (driver) => `${canonicalizeVehiclePlate(driver.vehicle_plate)}:${driver.id ?? normalizeDriverAvatarKey(driver.full_name)}`;
+  const copyDriverApplicationLink = async (driver) => {
+    try {
+      await copyTextToClipboard(driverApplicationLink);
+      setCopiedDriverKey(driverActionKey(driver));
+      notify(`Enlace de aplicación copiado para ${driver.full_name}`);
+    } catch (error) {
+      notify(error.message);
+    }
+  };
+  const shareDriverApplicationLink = async (driver) => {
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: "SOBRE RUEDAS", text: `Aplicación de ${driver.full_name}`, url: driverApplicationLink });
+        notify(`Enlace de aplicación preparado para ${driver.full_name}`);
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
+    }
+    await copyDriverApplicationLink(driver);
+  };
   const resetDriver = async (driver) => {
     const nextPassword = generateDriverPassword();
     setMessage("");
@@ -3857,9 +3903,15 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
                     <span className="admin-driver-card__avatar">{avatarPath ? <img src={avatarPath} alt="" /> : <span>{driverInitials(driver.full_name)}</span>}<i className={driver.active ? "is-active" : ""} aria-hidden="true" /></span>
                     <strong>{driver.full_name}</strong>
                   </button>
-                 {menuOpen && <div className="admin-driver-card__menu" role="menu" aria-label={`Acciones de ${driver.full_name}`}>
-                   <header><div><strong>{driver.full_name}</strong><small>Menú de acceso · mantén pulsado 1 s para abrir</small></div><button type="button" className="icon-button" onClick={() => setDriverActionId("")} aria-label="Cerrar menú del conductor"><IconX size={15} /></button></header>
-                   <div className="admin-driver-card__actions"><button type="button" role="menuitem" className="text-button" onClick={() => startDriverEdit(driver)}><IconUserCircle size={15} />Editar perfil</button><button type="button" role="menuitem" className="text-button" onClick={() => toggleDriverAccess(driver)}>{driver.active ? <IconShieldCheck size={15} /> : <IconCircleCheck size={15} />}{driver.active ? "Pausar acceso" : "Activar acceso"}</button><button type="button" role="menuitem" className="text-button text-button--accent" onClick={() => resetDriver(driver)}><IconRefresh size={15} />Restablecer contraseña</button></div>
+                  {menuOpen && <div className="admin-driver-card__menu" role="menu" aria-label={`Acciones de ${driver.full_name}`}>
+                    <header><div><strong>{driver.full_name}</strong><small>Menú de acceso · mantén pulsado 1 s para abrir</small></div><button type="button" className="icon-button" onClick={() => setDriverActionId("")} aria-label="Cerrar menú del conductor"><IconX size={15} /></button></header>
+                    <section className="admin-driver-app-link" aria-label={`Enlace de aplicación de ${driver.full_name}`}>
+                      <div className="admin-driver-app-link__heading"><IconLink size={14} /><span><strong>ENLACE DE APLICACIÓN</strong><small>Envíale este enlace para iniciar sesión</small></span></div>
+                      <a className="admin-driver-app-link__url" href={driverApplicationLink} target="_blank" rel="noreferrer">{driverApplicationLink}</a>
+                      {driver.email && <small className="admin-driver-app-link__user">Usuario: {driver.email}</small>}
+                      <div className="admin-driver-app-link__actions"><button type="button" className="text-button" onClick={() => copyDriverApplicationLink(driver)}><IconCopy size={14} />{copiedDriverKey === driverKey ? "Enlace copiado" : "Copiar enlace"}</button><button type="button" className="text-button" onClick={() => shareDriverApplicationLink(driver)}><IconShare3 size={14} />Compartir</button></div>
+                    </section>
+                    <div className="admin-driver-card__actions"><button type="button" role="menuitem" className="text-button" onClick={() => startDriverEdit(driver)}><IconUserCircle size={15} />Editar perfil</button><button type="button" role="menuitem" className="text-button" onClick={() => toggleDriverAccess(driver)}>{driver.active ? <IconShieldCheck size={15} /> : <IconCircleCheck size={15} />}{driver.active ? "Pausar acceso" : "Activar acceso"}</button><button type="button" role="menuitem" className="text-button text-button--accent" onClick={() => resetDriver(driver)}><IconRefresh size={15} />Restablecer contraseña</button></div>
                    {generatedPassword?.driverId === driver.id && <div className="admin-driver-password" role="status"><IconKey size={13} /><span>CONTRASEÑA</span><code>{generatedPassword.value}</code><button className="icon-button" type="button" onClick={() => setGeneratedPassword(null)} aria-label="Ocultar contraseña"><IconX size={13} /></button></div>}
                    {editing && <form className="admin-driver-profile-editor" onSubmit={(event) => saveDriverProfile(event, driver)}><label>Nombre completo<input value={driverProfileForm.fullName} onChange={(event) => updateDriverProfileForm("fullName", event.target.value)} required /></label><label>Email de acceso<input type="email" value={driverProfileForm.email} onChange={(event) => updateDriverProfileForm("email", event.target.value)} required /></label><label>Vehículo asignado<select value={driverProfileForm.vehiclePlate} onChange={(event) => updateDriverProfileForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((option) => <option key={option.plate} value={option.plate}>{option.plate} · {option.model}</option>)}</select></label><label className="admin-driver-profile-editor__active"><input type="checkbox" checked={driverProfileForm.active} onChange={(event) => updateDriverProfileForm("active", event.target.checked)} />Acceso activo</label><div className="admin-driver-profile-editor__actions"><button className="text-button" type="button" onClick={() => setEditingDriverId("")}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar perfil"}</button></div></form>}
                  </div>}
