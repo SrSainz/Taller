@@ -4237,7 +4237,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-billing-target__goal > strong { color: #2c6de9; font-size: 22px; font-variant-numeric: tabular-nums; font-weight: 900; line-height: 1; white-space: nowrap; }
 .driver-mobile-billing-target__goal > strong small { margin-left: 3px; color: inherit; font-size: 9px; font-weight: 800; }
 .driver-mobile-billing-target.is-goal-reached .driver-mobile-billing-target__goal > strong { color: #159b79; }
-.driver-mobile-billing-target__scale { position: relative; padding-bottom: 17px; }
+.driver-mobile-billing-target__scale { position: relative; margin-top: 5px; padding-bottom: 17px; }
 .driver-mobile-billing-target__track { height: 12px; border-radius: 5px; }
 .driver-mobile-billing-target__milestone { top: 50%; width: 10px; height: 10px; border: 2px solid #2c6de9; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(44,109,233,.18); transform: translate(-50%, -50%); }
 .driver-mobile-billing-target__milestone.is-reached { border-color: #2c6de9; background: #2c6de9; box-shadow: 0 0 0 1px #2c6de9; }
@@ -4250,7 +4250,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-billing-target__labels span.is-current:not(.is-goal) { color: #b57209; }
 .driver-mobile-billing-target__labels span.is-start { transform: none; }
 .driver-mobile-billing-target__labels span.is-end { transform: translateX(-100%); }
-.driver-app--preview .driver-mobile-billing-target { margin-top: 5px; padding: 7px 0 2px; }
+.driver-app--preview .driver-mobile-billing-target { margin-top: 1px; padding: 2px 0 2px; }
 .driver-app--preview .driver-mobile-billing-target__track { height: 14px; border-radius: 6px; }
 .driver-app--preview .driver-mobile-billing-target__scale { padding-bottom: 19px; }
 .driver-app--preview .driver-mobile-billing-target__milestone { transform: translate(-50%, -50%); }
