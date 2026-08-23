@@ -150,7 +150,7 @@ const navItems = [
   { label: "Informes", slug: "informes", icon: IconChartBar },
   { label: "Vehículos", slug: "flota", icon: IconCar },
   { label: "Lecturas", slug: "lecturas", icon: IconGauge, badge: 2 },
-  { label: "Facturas", slug: "facturas", icon: IconFileInvoice, badge: 3 },
+  { label: "Facturas", slug: "facturas", icon: IconFileInvoice },
   { label: "Automatizaciones", slug: "automatizaciones", icon: IconRobot },
 ];
 
@@ -397,7 +397,27 @@ const maintenanceConceptRows = [
 const photoInvoiceStorageKey = "talleria:photo-invoices:clean-v3";
 const processedDocumentStorageKey = "talleria:processed-documents:v1";
 const maintenanceEditsStorageKey = "sobre-ruedas:maintenance-edits:v1";
+const invoiceNoticeCountStoragePrefix = "sobre-ruedas:invoice-notice-count:v1:";
+const notificationReadKeysStoragePrefix = "sobre-ruedas:notification-read-keys:v1:";
 const migratedPlates = { "3456 HTR": "0344 LCP", "7890 GYL": "9401 LTG" };
+
+const loadStoredNumber = (key, fallback = 0) => {
+  try {
+    const value = Number(window.localStorage.getItem(key));
+    return Number.isFinite(value) && value >= 0 ? value : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const loadStoredStringSet = (key) => {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(key) ?? "[]");
+    return new Set(Array.isArray(value) ? value.filter((item) => typeof item === "string" && item) : []);
+  } catch {
+    return new Set();
+  }
+};
 
 const loadPhotoInvoices = () => {
   try {
@@ -1548,6 +1568,11 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [processedDocuments, setProcessedDocuments] = useState(loadProcessedDocuments);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminNotifications, setAdminNotifications] = useState([]);
+  const accountStorageKey = session.user?.id ?? "anonymous";
+  const invoiceNoticeCountStorageKey = `${invoiceNoticeCountStoragePrefix}${accountStorageKey}`;
+  const notificationReadKeysStorageKey = `${notificationReadKeysStoragePrefix}${accountStorageKey}`;
+  const [unreadInvoiceCount, setUnreadInvoiceCount] = useState(() => loadStoredNumber(invoiceNoticeCountStorageKey, 3));
+  const [readNotificationKeys, setReadNotificationKeys] = useState(() => loadStoredStringSet(notificationReadKeysStorageKey));
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
   const [adminHeaderOpen, setAdminHeaderOpen] = useState(false);
   const [adminHeaderName, setAdminHeaderName] = useState(profileName);
@@ -1574,6 +1599,41 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     documentIds: new Set(),
     driverEntries: new Map(),
   });
+
+  const unreadAdminNotifications = useMemo(
+    () => adminNotifications.filter((activity) => !readNotificationKeys.has(activity.key)),
+    [adminNotifications, readNotificationKeys],
+  );
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(invoiceNoticeCountStorageKey, String(unreadInvoiceCount));
+    } catch {
+      // El marcador solo mejora la continuidad; no debe impedir usar la aplicación.
+    }
+  }, [invoiceNoticeCountStorageKey, unreadInvoiceCount]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(notificationReadKeysStorageKey, JSON.stringify([...readNotificationKeys].slice(-200)));
+    } catch {
+      // El marcador solo mejora la continuidad; no debe impedir usar la aplicación.
+    }
+  }, [notificationReadKeysStorageKey, readNotificationKeys]);
+
+  const markAdminNotificationsSeen = useCallback((activities = []) => {
+    const keys = activities.map((activity) => activity?.key).filter(Boolean);
+    if (!keys.length) return;
+    setReadNotificationKeys((current) => {
+      const next = new Set(current);
+      keys.forEach((key) => next.add(key));
+      return next;
+    });
+  }, []);
+
+  const markInvoicesSeen = useCallback(() => {
+    setUnreadInvoiceCount(0);
+  }, []);
 
   const notify = useCallback((message) => {
     setToast(message);
@@ -1653,6 +1713,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     }
     if (source === "documents") {
       const freshDocuments = snapshot.documentsReady ? nextDocuments.filter((document) => !snapshot.documentIds.has(document.id)) : [];
+      const freshInvoiceCount = freshDocuments.filter((document) => document.category === "billing").length;
+      if (freshInvoiceCount > 0) setUnreadInvoiceCount((current) => current + freshInvoiceCount);
       activities = buildAdminDataActivities({ documents: freshDocuments, driverProfiles });
       snapshot.documentIds = new Set(nextDocuments.map((document) => document.id));
       snapshot.documentsReady = true;
@@ -1995,6 +2057,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     setMaintenanceSearchSelection(null);
   }, [activeNav]);
 
+  useEffect(() => {
+    if (activeNav === "Facturas") markInvoicesSeen();
+  }, [activeNav, markInvoicesSeen]);
+
   const selected = vehicles.find((vehicle) => vehicle.plate === selectedPlate) ?? vehicles[0];
   const selectedDriver = selectedDrivers[selected.plate] ?? selected.drivers[0];
   const selectedActivity = getDriverDay(selected, selectedDriver);
@@ -2259,6 +2325,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     navigate(navItems[1]);
   };
   const openAdminActivity = (activity) => {
+    markAdminNotificationsSeen([activity]);
     setNotificationsOpen(false);
     if (activity?.plate && vehicles.some((vehicle) => vehicle.plate === activity.plate)) setSelectedPlate(activity.plate);
     navigate(activity?.target === "Conductores" ? conductorNavItem : navItems[1]);
@@ -2280,8 +2347,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           {!compactDetailHeader && <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             {!(activeNav === "Informes" && homeReportTab === "General") && <span className="date"><IconCalendar size={18} />28 jul 2026</span>}
-            <button type="button" className={`topbar-route-button topbar-route-button--facturas${activeNav === "Facturas" ? " topbar-route-button--active" : ""}`} onClick={() => navigate(navItems[3])} aria-label="Abrir Facturas" aria-current={activeNav === "Facturas" ? "page" : undefined} title="Facturas"><IconFileInvoice size={14} /><span>Facturas</span><i>3</i></button>
-            <button className="bell-button" aria-label={`Notificaciones${adminNotifications.length ? ` · ${adminNotifications.length} nuevas` : ""}`} aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setTopbarMenuOpen(false); }}><IconBell size={17} />{adminNotifications.length > 0 && <i>{Math.min(adminNotifications.length, 99)}</i>}</button>
+            <button type="button" className={`topbar-route-button topbar-route-button--facturas${activeNav === "Facturas" ? " topbar-route-button--active" : ""}`} onClick={() => navigate(navItems[3])} aria-label={`Abrir Facturas${unreadInvoiceCount ? ` · ${unreadInvoiceCount} nuevas` : ""}`} aria-current={activeNav === "Facturas" ? "page" : undefined} title="Facturas"><IconFileInvoice size={14} /><span>Facturas</span>{unreadInvoiceCount > 0 && <i>{Math.min(unreadInvoiceCount, 99)}</i>}</button>
+            <button className="bell-button" aria-label={`Notificaciones${unreadAdminNotifications.length ? ` · ${unreadAdminNotifications.length} nuevas` : ""}`} aria-expanded={notificationsOpen} onClick={() => { const nextOpen = !notificationsOpen; if (nextOpen) markAdminNotificationsSeen(adminNotifications); setNotificationsOpen(nextOpen); setTopbarMenuOpen(false); }}><IconBell size={17} />{unreadAdminNotifications.length > 0 && <i>{Math.min(unreadAdminNotifications.length, 99)}</i>}</button>
             <button className="topbar-menu-button" aria-label="Abrir accesos de gestión" aria-expanded={topbarMenuOpen} aria-controls="topbar-management-menu" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }} title="Accesos de gestión"><IconMenu2 size={18} /></button>
             <button className="profile" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }}><span className="avatar">{profileInitials}</span><span><strong>{profileName}</strong><small>{isAdmin ? "Administrador" : "Conductor"}</small></span><IconChevronDown size={17} /></button>
           </div>}
@@ -2309,7 +2376,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           )}
           {!compactDetailHeader && notificationsOpen && (
             <aside className="notification-popover" aria-label="Notificaciones recientes">
-              <header><strong>Notificaciones</strong><div><span>{adminNotifications.length} nuevas</span><button className="icon-button" onClick={() => setAdminNotifications([])} aria-label="Marcar notificaciones como leídas"><IconCheck size={15} /></button><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></div></header>
+              <header><strong>Notificaciones</strong><div><span>{unreadAdminNotifications.length} nuevas</span><button className="icon-button" onClick={() => markAdminNotificationsSeen(adminNotifications)} aria-label="Marcar notificaciones como vistas"><IconCheck size={15} /></button><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></div></header>
               {adminNotifications.length === 0 ? <p className="notification-popover__empty">No hay avisos nuevos.</p> : adminNotifications.slice(0, 8).map((activity) => {
                 const ActivityIcon = activity.kind === "fuel" ? IconGasStation : activity.kind === "billing" ? IconFileInvoice : activity.kind === "mileage" ? IconGauge : activity.kind === "consumption" ? IconChartBar : IconAlertTriangle;
                 return <button type="button" key={activity.key} onClick={() => openAdminActivity(activity)}><ActivityIcon size={18} /><span><strong>{activity.title}</strong><small>{activity.detail}</small></span></button>;
