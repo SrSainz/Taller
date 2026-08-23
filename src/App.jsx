@@ -729,7 +729,10 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
 };
 
 const reportMonths = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-const DRIVER_BILLING_VISIBLE_MONTHS = 8;
+const DRIVER_BILLING_VISIBLE_MONTHS = 12;
+const DRIVER_BILLING_CHART_LEFT_MARGIN = 76;
+const DRIVER_BILLING_CHART_Y_AXIS_WIDTH = 66;
+const DRIVER_BILLING_CHART_RIGHT_MARGIN = 22;
 const reportMonthTokens = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const fuelPeriodSuffixPattern = /\b[a-záéíóú]{3}\s+\d{4}$/i;
 const reportYears = [2024, 2025, 2026, 2027];
@@ -2808,7 +2811,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     return months.map(([monthKey, amount]) => {
       const [year, month] = monthKey.split("-").map(Number);
       const monthDate = new Date(year, month - 1, 1);
-      const shortLabel = new Intl.DateTimeFormat("es-ES", { month: "short" }).format(monthDate).replace(/\./g, "");
+      const shortLabel = reportMonthTokens[month - 1] ?? new Intl.DateTimeFormat("es-ES", { month: "short" }).format(monthDate).replace(/\./g, "");
       return {
         key: monthKey,
         year,
@@ -3346,9 +3349,9 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     const updateBillingChartWidth = () => {
       const viewportWidth = scrollElement.clientWidth;
       if (!viewportWidth) return;
-      const rightMargin = 22;
-      const monthColumnWidth = Math.max(28, (viewportWidth - rightMargin) / (DRIVER_BILLING_VISIBLE_MONTHS - 0.3));
-      const nextWidth = Math.max(viewportWidth, 76 + rightMargin + monthlyBillingHistory.length * monthColumnWidth);
+      const availableChartWidth = Math.max(1, viewportWidth);
+      const monthColumnWidth = Math.max(24, availableChartWidth / DRIVER_BILLING_VISIBLE_MONTHS);
+      const nextWidth = Math.max(viewportWidth, DRIVER_BILLING_CHART_LEFT_MARGIN + DRIVER_BILLING_CHART_Y_AXIS_WIDTH + DRIVER_BILLING_CHART_RIGHT_MARGIN + monthlyBillingHistory.length * monthColumnWidth);
       setBillingChartWidth(nextWidth);
     };
     updateBillingChartWidth();
@@ -3368,9 +3371,9 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
       const currentIndex = monthlyBillingHistory.findIndex((month) => month.isCurrent);
       const endIndex = currentIndex >= 0 ? currentIndex + 1 : monthlyBillingHistory.length;
       const startIndex = Math.max(0, endIndex - DRIVER_BILLING_VISIBLE_MONTHS);
-      const chartDataWidth = Math.max(1, billingChartWidth - 76 - 22);
+      const chartDataWidth = Math.max(1, billingChartWidth - DRIVER_BILLING_CHART_LEFT_MARGIN - DRIVER_BILLING_CHART_Y_AXIS_WIDTH - DRIVER_BILLING_CHART_RIGHT_MARGIN);
       const monthColumnWidth = chartDataWidth / Math.max(1, monthlyBillingHistory.length);
-      const targetScrollLeft = monthlyBillingHistory.length > DRIVER_BILLING_VISIBLE_MONTHS ? 76 + (startIndex + 0.5) * monthColumnWidth : 0;
+      const targetScrollLeft = monthlyBillingHistory.length > DRIVER_BILLING_VISIBLE_MONTHS ? DRIVER_BILLING_CHART_LEFT_MARGIN + DRIVER_BILLING_CHART_Y_AXIS_WIDTH + startIndex * monthColumnWidth : 0;
       scrollElement.scrollLeft = Math.max(0, Math.min(scrollElement.scrollWidth - scrollElement.clientWidth, targetScrollLeft));
     });
     return () => window.cancelAnimationFrame(frame);
@@ -3551,7 +3554,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
           </div>
           {preview && <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
             <article className="driver-mobile-preview-km driver-mobile-preview-chart-card" role="button" tabIndex={0} aria-label="Kilómetros realizados frente al resto de conductores"><div className="driver-mobile-preview-chart-card__heading">KM REALIZADOS VS RESTO</div><div className="driver-mobile-preview-chart-card__summary"><strong>{Math.round(weeklyKmAverage).toLocaleString("es-ES")} km</strong><span>Resto conductores: {Math.round(otherDriversKmAverage).toLocaleString("es-ES")} km</span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyKmData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherKm" name="Resto conductores" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-preview-chart-card__legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
-            <article className="driver-mobile-preview-history" aria-label="Facturación mensual histórica"><div className="driver-mobile-history-scroll" role="region" tabIndex="0" aria-label="Histórico de facturación mensual. Desliza horizontalmente para ver todos los meses"><div className="driver-mobile-history-bars" role="list">{monthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{month.shortLabel}</b><em>{month.year}</em></small></button>)}</div></div></article>
+            <article className="driver-mobile-preview-history" aria-label="Facturación mensual histórica"><div className="driver-mobile-history-scroll" role="region" tabIndex="0" aria-label="Histórico de facturación mensual. Desliza horizontalmente para ver todos los meses"><div className="driver-mobile-history-bars" role="list">{monthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{month.shortLabel}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></div></article>
             <article className="driver-mobile-preview-consumption" aria-label="Consumo semanal comparado"><div className="driver-mobile-consumption-compare"><span>Este conductor<strong>{weeklyConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span><em className={consumptionDifference <= 0 ? "is-better" : "is-higher"}>{consumptionDifference > 0 ? "+" : ""}{consumptionDifference.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</em><span>Resto<strong>{otherDriversConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyConsumptionData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverConsumption" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherConsumption" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-consumption-legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
           </div>}
           <div className="driver-mobile-mini-grid">
@@ -5966,11 +5969,12 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
 function DriverBillingMonthTick({ x, y, payload }) {
   const month = payload?.payload?.shortLabel ?? String(payload?.value ?? "").split(" ")[0];
   const year = payload?.payload?.year ?? String(payload?.value ?? "").split(" ").slice(-1)[0];
+  const shortYear = String(year).slice(-2);
   return (
     <g transform={`translate(${x},${y})`}>
-      <text x="0" y="0" dy="9" textAnchor="middle" fill="#526783" fontSize="13" fontWeight="850">
+      <text x="0" y="0" dy="9" textAnchor="middle" fill="#526783" fontSize="7" fontWeight="850">
         <tspan x="0" dy="0">{String(month).toUpperCase()}</tspan>
-        <tspan x="0" dy="16">{year}</tspan>
+        <tspan x="0" dy="11" fontSize="6">{shortYear}</tspan>
       </text>
     </g>
   );
