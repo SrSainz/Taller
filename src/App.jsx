@@ -828,6 +828,7 @@ const readingSeed = [
 const formatKm = (value) => `${new Intl.NumberFormat("es-ES").format(value)} km`;
 const formatCurrency = (value) => `${value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatRoundedAmount = (value) => Math.round(Number(value) || 0).toLocaleString("es-ES");
+const formatMainAmount = (value) => `${formatRoundedAmount(value)} €`;
 const formatBillingMilestone = (value) => {
   const amount = Math.round(Number(value) || 0);
   if (amount < 1000) return String(amount);
@@ -4957,9 +4958,9 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
             </div>
             <div className="report-general-grid">
               <div className="report-stat-grid">
-                <ReportFleetSummaryCard billing={formatRoundedAmount(periodTotals.billing)} fuel={formatRoundedAmount(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
-                <ReportStatCard wide icon={IconTool} label="Mantenimiento" value={formatRoundedAmount(periodTotals.maintenance)} daily={formatRoundedAmount(periodTotals.maintenance / periodDays)} perKm={formatRoundedAmount(totalDistance > 0 ? periodTotals.maintenance / totalDistance : 0)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
-                <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatRoundedAmount(periodTotals.net)} daily={formatRoundedAmount(periodTotals.net / periodDays)} perKm={formatRoundedAmount(totalDistance > 0 ? periodTotals.net / totalDistance : 0)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
+                <ReportFleetSummaryCard billing={formatMainAmount(periodTotals.billing)} fuel={formatMainAmount(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
+                <ReportStatCard wide icon={IconTool} label="Mantenimiento" value={formatMainAmount(periodTotals.maintenance)} daily={formatMainAmount(periodTotals.maintenance / periodDays)} perKm={formatMainAmount(totalDistance > 0 ? periodTotals.maintenance / totalDistance : 0)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
+                <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatMainAmount(periodTotals.net)} daily={formatMainAmount(periodTotals.net / periodDays)} perKm={formatMainAmount(totalDistance > 0 ? periodTotals.net / totalDistance : 0)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
               </div>
               <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
                 <header className="report-chart-card__top">
