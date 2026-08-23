@@ -1007,6 +1007,22 @@ const getExtractedDocumentFields = (document) => {
   const fields = data.fields && typeof data.fields === "object" ? data.fields : data;
   return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value && typeof value === "object" && "value" in value ? value.value : value]));
 };
+const getDriverDocumentRecordType = (document) => {
+  const data = document?.extracted_data ?? {};
+  const fields = getExtractedDocumentFields(document);
+  return normalizeText(data.recordType || data.metric || fields.recordType || fields.metric || "");
+};
+const getDriverDocumentKind = (document) => {
+  const recordType = getDriverDocumentRecordType(document);
+  if (document?.category === "billing" || recordType === "billing" || recordType === "billing_daily") return "billing";
+  if (["daily-km", "partial-1", "total-km", "total", "odometer", "odometro", "kilometraje diario", "km diarios", "kilometraje total", "km acumulados"].includes(recordType)) return "mileage";
+  if (["fuel", "fuel receipt", "fuel_receipt", "repostaje"].includes(recordType)) return "fuel";
+  if (["consumption", "consumption rate", "consumo"].includes(recordType)) return "consumption";
+  if (document?.category === "consumption") return "fuel";
+  return "";
+};
+const driverDocumentKindLabels = Object.freeze({ billing: "Facturación", fuel: "Repostaje", mileage: "Kilómetros", consumption: "Consumo diario" });
+const getDriverDocumentKindLabel = (document) => driverDocumentKindLabels[getDriverDocumentKind(document)] ?? "Documento";
 const normalizeTransactionRecord = (transaction = {}) => ({
   ...transaction,
   vehicle_plate: canonicalizeVehiclePlate(transaction.vehicle_plate),
@@ -1318,16 +1334,22 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = []) => {
     const entryDate = new Date(`${entry.entry_date}T12:00:00`);
     return entryDate.getMonth() === month && entryDate.getFullYear() === year;
   });
-  const mileageDocuments = (documents ?? [])
-    .filter((document) => document?.owner_id && document.owner_id === row.driverId)
+  const ownedDriverDocuments = (documents ?? [])
+    .filter((document) => document?.owner_id && document.owner_id === row.driverId);
+  const documentsByDate = new Map();
+  ownedDriverDocuments.forEach((document) => {
+    const dateKey = getDriverDocumentDateKey(document);
+    if (dateKey) documentsByDate.set(dateKey, [...(documentsByDate.get(dateKey) ?? []), document]);
+  });
+  const mileageDocuments = ownedDriverDocuments
     .map((document) => {
       const data = document?.extracted_data ?? {};
       const extracted = getExtractedDocumentFields(document);
-      const recordType = normalizeText(data.recordType || data.metric || extracted.recordType || extracted.metric || "");
+      const recordType = getDriverDocumentRecordType(document);
       const dateKey = getDriverDocumentDateKey(document);
       if (!dateKey) return null;
-      const isDailyMileage = ["daily-km", "partial-1", "kilometraje diario", "km diarios"].includes(recordType);
-      const isTotalMileage = ["total-km", "total", "odometer", "odometro", "kilometraje total", "km acumulados"].includes(recordType);
+      const isDailyMileage = recordType === "daily-km" || recordType === "partial-1" || recordType === "kilometraje diario" || recordType === "km diarios";
+      const isTotalMileage = recordType === "total-km" || recordType === "total" || recordType === "odometer" || recordType === "odometro" || recordType === "kilometraje total" || recordType === "km acumulados";
       return {
         dateKey,
         dailyKm: isDailyMileage ? getDriverDocumentNumber(data.dailyKm ?? data.daily_km ?? extracted.dailyKm ?? extracted.daily_km ?? extracted.kilometres ?? extracted.kilometers ?? extracted.km) : 0,
@@ -1397,7 +1419,8 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = []) => {
       fuelEntries,
       fuelLiters,
       fuelCost,
-      active: billing > 0 || fuelEntries.length > 0 || km > 0 || totalKm > 0,
+      documents: documentsByDate.get(dateKey) ?? [],
+      active: billing > 0 || fuelEntries.length > 0 || km > 0 || totalKm > 0 || documentsByDate.has(dateKey),
     };
   });
 };
@@ -5512,6 +5535,30 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       },
     });
   };
+  const openDriverSourceDocument = (document) => {
+    const dateKey = getDriverDocumentDateKey(document) ?? `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
+    setModal({
+      type: "driver-document",
+      item: {
+        id: `driver-document-${document.id}`,
+        documentNumber: document.file_name || document.id,
+        provider: "SOBRE RUEDAS",
+        date: formatDocumentDisplayDate(dateKey),
+        plate: selectedDriver.plate,
+        driver: selectedDriver.driver,
+        concept: getDriverDocumentKindLabel(document),
+        source: "Foto original de la aplicación del conductor",
+        status: document.status === "approved" ? "Validada" : "Archivada",
+        filePath: document.file_path || document.filePath || "",
+        fileName: document.file_name || document.fileName || "Documento original",
+        mimeType: document.mime_type || document.mimeType || "",
+      },
+    });
+  };
+  const selectedDayDocuments = selectedDayDetail?.documents ?? [];
+  const selectedDayBillingDocuments = selectedDayDocuments.filter((document) => getDriverDocumentKind(document) === "billing");
+  const selectedDayFuelDocuments = selectedDayDocuments.filter((document) => ["fuel", "consumption"].includes(getDriverDocumentKind(document)));
+  const selectedDayMileageDocuments = selectedDayDocuments.filter((document) => getDriverDocumentKind(document) === "mileage");
   const renderCalendarPage = (period) => (
     <div ref={period.delta === 0 ? calendarActivePageRef : undefined} className="drivers-calendar-page" key={period.key}>
       {period.delta !== 0 && <div className="drivers-calendar-page__period">{reportMonths[period.month]} {period.year}</div>}
@@ -5519,7 +5566,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       <div className="drivers-calendar-grid" role="grid" aria-label={`Facturación y consumo de ${selectedDriver.driver} en ${reportMonths[period.month]} de ${period.year}`}>
         {period.cells.map((cell) => cell.empty
           ? <span className="drivers-calendar-day drivers-calendar-day--empty" aria-hidden="true" key={cell.key} />
-          : <button type="button" className={`drivers-calendar-day${cell.billing > 0 ? " drivers-calendar-day--billing" : ""}${cell.fuelCost > 0 ? " drivers-calendar-day--fuel" : ""}${cell.km > 0 ? " drivers-calendar-day--mileage" : ""}${period.delta === 0 && selectedDay === cell.day ? " drivers-calendar-day--selected" : ""}`} role="gridcell" tabIndex={period.delta === 0 ? 0 : -1} onClick={() => period.delta === 0 && setSelectedDay(cell.day)} aria-label={`${cell.day} de ${reportMonths[period.month]}: ${formatCurrency(cell.billing)} de facturación, ${formatCurrency(cell.fuelCost)} de repostaje y ${formatKm(cell.km)} realizados`} key={cell.key}><span>{cell.day}</span><span className="drivers-calendar-day__values">{cell.billing > 0 && <small className="drivers-calendar-day__billing">{formatShortCurrency(cell.billing)}</small>}{cell.fuelCost > 0 && <small className="drivers-calendar-day__fuel">-{formatShortCurrency(cell.fuelCost)}</small>}</span></button>)}
+          : <button type="button" className={`drivers-calendar-day${cell.billing > 0 ? " drivers-calendar-day--billing" : ""}${cell.fuelCost > 0 ? " drivers-calendar-day--fuel" : ""}${cell.km > 0 ? " drivers-calendar-day--mileage" : ""}${cell.documents?.length ? " drivers-calendar-day--document" : ""}${period.delta === 0 && selectedDay === cell.day ? " drivers-calendar-day--selected" : ""}`} role="gridcell" tabIndex={period.delta === 0 ? 0 : -1} onClick={() => period.delta === 0 && setSelectedDay(cell.day)} aria-label={`${cell.day} de ${reportMonths[period.month]}: ${formatCurrency(cell.billing)} de facturación, ${formatCurrency(cell.fuelCost)} de repostaje y ${formatKm(cell.km)} realizados${cell.documents?.length ? `, ${cell.documents.length} foto${cell.documents.length === 1 ? "" : "s"} original${cell.documents.length === 1 ? "" : "es"} archivada${cell.documents.length === 1 ? "" : "s"}` : ""}`} key={cell.key}><span>{cell.day}</span><span className="drivers-calendar-day__values">{cell.billing > 0 && <small className="drivers-calendar-day__billing">{formatShortCurrency(cell.billing)}</small>}{cell.fuelCost > 0 && <small className="drivers-calendar-day__fuel">-{formatShortCurrency(cell.fuelCost)}</small>}{cell.documents?.length > 0 && <small className="drivers-calendar-day__document" aria-hidden="true"><IconCamera size={10} />{cell.documents.length}</small>}</span></button>)}
       </div>
     </div>
   );
@@ -5560,13 +5607,18 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
 
       {selectedDriver && selectedDayDetail && <section className="driver-day-detail" aria-label={`Detalle de ${selectedDriver.driver}`}>
         <div className="driver-day-detail__columns">
-          <article className="driver-day-panel driver-day-panel--billing"><header><IconFileInvoice size={17} /><strong>Facturación</strong></header><div className="driver-day-panel__metrics"><span><small>Ingreso del día</small><strong>{formatCurrency(selectedDayDetail.billing)}</strong></span><span><small>Viajes</small><strong>{selectedDayDetail.trips}</strong></span></div></article>
-          <article className="driver-day-panel driver-day-panel--fuel"><header><IconGasStation size={17} /><strong>Repostaje</strong></header><div className="driver-day-panel__metrics"><span><small>Consumo diario</small><strong>{selectedDayDetail.fuelLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Importe</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div><div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.length > 0 ? selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}`}><span><strong>{entry.time}</strong><small>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L · {formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>) : <small>Sin repostaje registrado este día.</small>}</div></article>
-          <article className="driver-day-panel driver-day-panel--mileage"><header><IconGauge size={17} /><strong>Kilómetros</strong></header><div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><span><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div></article>
+          <article className="driver-day-panel driver-day-panel--billing"><header><IconFileInvoice size={17} /><strong>Facturación</strong></header><div className="driver-day-panel__metrics"><span><small>Ingreso del día</small><strong>{formatCurrency(selectedDayDetail.billing)}</strong></span><span><small>Viajes</small><strong>{selectedDayDetail.trips}</strong></span></div><DriverDayDocumentButtons documents={selectedDayBillingDocuments} onOpen={openDriverSourceDocument} /></article>
+          <article className="driver-day-panel driver-day-panel--fuel"><header><IconGasStation size={17} /><strong>Repostaje</strong></header><div className="driver-day-panel__metrics"><span><small>Consumo diario</small><strong>{selectedDayDetail.fuelLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Importe</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div><div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.length > 0 ? selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}`}><span><strong>{entry.time}</strong><small>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L · {formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>) : <small>Sin repostaje registrado este día.</small>}</div><DriverDayDocumentButtons documents={selectedDayFuelDocuments} onOpen={openDriverSourceDocument} /></article>
+          <article className="driver-day-panel driver-day-panel--mileage"><header><IconGauge size={17} /><strong>Kilómetros</strong></header><div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><span><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div><DriverDayDocumentButtons documents={selectedDayMileageDocuments} onOpen={openDriverSourceDocument} /></article>
         </div>
       </section>}
     </section>
   );
+}
+
+function DriverDayDocumentButtons({ documents = [], onOpen }) {
+  if (!documents.length) return <div className="driver-day-panel__documents-empty"><IconCamera size={14} /><span>Sin foto original archivada</span></div>;
+  return <div className="driver-day-panel__documents" aria-label="Fotos originales archivadas">{documents.map((document) => <button type="button" className="driver-day-panel__document" key={document.id} onClick={() => onOpen(document)} aria-label={`Ver foto original de ${getDriverDocumentKindLabel(document)}`}><IconCamera size={14} /><span><strong>{getDriverDocumentKindLabel(document)}</strong><small>{document.file_name || "Ver foto original"}</small></span><IconChevronRight size={14} /></button>)}</div>;
 }
 
 function ReadingsView({ setModal }) {
@@ -6349,24 +6401,26 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
   const isInvoice = modal.type === "invoice";
   const isGestoriaInvoice = isInvoice && item?.kind === "gestoria";
   const isFuelInvoice = isInvoice && (item?.kind === "fuel" || item?.source === "Cuenta Plenergy");
+  const isDriverDocument = modal.type === "driver-document";
   const isPhotoInvoice = modal.type === "invoice-upload";
   const isDocumentProcessing = modal.type === "document-processing";
   const isMaintenanceEdit = modal.type === "maintenance-edit";
-  const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", "maintenance-edit": "Editar intervención", support: "Contactar con soporte" };
+  const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", "driver-document": "Foto original del conductor", "maintenance-edit": "Editar intervención", support: "Contactar con soporte" };
   const complete = (message) => { notify(message); onClose(); };
   if (isDocumentProcessing) titles[modal.type] = `${documentCategoryLabels[modal.category] ?? "Documento"} · Análisis IA`;
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}${isMaintenanceEdit ? " modal--maintenance-edit" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <header><div><span>Acción rápida</span><h2 id="modal-title">{isFuelInvoice ? "Ticket de gasolina" : isGestoriaInvoice ? "Factura de gestoría" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
+      <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}${isDriverDocument ? " modal--driver-document" : ""}${isMaintenanceEdit ? " modal--maintenance-edit" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <header><div><span>{isDriverDocument ? "ARCHIVO DEL DÍA" : "Acción rápida"}</span><h2 id="modal-title">{isFuelInvoice ? "Ticket de gasolina" : isGestoriaInvoice ? "Factura de gestoría" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
         {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.documentNumber ?? item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc ? <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate || item.plateReference || "la flota"}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure> : item.filePath ? <PrivateDocumentAttachment item={item} /> : null}{isGestoriaInvoice && !item.imageSrc && !item.filePath && <div className="invoice-source-file"><IconMail size={17} /><span><strong>Adjunto rescatado del correo</strong><small>{item.sourceFile || "Archivo de Gestoría Durán Rivas"} · {item.sourceAccount}</small></span></div>}<dl><div><dt>Vehículo</dt><dd>{item.plate || `Sin matrícula${item.plateReference ? ` · ref. ${item.plateReference}` : ""}`}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>{[itemOwner.dni ? `DNI ${itemOwner.dni}` : "", itemOwner.location, itemOwner.initials].filter(Boolean).join(" · ")}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div>{item.periodKey && <div><dt>Periodo imputado</dt><dd>{item.periodKey}</dd></div>}<div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
+        {isDriverDocument && <><div className="driver-document-context"><IconCamera size={20} /><span><strong>{item.concept}</strong><small>{item.driver} · {item.date} · {item.fileName}</small></span></div><PrivateDocumentAttachment item={item} /></>}
         {isMaintenanceEdit && <MaintenanceEditWorkflow item={item} onCancel={onClose} onSave={(values) => { const saved = onSaveMaintenance?.(values); if (saved !== false) complete("Intervención actualizada y reordenada por fecha"); }} />}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={async (invoice) => { const saved = await onSaveInvoice(invoice); if (saved !== false) complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
         {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument(document); if (saved === false || saved?.ok === false) return saved; complete("Documento procesado y guardado"); return { ok: true }; }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
-        {!isPhotoInvoice && !isDocumentProcessing && !isMaintenanceEdit && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Ticket de gasolina revisado" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar ticket" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
+        {!isPhotoInvoice && !isDocumentProcessing && !isDriverDocument && !isMaintenanceEdit && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Ticket de gasolina revisado" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar ticket" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
       </section>
     </div>
   );

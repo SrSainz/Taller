@@ -698,6 +698,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-calendar-day__values small { overflow: visible; font-size: 12px; font-weight: 800; line-height: 1.05; text-overflow: clip; white-space: nowrap; }
 .drivers-calendar-day__billing { color: var(--billing-strong); }
 .drivers-calendar-day__fuel { color: #c3382f; }
+.drivers-calendar-day__document { display: inline-flex; align-items: center; gap: 2px; color: #8a5a08; font-size: 8px !important; line-height: 1; }
+.drivers-calendar-day--document { border-color: #e8c97e; }
 .drivers-calendar-day--billing { border-color: #c3e1c9; background: #f6fcf6; }
 .drivers-calendar-day--fuel { border-color: #edc3be; background: #fff8f7; }
 .drivers-calendar-day--billing.drivers-calendar-day--fuel { background: linear-gradient(135deg, #f6fcf6 0 53%, #fff5f3 53% 100%); }
@@ -734,6 +736,20 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .driver-day-fuel-list small { color: var(--muted); font-size: 6px; }
 .drivers-day-invoice-button { min-height: 24px; padding-inline: 7px; border-color: #e1a19a; background: #fff; color: #a8332b; font-size: 6.5px; }
 .drivers-day-invoice-button:hover { border-color: #c86f65; background: #fff0ee; }
+.driver-day-panel__documents { display: grid; gap: 4px; padding: 6px 8px 7px; border-top: 1px solid var(--line); background: rgba(249,251,250,.72); }
+.driver-day-panel__document { min-width: 0; display: flex; align-items: center; gap: 6px; width: 100%; padding: 5px 6px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--green-800); text-align: left; cursor: pointer; }
+.driver-day-panel__document:hover, .driver-day-panel__document:focus-visible { border-color: #86bfa0; background: #f4faf7; }
+.driver-day-panel__document > span { min-width: 0; display: grid; gap: 1px; }
+.driver-day-panel__document strong, .driver-day-panel__document small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-day-panel__document strong { color: var(--text); font-size: 8px; }
+.driver-day-panel__document small { color: var(--muted); font-size: 7px; }
+.driver-day-panel__document > svg:last-child { margin-left: auto; flex: 0 0 auto; }
+.driver-day-panel__documents-empty { display: flex; align-items: center; gap: 5px; padding: 6px 8px 7px; border-top: 1px solid var(--line); color: var(--muted); font-size: 7px; }
+.driver-document-context { display: flex; align-items: center; gap: 9px; margin: 0 18px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #f6f9f8; color: var(--green-800); }
+.driver-document-context > span { min-width: 0; display: grid; gap: 2px; }
+.driver-document-context strong, .driver-document-context small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-document-context strong { color: var(--text); font-size: 10px; }
+.driver-document-context small { color: var(--muted); font-size: 8px; }
 
 .module-table { min-width: 940px; }
 .module-table td { height: 66px; font-size: 9px; }
