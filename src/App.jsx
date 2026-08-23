@@ -86,7 +86,7 @@ const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
 const SUMMARY_CHART_COLOR = "#1976c9";
 const INTRACOMMUNITY_VAT_RATE = 0.08;
-const calculateNetDriverCommission = (driverName, billing) => calculateDriverCommission({ driverName, billing }).commission;
+const calculateNetDriverCommission = (driverName, billing) => calculateDriverCommission({ driverName, billing }).totalToCollect;
 const chartMetricOptions = [
   { value: "summary", label: "Resumen" },
   { value: "billing", label: "Facturación" },
@@ -717,14 +717,14 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     const payroll = payrollBreakdown[index]?.amount ?? 0;
     const commissionCalculation = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, tips, tolls, payroll });
     const calculation = isAlex(row.driver) ? commissionCalculation : null;
-    return { driver: row.driver, driverId: row.driverId ?? "", amount: commissionCalculation.commission, commissionCalculation, calculation, periodStart, periodEnd, vehiclePlate: vehicle.plate };
+    return { driver: row.driver, driverId: row.driverId ?? "", amount: commissionCalculation.totalToCollect, commissionCalculation, calculation, periodStart, periodEnd, vehiclePlate: vehicle.plate };
   });
-  const commissionBreakdown = commissionSummary.map((row) => ({ breakdownKey: row.driverId || normalizeNetExpenseCategory(row.driver), driverId: row.driverId ?? "", label: row.driver, amount: row.amount, meta: `${Math.round(row.commissionCalculation.commissionRate * 100)}% + bonos desde 5.000 €` }));
+  const commissionBreakdown = commissionSummary.map((row) => ({ breakdownKey: row.driverId || normalizeNetExpenseCategory(row.driver), driverId: row.driverId ?? "", label: row.driver, amount: row.amount, meta: `Total a cobrar · ${Math.round(row.commissionCalculation.commissionRate * 100)}% + bonos desde 5.000 €` }));
   const alexCommissionReport = commissionSummary.find((row) => row.calculation)?.calculation
     ? commissionSummary.find((row) => row.calculation)
     : null;
   const commissionRates = [...new Set(commissionSummary.map((row) => `${Math.round(row.commissionCalculation.commissionRate * 100)}%`))];
-  const commissionCadence = commissionRates.length ? `${commissionRates.join(" y ")} + bonos por tramos` : "Según facturación mensual";
+  const commissionCadence = commissionRates.length ? `${commissionRates.join(" y ")} + bonos · total a cobrar` : "Según facturación mensual";
   const socialBreakdown = [
     { breakdownKey: "autonomo", label: "Autónomo", amount: getNetSocialSecurityAmount(vehicle.plate, 0), meta: "Cuota mensual fija" },
     ...vehicleDrivers.map((driver, index) => ({ breakdownKey: vehicle.driverProfiles?.[index]?.id || normalizeNetExpenseCategory(driver), driverId: vehicle.driverProfiles?.[index]?.id ?? "", label: driver, amount: getNetSocialSecurityAmount(vehicle.plate, index + 1), meta: "Cuota mensual fija" })),
@@ -1585,6 +1585,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [isStandalone, setIsStandalone] = useState(isStandaloneApp);
   const [homeReportTab, setHomeReportTab] = useState("General");
   const [homeChartMetric, setHomeChartMetric] = useState("summary");
+  const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
+  const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
   const [quickMenuStep, setQuickMenuStep] = useState("");
   const [quickMenuCategory, setQuickMenuCategory] = useState("");
   const [maintenanceSearchQuery, setMaintenanceSearchQuery] = useState("");
@@ -2386,13 +2388,13 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         </header>
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
-          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
-          {activeNav === "Conductores" && <DriversView vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} setModal={setModal} />}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
+          {activeNav === "Conductores" && <DriversView reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} setModal={setModal} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
-          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
+          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
           {activeNav === "Administración" && isAdmin && <AdminView notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} invoices={invoices} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
@@ -4511,7 +4513,7 @@ function AlexCommissionReportPanel({ report, periodLabel, archivedReports = [], 
   </section>;
 }
 
-function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "" }) {
+function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "" }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;
@@ -4520,10 +4522,13 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   const setChartMetric = onChartMetricChange ?? setInternalChartMetric;
   const [selectedChartMetrics, setSelectedChartMetrics] = useState(() => chartMetric === "summary" ? [] : [chartMetric]);
   const pendingChartMetricsRef = useRef(null);
-  const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
-  const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
+  const [internalReportMonth, setInternalReportMonth] = useState(() => new Date().getMonth());
+  const [internalReportYear, setInternalReportYear] = useState(() => new Date().getFullYear());
+  const reportMonth = controlledReportMonth ?? internalReportMonth;
+  const reportYear = controlledReportYear ?? internalReportYear;
+  const setReportMonth = onReportMonthChange ?? setInternalReportMonth;
+  const setReportYear = onReportYearChange ?? setInternalReportYear;
   const [periodMenu, setPeriodMenu] = useState("");
-  const dashboardPeriodPointerRef = useRef(null);
   const [selectedChartBar, setSelectedChartBar] = useState("");
   const [netDetailOpen, setNetDetailOpen] = useState(false);
   const [manualNetExpenses, setManualNetExpenses] = useState(() => loadManualNetExpenses());
@@ -4588,30 +4593,6 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     saveManualNetBreakdowns(manualNetBreakdowns);
   }, [manualNetBreakdowns]);
   const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
-  const shiftDashboardPeriod = (delta) => {
-    const firstPeriod = reportYears[0] * 12;
-    const lastPeriod = reportYears[reportYears.length - 1] * 12 + 11;
-    const currentPeriod = reportYear * 12 + reportMonth;
-    const nextPeriod = Math.max(firstPeriod, Math.min(lastPeriod, currentPeriod + delta));
-    setReportYear(Math.floor(nextPeriod / 12));
-    setReportMonth(nextPeriod % 12);
-    setPeriodMenu("");
-  };
-  const handleDashboardPeriodPointerDown = (event) => {
-    if (event.target.closest?.(".report-period-menu")) return;
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    dashboardPeriodPointerRef.current = { x: event.clientX, y: event.clientY };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  };
-  const handleDashboardPeriodPointerUp = (event) => {
-    const start = dashboardPeriodPointerRef.current;
-    dashboardPeriodPointerRef.current = null;
-    if (!start || event.target.closest?.(".report-period-menu")) return;
-    const deltaX = event.clientX - start.x;
-    const deltaY = event.clientY - start.y;
-    if (Math.abs(deltaX) < 34 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
-    shiftDashboardPeriod(deltaX < 0 ? 1 : -1);
-  };
   useEffect(() => {
     let mounted = true;
     if (!supabase) return undefined;
@@ -4960,16 +4941,16 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       <div className="fuel-report-canvas">
         {reportTab === "General" && (
           <>
-            <div className="dashboard-period-bar" role="group" aria-label="Seleccionar periodo del resumen general" onPointerDown={handleDashboardPeriodPointerDown} onPointerUp={handleDashboardPeriodPointerUp} onPointerCancel={() => { dashboardPeriodPointerRef.current = null; }}>
+            <div className="dashboard-period-bar" role="group" aria-label="Seleccionar periodo del resumen general">
               <div className="report-chart-filters" role="group" aria-label="Mes y año del resumen general">
                 <div className="report-period-dropdown">
                   <span className="sr-only">Mes</span>
-                  <button type="button" className="report-period-trigger" aria-label="Seleccionar mes" title="Mes" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
+                  <div className="report-period-trigger report-period-trigger--arrow-only"><span>{reportMonths[reportMonth]}</span><button type="button" className="report-period-trigger__arrow" aria-label="Seleccionar mes" title="Abrir meses" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><IconChevronDown size={13} /></button></div>
                   {periodMenu === "month" && <WheelPickerMenu options={reportMonths.map((label, index) => ({ value: index, label }))} value={reportMonth} onChange={(value) => { setReportMonth(value); setPeriodMenu(""); }} ariaLabel="Seleccionar mes" className="report-period-menu--months" />}
                 </div>
                 <div className="report-period-dropdown">
                   <span className="sr-only">Año</span>
-                  <button type="button" className="report-period-trigger report-period-trigger--year" aria-label="Seleccionar año" title="Año" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
+                  <div className="report-period-trigger report-period-trigger--year report-period-trigger--arrow-only"><span>{reportYear}</span><button type="button" className="report-period-trigger__arrow" aria-label="Seleccionar año" title="Abrir años" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><IconChevronDown size={13} /></button></div>
                   {periodMenu === "year" && <WheelPickerMenu options={reportYears.map((year) => ({ value: year, label: String(year) }))} value={reportYear} onChange={(value) => { setReportYear(value); setPeriodMenu(""); }} ariaLabel="Seleccionar año" className="report-period-menu--years" />}
                 </div>
               </div>
@@ -5279,9 +5260,13 @@ function FuelDriversReport({ vehicles, selectedDriverKey, onSelectDriver }) {
   );
 }
 
-function DriversView({ vehicles, driverEntries = [], transactions = [], setModal }) {
-  const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
-  const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
+function DriversView({ vehicles, driverEntries = [], transactions = [], setModal, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange }) {
+  const [internalReportMonth, setInternalReportMonth] = useState(() => new Date().getMonth());
+  const [internalReportYear, setInternalReportYear] = useState(() => new Date().getFullYear());
+  const reportMonth = controlledReportMonth ?? internalReportMonth;
+  const reportYear = controlledReportYear ?? internalReportYear;
+  const setReportMonth = onReportMonthChange ?? setInternalReportMonth;
+  const setReportYear = onReportYearChange ?? setInternalReportYear;
   const [selectedDriverKey, setSelectedDriverKey] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
   const [calendarSwipeOffset, setCalendarSwipeOffset] = useState(0);
@@ -5737,10 +5722,11 @@ function MaintenanceSearch({ query, open, suggestions, onQueryChange, onOpenChan
   );
 }
 
-function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenanceSearchSelection }) {
+function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenanceSearchSelection, reportMonth = new Date().getMonth(), reportYear = new Date().getFullYear(), onReportMonthChange, onReportYearChange }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
+  const [periodMenu, setPeriodMenu] = useState("");
   const longPressRef = useRef({ timer: null, triggered: false, startX: 0, startY: 0 });
   const pendingMaintenanceKeyRef = useRef("");
   const handledMaintenanceSearchRef = useRef("");
@@ -5752,10 +5738,28 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
     const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
     return { item, invoice, details, key: getMaintenanceRecordKey(item, index) };
   });
-  const maintenanceTotal = maintenanceRecords.reduce((total, record) => total + (Number(record.invoice?.amount ?? record.item.amount) || 0), 0);
+  const periodMaintenanceRecords = maintenanceRecords.filter((record) => {
+    const date = new Date(getMaintenanceDateValue(record.item));
+    return date.getUTCFullYear() === reportYear && date.getUTCMonth() === reportMonth;
+  });
+  const maintenanceTotal = periodMaintenanceRecords.reduce((total, record) => total + (Number(record.invoice?.amount ?? record.item.amount) || 0), 0);
   useEffect(() => {
     setWorkshopPlate(initialPlate);
   }, [initialPlate]);
+
+  useEffect(() => {
+    if (!periodMenu) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
+    const closeOnPointerDown = (event) => {
+      if (!event.target.closest?.(".maintenance-period-dropdown")) setPeriodMenu("");
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+    };
+  }, [periodMenu]);
 
   useEffect(() => {
     const pendingKey = pendingMaintenanceKeyRef.current;
@@ -5860,7 +5864,20 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
             <span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt="" /></span>
             <span><h2><VehiclePlateLabel vehicleOrPlate={workshopVehicle} className="maintenance-history-plate" /></h2></span>
           </div>
-          <div className="maintenance-history-total" aria-label={`Gasto total de mantenimiento de ${workshopVehicle.plate}`}><small>Gasto total</small><strong>{formatCurrency(maintenanceTotal)}</strong><small>{sortedMaintenance.length ? `${sortedMaintenance.length} intervenciones` : "Sin intervenciones"}</small></div>
+          <div className="maintenance-history-total" aria-label={`Gasto de mantenimiento de ${workshopVehicle.plate} en ${reportMonths[reportMonth]} de ${reportYear}`}><small>Gasto del periodo</small><strong>{formatCurrency(maintenanceTotal)}</strong><small>{periodMaintenanceRecords.length ? `${periodMaintenanceRecords.length} intervenciones · ${reportMonths[reportMonth]} ${reportYear}` : `Sin intervenciones en ${reportMonths[reportMonth]} ${reportYear}`}</small></div>
+          <div className="maintenance-history-period" role="group" aria-label="Periodo de Mantenimiento">
+            <span>PERIODO</span>
+            <div className="maintenance-period-controls">
+              <div className="report-period-dropdown maintenance-period-dropdown">
+                <button type="button" className="report-period-trigger maintenance-period-trigger" aria-label="Seleccionar mes de Mantenimiento" title="Mes de Mantenimiento" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
+                {periodMenu === "month" && <WheelPickerMenu options={reportMonths.map((label, index) => ({ value: index, label }))} value={reportMonth} onChange={(month) => { onReportMonthChange?.(month); setPeriodMenu(""); }} ariaLabel="Seleccionar mes de Mantenimiento" className="maintenance-period-menu maintenance-period-menu--months" />}
+              </div>
+              <div className="report-period-dropdown maintenance-period-dropdown">
+                <button type="button" className="report-period-trigger report-period-trigger--year maintenance-period-trigger" aria-label="Seleccionar año de Mantenimiento" title="Año de Mantenimiento" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
+                {periodMenu === "year" && <WheelPickerMenu options={reportYears.map((year) => ({ value: year, label: String(year) }))} value={reportYear} onChange={(year) => { onReportYearChange?.(year); setPeriodMenu(""); }} ariaLabel="Seleccionar año de Mantenimiento" className="maintenance-period-menu maintenance-period-menu--years" />}
+              </div>
+            </div>
+          </div>
         </header>
         <div className="maintenance-history-scroll">
         <div className="maintenance-timeline" aria-label={`Historial de mantenimiento de ${workshopVehicle.plate}`}>

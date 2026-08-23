@@ -4355,6 +4355,48 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .net-detail-modal__period-trigger--year { min-width: 52px; }
 }
 
+/* El periodo de la pantalla principal se abre únicamente desde la flecha. */
+.report-period-trigger--arrow-only { cursor: default; }
+.report-period-trigger--arrow-only:hover { border-color: #d6e1dd; background: #fff; }
+.report-period-trigger--arrow-only:has(.report-period-trigger__arrow[aria-expanded="true"]) { border-color: #75aa98; background: #f5faf8; }
+.report-period-trigger__arrow { width: 24px; height: 24px; display: grid; flex: 0 0 24px; place-items: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--green-700); cursor: pointer; }
+.report-period-trigger__arrow:hover, .report-period-trigger__arrow:focus-visible { background: #eaf5f1; color: var(--green-900); outline: 0; }
+.report-period-trigger--arrow-only > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Mantenimiento conserva el mismo periodo global que General, Conductores y Neto. */
+.maintenance-history-header { flex-wrap: wrap; }
+.maintenance-history-period { position: relative; z-index: 12; display: grid; gap: 3px; margin-left: auto; }
+.maintenance-history-period > span { color: #61766c; font-size: 7px; font-weight: 850; letter-spacing: .12em; text-align: right; }
+.maintenance-period-controls { display: flex; align-items: center; gap: 5px; }
+.maintenance-period-dropdown { position: relative; }
+.maintenance-period-trigger { min-width: 94px; min-height: 32px; padding-inline: 8px; font-size: 8px; }
+.maintenance-period-trigger--year { min-width: 72px; }
+.maintenance-period-menu.report-period-menu--wheel { top: calc(100% + 5px); z-index: 40; width: 112px; min-width: 112px; }
+.maintenance-period-menu--years.report-period-menu--wheel { width: 80px; min-width: 80px; }
+
+/* Neto deja una holgura visual entre las barras negras y sus tarjetas. */
+.net-detail-backdrop { top: calc(70px + 6px); bottom: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom) + 6px); }
+.net-detail-modal { border-radius: 10px; }
+.net-detail-carousel { gap: 5px; padding-bottom: 8px; }
+
+@media (max-width: 720px) {
+  .maintenance-history-period { width: 100%; margin-left: 0; }
+  .maintenance-history-period > span { text-align: left; }
+  .maintenance-period-controls { width: 100%; }
+  .maintenance-period-dropdown { flex: 1 1 0; }
+  .maintenance-period-trigger { width: 100%; min-width: 0; min-height: 34px; font-size: 9px; }
+  .maintenance-period-trigger--year { min-width: 0; }
+}
+
+@media (max-width: 520px) {
+  .net-detail-backdrop { top: calc(64px + 6px); bottom: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom) + 6px); }
+  .maintenance-period-trigger { min-height: 32px; font-size: 8px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .net-detail-backdrop { top: calc(54px + 5px); bottom: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom) + 5px); }
+}
+
 /* Administración: el administrador ocupa la cabecera y los tres coches muestran siempre sus dos accesos. */
 .app-shell--admin .admin-topbar-home {
   width: 38px;
