@@ -4858,7 +4858,12 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 /* Administración: cuando está en la vista inicial, las tarjetas llenan el espacio útil. */
 .app-shell--admin .admin-page:not(:has(.admin-accordion__button--open)) .admin-access-stack {
   flex: 1 1 auto;
+  height: 100%;
   grid-template-rows: repeat(3, minmax(0, 1fr)) minmax(46px, 54px);
+}
+.app-shell--admin .admin-page:not(:has(.admin-accordion__button--open)) .admin-accordion--create,
+.app-shell--admin .admin-page:not(:has(.admin-accordion__button--open)) .admin-accordion--create .admin-accordion__button {
+  height: 100%;
 }
 .app-shell--admin .admin-driver-card__avatar {
   width: 70px;
