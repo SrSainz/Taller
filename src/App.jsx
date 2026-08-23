@@ -172,6 +172,23 @@ const vehicleBrandLogos = {
   Peugeot: "/brands/peugeot.svg",
 };
 
+const driverAvatarPaths = {
+  alex: "/driver-avatars/alex.jpg",
+  amin: "/driver-avatars/amin.jpg",
+  andres: "/driver-avatars/andres.jpeg",
+  fernando: "/driver-avatars/fernando.jpg",
+  mauricio: "/driver-avatars/mauricio.jpg",
+  tirso: "/driver-avatars/tirso.jpeg",
+};
+
+const normalizeDriverAvatarKey = (value) => String(value ?? "")
+  .trim()
+  .toLocaleLowerCase("es")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .split(/\s+/)[0];
+const getDriverAvatarPath = (value) => driverAvatarPaths[normalizeDriverAvatarKey(value)] ?? "";
+
 const netVehicleImages = {
   "5043 MLC": { src: "/net-vehicles/toyota-corolla-green.png", tone: "green", view: "frontal de tres cuartos" },
   "5750 MJV": { src: "/net-vehicles/toyota-corolla-blue.png", tone: "blue", view: "lateral" },
@@ -1508,6 +1525,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
+  const [adminHeaderOpen, setAdminHeaderOpen] = useState(false);
+  const [adminHeaderName, setAdminHeaderName] = useState(profileName);
+  const [adminHeaderPassword, setAdminHeaderPassword] = useState("");
+  const [adminHeaderMessage, setAdminHeaderMessage] = useState("");
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
   const [settings, setSettings] = useState({ company: "SOBRE RUEDAS", email: "flota@sobreruedas.es", serviceWarning: "5000", lowConfidence: "94" });
@@ -1535,6 +1556,49 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(""), 2800);
   }, []);
+
+  useEffect(() => {
+    setAdminHeaderName(profileName);
+  }, [profileName]);
+
+  const saveAdminHeaderName = async (event) => {
+    event.preventDefault();
+    if (!supabase) return;
+    const nextName = adminHeaderName.trim();
+    if (!nextName) {
+      setAdminHeaderMessage("El nombre del administrador no puede estar vacío.");
+      return;
+    }
+    const { error } = await supabase.from("profiles").update({ full_name: nextName, updated_at: new Date().toISOString() }).eq("id", session.user.id);
+    if (error) {
+      setAdminHeaderMessage(error.message);
+      return;
+    }
+    const { error: authError } = await supabase.auth.updateUser({ data: { full_name: nextName } });
+    onProfileChange({ full_name: nextName });
+    if (authError) {
+      setAdminHeaderMessage(`El perfil se guardó, pero no se pudo sincronizar la sesión: ${authError.message}`);
+      return;
+    }
+    setAdminHeaderMessage("");
+    notify("Perfil de administrador actualizado");
+  };
+
+  const saveAdminHeaderPassword = async (event) => {
+    event.preventDefault();
+    if (!adminHeaderPassword || adminHeaderPassword.length < 8 || !supabase) {
+      setAdminHeaderMessage("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    const { error } = await supabase.auth.updateUser({ password: adminHeaderPassword });
+    if (error) {
+      setAdminHeaderMessage(error.message);
+      return;
+    }
+    setAdminHeaderPassword("");
+    setAdminHeaderMessage("");
+    notify("Contraseña de administrador actualizada");
+  };
 
   useEffect(() => {
     if (!isAdmin) {
@@ -1681,6 +1745,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       const nextNav = navFromHash();
       setActiveNav(nextNav);
       setTopbarMenuOpen(false);
+      setAdminHeaderOpen(false);
       if (nextNav === "Gasolina") {
         setInspectorTab("Gasolina");
         setInspectorOpen(false);
@@ -1696,6 +1761,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         setModal(null);
         setNotificationsOpen(false);
         setTopbarMenuOpen(false);
+        setAdminHeaderOpen(false);
         setQuickMenuStep("");
       }
     };
@@ -1705,12 +1771,13 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
 
   useEffect(() => {
     const onPointerDown = (event) => {
-      if (!topbarMenuOpen || !(event.target instanceof Element)) return;
-      if (!event.target.closest(".topbar-management-menu, .topbar-menu-button")) setTopbarMenuOpen(false);
+      if (!(event.target instanceof Element)) return;
+      if (topbarMenuOpen && !event.target.closest(".topbar-management-menu, .topbar-menu-button")) setTopbarMenuOpen(false);
+      if (adminHeaderOpen && !event.target.closest(".admin-header-sheet, .admin-title-control")) setAdminHeaderOpen(false);
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [topbarMenuOpen]);
+  }, [adminHeaderOpen, topbarMenuOpen]);
 
 
   useEffect(() => {
@@ -2181,9 +2248,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       <main className="workspace">
           <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores", "Administración"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}${activeNav === "Mantenimiento" ? " topbar--maintenance" : ""}`}>
           <div className="topbar-title">
-            {activeNav === adminNavItem.label ? <button className="workspace-home-button admin-topbar-home" onClick={openGeneral} aria-label="Volver a la aplicación" title="Volver a la aplicación"><IconShieldCheck size={22} /></button> : <button className="workspace-home-button" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>}
-            {activeNav === "Administración" && isAdmin && <button type="button" className="topbar-back-button" onClick={openGeneral} aria-label="Volver a la aplicación" title="Volver a la aplicación"><IconChevronLeft size={17} /><span>Volver</span></button>}
-            <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : activeNav === "Administración" ? "Usuarios y permisos" : "Gestión centralizada de vehículos"}</small>}</div>
+            <button className="workspace-home-button admin-topbar-home" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
+            {activeNav === adminNavItem.label && isAdmin ? <button type="button" className="admin-title-control" onClick={() => { setAdminHeaderOpen((value) => !value); setAdminHeaderMessage(""); setTopbarMenuOpen(false); setNotificationsOpen(false); }} aria-expanded={adminHeaderOpen} aria-controls="admin-header-sheet"><span>ADMINISTRADOR</span><strong>{profileName.toLocaleUpperCase("es")}</strong><IconChevronDown size={17} /></button> : <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : activeNav === "Administración" ? "Usuarios y permisos" : "Gestión centralizada de vehículos"}</small>}</div>}
           </div>
           {activeNav === "Mantenimiento" && <MaintenanceSearch query={maintenanceSearchQuery} open={maintenanceSearchOpen} suggestions={maintenanceSearchSuggestions} onQueryChange={setMaintenanceSearchQuery} onOpenChange={setMaintenanceSearchOpen} onSelect={openMaintenanceSearchRecord} />}
           {!compactDetailHeader && <div className="topbar-actions">
@@ -2207,6 +2273,15 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
               <button className="topbar-management-menu__item" onClick={onSignOut}><IconLogout size={18} /><span>Cerrar sesión</span></button>
             </aside>
           )}
+          {!compactDetailHeader && activeNav === adminNavItem.label && isAdmin && adminHeaderOpen && (
+            <aside id="admin-header-sheet" className="admin-header-sheet" aria-label="Funciones del administrador">
+              <header className="admin-header-sheet__header"><div><span>PERFIL Y FUNCIONES</span><strong>{profileName.toLocaleUpperCase("es")}</strong></div><button type="button" className="icon-button" onClick={() => setAdminHeaderOpen(false)} aria-label="Cerrar funciones del administrador"><IconX size={17} /></button></header>
+              <div className="admin-header-sheet__functions"><span><IconUsers size={16} /><b>Gestionar conductores</b><small>Perfiles y accesos de los tres coches profesionales</small></span><span><IconShieldCheck size={16} /><b>Controlar permisos</b><small>Pausar, activar y revisar cada cuenta</small></span><span><IconKey size={16} /><b>Seguridad de accesos</b><small>Restablecer contraseñas cuando sea necesario</small></span></div>
+              <form className="admin-header-sheet__form" onSubmit={saveAdminHeaderName}><label>Nombre visible<input value={adminHeaderName} onChange={(event) => setAdminHeaderName(event.target.value)} required /></label><button className="secondary-button" type="submit">Guardar nombre</button></form>
+              <form className="admin-header-sheet__form admin-header-sheet__form--password" onSubmit={saveAdminHeaderPassword}><label>Nueva contraseña<input type="password" value={adminHeaderPassword} onChange={(event) => setAdminHeaderPassword(event.target.value)} minLength={8} placeholder="Mínimo 8 caracteres" /></label><button className="secondary-button" type="submit"><IconKey size={15} />Cambiar contraseña</button></form>
+              {adminHeaderMessage && <p className="admin-header-sheet__message" role="alert">{adminHeaderMessage}</p>}
+            </aside>
+          )}
           {!compactDetailHeader && notificationsOpen && (
             <aside className="notification-popover" aria-label="Notificaciones recientes">
               <header><strong>Notificaciones</strong><div><span>{adminNotifications.length} nuevas</span><button className="icon-button" onClick={() => setAdminNotifications([])} aria-label="Marcar notificaciones como leídas"><IconCheck size={15} /></button><button className="icon-button" onClick={() => setNotificationsOpen(false)} aria-label="Cerrar notificaciones"><IconX size={18} /></button></div></header>
@@ -2226,7 +2301,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
-          {activeNav === "Administración" && isAdmin && <AdminView profile={profile} session={session} notify={notify} onProfileChange={onProfileChange} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} invoices={invoices} />}
+          {activeNav === "Administración" && isAdmin && <AdminView notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} invoices={invoices} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}
@@ -3598,23 +3673,18 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
 const driverVehicleOptions = vehicleOrder.map((plate) => vehiclesSeed.find((vehicle) => vehicle.plate === plate)).filter((vehicle) => vehicle?.use === "Profesional");
 const generateDriverPassword = () => `Rueda-${Math.random().toString(36).slice(2, 7)}-${new Date().getFullYear()}!`;
 
-function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver, onDriversChange, invoices = [] }) {
+function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState(null);
-  const [openSection, setOpenSection] = useState("");
+  const [driverActionId, setDriverActionId] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", password: "" });
   const [editingDriverId, setEditingDriverId] = useState("");
-  const [focusedDriverId, setFocusedDriverId] = useState("");
   const [driverProfileForm, setDriverProfileForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", active: true });
-  const [adminName, setAdminName] = useState(profile.full_name || "David Diaz");
-  const [adminPassword, setAdminPassword] = useState("");
-
-  useEffect(() => {
-    setAdminName(profile.full_name || "David Diaz");
-  }, [profile.full_name]);
+  const longPressRef = useRef({ timer: null, key: "", triggered: false });
 
   const loadDrivers = useCallback(async () => {
     setLoading(true);
@@ -3628,19 +3698,10 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
     }
   }, []);
   useEffect(() => { loadDrivers(); }, [loadDrivers]);
-  const refreshAdminProfile = useCallback(async () => {
-    if (!supabase || !session?.user?.id) return;
-    const { data, error } = await getProfile(session.user);
-    if (!error && data) {
-      setAdminName(data.full_name || "David Diaz");
-      onProfileChange(data);
-    }
-  }, [onProfileChange, session?.user?.id]);
   useEffect(() => {
     const refreshOnReturn = () => {
       if (document.visibilityState !== "visible") return;
       void loadDrivers();
-      void refreshAdminProfile();
     };
     window.addEventListener("focus", refreshOnReturn);
     document.addEventListener("visibilitychange", refreshOnReturn);
@@ -3648,8 +3709,28 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
       window.removeEventListener("focus", refreshOnReturn);
       document.removeEventListener("visibilitychange", refreshOnReturn);
     };
-  }, [loadDrivers, refreshAdminProfile]);
+  }, [loadDrivers]);
   useEffect(() => { onDriversChange?.(drivers); }, [drivers, onDriversChange]);
+  useEffect(() => {
+    const closeDriverMenu = (event) => {
+      if (event.key === "Escape") {
+        setDriverActionId("");
+        setEditingDriverId("");
+      }
+    };
+    window.addEventListener("keydown", closeDriverMenu);
+    return () => window.removeEventListener("keydown", closeDriverMenu);
+  }, []);
+  useEffect(() => () => window.clearTimeout(longPressRef.current.timer), []);
+  useEffect(() => {
+    const closeOnOutsideTap = (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (!event.target.closest(".admin-driver-card")) setDriverActionId("");
+    };
+    document.addEventListener("pointerdown", closeOnOutsideTap);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideTap);
+  }, []);
+
   const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const createDriver = async (event) => {
     event.preventDefault();
@@ -3661,8 +3742,8 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
       const createdProfile = normalizeDriverProfileRecord(response.profile);
       setDrivers((current) => [...current, createdProfile].sort((a, b) => a.full_name.localeCompare(b.full_name)));
       setGeneratedPassword({ driverId: createdProfile?.id, value: response.password });
-      setFocusedDriverId(createdProfile?.id ?? "");
-      setOpenSection(createdProfile?.vehicle_plate ?? form.vehiclePlate);
+      setDriverActionId(createdProfile ? driverActionKey(createdProfile) : "");
+      setCreateOpen(false);
       setForm({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", password: "" });
       notify("Cuenta de conductor creada");
     } catch (error) {
@@ -3671,6 +3752,7 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
       setSaving(false);
     }
   };
+  const driverActionKey = (driver) => `${canonicalizeVehiclePlate(driver.vehicle_plate)}:${driver.id ?? normalizeDriverAvatarKey(driver.full_name)}`;
   const resetDriver = async (driver) => {
     const nextPassword = generateDriverPassword();
     setMessage("");
@@ -3680,8 +3762,7 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
       const updatedProfile = normalizeDriverProfileRecord(response.profile);
       setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? updatedProfile : candidate));
       setGeneratedPassword({ driverId: driver.id, value: response.password });
-      setFocusedDriverId(driver.id);
-      setOpenSection(canonicalizeVehiclePlate(driver.vehicle_plate));
+      setDriverActionId(driverActionKey(driver));
       notify(`Acceso restablecido para ${driver.full_name}`);
     } catch (error) {
       setMessage(error.message);
@@ -3696,9 +3777,13 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
       setMessage(error.message);
     }
   };
+  const toggleDriverAccess = async (driver) => {
+    await updateDriver(driver, { active: !driver.active });
+    setDriverActionId("");
+  };
   const startDriverEdit = (driver) => {
     setEditingDriverId(driver.id);
-    setFocusedDriverId(driver.id);
+    setDriverActionId(driverActionKey(driver));
     setDriverProfileForm({ fullName: driver.full_name ?? "", email: driver.email ?? "", vehiclePlate: canonicalizeVehiclePlate(driver.vehicle_plate) || driverVehicleOptions[0]?.plate || "", active: Boolean(driver.active) });
     setMessage("");
   };
@@ -3719,92 +3804,80 @@ function AdminView({ profile, session, notify, onProfileChange, onPreviewDriver,
       setSaving(false);
     }
   };
-  const saveAdminName = async (event) => {
-    event.preventDefault();
-    if (!supabase) return;
-    const nextName = adminName.trim();
-    if (!nextName) return setMessage("El nombre del administrador no puede estar vacío.");
-    const { error } = await supabase.from("profiles").update({ full_name: nextName, updated_at: new Date().toISOString() }).eq("id", session.user.id);
-    if (error) return setMessage(error.message);
-    const { error: authError } = await supabase.auth.updateUser({ data: { full_name: nextName } });
-    if (authError) return setMessage(`El perfil se guardó, pero no se pudo sincronizar la sesión: ${authError.message}`);
-    await refreshAdminProfile();
-    notify("Perfil de administrador actualizado");
+  const driversForVehicle = (vehicle) => {
+    const assigned = drivers
+      .filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate)
+      .sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name))
+      .slice(0, 2);
+    const assignedNames = new Set(assigned.map((driver) => normalizeDriverAvatarKey(driver.full_name)));
+    const fallback = (vehicle.drivers ?? [])
+      .map((name, index) => ({ id: `seed-${vehicle.plate.replace(/\s/g, "-")}-${index}`, full_name: name, email: "", vehicle_plate: vehicle.plate, active: true, isSeed: true }))
+      .filter((driver) => !assignedNames.has(normalizeDriverAvatarKey(driver.full_name)));
+    return [...assigned, ...fallback].slice(0, 2);
   };
-  const saveAdminPassword = async (event) => {
-    event.preventDefault();
-    if (!adminPassword || adminPassword.length < 8 || !supabase) return setMessage("La contraseña debe tener al menos 8 caracteres.");
-    const { error } = await supabase.auth.updateUser({ password: adminPassword });
-    if (error) return setMessage(error.message);
-    setAdminPassword("");
-    notify("Contraseña de administrador actualizada");
-  };
-  const driversForVehicle = (vehicle) => drivers
-    .filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate)
-    .sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name));
-  const activeDriverCount = drivers.filter((driver) => driver.active).length;
-  const documentCount = invoices.length;
   const vehicleDocumentCount = (vehicle) => invoices.filter((invoice) => canonicalizeVehiclePlate(invoice.plate || invoice.vehicle_plate) === vehicle.plate).length;
-  const toggleSection = (section) => setOpenSection((current) => current === section ? "" : section);
-  const toggleDriver = (driverId) => setFocusedDriverId((current) => current === driverId ? "" : driverId);
+  const startDriverLongPress = (driverKey) => {
+    window.clearTimeout(longPressRef.current.timer);
+    longPressRef.current = { timer: window.setTimeout(() => {
+      longPressRef.current.triggered = true;
+      setDriverActionId(driverKey);
+    }, 1000), key: driverKey, triggered: false };
+  };
+  const stopDriverLongPress = () => {
+    window.clearTimeout(longPressRef.current.timer);
+    longPressRef.current.timer = null;
+  };
+  const openDriverApplication = (driver, driverKey) => {
+    const longPressed = longPressRef.current.triggered && longPressRef.current.key === driverKey;
+    longPressRef.current.triggered = false;
+    if (longPressed) return;
+    setDriverActionId("");
+    onPreviewDriver(driver);
+  };
+  const driverInitials = (name) => String(name ?? "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
 
   return <section className="admin-page">
      {message && <div className="admin-alert" role="alert"><IconAlertTriangle size={18} />{message}</div>}
-     <div className="admin-stats" aria-label="Resumen de administración">
-       <article className="admin-stat admin-stat--vehicles"><span className="admin-stat__icon"><IconCar size={18} /></span><div><strong>{driverVehicleOptions.length}</strong><small>Vehículos</small></div></article>
-       <article className="admin-stat admin-stat--drivers"><span className="admin-stat__icon"><IconUserCircle size={18} /></span><div><strong>{activeDriverCount}</strong><small>{activeDriverCount === 1 ? "Conductor activo" : "Conductores activos"}</small></div></article>
-       <article className="admin-stat admin-stat--documents"><span className="admin-stat__icon"><IconFileInvoice size={18} /></span><div><strong>{documentCount}</strong><small>Documentos</small></div></article>
-     </div>
+     <div className="admin-vehicles-heading"><div><strong>VEHÍCULOS PROFESIONALES</strong><small>{loading ? "Sincronizando accesos…" : "Selecciona un conductor para ver su aplicación"}</small></div></div>
      <div className="admin-access-stack">
-       <section className="admin-accordion admin-accordion--admin">
-         <button className={`admin-accordion__button${openSection === "admin" ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection("admin")} aria-expanded={openSection === "admin"} aria-controls="admin-profile-panel">
-           <span className="admin-accordion__icon"><IconShieldCheck size={21} /></span>
-           <span className="admin-accordion__copy"><strong>ADMINISTRADOR</strong><strong className="admin-accordion__admin-name">{(adminName || "David Diaz").toLocaleUpperCase("es")}</strong></span>
-           <IconChevronDown className="admin-accordion__chevron" size={19} />
-         </button>
-         {openSection === "admin" && <div className="admin-accordion__panel" id="admin-profile-panel">
-           <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">PERFIL PRINCIPAL</span><h2>DAVID DIAZ</h2><p>Gestiona el nombre visible y la contraseña exclusiva del administrador.</p></div><IconUserCircle size={23} /></header>
-           <form className="admin-profile-form" onSubmit={saveAdminName}><label>Nombre visible<input value={adminName} onChange={(event) => setAdminName(event.target.value)} required /></label><label>Email<input value={session.user.email ?? ""} disabled /></label><button className="secondary-button" type="submit">Guardar nombre</button></form>
-           <form className="admin-profile-form admin-profile-form--password" onSubmit={saveAdminPassword}><label>Nueva contraseña<input type="password" value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} minLength={8} placeholder="Mínimo 8 caracteres" /></label><button className="secondary-button" type="submit"><IconKey size={16} />Cambiar contraseña</button></form>
-         </div>}
-       </section>
-       <div className="admin-vehicles-heading"><strong>VEHÍCULOS</strong><button type="button" onClick={() => setOpenSection("")}>Ver todos</button></div>
        {driverVehicleOptions.map((vehicle) => {
          const vehicleDrivers = driversForVehicle(vehicle);
          const vehicleDocuments = vehicleDocumentCount(vehicle);
-         return <section className="admin-accordion" key={vehicle.plate}>
-           <button className={`admin-accordion__button${openSection === vehicle.plate ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection(vehicle.plate)} aria-expanded={openSection === vehicle.plate} aria-controls={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>
-             <span className="admin-accordion__icon admin-accordion__icon--vehicle"><IconCar size={21} /></span>
-             <span className="admin-accordion__copy"><VehiclePlateLabel vehicleOrPlate={vehicle} className="admin-vehicle-plate" /><span className="admin-accordion__documents"><IconFileInvoice size={13} /><b>Documentos</b><small>{vehicleDocuments}</small></span><span className="admin-accordion__vehicle-subline"><small>{vehicle.model}</small><span className="admin-accordion__status"><i />Activo</span></span></span>
-             <small className="admin-accordion__driver-names" aria-label="Conductores asignados">{vehicleDrivers.length > 0 ? vehicleDrivers.map((driver) => <span key={driver.id}>{driver.full_name}</span>) : <span>Ninguno</span>}</small>
-             <IconChevronRight className="admin-accordion__chevron" size={18} />
-           </button>
-           {openSection === vehicle.plate && <div className="admin-accordion__panel" id={`admin-vehicle-${vehicle.plate.replace(/\s/g, "-")}`}>
-              {loading ? <p className="empty-state">Cargando cuentas…</p> : vehicleDrivers.length === 0 ? <p className="admin-vehicle-empty">Todavía no hay conductores asignados a este coche.</p> : <div className="admin-vehicle-drivers">{vehicleDrivers.map((driver) => {
-                const focused = focusedDriverId === driver.id || editingDriverId === driver.id || generatedPassword?.driverId === driver.id;
-                return <article className={`admin-vehicle-driver${focused ? " is-focused" : ""}`} key={driver.id}>
-                  <button className="admin-vehicle-driver__button" type="button" onClick={() => toggleDriver(driver.id)} aria-expanded={focused} aria-controls={`admin-driver-actions-${driver.id}`}>
-                    <span className={`admin-vehicle-driver__status-dot${driver.active ? " is-active" : ""}`} aria-hidden="true" />
-                    <span className="admin-vehicle-driver__identity"><strong>{driver.full_name}</strong><small>{driver.email}</small><span className={`admin-driver-status${driver.active ? " is-active" : ""}`}>{driver.active ? "Acceso activo" : "Acceso pausado"}</span></span>
-                    <IconChevronDown className="admin-vehicle-driver__chevron" size={17} />
-                  </button>
-                  {focused && <div className="admin-vehicle-driver__details" id={`admin-driver-actions-${driver.id}`}>
-                    <div className="admin-vehicle-driver__actions"><button className="text-button text-button--preview" type="button" onClick={() => onPreviewDriver(driver)} disabled={!driver.active}><IconEye size={15} />Ver aplicación</button><button className="text-button" type="button" onClick={() => startDriverEdit(driver)} aria-expanded={editingDriverId === driver.id}><IconUserCircle size={15} />Editar perfil</button><button className="text-button" type="button" onClick={() => updateDriver(driver, { active: !driver.active })}>{driver.active ? "Pausar acceso" : "Activar acceso"}</button><button className="text-button text-button--accent" type="button" onClick={() => resetDriver(driver)}><IconRefresh size={15} />Restablecer contraseña</button></div>
-                    {generatedPassword?.driverId === driver.id && <div className="admin-driver-password" role="status"><IconKey size={13} /><span>CONTRASEÑA</span><code>{generatedPassword.value}</code><button className="icon-button" type="button" onClick={() => setGeneratedPassword(null)} aria-label="Ocultar contraseña"><IconX size={13} /></button></div>}
-                    {editingDriverId === driver.id && <form className="admin-driver-profile-editor" onSubmit={(event) => saveDriverProfile(event, driver)}><label>Nombre completo<input value={driverProfileForm.fullName} onChange={(event) => updateDriverProfileForm("fullName", event.target.value)} required /></label><label>Email de acceso<input type="email" value={driverProfileForm.email} onChange={(event) => updateDriverProfileForm("email", event.target.value)} required /></label><label>Vehículo asignado<select value={driverProfileForm.vehiclePlate} onChange={(event) => updateDriverProfileForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((option) => <option key={option.plate} value={option.plate}>{option.plate} · {option.model}</option>)}</select></label><label className="admin-driver-profile-editor__active"><input type="checkbox" checked={driverProfileForm.active} onChange={(event) => updateDriverProfileForm("active", event.target.checked)} />Acceso activo</label><div className="admin-driver-profile-editor__actions"><button className="text-button" type="button" onClick={() => setEditingDriverId("")}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar perfil"}</button></div></form>}
-                  </div>}
-                </article>;
-              })}</div>}
-           </div>}
+         return <section className="admin-vehicle-card" key={vehicle.plate} aria-label={`Coche ${vehicle.plate}`}>
+           <header className="admin-vehicle-card__header">
+             <div className="admin-vehicle-card__identity"><span className="admin-vehicle-card__icon"><IconCar size={21} /></span><div><VehiclePlateLabel vehicleOrPlate={vehicle} className="admin-vehicle-plate" /><span className="admin-vehicle-card__model">{vehicle.model}</span><span className="admin-vehicle-card__status"><i />Activo</span><span className="admin-accordion__documents"><IconFileInvoice size={13} /><b>Documentos</b><small>{vehicleDocuments}</small></span></div></div>
+             <div className="admin-vehicle-card__summary"><strong>{vehicleDrivers.length} CONDUCTORES</strong><small>Accesos directos</small></div>
+           </header>
+           <div className="admin-vehicle-card__drivers">
+             {vehicleDrivers.map((driver) => {
+               const driverKey = driverActionKey(driver);
+               const avatarPath = getDriverAvatarPath(driver.full_name);
+               const menuOpen = driverActionId === driverKey;
+               const editing = editingDriverId === driver.id;
+               return <article className={`admin-driver-card${menuOpen ? " is-open" : ""}`} key={driverKey}>
+                 <button className="admin-driver-card__trigger" type="button" onClick={() => openDriverApplication(driver, driverKey)} onPointerDown={(event) => { if (event.pointerType !== "mouse" || event.button === 0) startDriverLongPress(driverKey); }} onPointerUp={stopDriverLongPress} onPointerLeave={stopDriverLongPress} onPointerCancel={stopDriverLongPress} onContextMenu={(event) => event.preventDefault()} aria-label={`Abrir aplicación de ${driver.full_name}`}>
+                   <span className="admin-driver-card__avatar">{avatarPath ? <img src={avatarPath} alt="" /> : <span>{driverInitials(driver.full_name)}</span>}<i className={driver.active ? "is-active" : ""} aria-hidden="true" /></span>
+                   <strong>{driver.full_name}</strong>
+                   <small>{driver.active ? "Acceso activo" : "Acceso pausado"}</small>
+                 </button>
+                 {menuOpen && <div className="admin-driver-card__menu" role="menu" aria-label={`Acciones de ${driver.full_name}`}>
+                   <header><div><strong>{driver.full_name}</strong><small>Menú de acceso · mantén pulsado 1 s para abrir</small></div><button type="button" className="icon-button" onClick={() => setDriverActionId("")} aria-label="Cerrar menú del conductor"><IconX size={15} /></button></header>
+                   <div className="admin-driver-card__actions"><button type="button" role="menuitem" className="text-button" onClick={() => startDriverEdit(driver)}><IconUserCircle size={15} />Editar perfil</button><button type="button" role="menuitem" className="text-button" onClick={() => toggleDriverAccess(driver)}>{driver.active ? <IconShieldCheck size={15} /> : <IconCircleCheck size={15} />}{driver.active ? "Pausar acceso" : "Activar acceso"}</button><button type="button" role="menuitem" className="text-button text-button--accent" onClick={() => resetDriver(driver)}><IconRefresh size={15} />Restablecer contraseña</button></div>
+                   {generatedPassword?.driverId === driver.id && <div className="admin-driver-password" role="status"><IconKey size={13} /><span>CONTRASEÑA</span><code>{generatedPassword.value}</code><button className="icon-button" type="button" onClick={() => setGeneratedPassword(null)} aria-label="Ocultar contraseña"><IconX size={13} /></button></div>}
+                   {editing && <form className="admin-driver-profile-editor" onSubmit={(event) => saveDriverProfile(event, driver)}><label>Nombre completo<input value={driverProfileForm.fullName} onChange={(event) => updateDriverProfileForm("fullName", event.target.value)} required /></label><label>Email de acceso<input type="email" value={driverProfileForm.email} onChange={(event) => updateDriverProfileForm("email", event.target.value)} required /></label><label>Vehículo asignado<select value={driverProfileForm.vehiclePlate} onChange={(event) => updateDriverProfileForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((option) => <option key={option.plate} value={option.plate}>{option.plate} · {option.model}</option>)}</select></label><label className="admin-driver-profile-editor__active"><input type="checkbox" checked={driverProfileForm.active} onChange={(event) => updateDriverProfileForm("active", event.target.checked)} />Acceso activo</label><div className="admin-driver-profile-editor__actions"><button className="text-button" type="button" onClick={() => setEditingDriverId("")}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar perfil"}</button></div></form>}
+                 </div>}
+               </article>;
+             })}
+           </div>
          </section>;
        })}
        <section className="admin-accordion admin-accordion--create">
-         <button className={`admin-accordion__button${openSection === "create" ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => toggleSection("create")} aria-expanded={openSection === "create"} aria-controls="admin-create-panel">
+         <button className={`admin-accordion__button${createOpen ? " admin-accordion__button--open" : ""}`} type="button" onClick={() => setCreateOpen((current) => !current)} aria-expanded={createOpen} aria-controls="admin-create-panel">
            <span className="admin-accordion__icon admin-accordion__icon--create"><IconUserPlus size={21} /></span>
            <span className="admin-accordion__copy"><strong>CREAR NUEVO ACCESO</strong><small>Añade una cuenta y asigna su coche profesional</small></span>
            <IconChevronRight className="admin-accordion__chevron" size={19} />
          </button>
-         {openSection === "create" && <div className="admin-accordion__panel" id="admin-create-panel">
+         {createOpen && <div className="admin-accordion__panel" id="admin-create-panel">
            <header className="admin-accordion__panel-header"><div><span className="admin-eyebrow">CUENTAS DE CONDUCTOR</span><h2>Nuevo acceso</h2><p>La contraseña que introduzcas será definitiva. Solo el administrador podrá cambiarla después.</p></div><IconKey size={23} /></header>
            <form className="admin-create-form" onSubmit={createDriver}><label>Nombre completo<input value={form.fullName} onChange={(event) => updateForm("fullName", event.target.value)} placeholder="Ej. Ana García" required /></label><label>Email de acceso<input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} placeholder="conductor@email.com" required /></label><label>Vehículo profesional<select value={form.vehiclePlate} onChange={(event) => updateForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((vehicle) => <option key={vehicle.plate} value={vehicle.plate}>{vehicle.plate} · {vehicle.model}</option>)}</select></label><label>Contraseña definitiva<input type="text" value={form.password} onChange={(event) => updateForm("password", event.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} required /></label><button className="primary-button" type="submit" disabled={saving}><IconUserPlus size={17} />{saving ? "Creando…" : "Crear cuenta"}</button></form>
          </div>}

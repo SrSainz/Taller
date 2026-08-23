@@ -4339,3 +4339,173 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .net-detail-modal__period-trigger { min-width: 68px; padding-inline: 5px; font-size: 7px; }
   .net-detail-modal__period-trigger--year { min-width: 52px; }
 }
+
+/* Administración: el administrador ocupa la cabecera y los tres coches muestran siempre sus dos accesos. */
+.app-shell--admin .admin-topbar-home {
+  width: 38px;
+  height: 38px;
+  flex-basis: 38px;
+  border: 1px solid rgba(255, 40, 0, .48);
+  border-radius: 11px;
+  background: #d20000;
+  box-shadow: 0 3px 9px rgba(137, 20, 10, .16);
+}
+.app-shell--admin .admin-topbar-home:hover,
+.app-shell--admin .admin-topbar-home:focus-visible {
+  border-color: #ff2800;
+  background: #e00000;
+  box-shadow: 0 4px 13px rgba(255, 40, 0, .22);
+  transform: translateY(-1px);
+}
+.admin-title-control {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 9px;
+  padding: 3px 8px 3px 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #152a27;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-title-control:hover,
+.admin-title-control:focus-visible { background: #f1faf7; outline: 0; }
+.admin-title-control span,
+.admin-title-control strong { min-width: 0; overflow: hidden; grid-column: 1; text-overflow: ellipsis; white-space: nowrap; }
+.admin-title-control span { color: #2c7f72; font-size: 8px; font-weight: 850; letter-spacing: .15em; line-height: 1; }
+.admin-title-control strong { color: #152a27; font-size: 16px; font-weight: 900; letter-spacing: -.035em; line-height: 1.1; }
+.admin-title-control svg { grid-column: 2; grid-row: 1 / span 2; color: #568078; transition: transform .18s ease; }
+.admin-title-control[aria-expanded="true"] svg { color: #14796c; transform: rotate(180deg); }
+.app-shell--admin .topbar-title .admin-title-control span { color: #2c7f72; font-size: 8px; font-weight: 850; letter-spacing: .15em; line-height: 1; }
+.app-shell--admin .topbar-title .admin-title-control strong { color: #152a27; font-size: 16px; font-weight: 900; letter-spacing: -.035em; line-height: 1.1; }
+.admin-header-sheet {
+  position: absolute;
+  top: 58px;
+  left: 14px;
+  z-index: 40;
+  width: min(380px, calc(100vw - 28px));
+  display: grid;
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid #d8e8e2;
+  border-radius: 15px;
+  background: #fff;
+  color: #19332d;
+  box-shadow: 0 18px 38px rgba(24, 65, 54, .17);
+}
+.admin-header-sheet__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.admin-header-sheet__header > div { display: grid; min-width: 0; gap: 3px; }
+.admin-header-sheet__header span { color: #237d70; font-size: 8px; font-weight: 850; letter-spacing: .13em; }
+.admin-header-sheet__header strong { overflow: hidden; color: #17332d; font-size: 17px; font-weight: 900; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.admin-header-sheet__header .icon-button { flex: 0 0 auto; color: #66817a; }
+.admin-header-sheet__functions { display: grid; gap: 7px; padding: 10px; border: 1px solid #e3eeea; border-radius: 11px; background: #f7fbf9; }
+.admin-header-sheet__functions > span { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; align-items: center; }
+.admin-header-sheet__functions svg { grid-row: 1 / span 2; color: #188878; }
+.admin-header-sheet__functions b { color: #29463f; font-size: 10px; line-height: 1.1; }
+.admin-header-sheet__functions small { color: #748680; font-size: 8px; line-height: 1.25; }
+.admin-header-sheet__form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 7px; }
+.admin-header-sheet__form label { display: grid; gap: 4px; color: #5e766f; font-size: 8px; font-weight: 800; }
+.admin-header-sheet__form input { width: 100%; min-height: 34px; box-sizing: border-box; padding: 7px 9px; border: 1px solid #cedfd8; border-radius: 8px; background: #fff; color: #19332d; font: inherit; font-size: 11px; outline: 0; }
+.admin-header-sheet__form input:focus { border-color: #168c7d; box-shadow: 0 0 0 3px rgba(22, 140, 125, .12); }
+.admin-header-sheet__form .secondary-button { min-height: 34px; padding-inline: 10px; font-size: 8px; white-space: nowrap; }
+.admin-header-sheet__form--password { padding-top: 10px; border-top: 1px solid #e4eeeb; }
+.admin-header-sheet__message { margin: 0; padding: 8px 9px; border-radius: 8px; background: #fff0f2; color: #a13b4b; font-size: 8px; line-height: 1.3; }
+
+.app-shell--admin .admin-page {
+  width: min(calc(100% - 32px), 760px);
+  min-height: calc(100dvh - 64px - var(--bottom-navigation-height) - env(safe-area-inset-bottom));
+  padding: 16px 0 24px;
+}
+.app-shell--admin .admin-access-stack {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-rows: none;
+  gap: 12px;
+}
+.app-shell--admin .admin-page:not(:has(.admin-accordion__button--open)) .admin-access-stack { display: grid; flex: 0 0 auto; grid-template-rows: none; }
+.app-shell--admin .admin-page:not(:has(.admin-accordion__button--open)) .admin-accordion,
+.app-shell--admin .admin-page:not(:has(.admin-accordion__button--open)) .admin-accordion__button { height: auto; }
+.app-shell--admin .admin-vehicles-heading { min-height: 0; align-items: flex-start; padding: 0 2px 1px; }
+.app-shell--admin .admin-vehicles-heading > div { display: grid; gap: 3px; }
+.app-shell--admin .admin-vehicles-heading strong { color: #237d70; font-size: 10px; letter-spacing: .13em; }
+.app-shell--admin .admin-vehicles-heading small { color: #71837d; font-size: 9px; }
+.app-shell--admin .admin-vehicle-card {
+  min-width: 0;
+  overflow: visible;
+  border: 1px solid #dce9e4;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 5px 15px rgba(29, 73, 62, .055);
+}
+.app-shell--admin .admin-vehicle-card__header { display: flex; align-items: center; justify-content: space-between; gap: 15px; min-width: 0; padding: 13px 15px 11px; border-bottom: 1px solid #e7efec; }
+.admin-vehicle-card__identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.admin-vehicle-card__identity > div { display: grid; min-width: 0; gap: 2px; }
+.admin-vehicle-card__icon { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border-radius: 12px; background: #e5f4ef; color: #138877; }
+.admin-vehicle-card__model { overflow: hidden; color: #6f827b; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-vehicle-card__status { display: inline-flex; align-items: center; gap: 4px; color: #2a9a59; font-size: 8px; font-weight: 800; line-height: 1; }
+.admin-vehicle-card__status i { width: 6px; height: 6px; border-radius: 50%; background: #2ab15d; }
+.admin-vehicle-card__identity .admin-accordion__documents { width: max-content; margin-top: 3px; color: #768881; font-size: 8px; }
+.admin-vehicle-card__identity .admin-accordion__documents b { color: #768881; font-size: 8px; }
+.admin-vehicle-card__identity .admin-accordion__documents small { color: #29443c; font-size: 8px; }
+.admin-vehicle-card__summary { display: grid; flex: 0 0 auto; justify-items: end; gap: 3px; }
+.admin-vehicle-card__summary strong { color: #37675d; font-size: 9px; letter-spacing: .08em; }
+.admin-vehicle-card__summary small { color: #84958f; font-size: 8px; }
+.admin-vehicle-card__drivers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px; }
+.admin-driver-card { position: relative; min-width: 0; overflow: visible; border: 1px solid #e1ebe7; border-radius: 13px; background: #fbfdfc; transition: border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+.admin-driver-card.is-open { z-index: 3; border-color: #8bcbbd; background: #f7fcfa; box-shadow: 0 7px 18px rgba(24, 104, 88, .1); }
+.admin-driver-card__trigger { display: grid; width: 100%; min-height: 148px; justify-items: center; align-content: center; gap: 5px; padding: 14px 8px 12px; border: 0; border-radius: 12px; background: transparent; color: #1e3b33; cursor: pointer; touch-action: manipulation; user-select: none; }
+.admin-driver-card__trigger:hover, .admin-driver-card__trigger:focus-visible { background: #f0faf5; outline: 0; }
+.admin-driver-card__avatar { position: relative; display: grid; width: 82px; height: 82px; place-items: center; overflow: visible; border: 3px solid #fff; border-radius: 50%; background: #dff2ec; color: #197c6e; box-shadow: 0 3px 12px rgba(27, 79, 68, .16); }
+.admin-driver-card__avatar img, .admin-driver-card__avatar > span { width: 100%; height: 100%; display: grid; place-items: center; border-radius: 50%; object-fit: cover; }
+.admin-driver-card__avatar > span { color: #177d6c; font-size: 20px; font-weight: 900; }
+.admin-driver-card__avatar i { position: absolute; right: -2px; bottom: 3px; width: 13px; height: 13px; border: 3px solid #fbfdfc; border-radius: 50%; background: #b5c2be; }
+.admin-driver-card__avatar i.is-active { background: #2ab15d; }
+.admin-driver-card__trigger strong { max-width: 100%; overflow: hidden; color: #1d3932; font-size: 12px; font-weight: 900; text-align: center; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.admin-driver-card__trigger small { color: #7b8e87; font-size: 8px; font-weight: 750; }
+.admin-driver-card__menu { display: grid; gap: 8px; padding: 0 10px 10px; border-top: 1px solid #e1ebe7; }
+.admin-driver-card__menu > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding-top: 9px; }
+.admin-driver-card__menu > header > div { display: grid; min-width: 0; gap: 2px; }
+.admin-driver-card__menu > header strong { overflow: hidden; color: #24564a; font-size: 9px; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.admin-driver-card__menu > header small { color: #82938d; font-size: 7px; }
+.admin-driver-card__menu > header .icon-button { width: 24px; height: 24px; flex: 0 0 auto; }
+.admin-driver-card__actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.admin-driver-card__actions .text-button { min-height: 32px; justify-content: center; padding-inline: 5px; font-size: 8px; line-height: 1.1; text-align: center; white-space: normal; }
+.admin-driver-card__actions .text-button svg { flex: 0 0 auto; }
+.app-shell--admin .admin-driver-password { grid-column: auto; margin: 0; }
+.app-shell--admin .admin-driver-profile-editor { grid-column: auto; grid-template-columns: 1fr 1fr; margin: 0; padding: 9px; }
+.app-shell--admin .admin-driver-profile-editor label { font-size: 8px; }
+.app-shell--admin .admin-driver-profile-editor input, .app-shell--admin .admin-driver-profile-editor select { min-height: 31px; padding: 6px 7px; font-size: 9px; }
+.app-shell--admin .admin-driver-profile-editor__active { font-size: 8px; }
+.app-shell--admin .admin-driver-profile-editor__actions { gap: 5px; }
+.app-shell--admin .admin-driver-profile-editor__actions .primary-button, .app-shell--admin .admin-driver-profile-editor__actions .text-button { min-height: 29px; padding: 5px 8px; font-size: 8px; }
+.app-shell--admin .admin-accordion--create { margin-top: 0; }
+
+@media (max-width: 600px) {
+  .app-shell--admin .admin-page { width: min(calc(100% - 20px), 760px); padding-top: 12px; }
+  .app-shell--admin .admin-vehicle-card__header { padding: 11px 11px 9px; }
+  .admin-vehicle-card__icon { width: 34px; height: 34px; border-radius: 10px; }
+  .admin-vehicle-card__summary small { display: none; }
+  .admin-vehicle-card__summary strong { font-size: 8px; }
+  .admin-vehicle-card__drivers { gap: 7px; padding: 9px; }
+  .admin-driver-card__trigger { min-height: 132px; padding: 11px 5px 9px; }
+  .admin-driver-card__avatar { width: 68px; height: 68px; }
+  .admin-driver-card__avatar i { width: 11px; height: 11px; border-width: 2px; }
+  .admin-driver-card__trigger strong { font-size: 10px; }
+  .admin-driver-card__trigger small { font-size: 7px; }
+  .admin-driver-card__actions { grid-template-columns: 1fr 1fr; }
+  .admin-driver-card__actions .text-button:last-child { grid-column: 1 / -1; }
+  .app-shell--admin .admin-driver-profile-editor { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 380px) {
+  .app-shell--admin .topbar-title { gap: 6px; }
+  .app-shell--admin .admin-topbar-home { width: 34px; height: 34px; flex-basis: 34px; }
+  .app-shell--admin .topbar-title .admin-title-control span { font-size: 7px; }
+  .app-shell--admin .topbar-title .admin-title-control strong { font-size: 13px; }
+  .admin-driver-card__avatar { width: 60px; height: 60px; }
+  .admin-driver-card__trigger strong { font-size: 9px; }
+}
