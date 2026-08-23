@@ -1471,9 +1471,16 @@ export function App() {
       return undefined;
     }
     let mounted = true;
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
       if (isPasswordRecoveryLink()) setPasswordRecovery(true);
+      const keepSignedIn = window.localStorage.getItem("sobre-ruedas:keep-signed-in") !== "false";
+      const temporarySessionActive = window.sessionStorage.getItem("sobre-ruedas:temporary-session") === "active";
+      if (session && !keepSignedIn && !temporarySessionActive && !isPasswordRecoveryLink()) {
+        await supabase.auth.signOut();
+        if (mounted) applySession(null);
+        return;
+      }
       applySession(session);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -1485,7 +1492,10 @@ export function App() {
   }, [applySession]);
 
   const updateProfile = (profile) => setAuthState((current) => ({ ...current, profile: { ...current.profile, ...profile } }));
-  const signOut = () => supabase?.auth.signOut();
+  const signOut = () => {
+    window.sessionStorage.removeItem("sobre-ruedas:temporary-session");
+    return supabase?.auth.signOut();
+  };
 
   if (authState.loading) return <AuthLoadingScreen />;
   if (!isSupabaseConfigured) return <AuthScreen configurationError />;
@@ -2357,6 +2367,13 @@ function AuthScreen({ error, configurationError = false }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("davidydiaz@gmail.com");
   const [password, setPassword] = useState("");
+  const [keepSignedIn, setKeepSignedIn] = useState(() => {
+    try {
+      return window.localStorage.getItem("sobre-ruedas:keep-signed-in") !== "false";
+    } catch {
+      return true;
+    }
+  });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [recoverySent, setRecoverySent] = useState(false);
@@ -2371,7 +2388,17 @@ function AuthScreen({ error, configurationError = false }) {
     setSubmitting(true);
     const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setSubmitting(false);
-    if (signInError) setFormError("Usuario o contraseña incorrectos. Si eres conductor, solicita un restablecimiento al administrador.");
+    if (signInError) {
+      setFormError("Usuario o contraseña incorrectos. Si eres conductor, solicita un restablecimiento al administrador.");
+      return;
+    }
+    try {
+      window.localStorage.setItem("sobre-ruedas:keep-signed-in", keepSignedIn ? "true" : "false");
+      if (keepSignedIn) window.sessionStorage.removeItem("sobre-ruedas:temporary-session");
+      else window.sessionStorage.setItem("sobre-ruedas:temporary-session", "active");
+    } catch {
+      // La sesión sigue siendo válida aunque el navegador no permita guardar esta preferencia.
+    }
   };
   const requestRecovery = async (event) => {
     event.preventDefault();
@@ -2416,6 +2443,7 @@ function AuthScreen({ error, configurationError = false }) {
       <form className="auth-form" onSubmit={submit}>
         <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="tu@email.com" autoComplete="username" required /></label>
         <label>Contraseña<span className="auth-password-field"><input type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Contraseña" autoComplete="current-password" required /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"} title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>{showPassword ? <IconEyeOff size={18} /> : <IconEye size={18} />}</button></span></label>
+        <label className="auth-keep-session"><input type="checkbox" checked={keepSignedIn} onChange={(event) => setKeepSignedIn(event.target.checked)} /><span><strong>Mantener la cuenta iniciada</strong><small>Guarda este acceso en este dispositivo.</small></span></label>
         <button className="primary-button auth-form__submit" type="submit" disabled={submitting || configurationError}>{submitting ? "Comprobando…" : "Entrar"}<IconChevronRight size={17} /></button>
       </form>
       <button className="auth-panel__link" type="button" onClick={openRecovery} disabled={configurationError}>¿Has olvidado tu contraseña?</button>
@@ -3613,9 +3641,9 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   }, [maintenanceNoteOpen]);
 
   return (
-    <main className={`driver-app driver-mobile-app${preview ? " driver-app--preview" : ""}`}>
+    <main className={`driver-app driver-mobile-app driver-mobile-app--updated ${preview ? "driver-app--preview" : "driver-app--live"}`}>
       <header className="driver-mobile-topbar">
-        <button type="button" className="driver-mobile-topbar__back" onClick={preview ? onExitPreview : onSignOut} aria-label={preview ? "Volver a administración" : "Cerrar sesión"} title={preview ? "Volver a administración" : "Cerrar sesión"}><IconChevronLeft size={24} /></button>
+        {preview && <button type="button" className="driver-mobile-topbar__back" onClick={onExitPreview} aria-label="Volver a administración" title="Volver a administración"><IconChevronLeft size={24} /></button>}
         <div className="driver-mobile-topbar__title"><span className="driver-mobile-topbar__avatar" aria-hidden="true">{driverAvatarPath ? <img src={driverAvatarPath} alt="" /> : <span>{driverAvatarInitials}</span>}</span><span className="driver-mobile-topbar__identity"><strong>{profile.full_name.toUpperCase()}</strong><VehiclePlateLabel vehicleOrPlate={vehicle?.plate ?? profileVehiclePlate} className="driver-mobile-topbar__plate" /></span></div>
         {driverMenuOpen && <aside className="driver-mobile-topbar__popover driver-mobile-topbar__popover--menu" aria-label="Menú del conductor">
           <button type="button" onClick={() => scrollTo("home", homeRef)}><IconHome size={16} />Inicio</button>
@@ -3632,7 +3660,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
           <article className="driver-mobile-month-summary">
             <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{(vehicle?.owner?.dni ?? "").replaceAll("-", "")}</b></span></div>
             <div className="driver-mobile-month-summary__columns">
-              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing">{preview ? <DriverBillingTarget periodSummary={periodSummary} /> : <><span>Facturación</span><strong>{formatCurrency(periodSummary.monthlyBilling)}</strong></>}</div>
+              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing"><DriverBillingTarget periodSummary={periodSummary} /></div>
               <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--tips"><div className="driver-mobile-month-summary__tips-layout"><div className="driver-mobile-month-summary__tips-value"><span>Propinas</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></div><button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span></button></div>{maintenanceNoteOpen && <form id="driver-maintenance-note" className="driver-mobile-maintenance-note" onSubmit={(event) => { event.preventDefault(); saveMaintenanceNote(maintenanceNoteDraft); setMaintenanceNoteOpen(false); }}><label htmlFor="driver-maintenance-note-input">Qué conviene hacer en la próxima revisión</label><textarea ref={maintenanceNoteInputRef} id="driver-maintenance-note-input" rows="3" value={maintenanceNoteDraft} onChange={(event) => setMaintenanceNoteDraft(event.target.value)} placeholder="Escribe aquí lo que debería revisarse o cambiarse en el coche…" /><div className="driver-mobile-maintenance-note__actions"><button type="button" className="secondary-button" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen(false); }}>Cancelar</button><button type="submit" className="primary-button"><IconCheck size={15} />Guardar</button></div></form>}</div>
             </div>
           </article>
@@ -3646,11 +3674,11 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
               return <button type="button" className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key} onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={`Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>;
             })}
           </div>
-          {preview && <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
+          <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
             <article className="driver-mobile-preview-km driver-mobile-preview-chart-card" role="button" tabIndex={0} aria-label="Kilómetros realizados frente al resto de conductores"><div className="driver-mobile-preview-chart-card__heading">KM REALIZADOS VS RESTO</div><div className="driver-mobile-preview-chart-card__summary"><strong>{Math.round(weeklyKmAverage).toLocaleString("es-ES")} km</strong><span>Resto conductores: {Math.round(otherDriversKmAverage).toLocaleString("es-ES")} km</span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyKmData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherKm" name="Resto conductores" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-preview-chart-card__legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
             <article className="driver-mobile-preview-history" aria-label="Facturación mensual histórica"><div className="driver-mobile-history-scroll" role="region" tabIndex="0" aria-label="Histórico de facturación mensual de los últimos doce meses"><div className="driver-mobile-history-bars" role="list">{compactMonthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></div></article>
             <article className="driver-mobile-preview-consumption" aria-label="Consumo semanal comparado"><div className="driver-mobile-consumption-compare"><span>Este conductor<strong>{weeklyConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span><em className={consumptionDifference <= 0 ? "is-better" : "is-higher"}>{consumptionDifference > 0 ? "+" : ""}{consumptionDifference.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</em><span>Resto<strong>{otherDriversConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyConsumptionData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverConsumption" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherConsumption" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-consumption-legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
-          </div>}
+          </div>
           <div className="driver-mobile-mini-grid">
             <article className="driver-mobile-mini-card driver-mobile-mini-card--billing-history"><div className="driver-mobile-mini-card__header"><div><strong>Facturación histórica</strong><span>{formatCurrency(activeBillingMonth.amount)} · este conductor</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("billing")} aria-label="Abrir ejemplo de facturación"><img src={driverReferenceImages.billing} alt="" loading="lazy" /><span>Ejemplo</span></button></div><div className="driver-mobile-billing-history" role="list" aria-label="Histórico mensual de facturación de los últimos doce meses">{compactMonthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-billing-history__month${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><strong>{formatDriverBarAmount(month.amount)}</strong></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></article>
             <article className="driver-mobile-mini-card driver-mobile-mini-card--consumption-compare"><div className="driver-mobile-mini-card__header"><div><strong>Consumo semanal</strong><span>{weeklyConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km · este conductor</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("consumption")} aria-label="Abrir ejemplo de consumo"><img src={driverReferenceImages.consumption} alt="" loading="lazy" /><span>Ejemplo</span></button></div><div className="driver-mobile-consumption-compare"><span>Resto conductores<strong>{otherDriversConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span><em className={consumptionDifference <= 0 ? "is-better" : "is-higher"}>{consumptionDifference > 0 ? "+" : ""}{consumptionDifference.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</em></div><ResponsiveContainer width="100%" height={62}><LineChart data={weeklyConsumptionData} margin={{ top: 5, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverConsumption" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherConsumption" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-consumption-legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
@@ -3750,7 +3778,10 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
   useEffect(() => {
     const closeOnOutsideTap = (event) => {
       if (!(event.target instanceof Element)) return;
-      if (!event.target.closest(".admin-driver-card")) setDriverActionId("");
+      if (!event.target.closest(".admin-driver-card, .admin-driver-access-sheet")) {
+        setDriverActionId("");
+        setEditingDriverId("");
+      }
     };
     document.addEventListener("pointerdown", closeOnOutsideTap);
     return () => document.removeEventListener("pointerdown", closeOnOutsideTap);
@@ -3780,9 +3811,10 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
   const driverActionKey = (driver) => `${canonicalizeVehiclePlate(driver.vehicle_plate)}:${driver.id ?? normalizeDriverAvatarKey(driver.full_name)}`;
   const copyDriverApplicationLink = async (driver) => {
     try {
-      await copyTextToClipboard(driverApplicationLink);
+      const accessMessage = `SOBRE RUEDAS\nEnlace: ${driverApplicationLink}\nUsuario: ${driver.email || "pendiente de crear"}`;
+      await copyTextToClipboard(accessMessage);
       setCopiedDriverKey(driverActionKey(driver));
-      notify(`Enlace de aplicación copiado para ${driver.full_name}`);
+      notify(`Acceso copiado para ${driver.full_name}`);
     } catch (error) {
       notify(error.message);
     }
@@ -3790,7 +3822,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
   const shareDriverApplicationLink = async (driver) => {
     if (typeof navigator.share === "function") {
       try {
-        await navigator.share({ title: "SOBRE RUEDAS", text: `Aplicación de ${driver.full_name}`, url: driverApplicationLink });
+        await navigator.share({ title: "SOBRE RUEDAS", text: `Acceso de ${driver.full_name}\nUsuario: ${driver.email || "pendiente"}`, url: driverApplicationLink });
         notify(`Enlace de aplicación preparado para ${driver.full_name}`);
         return;
       } catch (error) {
@@ -3798,6 +3830,15 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
       }
     }
     await copyDriverApplicationLink(driver);
+  };
+  const copyGeneratedPassword = async () => {
+    if (!generatedPassword?.value) return;
+    try {
+      await copyTextToClipboard(generatedPassword.value);
+      notify("Contraseña copiada");
+    } catch (error) {
+      notify(error.message);
+    }
   };
   const resetDriver = async (driver) => {
     const nextPassword = generateDriverPassword();
@@ -3826,6 +3867,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
   const toggleDriverAccess = async (driver) => {
     await updateDriver(driver, { active: !driver.active });
     setDriverActionId("");
+    setEditingDriverId("");
   };
   const startDriverEdit = (driver) => {
     setEditingDriverId(driver.id);
@@ -3881,6 +3923,11 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
     onPreviewDriver(driver);
   };
   const driverInitials = (name) => String(name ?? "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
+  const selectedAccessDriver = driverVehicleOptions
+    .flatMap((vehicle) => driversForVehicle(vehicle))
+    .find((driver) => driverActionKey(driver) === driverActionId) ?? null;
+  const selectedAccessAvatar = selectedAccessDriver ? getDriverAvatarPath(selectedAccessDriver.full_name) : "";
+  const selectedAccessPlate = selectedAccessDriver ? canonicalizeVehiclePlate(selectedAccessDriver.vehicle_plate) : "";
 
   return <section className="admin-page" aria-busy={loading}>
      {message && <div className="admin-alert" role="alert"><IconAlertTriangle size={18} />{message}</div>}
@@ -3897,24 +3944,11 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
                const driverKey = driverActionKey(driver);
                const avatarPath = getDriverAvatarPath(driver.full_name);
                const menuOpen = driverActionId === driverKey;
-               const editing = editingDriverId === driver.id;
                return <article className={`admin-driver-card${menuOpen ? " is-open" : ""}`} key={driverKey}>
-                 <button className="admin-driver-card__trigger" type="button" onClick={() => openDriverApplication(driver, driverKey)} onPointerDown={(event) => { if (event.pointerType !== "mouse" || event.button === 0) startDriverLongPress(driverKey); }} onPointerUp={stopDriverLongPress} onPointerLeave={stopDriverLongPress} onPointerCancel={stopDriverLongPress} onContextMenu={(event) => event.preventDefault()} aria-label={`Abrir aplicación de ${driver.full_name}`}>
+                 <button className="admin-driver-card__trigger" type="button" onClick={() => openDriverApplication(driver, driverKey)} onPointerDown={(event) => { if (event.pointerType !== "mouse" || event.button === 0) startDriverLongPress(driverKey); }} onPointerUp={stopDriverLongPress} onPointerLeave={stopDriverLongPress} onPointerCancel={stopDriverLongPress} onContextMenu={(event) => event.preventDefault()} aria-label={`Abrir aplicación de ${driver.full_name}`} aria-haspopup="dialog">
                     <span className="admin-driver-card__avatar">{avatarPath ? <img src={avatarPath} alt="" /> : <span>{driverInitials(driver.full_name)}</span>}<i className={driver.active ? "is-active" : ""} aria-hidden="true" /></span>
                     <strong>{driver.full_name}</strong>
                   </button>
-                  {menuOpen && <div className="admin-driver-card__menu" role="menu" aria-label={`Acciones de ${driver.full_name}`}>
-                    <header><div><strong>{driver.full_name}</strong><small>Menú de acceso · mantén pulsado 1 s para abrir</small></div><button type="button" className="icon-button" onClick={() => setDriverActionId("")} aria-label="Cerrar menú del conductor"><IconX size={15} /></button></header>
-                    <section className="admin-driver-app-link" aria-label={`Enlace de aplicación de ${driver.full_name}`}>
-                      <div className="admin-driver-app-link__heading"><IconLink size={14} /><span><strong>ENLACE DE APLICACIÓN</strong><small>Envíale este enlace para iniciar sesión</small></span></div>
-                      <a className="admin-driver-app-link__url" href={driverApplicationLink} target="_blank" rel="noreferrer">{driverApplicationLink}</a>
-                      {driver.email && <small className="admin-driver-app-link__user">Usuario: {driver.email}</small>}
-                      <div className="admin-driver-app-link__actions"><button type="button" className="text-button" onClick={() => copyDriverApplicationLink(driver)}><IconCopy size={14} />{copiedDriverKey === driverKey ? "Enlace copiado" : "Copiar enlace"}</button><button type="button" className="text-button" onClick={() => shareDriverApplicationLink(driver)}><IconShare3 size={14} />Compartir</button></div>
-                    </section>
-                    <div className="admin-driver-card__actions"><button type="button" role="menuitem" className="text-button" onClick={() => startDriverEdit(driver)}><IconUserCircle size={15} />Editar perfil</button><button type="button" role="menuitem" className="text-button" onClick={() => toggleDriverAccess(driver)}>{driver.active ? <IconShieldCheck size={15} /> : <IconCircleCheck size={15} />}{driver.active ? "Pausar acceso" : "Activar acceso"}</button><button type="button" role="menuitem" className="text-button text-button--accent" onClick={() => resetDriver(driver)}><IconRefresh size={15} />Restablecer contraseña</button></div>
-                   {generatedPassword?.driverId === driver.id && <div className="admin-driver-password" role="status"><IconKey size={13} /><span>CONTRASEÑA</span><code>{generatedPassword.value}</code><button className="icon-button" type="button" onClick={() => setGeneratedPassword(null)} aria-label="Ocultar contraseña"><IconX size={13} /></button></div>}
-                   {editing && <form className="admin-driver-profile-editor" onSubmit={(event) => saveDriverProfile(event, driver)}><label>Nombre completo<input value={driverProfileForm.fullName} onChange={(event) => updateDriverProfileForm("fullName", event.target.value)} required /></label><label>Email de acceso<input type="email" value={driverProfileForm.email} onChange={(event) => updateDriverProfileForm("email", event.target.value)} required /></label><label>Vehículo asignado<select value={driverProfileForm.vehiclePlate} onChange={(event) => updateDriverProfileForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((option) => <option key={option.plate} value={option.plate}>{option.plate} · {option.model}</option>)}</select></label><label className="admin-driver-profile-editor__active"><input type="checkbox" checked={driverProfileForm.active} onChange={(event) => updateDriverProfileForm("active", event.target.checked)} />Acceso activo</label><div className="admin-driver-profile-editor__actions"><button className="text-button" type="button" onClick={() => setEditingDriverId("")}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar perfil"}</button></div></form>}
-                 </div>}
                </article>;
              })}
            </div>
@@ -3932,6 +3966,26 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [] }) 
          </div>}
        </section>
      </div>
+     {selectedAccessDriver && <div className="admin-driver-access-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDriverActionId(""); }}>
+       <section className="admin-driver-access-sheet" role="dialog" aria-modal="true" aria-labelledby="admin-driver-access-title">
+         <header className="admin-driver-access-sheet__header">
+           <div className="admin-driver-access-sheet__identity">
+             <span className="admin-driver-access-sheet__avatar">{selectedAccessAvatar ? <img src={selectedAccessAvatar} alt="" /> : <span>{driverInitials(selectedAccessDriver.full_name)}</span>}<i className={selectedAccessDriver.active ? "is-active" : ""} aria-hidden="true" /></span>
+             <span><small>GESTIÓN DE ACCESO</small><h2 id="admin-driver-access-title">{selectedAccessDriver.full_name}</h2><VehiclePlateLabel vehicleOrPlate={selectedAccessPlate} className="admin-driver-access-sheet__plate" /></span>
+           </div>
+           <button type="button" className="admin-driver-access-sheet__close" onClick={() => { setDriverActionId(""); setEditingDriverId(""); }} aria-label="Cerrar gestión de acceso" autoFocus><IconX size={20} /></button>
+         </header>
+         <section className="admin-driver-access-sheet__credentials" aria-label={`Acceso de ${selectedAccessDriver.full_name}`}>
+           <div className="admin-driver-access-sheet__section-title"><IconLink size={18} /><span><strong>Acceso a SOBRE RUEDAS</strong><small>Envía el enlace y el usuario al conductor.</small></span></div>
+           <div className="admin-driver-access-sheet__user"><span>USUARIO</span><strong>{selectedAccessDriver.email || "Pendiente de crear"}</strong></div>
+           <a className="admin-driver-access-sheet__url" href={driverApplicationLink} target="_blank" rel="noreferrer">{driverApplicationLink}</a>
+           <div className="admin-driver-access-sheet__share-actions"><button type="button" onClick={() => copyDriverApplicationLink(selectedAccessDriver)}><IconCopy size={17} />{copiedDriverKey === driverActionKey(selectedAccessDriver) ? "Acceso copiado" : "Copiar acceso"}</button><button type="button" onClick={() => shareDriverApplicationLink(selectedAccessDriver)}><IconShare3 size={17} />Compartir acceso</button></div>
+         </section>
+         {generatedPassword?.driverId === selectedAccessDriver.id && <div className="admin-driver-access-sheet__password" role="status"><IconKey size={18} /><span><small>CONTRASEÑA ACTUALIZADA</small><code>{generatedPassword.value}</code></span><button type="button" onClick={copyGeneratedPassword}><IconCopy size={15} />Copiar</button><button type="button" className="admin-driver-access-sheet__password-close" onClick={() => setGeneratedPassword(null)} aria-label="Ocultar contraseña"><IconX size={15} /></button></div>}
+         <div className="admin-driver-access-sheet__actions"><button type="button" onClick={() => startDriverEdit(selectedAccessDriver)}><IconUserCircle size={18} /><span><strong>Editar perfil</strong><small>Nombre, email y vehículo</small></span></button><button type="button" onClick={() => toggleDriverAccess(selectedAccessDriver)}>{selectedAccessDriver.active ? <IconShieldCheck size={18} /> : <IconCircleCheck size={18} />}<span><strong>{selectedAccessDriver.active ? "Pausar acceso" : "Activar acceso"}</strong><small>{selectedAccessDriver.active ? "Bloquea el inicio de sesión" : "Permite iniciar sesión"}</small></span></button><button type="button" onClick={() => resetDriver(selectedAccessDriver)}><IconRefresh size={18} /><span><strong>Restablecer contraseña</strong><small>Genera una clave nueva</small></span></button></div>
+         {editingDriverId === selectedAccessDriver.id && <form className="admin-driver-access-editor" onSubmit={(event) => saveDriverProfile(event, selectedAccessDriver)}><label>Nombre completo<input value={driverProfileForm.fullName} onChange={(event) => updateDriverProfileForm("fullName", event.target.value)} required /></label><label>Email de acceso<input type="email" value={driverProfileForm.email} onChange={(event) => updateDriverProfileForm("email", event.target.value)} required /></label><label>Vehículo asignado<select value={driverProfileForm.vehiclePlate} onChange={(event) => updateDriverProfileForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((option) => <option key={option.plate} value={option.plate}>{option.plate} · {option.model}</option>)}</select></label><label className="admin-driver-access-editor__active"><input type="checkbox" checked={driverProfileForm.active} onChange={(event) => updateDriverProfileForm("active", event.target.checked)} />Acceso activo</label><div className="admin-driver-access-editor__actions"><button type="button" onClick={() => setEditingDriverId("")}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar acceso"}</button></div></form>}
+       </section>
+     </div>}
    </section>;
 }
 
