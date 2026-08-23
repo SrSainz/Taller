@@ -2013,10 +2013,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       return true;
     }
     const result = await deleteDocumentRecord(document);
-    await refreshDocuments();
+    await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
     if (result?.storageError) notify("Documento eliminado; el archivo privado quedó pendiente de limpieza.");
     return true;
-  }, [notify, refreshDocuments]);
+  }, [notify, refreshDocuments, refreshTransactions]);
 
   useEffect(() => {
     if (!isAdmin || !supabase) {
