@@ -3625,13 +3625,13 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-section__actions, .driver-mobile-week-actions { display: flex; gap: 3px; }
 .driver-mobile-section__actions button, .driver-mobile-week-actions button { width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 1px solid #d7dfec; border-radius: 7px; background: #fff; color: #315a9d; cursor: pointer; }
 .driver-mobile-section__actions button:hover, .driver-mobile-section__actions button:focus-visible, .driver-mobile-week-actions button:hover, .driver-mobile-week-actions button:focus-visible { border-color: #6c94d1; outline: 0; background: #f0f5fc; }
-.driver-mobile-record-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.driver-mobile-record-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
 .driver-mobile-record-card { min-width: 0; width: 100%; display: grid; justify-items: center; gap: 4px; padding: 3px 0 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: center; cursor: pointer; }
 .driver-mobile-record-card:hover .driver-mobile-record-card__image, .driver-mobile-record-card:focus-visible .driver-mobile-record-card__image { border-color: #b9d0f1; box-shadow: 0 0 0 3px rgba(57,112,194,.12), 0 4px 12px rgba(26,49,83,.16); outline: 0; }
 .driver-mobile-record-card:focus-visible { outline: 0; }
 .driver-mobile-record-card:disabled { cursor: progress; opacity: .78; }
-.driver-mobile-record-card > span { min-height: 15px; display: flex; align-items: flex-start; justify-content: center; overflow: hidden; max-width: 100%; color: #26344c; font-size: 8px; font-weight: 800; line-height: 1.05; text-align: center; text-wrap: balance; }
-.driver-mobile-record-card__image { width: clamp(48px, 14vw, 64px); aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; margin-top: 0; border: 4px solid #fff; border-radius: 50%; background: #edf2f8; color: #38659e; box-shadow: 0 3px 11px rgba(26,49,83,.13); }
+.driver-mobile-record-card > span { min-height: 17px; display: flex; align-items: flex-start; justify-content: center; overflow: hidden; max-width: 100%; color: #26344c; font-size: 10px; font-weight: 900; letter-spacing: .01em; line-height: 1.05; text-align: center; text-transform: uppercase; text-wrap: balance; }
+.driver-mobile-record-card__image { width: clamp(52px, 15vw, 68px); aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; margin-top: 0; border: 4px solid #fff; border-radius: 50%; background: #edf2f8; color: #38659e; box-shadow: 0 3px 11px rgba(26,49,83,.13); }
 .driver-mobile-record-card__image img { width: 100%; height: 100%; object-fit: cover; }
 .driver-mobile-record-card__image { position: relative; }
 .driver-mobile-record-card__loader { position: absolute; inset: 7px; border: 3px solid rgba(255,255,255,.62); border-top-color: #174a9a; border-radius: 50%; animation: driver-circle-spin .8s linear infinite; }
@@ -3666,10 +3666,10 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-app--preview .driver-mobile-body { gap: 8px; padding: 8px 9px 16px; }
 .driver-app--preview .driver-mobile-section--today .driver-mobile-section__heading { margin-bottom: 3px; }
 .driver-app--preview .driver-mobile-preview-mini-grid { gap: 6px; margin-top: 4px; }
-.driver-app--preview .driver-mobile-record-grid { gap: 2px; }
-.driver-app--preview .driver-mobile-record-card { gap: 3px; }
-.driver-app--preview .driver-mobile-record-card > span { font-size: 8px; }
-.driver-app--preview .driver-mobile-record-card__image { width: clamp(42px, 11vw, 54px); border-width: 3px; }
+.driver-app--preview .driver-mobile-record-grid { gap: 4px; }
+.driver-app--preview .driver-mobile-record-card { gap: 4px; }
+.driver-app--preview .driver-mobile-record-card > span { min-height: 16px; font-size: 9px; font-weight: 900; }
+.driver-app--preview .driver-mobile-record-card__image { width: clamp(50px, 13vw, 62px); border-width: 3px; }
 .driver-app--preview .driver-mobile-week-table thead th { height: 37px; }
 .driver-app--preview .driver-mobile-week-table tbody th, .driver-app--preview .driver-mobile-week-table tbody td { padding-block: 5px; }
 .driver-mobile-billing-history { display: flex !important; gap: 5px; overflow-x: auto; padding: 4px 1px 3px; margin-top: 4px; text-align: left !important; scrollbar-width: thin; }
@@ -3800,9 +3800,9 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-mobile-month-summary__metric { padding-inline: 6px; }
   .driver-mobile-month-summary__metric > span { font-size: 9px; }
   .driver-mobile-month-summary__metric > strong { font-size: 21px; }
-  .driver-mobile-record-grid { gap: 3px; }
-  .driver-mobile-record-card > span { font-size: 7px; }
-  .driver-mobile-record-card__image { width: clamp(48px, 14vw, 58px); border-width: 4px; }
+  .driver-mobile-record-grid { gap: 4px; }
+  .driver-mobile-record-card > span { min-height: 16px; font-size: 9px; }
+  .driver-mobile-record-card__image { width: clamp(50px, 14vw, 60px); border-width: 4px; }
   .driver-mobile-mini-card { padding-inline: 6px; }
   .driver-mobile-mini-card strong { font-size: 9px; }
   .driver-mobile-mini-card span { font-size: 8px; }
@@ -3863,15 +3863,27 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 /* Histórico mensual del conductor: tira desplazable y lectura vertical por barra. */
 .driver-mobile-history-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; scrollbar-color: #9db7dc transparent; }
 .driver-mobile-history-scroll:focus-visible { outline: 2px solid rgba(44,109,233,.5); outline-offset: 2px; }
-.driver-mobile-preview-history .driver-mobile-history-bars { width: max-content; min-width: 100%; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 38px; gap: 4px; }
-.driver-mobile-preview-history .driver-mobile-history-bar { grid-template-rows: minmax(0, 1fr) 25px; gap: 2px; padding-inline: 1px; }
-.driver-mobile-preview-history .driver-mobile-history-bar i { display: flex; align-items: center; justify-content: center; justify-self: center; width: 24px; min-height: 22px; overflow: hidden; border-radius: 5px 5px 2px 2px; }
+.driver-mobile-preview-history .driver-mobile-history-scroll { overflow-x: hidden; }
+.driver-mobile-preview-history .driver-mobile-history-bars { width: 100%; min-width: 0; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-flow: initial; grid-auto-columns: auto; gap: 1px; }
+.driver-mobile-preview-history .driver-mobile-history-bar { grid-template-rows: minmax(0, 1fr) 25px; gap: 2px; padding-inline: 0; }
+.driver-mobile-preview-history .driver-mobile-history-bar i { display: flex; align-items: center; justify-content: center; justify-self: center; width: min(100%, 10px); min-height: 14px; overflow: hidden; border-radius: 4px 4px 2px 2px; }
 .driver-mobile-preview-history .driver-mobile-history-bar i span { display: block; max-height: 100%; overflow: hidden; color: #fff; font-size: 6px; font-weight: 900; line-height: .9; text-overflow: clip; white-space: nowrap; writing-mode: vertical-rl; transform: rotate(180deg); }
 .driver-mobile-preview-history .driver-mobile-history-bar small { display: grid; align-content: start; justify-items: center; gap: 1px; height: 25px; overflow: visible; color: #526783; font-size: 7px; font-weight: 850; line-height: 1; text-align: center; text-overflow: clip; white-space: normal; }
 .driver-mobile-preview-history .driver-mobile-history-bar small b, .driver-mobile-preview-history .driver-mobile-history-bar small em { display: block; font-style: normal; font-weight: 900; line-height: 1; }
 .driver-mobile-preview-history .driver-mobile-history-bar small b { color: #526783; text-transform: uppercase; }
 .driver-mobile-preview-history .driver-mobile-history-bar small em { color: #7890b1; font-size: 6px; }
 .driver-mobile-preview-history .driver-mobile-history-bar.is-selected small b, .driver-mobile-preview-history .driver-mobile-history-bar.is-selected small em { color: #1d55ad; }
+.driver-mobile-billing-history { display: grid !important; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: end; gap: 3px; min-height: 88px; overflow: hidden; padding: 4px 1px 3px; }
+.driver-mobile-billing-history__month { min-width: 0; min-height: 82px; display: grid; grid-template-rows: minmax(0, 1fr) 23px; align-items: end; gap: 2px; padding: 0 1px; border: 0; border-radius: 0; background: transparent; text-align: center; }
+.driver-mobile-billing-history__month i { width: 100%; min-height: 4px; display: flex; align-items: center; justify-content: center; align-self: end; overflow: hidden; border-radius: 4px 4px 1px 1px; background: #8db7f4; }
+.driver-mobile-billing-history__month i strong { overflow: hidden; color: #fff; font-size: 6px; font-weight: 900; line-height: .9; text-overflow: clip; white-space: nowrap; writing-mode: vertical-rl; transform: rotate(180deg); }
+.driver-mobile-billing-history__month > small { min-width: 0; display: grid; gap: 1px; height: 23px; color: #526783; font-size: 6px; font-weight: 850; line-height: 1; text-align: center; }
+.driver-mobile-billing-history__month > small b, .driver-mobile-billing-history__month > small em { display: block; overflow: hidden; font-style: normal; font-weight: 900; line-height: 1; text-overflow: clip; white-space: nowrap; }
+.driver-mobile-billing-history__month > small b { color: #526783; text-transform: uppercase; }
+.driver-mobile-billing-history__month > small em { color: #7890b1; font-size: 6px; }
+.driver-mobile-billing-history__month.is-selected i { background: #286ee7; }
+.driver-mobile-billing-history__month.is-selected > small b, .driver-mobile-billing-history__month.is-selected > small em { color: #1d55ad; }
+.driver-mobile-billing-history__month:hover, .driver-mobile-billing-history__month:focus-visible { border-color: transparent; outline: 0; background: #eff5ff; }
 .driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--billing) { width: min(900px, calc(100vw - 24px)); }
 .driver-mobile-chart-dialog__chart--billing { min-height: 376px; overflow: visible; }
 .driver-mobile-chart-dialog__billing-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; padding: 4px 0 10px; scrollbar-width: thin; scrollbar-color: #9db7dc transparent; }
@@ -4212,12 +4224,12 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 /* Objetivos y pendiente de mantenimiento en la vista del conductor. */
 .driver-mobile-billing-target__header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; min-width: 0; line-height: 1; }
 .driver-mobile-billing-target__billing { min-width: 0; display: grid; gap: 2px; align-content: end; }
-.driver-mobile-billing-target__billing > span { overflow: hidden; color: #4b5870; font-size: 10px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-billing-target__billing > span { overflow: hidden; margin-bottom: 1px; color: #4b5870; font-size: 11px; font-weight: 850; letter-spacing: .04em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .driver-mobile-billing-target__billing > strong { overflow: hidden; color: #2266df; font-size: clamp(25px, 7vw, 32px); font-variant-numeric: tabular-nums; font-weight: 900; letter-spacing: -.04em; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
-.driver-mobile-billing-target__goal { min-width: 0; display: grid; justify-items: end; align-content: end; gap: 3px; padding-bottom: 1px; text-align: right; }
-.driver-mobile-billing-target__goal > span { overflow: hidden; color: #345a93; font-size: 11px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
-.driver-mobile-billing-target__goal > strong { color: #2c6de9; font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 900; line-height: 1; white-space: nowrap; }
-.driver-mobile-billing-target__goal > strong small { margin-left: 3px; color: inherit; font-size: 8px; font-weight: 800; }
+.driver-mobile-billing-target__goal { min-width: 0; display: grid; justify-items: end; align-content: end; gap: 4px; padding-bottom: 1px; text-align: right; }
+.driver-mobile-billing-target__goal > span { overflow: hidden; margin-bottom: 1px; color: #345a93; font-size: 12px; font-weight: 900; letter-spacing: .02em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.driver-mobile-billing-target__goal > strong { color: #2c6de9; font-size: 22px; font-variant-numeric: tabular-nums; font-weight: 900; line-height: 1; white-space: nowrap; }
+.driver-mobile-billing-target__goal > strong small { margin-left: 3px; color: inherit; font-size: 9px; font-weight: 800; }
 .driver-mobile-billing-target.is-goal-reached .driver-mobile-billing-target__goal > strong { color: #159b79; }
 .driver-mobile-billing-target__scale { position: relative; padding-bottom: 17px; }
 .driver-mobile-billing-target__track { height: 12px; border-radius: 5px; }
