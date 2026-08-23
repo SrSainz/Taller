@@ -2182,7 +2182,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           {activeNav === "Mantenimiento" && <MaintenanceSearch query={maintenanceSearchQuery} open={maintenanceSearchOpen} suggestions={maintenanceSearchSuggestions} onQueryChange={setMaintenanceSearchQuery} onOpenChange={setMaintenanceSearchOpen} onSelect={openMaintenanceSearchRecord} />}
           {!compactDetailHeader && <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
-            <span className="date"><IconCalendar size={18} />28 jul 2026</span>
+            {!(activeNav === "Informes" && homeReportTab === "General") && <span className="date"><IconCalendar size={18} />28 jul 2026</span>}
             <button type="button" className={`topbar-route-button topbar-route-button--facturas${activeNav === "Facturas" ? " topbar-route-button--active" : ""}`} onClick={() => navigate(navItems[3])} aria-label="Abrir Facturas" aria-current={activeNav === "Facturas" ? "page" : undefined} title="Facturas"><IconFileInvoice size={14} /><span>Facturas</span><i>3</i></button>
             <button className="bell-button" aria-label={`Notificaciones${adminNotifications.length ? ` · ${adminNotifications.length} nuevas` : ""}`} aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setTopbarMenuOpen(false); }}><IconBell size={17} />{adminNotifications.length > 0 && <i>{Math.min(adminNotifications.length, 99)}</i>}</button>
             <button className="topbar-menu-button" aria-label="Abrir accesos de gestión" aria-expanded={topbarMenuOpen} aria-controls="topbar-management-menu" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }} title="Accesos de gestión"><IconMenu2 size={18} /></button>
@@ -4641,6 +4641,24 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       <div className="fuel-report-canvas">
         {reportTab === "General" && (
           <>
+            <div className="dashboard-period-bar" role="group" aria-label="Calendario del resumen general">
+              <div className="dashboard-period-bar__identity">
+                <span className="dashboard-period-bar__icon" aria-hidden="true"><IconCalendar size={16} /></span>
+                <span><strong>CALENDARIO</strong><small>{selectedPeriodLabel}</small></span>
+              </div>
+              <div className="report-chart-filters" role="group" aria-label="Seleccionar periodo del resumen general">
+                <div className="report-period-dropdown">
+                  <span className="sr-only">Mes</span>
+                  <button type="button" className="report-period-trigger" aria-label="Seleccionar mes" title="Mes" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
+                  {periodMenu === "month" && <WheelPickerMenu options={reportMonths.map((label, index) => ({ value: index, label }))} value={reportMonth} onChange={(value) => { setReportMonth(value); setPeriodMenu(""); }} ariaLabel="Seleccionar mes" className="report-period-menu--months" />}
+                </div>
+                <div className="report-period-dropdown">
+                  <span className="sr-only">Año</span>
+                  <button type="button" className="report-period-trigger report-period-trigger--year" aria-label="Seleccionar año" title="Año" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
+                  {periodMenu === "year" && <WheelPickerMenu options={reportYears.map((year) => ({ value: year, label: String(year) }))} value={reportYear} onChange={(value) => { setReportYear(value); setPeriodMenu(""); }} ariaLabel="Seleccionar año" className="report-period-menu--years" />}
+                </div>
+              </div>
+            </div>
             <div className="report-general-grid">
               <div className="report-stat-grid">
                 <ReportFleetSummaryCard billing={formatCurrency(periodTotals.billing)} fuel={formatCurrency(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
@@ -4650,18 +4668,6 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
               <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
                 <header className="report-chart-card__top">
                   <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong></span></div>
-                  <div className="report-chart-filters" role="group" aria-label="Filtros del gráfico">
-                    <div className="report-period-dropdown">
-                      <span className="sr-only">Mes</span>
-                      <button type="button" className="report-period-trigger" aria-label="Seleccionar mes" title="Mes" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
-                      {periodMenu === "month" && <WheelPickerMenu options={reportMonths.map((label, index) => ({ value: index, label }))} value={reportMonth} onChange={(value) => { setReportMonth(value); setPeriodMenu(""); }} ariaLabel="Seleccionar mes" className="report-period-menu--months" />}
-                    </div>
-                    <div className="report-period-dropdown">
-                      <span className="sr-only">Año</span>
-                      <button type="button" className="report-period-trigger report-period-trigger--year" aria-label="Seleccionar año" title="Año" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
-                      {periodMenu === "year" && <WheelPickerMenu options={reportYears.map((year) => ({ value: year, label: String(year) }))} value={reportYear} onChange={(value) => { setReportYear(value); setPeriodMenu(""); }} ariaLabel="Seleccionar año" className="report-period-menu--years" />}
-                    </div>
-                  </div>
                 </header>
                 <div className="report-chart report-chart--summary">
                   {hasChartData ? <>

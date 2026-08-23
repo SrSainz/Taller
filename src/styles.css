@@ -2027,6 +2027,28 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .page-scroll--dashboard .report-stat-card--wide .report-stat-card__inline-metrics strong { font-size: 13px; }
 }
 
+/* General: el calendario queda visible bajo la banda negra y antes del acceso a Conductores. */
+.page-scroll--dashboard .dashboard-period-bar { width: 100%; min-width: 0; display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 10px; margin-bottom: 8px; border: 1px solid #d9e5e0; border-radius: 10px; background: #fff; box-shadow: 0 3px 8px rgba(38,67,58,.07); }
+.dashboard-period-bar__identity { min-width: 0; display: flex; align-items: center; gap: 8px; }
+.dashboard-period-bar__identity > span:last-child { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dashboard-period-bar__icon { width: 28px; height: 28px; display: grid; flex: 0 0 28px; place-items: center; border-radius: 7px; background: var(--billing-blue); color: #fff; }
+.dashboard-period-bar__identity strong { color: #24473b; font-size: 8px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.dashboard-period-bar__identity small { overflow: hidden; color: #718179; font-size: 8px; font-weight: 700; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.dashboard-period-bar .report-chart-filters { width: auto; flex: 0 0 auto; }
+.dashboard-period-bar .report-period-trigger { min-height: 32px; font-size: 9px; }
+.dashboard-period-bar .report-period-trigger--year { min-width: 88px; }
+
+@media (max-width: 520px) {
+  .page-scroll--dashboard .dashboard-period-bar { gap: 7px; padding: 6px 8px; margin-bottom: 6px; }
+  .dashboard-period-bar__identity { gap: 6px; }
+  .dashboard-period-bar__icon { width: 25px; height: 25px; flex-basis: 25px; }
+  .dashboard-period-bar__identity strong { font-size: 7px; }
+  .dashboard-period-bar__identity small { font-size: 7px; }
+  .dashboard-period-bar .report-chart-filters { width: auto; gap: 4px; }
+  .dashboard-period-bar .report-period-trigger { min-width: 88px; min-height: 30px; padding-inline: 7px; font-size: 8px; }
+  .dashboard-period-bar .report-period-trigger--year { min-width: 68px; }
+}
+
 /* Give the dashboard chart every remaining pixel while keeping the controls easy to distinguish. */
 .page-scroll--dashboard .fuel-report-canvas { padding-bottom: 0; }
 .page-scroll--dashboard .report-chart-card--compact-preview { min-height: 0; height: auto; flex: 1 1 auto; flex-basis: auto; }
