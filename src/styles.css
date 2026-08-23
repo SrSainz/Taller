@@ -710,12 +710,13 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .driver-day-detail > header h2 { margin: 0; font-size: 13px; }
 .driver-day-detail > header small { color: var(--muted); font-size: 7px; }
 .driver-day-detail > header > strong { color: var(--green-800); font-size: 7px; }
-.driver-day-detail__columns { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 7px; padding: 7px; }
+.driver-day-detail__columns { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; padding: 7px; }
 .driver-day-panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; }
 .driver-day-panel > header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 16px; font-weight: 800; }
 .driver-day-panel > header svg { width: 20px; height: 20px; }
 .driver-day-panel--billing > header { color: var(--billing-strong); background: var(--billing-soft); }
 .driver-day-panel--fuel > header { color: #c3382f; background: #fff3f1; }
+.driver-day-panel--mileage > header { color: #8a5a08; background: #fff8e9; }
 .driver-day-panel__metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); }
 .driver-day-panel--fuel .driver-day-panel__metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
 .driver-day-panel__metrics > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 7px 8px; }
@@ -724,6 +725,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .driver-day-panel__metrics strong { overflow: visible; font-size: 12px; line-height: 1.15; white-space: normal; }
 .driver-day-panel--billing .driver-day-panel__metrics strong { color: var(--billing-strong); }
 .driver-day-panel--fuel .driver-day-panel__metrics strong { color: #c3382f; }
+.driver-day-panel--mileage .driver-day-panel__metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.driver-day-panel--mileage .driver-day-panel__metrics strong { color: #8a5a08; }
 .driver-day-fuel-list { display: grid; gap: 3px; padding: 6px 8px 7px; border-top: 1px solid #f0d0cb; background: #fffaf9; }
 .driver-day-fuel-list > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .driver-day-fuel-list > div > span { display: flex; flex-direction: column; gap: 2px; }

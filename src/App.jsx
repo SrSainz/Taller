@@ -985,7 +985,7 @@ const normalizeDriverDocumentDate = (value) => {
 };
 const getDriverDocumentDateKey = (document) => {
   const extracted = document?.extracted_data ?? {};
-  return [extracted.date, extracted.entryDate, extracted.invoiceDate, extracted.serviceDate, extracted.documentDate, extracted.fecha, document?.created_at]
+  return [extracted.date, extracted.entryDate, extracted.invoiceDate, extracted.serviceDate, extracted.documentDate, extracted.fecha, document?.document_date, document?.created_at]
     .map(normalizeDriverDocumentDate)
     .find(Boolean) ?? null;
 };
@@ -1311,12 +1311,55 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
     };
   }));
 
-const getDriverCalendarRows = (vehicle, row, month, year) => {
+const getDriverCalendarRows = (vehicle, row, month, year, documents = []) => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const realEntries = (row.entries ?? []).filter((entry) => {
     if (!entry.entry_date) return false;
     const entryDate = new Date(`${entry.entry_date}T12:00:00`);
     return entryDate.getMonth() === month && entryDate.getFullYear() === year;
+  });
+  const mileageDocuments = (documents ?? [])
+    .filter((document) => document?.owner_id && document.owner_id === row.driverId)
+    .map((document) => {
+      const data = document?.extracted_data ?? {};
+      const extracted = getExtractedDocumentFields(document);
+      const recordType = normalizeText(data.recordType || data.metric || extracted.recordType || extracted.metric || "");
+      const dateKey = getDriverDocumentDateKey(document);
+      if (!dateKey) return null;
+      const isDailyMileage = ["daily-km", "partial-1", "kilometraje diario", "km diarios"].includes(recordType);
+      const isTotalMileage = ["total-km", "total", "odometer", "odometro", "kilometraje total", "km acumulados"].includes(recordType);
+      return {
+        dateKey,
+        dailyKm: isDailyMileage ? getDriverDocumentNumber(data.dailyKm ?? data.daily_km ?? extracted.dailyKm ?? extracted.daily_km ?? extracted.kilometres ?? extracted.kilometers ?? extracted.km) : 0,
+        totalKm: isTotalMileage ? getDriverDocumentNumber(data.odometerKm ?? data.odometer_km ?? data.totalKm ?? extracted.odometerKm ?? extracted.odometer_km ?? extracted.totalKm ?? extracted.kilometres ?? extracted.kilometers ?? extracted.km) : 0,
+      };
+    })
+    .filter(Boolean);
+  const dailyKmByDate = new Map();
+  const odometerByDate = new Map();
+  mileageDocuments.forEach(({ dateKey, dailyKm, totalKm }) => {
+    if (dailyKm > 0) dailyKmByDate.set(dateKey, Math.max(dailyKmByDate.get(dateKey) ?? 0, dailyKm));
+    if (totalKm > 0) odometerByDate.set(dateKey, Math.max(odometerByDate.get(dateKey) ?? 0, totalKm));
+  });
+  (row.entries ?? []).forEach((entry) => {
+    const dateKey = String(entry.entry_date ?? "");
+    const odometerKm = getDriverEntryAmount(entry, "odometer_km");
+    if (dateKey && odometerKm > 0) odometerByDate.set(dateKey, Math.max(odometerByDate.get(dateKey) ?? 0, odometerKm));
+  });
+  const dailyKmResolvedByDate = new Map();
+  const totalKmResolvedByDate = new Map();
+  let previousOdometer = 0;
+  [...new Set([...dailyKmByDate.keys(), ...odometerByDate.keys()])].sort().forEach((dateKey) => {
+    const explicitDailyKm = dailyKmByDate.get(dateKey) ?? 0;
+    const explicitOdometer = odometerByDate.get(dateKey) ?? 0;
+    const resolvedOdometer = explicitOdometer > 0 ? explicitOdometer : explicitDailyKm > 0 && previousOdometer > 0 ? previousOdometer + explicitDailyKm : 0;
+    const calculatedDailyKm = resolvedOdometer > 0 && previousOdometer > 0 ? Math.max(0, resolvedOdometer - previousOdometer) : 0;
+    const resolvedDailyKm = explicitDailyKm > 0 ? explicitDailyKm : calculatedDailyKm;
+    if (resolvedDailyKm > 0) dailyKmResolvedByDate.set(dateKey, resolvedDailyKm);
+    if (resolvedOdometer > 0) {
+      totalKmResolvedByDate.set(dateKey, resolvedOdometer);
+      previousOdometer = resolvedOdometer;
+    }
   });
   const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
   const periodRevenue = row.billingByPeriod ? (row.billingByPeriod[periodKey] ?? 0) : row.revenue;
@@ -1331,8 +1374,6 @@ const getDriverCalendarRows = (vehicle, row, month, year) => {
   const billingDayKeys = [...billingDays.keys()];
   const seed = `${row.driver}-${row.plate}-${month}-${year}`.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0);
   const tripsByDay = distributeInteger(row.trips, billingDayKeys, seed);
-  const activity = getDriverDay(vehicle, row.driver);
-  const baseKm = Math.max(1, activity.km || 120);
   const fuelByDay = new Map();
   getDriverFuelEntriesForPeriod(vehicle, row.driver, month, year).forEach((entry) => {
     const day = Number(entry.date.split(" ")[0]);
@@ -1340,12 +1381,13 @@ const getDriverCalendarRows = (vehicle, row, month, year) => {
   });
   return Array.from({ length: daysInMonth }, (_, index) => {
     const day = index + 1;
+    const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const billing = billingDays.get(day) ?? 0;
     const fuelEntries = fuelByDay.get(day) ?? [];
-    const km = billing > 0 ? Math.max(1, Math.round(baseKm * (0.86 + ((seed + day * 7) % 27) / 100))) : 0;
+    const km = dailyKmResolvedByDate.get(dateKey) ?? 0;
     const fuelLiters = fuelEntries.reduce((sum, entry) => sum + entry.liters, 0);
     const fuelCost = fuelEntries.reduce((sum, entry) => sum + entry.cost, 0);
-    const totalKm = km > 0 ? Math.max(0, vehicle.odometer - Math.round((daysInMonth - day) * baseKm * .65)) : 0;
+    const totalKm = totalKmResolvedByDate.get(dateKey) ?? 0;
     return {
       day,
       billing,
@@ -1355,7 +1397,7 @@ const getDriverCalendarRows = (vehicle, row, month, year) => {
       fuelEntries,
       fuelLiters,
       fuelCost,
-      active: billing > 0 || fuelEntries.length > 0,
+      active: billing > 0 || fuelEntries.length > 0 || km > 0 || totalKm > 0,
     };
   });
 };
@@ -2390,7 +2432,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
           {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
-          {activeNav === "Conductores" && <DriversView reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} setModal={setModal} />}
+          {activeNav === "Conductores" && <DriversView reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} setModal={setModal} />}
           {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
@@ -5261,7 +5303,7 @@ function FuelDriversReport({ vehicles, selectedDriverKey, onSelectDriver }) {
   );
 }
 
-function DriversView({ vehicles, driverEntries = [], transactions = [], setModal, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange }) {
+function DriversView({ vehicles, driverEntries = [], transactions = [], documents = [], setModal, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange }) {
   const [internalReportMonth, setInternalReportMonth] = useState(() => new Date().getMonth());
   const [internalReportYear, setInternalReportYear] = useState(() => new Date().getFullYear());
   const reportMonth = controlledReportMonth ?? internalReportMonth;
@@ -5318,7 +5360,8 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
     };
   }), [billingRows, professionalVehicles, reportMonth, reportYear, transactions]);
   const selectedDriver = driverRows.find((row) => row.key === selectedDriverKey) ?? null;
-  const calendarRows = useMemo(() => selectedDriver ? getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, reportMonth, reportYear) : [], [selectedDriver, reportMonth, reportYear]);
+  const calendarRows = useMemo(() => selectedDriver ? getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, reportMonth, reportYear, documents) : [], [selectedDriver, reportMonth, reportYear, documents]);
+  const periodKilometres = useMemo(() => calendarRows.reduce((sum, day) => sum + (Number(day.km) || 0), 0), [calendarRows]);
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;
   const calendarPeriods = useMemo(() => {
     if (!selectedDriver) return [];
@@ -5326,7 +5369,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
       const date = new Date(reportYear, reportMonth + delta, 1);
       const month = date.getMonth();
       const year = date.getFullYear();
-      const rows = getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, month, year);
+      const rows = getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, month, year, documents);
       const leadingDays = (new Date(year, month, 1).getDay() + 6) % 7;
       return {
         key: `${year}-${month}`,
@@ -5336,7 +5379,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
         cells: [...Array.from({ length: leadingDays }, (_, index) => ({ key: `leading-${year}-${month}-${index}`, empty: true })), ...rows.map((row) => ({ ...row, key: `day-${year}-${month}-${row.day}` }))],
       };
     });
-  }, [selectedDriver, reportMonth, reportYear]);
+  }, [selectedDriver, reportMonth, reportYear, documents]);
   const totalBilling = billingRows.reduce((sum, row) => sum + row.revenue, 0);
   const totalFuel = fuelSummaries.reduce((sum, summary) => sum + summary.cost, 0);
 
@@ -5368,7 +5411,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
 
   const selectDriver = (row) => {
     setSelectedDriverKey(row.key);
-    const nextCalendarRows = getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear);
+    const nextCalendarRows = getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear, documents);
     setSelectedDay(nextCalendarRows.find((calendarRow) => calendarRow.active)?.day ?? 1);
   };
   const shiftMonth = (delta) => {
@@ -5476,7 +5519,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
       <div className="drivers-calendar-grid" role="grid" aria-label={`Facturación y consumo de ${selectedDriver.driver} en ${reportMonths[period.month]} de ${period.year}`}>
         {period.cells.map((cell) => cell.empty
           ? <span className="drivers-calendar-day drivers-calendar-day--empty" aria-hidden="true" key={cell.key} />
-          : <button type="button" className={`drivers-calendar-day${cell.billing > 0 ? " drivers-calendar-day--billing" : ""}${cell.fuelCost > 0 ? " drivers-calendar-day--fuel" : ""}${period.delta === 0 && selectedDay === cell.day ? " drivers-calendar-day--selected" : ""}`} role="gridcell" tabIndex={period.delta === 0 ? 0 : -1} onClick={() => period.delta === 0 && setSelectedDay(cell.day)} aria-label={`${cell.day} de ${reportMonths[period.month]}: ${formatCurrency(cell.billing)} de facturación y ${formatCurrency(cell.fuelCost)} de repostaje`} key={cell.key}><span>{cell.day}</span><span className="drivers-calendar-day__values">{cell.billing > 0 && <small className="drivers-calendar-day__billing">{formatShortCurrency(cell.billing)}</small>}{cell.fuelCost > 0 && <small className="drivers-calendar-day__fuel">-{formatShortCurrency(cell.fuelCost)}</small>}</span></button>)}
+          : <button type="button" className={`drivers-calendar-day${cell.billing > 0 ? " drivers-calendar-day--billing" : ""}${cell.fuelCost > 0 ? " drivers-calendar-day--fuel" : ""}${cell.km > 0 ? " drivers-calendar-day--mileage" : ""}${period.delta === 0 && selectedDay === cell.day ? " drivers-calendar-day--selected" : ""}`} role="gridcell" tabIndex={period.delta === 0 ? 0 : -1} onClick={() => period.delta === 0 && setSelectedDay(cell.day)} aria-label={`${cell.day} de ${reportMonths[period.month]}: ${formatCurrency(cell.billing)} de facturación, ${formatCurrency(cell.fuelCost)} de repostaje y ${formatKm(cell.km)} realizados`} key={cell.key}><span>{cell.day}</span><span className="drivers-calendar-day__values">{cell.billing > 0 && <small className="drivers-calendar-day__billing">{formatShortCurrency(cell.billing)}</small>}{cell.fuelCost > 0 && <small className="drivers-calendar-day__fuel">-{formatShortCurrency(cell.fuelCost)}</small>}</span></button>)}
       </div>
     </div>
   );
@@ -5517,8 +5560,9 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
 
       {selectedDriver && selectedDayDetail && <section className="driver-day-detail" aria-label={`Detalle de ${selectedDriver.driver}`}>
         <div className="driver-day-detail__columns">
-          <article className="driver-day-panel driver-day-panel--billing"><header><IconFileInvoice size={17} /><strong>Facturación</strong></header><div className="driver-day-panel__metrics"><span><small>Ingreso del día</small><strong>{formatCurrency(selectedDayDetail.billing)}</strong></span><span><small>Viajes</small><strong>{selectedDayDetail.trips}</strong></span><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Km totales</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div></article>
+          <article className="driver-day-panel driver-day-panel--billing"><header><IconFileInvoice size={17} /><strong>Facturación</strong></header><div className="driver-day-panel__metrics"><span><small>Ingreso del día</small><strong>{formatCurrency(selectedDayDetail.billing)}</strong></span><span><small>Viajes</small><strong>{selectedDayDetail.trips}</strong></span></div></article>
           <article className="driver-day-panel driver-day-panel--fuel"><header><IconGasStation size={17} /><strong>Repostaje</strong></header><div className="driver-day-panel__metrics"><span><small>Consumo diario</small><strong>{selectedDayDetail.fuelLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Importe</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div><div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.length > 0 ? selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}`}><span><strong>{entry.time}</strong><small>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L · {formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>) : <small>Sin repostaje registrado este día.</small>}</div></article>
+          <article className="driver-day-panel driver-day-panel--mileage"><header><IconGauge size={17} /><strong>Kilómetros</strong></header><div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><span><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div></article>
         </div>
       </section>}
     </section>
