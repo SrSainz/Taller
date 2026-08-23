@@ -77,6 +77,7 @@ import { aminBillingByPeriod } from "./data/aminBillingSummary";
 import { fernandoBillingByPeriod } from "./data/fernandoBillingSummary";
 import { mauricioBillingByPeriod } from "./data/mauricioBillingSummary";
 import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
+import { additionalHistoricalBillingSources } from "./data/additionalHistoricalBillingSummary";
 import { getImportedTipsByPeriod } from "./data/driverTipsSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
 import { gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender, getGestoriaDocumentsForPeriod, getGestoriaExpenseForPeriod } from "./data/gestoriaSummary";
@@ -683,7 +684,7 @@ const applyNetBreakdownOverrides = (expenseKey, breakdowns, manualBreakdowns = [
   return override ? { ...breakdown, amount: Number(override.amount), concept: override.concept, date: override.date || breakdown.date || "", manualBreakdownId: override.id } : breakdown;
 });
 
-const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], driverNames = [], fuelEntries = [], periodFinancials = [], manualBreakdowns = [], reportMonth = 6, reportYear = 2026 }) => {
+const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], driverNames = [], additionalHistoricalBilling = 0, fuelEntries = [], periodFinancials = [], manualBreakdowns = [], reportMonth = 6, reportYear = 2026 }) => {
   const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
@@ -696,7 +697,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const vehicleDrivers = (driverNames.length ? driverNames : vehicle.drivers).slice(0, 2);
   const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: 0 }));
   const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
-  const driverBillingTotal = resolvedDriverRows.slice(0, 2).reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
+  const driverBillingTotal = Number((resolvedDriverRows.slice(0, 2).reduce((sum, row) => sum + (Number(row.revenue) || 0), 0) + (Number(additionalHistoricalBilling) || 0)).toFixed(2));
   const intracommunityVatRate = getIntracommunityVatRateForPeriod(reportYear, reportMonth);
   const intracommunityVat = Number((driverBillingTotal * intracommunityVatRate).toFixed(2));
   const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
@@ -1299,6 +1300,7 @@ const importedBillingSources = Object.freeze([
   { key: "mauricio", label: "Mauricio", summary: mauricioBillingByPeriod },
   { key: "tirso", label: "Tirso", summary: tirsoBillingByPeriod },
 ]);
+const allHistoricalBillingSources = Object.freeze([...importedBillingSources, ...additionalHistoricalBillingSources]);
 const historicalDriverVehicleByKey = Object.freeze({ alex: "5750 MJV", amin: "5043 MLC", fernando: "5754 MJV", mauricio: "5043 MLC", tirso: "5750 MJV" });
 const historicalDriverNamesByPlate = Object.freeze({ "5043 MLC": ["Mauricio", "Amin"], "5750 MJV": ["Tirso", "Alex"], "5754 MJV": ["Andrés", "Fernando"] });
 const getImportedDriverKey = (driver) => String(driver ?? "").trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/)[0];
@@ -1347,29 +1349,35 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
 const getHistoricalBillingRowsForPeriod = (vehicles, driverEntries = [], month, year) => {
   const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
   const profiles = vehicles.flatMap((vehicle) => vehicle.driverProfiles ?? []);
-  return importedBillingSources.map((source) => {
+  return allHistoricalBillingSources.map((source) => {
     const record = source.summary?.[periodKey];
-    const vehicle = vehicles.find((candidate) => candidate.plate === historicalDriverVehicleByKey[source.key])
+    const sourcePlate = canonicalizeVehiclePlate(source.vehiclePlate || historicalDriverVehicleByKey[source.key] || "");
+    const vehicle = vehicles.find((candidate) => candidate.plate === sourcePlate)
       ?? vehicles.find((candidate) => candidate.use === "Profesional" && candidate.drivers.some((driver) => getImportedDriverKey(driver) === source.key));
-    const profile = profiles.find((candidate) => getImportedDriverKey(candidate.full_name) === source.key);
+    const sourceDriverKey = getImportedDriverKey(source.label);
+    const profile = profiles.find((candidate) => getImportedDriverKey(candidate.full_name) === sourceDriverKey);
     const recordedAmount = driverEntries
       .filter((entry) => profile?.id && entry.driver_id === profile.id && String(entry.entry_date ?? "").startsWith(periodKey))
       .reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0);
     const importedTips = getImportedTipsByPeriod(source.label)?.[periodKey] ?? 0;
-    if (!vehicle || !record || !(Number(record.amount) > 0)) return null;
+    if (!record || !(Number(record.amount) > 0)) return null;
+    const hasVehicle = Boolean(vehicle);
     return {
       key: `historical-${source.key}-${periodKey}`,
       driver: source.label,
       driverId: "",
-      plate: vehicle.plate,
-      model: vehicle.model,
+      plate: vehicle?.plate ?? sourcePlate,
+      model: vehicle?.model ?? "Matrícula pendiente",
       revenue: Number(record.amount) || 0,
       entries: [{ id: `historical-entry-${source.key}-${periodKey}`, entry_date: `${periodKey}-01`, billing: Number(record.amount) || 0, tips: Number(importedTips) || 0, tolls: 0, driver_id: "", isImportedBilling: true }],
       sourceFile: record.sourceFile ?? "Documento de facturación",
       extractedLabel: record.extractedLabel ?? "Total facturado",
-      usedInNet: recordedAmount <= 0,
+      note: record.note ?? "",
+      usedInNet: hasVehicle && recordedAmount <= 0,
       recordedAmount: Number(recordedAmount.toFixed(2)),
       isHistoricalBilling: true,
+      isHistoricalOnly: Boolean(source.historicalOnly),
+      missingVehicle: !hasVehicle,
     };
   }).filter(Boolean);
 };
@@ -4369,7 +4377,7 @@ function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }
   );
 }
 
-function NetDetailModal({ details, periodKey, periodLabel, reportMonth, reportYear, onSelectMonth, onSelectYear, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onSaveBreakdown, onClose }) {
+function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBillingRows = [], periodKey, periodLabel, reportMonth, reportYear, onSelectMonth, onSelectYear, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onSaveBreakdown, onClose }) {
   const closeButtonRef = useRef(null);
   const breakdownAmountRef = useRef(null);
   const breakdownPressTimerRef = useRef(null);
@@ -4416,7 +4424,7 @@ function NetDetailModal({ details, periodKey, periodLabel, reportMonth, reportYe
   const orderedDetails = [...details].sort((left, right) => vehicleOrder.indexOf(left.vehicle.plate) - vehicleOrder.indexOf(right.vehicle.plate));
   const selectedDetail = orderedDetails.find((detail) => detail.vehicle.plate === selectedPlate) ?? null;
   const selectedTone = selectedDetail ? (netVehicleImages[selectedDetail.vehicle.plate]?.tone ?? "green") : "green";
-  const historicalBillingRows = orderedDetails.flatMap((detail) => detail.historicalBilling ?? []);
+  const historicalBillingRows = [...orderedDetails.flatMap((detail) => detail.historicalBilling ?? []), ...unassignedHistoricalBillingRows.filter((row) => row.missingVehicle)];
   const historicalDocumentTotal = historicalBillingRows.reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
   const historicalAppliedTotal = historicalBillingRows.filter((row) => row.usedInNet).reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
   const netExpenseDateRange = getNetExpensePeriodRange(periodKey);
@@ -4586,7 +4594,7 @@ function NetDetailModal({ details, periodKey, periodLabel, reportMonth, reportYe
         </header>
         <section className="net-detail-historical-billing" aria-label={`Facturación histórica documental de ${periodLabel}`}>
           <header><div><strong>FACTURACIÓN HISTÓRICA</strong><small>Fuente documental separada · no modifica perfiles ni registros diarios</small></div><div><span>Total documental</span><strong>{formatCurrency(historicalDocumentTotal)}</strong></div></header>
-          {historicalBillingRows.length > 0 ? <div className="net-detail-historical-billing__rows">{historicalBillingRows.map((row) => <div key={row.key}><span><strong>{row.driver}</strong><small>{row.plate} · {row.usedInNet ? "Usado en Neto" : "No sumado: existe registro real"} · {row.extractedLabel}</small></span><strong>{formatCurrency(row.revenue)}</strong></div>)}</div> : <p>No hay facturación documental cargada para este periodo.</p>}
+          {historicalBillingRows.length > 0 ? <div className="net-detail-historical-billing__rows">{historicalBillingRows.map((row) => <div key={row.key}><span><strong>{row.driver}</strong><small>{row.plate || "Matrícula pendiente"} · {row.missingVehicle ? "No sumado: matrícula pendiente" : row.usedInNet ? "Usado en Neto" : "No sumado: existe registro real"} · {row.extractedLabel}</small></span><strong>{formatCurrency(row.revenue)}</strong></div>)}</div> : <p>No hay facturación documental cargada para este periodo.</p>}
           <footer><span>Importe documental aplicado al cálculo</span><strong>{formatCurrency(historicalAppliedTotal)}</strong></footer>
         </section>
         {!selectedDetail ? <>
@@ -4831,7 +4839,9 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       const vehicleIndex = vehicles.findIndex((candidate) => candidate.plate === vehicle.plate);
       const vehicleHistoricalBilling = historicalBillingRows.filter((row) => row.plate === vehicle.plate);
       const vehicleBillingRows = getNetDriverRowsForVehicle({ vehicle, billingRows, historicalBillingRows: vehicleHistoricalBilling });
-      const revenue = vehicleBillingRows.reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
+      const additionalHistoricalBillingRows = vehicleHistoricalBilling.filter((row) => row.isHistoricalOnly && row.usedInNet);
+      const additionalHistoricalBilling = additionalHistoricalBillingRows.reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
+      const revenue = Number((vehicleBillingRows.reduce((sum, row) => sum + (Number(row.revenue) || 0), 0) + additionalHistoricalBilling).toFixed(2));
       const commission = Number(vehicleBillingRows.reduce((sum, row) => sum + calculateNetDriverCommission(row.driver, row.revenue), 0).toFixed(2));
       const expenses = buildNetExpenseBreakdown({
         vehicle,
@@ -4842,6 +4852,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         periodFactor,
         driverRows: vehicleBillingRows,
         driverNames: vehicleBillingRows.map((row) => row.driver),
+        additionalHistoricalBilling,
         periodFinancials,
         manualBreakdowns: manualNetBreakdowns.filter((breakdown) => breakdown.periodKey === netPeriodKey && breakdown.plate === vehicle.plate),
         reportMonth,
@@ -5142,7 +5153,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
-              {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} reportMonth={reportMonth} reportYear={reportYear} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onSaveBreakdown={(breakdown) => setManualNetBreakdowns((current) => { const next = current.filter((candidate) => !(candidate.periodKey === netPeriodKey && candidate.plate === breakdown.plate && candidate.expenseKey === breakdown.expenseKey && candidate.breakdownKey === breakdown.breakdownKey)); return [...next, { ...breakdown, id: `breakdown-${Date.now()}-${current.length}`, periodKey: netPeriodKey }]; })} onClose={() => setNetDetailOpen(false)} />}
+              {netDetailOpen && <NetDetailModal details={netVehicleDetails} historicalBillingRows={historicalBillingRows} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} reportMonth={reportMonth} reportYear={reportYear} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onSaveBreakdown={(breakdown) => setManualNetBreakdowns((current) => { const next = current.filter((candidate) => !(candidate.periodKey === netPeriodKey && candidate.plate === breakdown.plate && candidate.expenseKey === breakdown.expenseKey && candidate.breakdownKey === breakdown.breakdownKey)); return [...next, { ...breakdown, id: `breakdown-${Date.now()}-${current.length}`, periodKey: netPeriodKey }]; })} onClose={() => setNetDetailOpen(false)} />}
             </div>
           </>
         )}
