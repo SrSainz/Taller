@@ -1159,6 +1159,11 @@ const getMaintenanceDateInputValue = (item) => {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 };
 const getFuelEntryDateValue = (entry) => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(entry.date ?? ""))) {
+    const [year, month, day] = String(entry.date).split("-").map(Number);
+    const [hour = 0, minute = 0] = String(entry.time ?? "").split(":").map(Number);
+    return Date.UTC(year, month - 1, day, hour, minute);
+  }
   const [day, month, year] = normalizeText(entry.date).split(/\s+/);
   const [hour = 0, minute = 0] = (entry.time ?? "").split(":").map(Number);
   return Date.UTC(Number(year), maintenanceMonths[month] ?? 0, Number(day), hour, minute);
@@ -2144,7 +2149,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const saveProcessedDocumentCentral = async (document) => {
     const { file, ...documentWithoutFile } = document;
     const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
-    setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
     const fields = savedDocument.fields ?? {};
     const vehiclePlate = resolveVehiclePlate(fields.vehicle);
     const documentDate = (savedDocument.category === "billing" ? fields.serviceDate || fields.issueDate || fields.date || fields.periodStart : fields.date || fields.serviceDate || fields.issueDate) || new Date().toISOString().slice(0, 10);
@@ -2171,11 +2175,13 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       }
     } catch (error) {
       const duplicate = error?.code === "23505" || error?.code === "DUPLICATE_DOCUMENT" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
-      notify(duplicate ? "Documento duplicado: no se ha vuelto a sumar ningÃºn importe." : `No se pudo registrar el documento: ${error.message}`);
-      return false;
+      const message = duplicate ? "Documento duplicado: no se ha vuelto a sumar ningún importe." : `No se pudo registrar el documento: ${error.message}`;
+      notify(message);
+      return { ok: false, message };
     }
+    setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
     notify(savedDocument.lowConfidence ? `Datos guardados${cloudSaved ? " en Supabase" : ""}; revisa los campos de baja confianza` : `Datos clasificados y guardados${cloudSaved ? " en Supabase" : ""} correctamente`);
-    return true;
+    return { ok: true };
   };
 
   const installApplication = async () => {
@@ -2949,12 +2955,19 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     });
   }, [entries, driverPeriodMonth, driverPeriodYear, profile.full_name]);
   const imageDocument = (predicate) => documentPreviews.find((document) => predicate(document) && document.signedUrl)?.signedUrl ?? "";
-  const driverImages = {
+  const uploadedDriverImages = {
     fuelReceipt: circlePreviewUrls.fuel || imageDocument((document) => document.extracted_data?.recordType === "fuel" || document.category === "consumption" && document.extracted_data?.metric === "fuel_receipt"),
-    billingReceipt: circlePreviewUrls.billing || imageDocument((document) => document.category === "billing" || document.extracted_data?.recordType === "billing") || "/assets/driver-examples/photo-5.jpg",
-    dailyKm: circlePreviewUrls["daily-km"] || imageDocument((document) => ["daily-km", "partial-1"].includes(document.extracted_data?.recordType)) || "/assets/driver-examples/photo-1.jpg",
-    totalKm: circlePreviewUrls["total-km"] || imageDocument((document) => ["total-km", "total"].includes(document.extracted_data?.recordType)) || "/assets/driver-examples/photo-2.jpg",
-    consumption: circlePreviewUrls.consumption || imageDocument((document) => document.extracted_data?.recordType === "consumption" || document.extracted_data?.metric === "consumption") || "/assets/driver-examples/photo-4.jpg",
+    billingReceipt: circlePreviewUrls.billing || imageDocument((document) => document.category === "billing" || document.extracted_data?.recordType === "billing"),
+    dailyKm: circlePreviewUrls["daily-km"] || imageDocument((document) => ["daily-km", "partial-1"].includes(document.extracted_data?.recordType)),
+    totalKm: circlePreviewUrls["total-km"] || imageDocument((document) => ["total-km", "total"].includes(document.extracted_data?.recordType)),
+    consumption: circlePreviewUrls.consumption || imageDocument((document) => document.extracted_data?.recordType === "consumption" || document.extracted_data?.metric === "consumption"),
+  };
+  const driverImages = {
+    fuelReceipt: uploadedDriverImages.fuelReceipt,
+    billingReceipt: uploadedDriverImages.billingReceipt || "/assets/driver-examples/photo-5.jpg",
+    dailyKm: uploadedDriverImages.dailyKm || "/assets/driver-examples/photo-1.jpg",
+    totalKm: uploadedDriverImages.totalKm || "/assets/driver-examples/photo-2.jpg",
+    consumption: uploadedDriverImages.consumption || "/assets/driver-examples/photo-4.jpg",
   };
   const documentCircleValues = selectedDayDocuments.reduce((values, document) => {
     const data = document.extracted_data ?? {};
@@ -2967,11 +2980,11 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   }, {});
   const directCircleValues = { ...documentCircleValues, ...(circleMetricValues[selectedDate] ?? {}) };
   const dailyPhotoRecords = [
-    { key: "fuel", label: "Gasolina", value: formatCurrency(selectedDayData.fuel_cost), image: driverImages.fuelReceipt, Icon: IconGasStation, alt: "Justificante de gasolina" },
-    { key: "billing", label: "Facturación", value: formatCurrency(selectedDayData.billing), image: driverImages.billingReceipt, Icon: IconFileInvoice, alt: "Foto de facturación diaria" },
-    { key: "daily-km", label: "Km diarios", value: formatKm(directCircleValues.dailyKm ?? partialKm2), image: driverImages.dailyKm, Icon: IconGauge, alt: "Lectura de kilómetros diarios" },
-    { key: "total-km", label: "Km acumulados", value: formatKm(directCircleValues.totalKm ?? vehicle?.odometer ?? selectedOdometer), image: driverImages.totalKm, Icon: IconGauge, alt: "Lectura de kilómetros acumulados" },
-    { key: "consumption", label: "Consumo", value: `${Number(directCircleValues.consumption || averageConsumption).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${directCircleValues.consumptionUnit || "l/100 km"}`, image: driverImages.consumption, Icon: IconChartBar, alt: "Historial de consumo del vehículo" },
+    { key: "fuel", label: "Gasolina", value: formatCurrency(selectedDayData.fuel_cost), image: driverImages.fuelReceipt, hasAttachment: Boolean(uploadedDriverImages.fuelReceipt), Icon: IconGasStation, alt: "Justificante de gasolina" },
+    { key: "billing", label: "Facturación", value: formatCurrency(selectedDayData.billing), image: driverImages.billingReceipt, hasAttachment: Boolean(uploadedDriverImages.billingReceipt), Icon: IconFileInvoice, alt: "Foto de facturación diaria" },
+    { key: "daily-km", label: "Km diarios", value: formatKm(directCircleValues.dailyKm ?? partialKm2), image: driverImages.dailyKm, hasAttachment: Boolean(uploadedDriverImages.dailyKm), Icon: IconGauge, alt: "Lectura de kilómetros diarios" },
+    { key: "total-km", label: "Km acumulados", value: formatKm(directCircleValues.totalKm ?? vehicle?.odometer ?? selectedOdometer), image: driverImages.totalKm, hasAttachment: Boolean(uploadedDriverImages.totalKm), Icon: IconGauge, alt: "Lectura de kilómetros acumulados" },
+    { key: "consumption", label: "Consumo", value: `${Number(directCircleValues.consumption || averageConsumption).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${directCircleValues.consumptionUnit || "l/100 km"}`, image: driverImages.consumption, hasAttachment: Boolean(uploadedDriverImages.consumption), Icon: IconChartBar, alt: "Historial de consumo del vehículo" },
   ];
   const driverReferenceImages = {
     consumption: "/assets/driver-examples/photo-4.jpg",
@@ -3010,7 +3023,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const saveCircleReview = async (reviewDocument) => {
     const recordKey = circleReview?.recordKey;
     const file = reviewDocument?.file;
-    if (!recordKey || !file) return false;
+    if (!recordKey || !file) return { ok: false, message: "No se ha encontrado el archivo que estabas revisando." };
     const fields = reviewDocument.fields ?? {};
     const fieldNumber = (...keys) => keys.map((key) => getDriverDocumentNumber(fields[key])).find((value) => value > 0) || 0;
     const documentCategory = recordKey === "billing" ? "billing" : "consumption";
@@ -3140,13 +3153,20 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       setCircleUpload({ key: recordKey, status: supabase ? "saved" : "local", fileName: file.name });
       setCircleReview(null);
       if (detectedDate && detectedDate !== selectedDate) setSelectedDate(detectedDate);
-      setMessage(`${dailyPhotoRecords.find((record) => record.key === recordKey)?.label ?? "Registro"} actualizado para el ${targetDate}.`);
-      return true;
+      const recordLabel = dailyPhotoRecords.find((record) => record.key === recordKey)?.label ?? "Registro";
+      const destinationMessage = recordKey === "fuel"
+        ? "Repostaje semanal, Administración > Vehículos > Combustible y Neto"
+        : recordKey === "billing"
+          ? "Facturación mensual, Administración > Conductores y Neto"
+          : "el registro diario del conductor";
+      setMessage(`${recordLabel} guardado para el ${targetDate}, con su justificante. Ya está actualizado en ${destinationMessage}.`);
+      return { ok: true };
     } catch (error) {
       const duplicate = error?.code === "23505" || error?.code === "DUPLICATE_DOCUMENT" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
+      const errorMessage = duplicate ? "Este documento ya estaba guardado y no se ha vuelto a sumar." : `No se ha podido guardar el documento: ${error.message}`;
       setCircleUpload({ key: recordKey, status: duplicate ? "duplicate" : "error", fileName: file.name });
-      setMessage(duplicate ? "Documento duplicado: no se ha vuelto a sumar ningún importe." : `No se ha podido guardar el documento: ${error.message}`);
-      return false;
+      setMessage(errorMessage);
+      return { ok: false, message: errorMessage };
     }
   };
   const saveWeeklyAmount = async (dateKey, rowKey, rawValue) => {
@@ -3667,10 +3687,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         </section>
         <section ref={statsRef} className="driver-mobile-section driver-mobile-section--today" aria-label="Registros diarios">
           <div className="driver-mobile-record-grid">
-            {dailyPhotoRecords.map(({ key, label, image, Icon: RecordIcon, alt }) => {
+            {dailyPhotoRecords.map(({ key, label, image, hasAttachment, Icon: RecordIcon, alt }) => {
               const isUploading = circleUpload.key === key && circleUpload.status === "uploading";
-              const isAttached = circleUpload.key === key && ["saved", "local"].includes(circleUpload.status);
-              const statusLabel = isUploading ? "Subiendo…" : isAttached ? "Adjuntada" : "Sin adjunto";
+              const isAttached = hasAttachment || circleUpload.key === key && ["saved", "local"].includes(circleUpload.status);
+              const statusLabel = isUploading ? "Guardando…" : isAttached ? "Justificante archivado" : "Sin adjunto";
               return <button type="button" className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key} onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={`Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>;
             })}
           </div>
@@ -3699,7 +3719,6 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
         {referenceOpen && referenceLabels[referenceOpen] && <div className="driver-mobile-reference-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-reference-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setReferenceOpen(""); }}><div className="driver-mobile-reference-dialog__panel"><header><div><span>REFERENCIA VISUAL</span><h2 id="driver-mobile-reference-title">{referenceLabels[referenceOpen].title}</h2></div><button type="button" aria-label="Cerrar referencia" onClick={() => setReferenceOpen("")}><IconX size={18} /></button></header><img src={driverReferenceImages[referenceOpen]} alt={referenceLabels[referenceOpen].alt} /><p>{referenceLabels[referenceOpen].caption}. Esta imagen es un ejemplo y no modifica los datos del conductor.</p><button type="button" className="primary-button" onClick={() => setReferenceOpen("")}>Cerrar</button></div></div>}
         {circleReview && <DriverCircleReviewDialog review={circleReview} profile={profile} driverId={profile.id} onClose={closeCircleReview} onSave={saveCircleReview} />}
       </div>
-      <nav className="driver-mobile-bottom-nav" aria-label="Navegación del conductor"><button type="button" className={driverNavSection === "home" ? "is-active" : ""} onClick={() => scrollTo("home", homeRef)}><IconHome size={21} /><span>Inicio</span></button><button type="button" className={driverNavSection === "history" ? "is-active" : ""} onClick={() => scrollTo("history", historyRef)}><IconHistory size={21} /><span>Historial</span></button><button type="button" className={driverNavSection === "stats" ? "is-active" : ""} onClick={() => scrollTo("stats", statsRef)}><IconChartBar size={21} /><span>Estadísticas</span></button><button type="button" className={driverNavSection === "settings" ? "is-active" : ""} onClick={() => { setDriverNavSection("settings"); setDriverMenuOpen(true); setDriverNoticeOpen(false); }}><IconSettings size={21} /><span>Ajustes</span></button></nav>
     </main>
   );
 }
@@ -4555,15 +4574,31 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     const date = new Date(`${transaction.occurred_on}T12:00:00`);
     return date.getFullYear() === reportYear && date.getMonth() === reportMonth;
   });
+  const documentsById = new Map(documents.map((document) => [document.id, document]));
   const vehicleStats = vehicles.map((vehicle) => {
-    const entries = periodTransactions.filter((transaction) => transaction.type === "fuel" && transaction.vehicle_plate === vehicle.plate).map((transaction) => ({
-      id: transaction.id,
-      date: transaction.occurred_on,
-      driverId: transaction.driver_id,
-      liters: Number(transaction.metadata?.liters) || 0,
-      cost: Number(transaction.amount) || 0,
-      sourceDocumentId: transaction.source_document_id,
-    }));
+    const entries = periodTransactions.filter((transaction) => transaction.type === "fuel" && transaction.vehicle_plate === vehicle.plate).map((transaction) => {
+      const sourceDocument = documentsById.get(transaction.source_document_id) ?? null;
+      const fields = getExtractedDocumentFields(sourceDocument);
+      const metadata = transaction.metadata ?? {};
+      const assignedProfile = vehicle.driverProfiles?.find((driver) => driver.id === transaction.driver_id);
+      const createdTime = transaction.created_at
+        ? new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(transaction.created_at))
+        : "";
+      return {
+        id: transaction.id,
+        date: transaction.occurred_on,
+        time: fields.time || metadata.time || createdTime,
+        driverId: transaction.driver_id,
+        driver: assignedProfile?.full_name ?? "",
+        liters: Number(metadata.liters) || 0,
+        cost: Number(transaction.amount) || 0,
+        costPerUnit: Number(metadata.costPerUnit) || Number(fields.costPerUnit) || 0,
+        provider: fields.gasStation || fields.provider || metadata.provider || metadata.company || "Gasolinera no identificada",
+        ticketNumber: fields.ticketNumber || fields.invoiceNumber || metadata.invoiceNumber || "",
+        sourceDocumentId: transaction.source_document_id,
+        sourceDocument,
+      };
+    });
     return {
       vehicle,
       entries,
@@ -5050,25 +5085,31 @@ function FuelLedgerDetail({ selected, entries, periodLabel, onOpenInvoice }) {
           <thead><tr><th scope="col">Fecha</th><th scope="col">Hora</th><th scope="col">Conductor</th><th scope="col">Importe</th><th scope="col">Precio/Litro</th><th scope="col">Factura</th></tr></thead>
           <tbody>{selectedEntries.map((entry, index) => {
             const assignment = getFuelAssignment(selected, entry);
-            const pricePerLiter = entry.liters ? entry.cost / entry.liters : 0;
+            const pricePerLiter = entry.costPerUnit || (entry.liters ? entry.cost / entry.liters : 0);
+            const sourceDocument = entry.sourceDocument;
             const invoice = {
-              id: `PLG-${selected.plate.replace(/\s/g, "")}-${String(index + 1).padStart(2, "0")}`,
-              provider: "Plenergy",
-              date: entry.date,
+              id: entry.ticketNumber || `REP-${selected.plate.replace(/\s/g, "")}-${String(index + 1).padStart(2, "0")}`,
+              kind: "fuel",
+              provider: entry.provider,
+              date: formatDocumentDisplayDate(entry.date),
               plate: selected.plate,
               driver: assignment.driver,
               concept: `Repostaje de ${entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L`,
               liters: entry.liters,
               pricePerLiter,
               amount: entry.cost,
-              source: "Cuenta Plenergy",
-              status: "Descargada",
+              source: sourceDocument ? "Ticket subido por el conductor" : "Registro de combustible",
+              status: sourceDocument?.status === "approved" ? "Validada" : sourceDocument ? "Revisar" : "Sin justificante",
+              sourceDocumentId: entry.sourceDocumentId,
+              filePath: sourceDocument?.file_path ?? "",
+              fileName: sourceDocument?.file_name ?? "",
+              mimeType: sourceDocument?.mime_type ?? "",
             };
-            return <tr key={`${entry.date}-${entry.time}`}><td><strong>{entry.date.replace(/\s+\d{4}$/, "")}</strong></td><td><strong>{entry.time}</strong></td><td><span className="fuel-driver"><IconUsers size={14} /><strong>{assignment.driver}</strong></span></td><td><strong>{formatCurrency(entry.cost)}</strong></td><td>{formatCurrency(pricePerLiter)}</td><td><button type="button" className="fuel-invoice-button" onClick={() => onOpenInvoice(invoice)} aria-label={`Ver factura Plenergy de ${selected.plate} del ${entry.date} a las ${entry.time}`}><IconFileInvoice size={14} />Ver factura</button></td></tr>;
+            return <tr key={entry.id || `${entry.date}-${entry.time}`}><td><strong>{formatDocumentDisplayDate(entry.date)}</strong></td><td><strong>{entry.time || "—"}</strong></td><td><span className="fuel-driver"><IconUsers size={14} /><strong>{assignment.driver}</strong></span></td><td><strong>{formatCurrency(entry.cost)}</strong></td><td>{formatCurrency(pricePerLiter)}</td><td>{sourceDocument ? <button type="button" className="fuel-invoice-button" onClick={() => onOpenInvoice(invoice)} aria-label={`Ver ticket de gasolina de ${selected.plate} del ${formatDocumentDisplayDate(entry.date)}`}><IconFileInvoice size={14} />Ver ticket</button> : <span className="fuel-invoice-missing">Sin ticket</span>}</td></tr>;
           })}</tbody>
         </table>
       </div>
-      <footer className="fuel-detail__footer"><IconSparkles size={15} /><span>El conductor se determina automáticamente por la hora. Las facturas quedan archivadas desde la cuenta de la aplicación Plenergy.</span></footer>
+      <footer className="fuel-detail__footer"><IconSparkles size={15} /><span>Cada importe procede del registro central. Cuando existe justificante, «Ver ticket» abre la imagen o PDF privado que subió el conductor.</span></footer>
     </section>
   );
 }
@@ -6152,7 +6193,7 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
   const isReading = modal.type === "reading-review";
   const isInvoice = modal.type === "invoice";
   const isGestoriaInvoice = isInvoice && item?.kind === "gestoria";
-  const isFuelInvoice = isInvoice && item?.source === "Cuenta Plenergy";
+  const isFuelInvoice = isInvoice && (item?.kind === "fuel" || item?.source === "Cuenta Plenergy");
   const isPhotoInvoice = modal.type === "invoice-upload";
   const isDocumentProcessing = modal.type === "document-processing";
   const isMaintenanceEdit = modal.type === "maintenance-edit";
@@ -6164,16 +6205,41 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
       <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}${isMaintenanceEdit ? " modal--maintenance-edit" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header><div><span>Acción rápida</span><h2 id="modal-title">{isFuelInvoice ? "Factura Plenergy" : isGestoriaInvoice ? "Factura de gestoría" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
-        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.documentNumber ?? item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc && <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate || item.plateReference || "la flota"}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure>}{isGestoriaInvoice && !item.imageSrc && <div className="invoice-source-file"><IconMail size={17} /><span><strong>Adjunto rescatado del correo</strong><small>{item.sourceFile || "Archivo de Gestoría Durán Rivas"} · {item.sourceAccount}</small></span></div>}<dl><div><dt>Vehículo</dt><dd>{item.plate || `Sin matrícula${item.plateReference ? ` · ref. ${item.plateReference}` : ""}`}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>{[itemOwner.dni ? `DNI ${itemOwner.dni}` : "", itemOwner.location, itemOwner.initials].filter(Boolean).join(" · ")}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div>{item.periodKey && <div><dt>Periodo imputado</dt><dd>{item.periodKey}</dd></div>}<div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
+        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.documentNumber ?? item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc ? <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate || item.plateReference || "la flota"}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure> : item.filePath ? <PrivateDocumentAttachment item={item} /> : null}{isGestoriaInvoice && !item.imageSrc && !item.filePath && <div className="invoice-source-file"><IconMail size={17} /><span><strong>Adjunto rescatado del correo</strong><small>{item.sourceFile || "Archivo de Gestoría Durán Rivas"} · {item.sourceAccount}</small></span></div>}<dl><div><dt>Vehículo</dt><dd>{item.plate || `Sin matrícula${item.plateReference ? ` · ref. ${item.plateReference}` : ""}`}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>{[itemOwner.dni ? `DNI ${itemOwner.dni}` : "", itemOwner.location, itemOwner.initials].filter(Boolean).join(" · ")}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div>{item.periodKey && <div><dt>Periodo imputado</dt><dd>{item.periodKey}</dd></div>}<div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
         {isMaintenanceEdit && <MaintenanceEditWorkflow item={item} onCancel={onClose} onSave={(values) => { const saved = onSaveMaintenance?.(values); if (saved !== false) complete("Intervención actualizada y reordenada por fecha"); }} />}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={async (invoice) => { const saved = await onSaveInvoice(invoice); if (saved !== false) complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
-        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument(document); if (saved !== false) complete("Documento procesado y guardado"); }} />}
+        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument(document); if (saved === false || saved?.ok === false) return saved; complete("Documento procesado y guardado"); return { ok: true }; }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
         {!isPhotoInvoice && !isDocumentProcessing && !isMaintenanceEdit && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Factura Plenergy archivada" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar factura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
       </section>
     </div>
   );
+}
+
+function PrivateDocumentAttachment({ item }) {
+  const [state, setState] = useState({ status: "loading", url: "", message: "" });
+  useEffect(() => {
+    let active = true;
+    if (!supabase || !item.filePath) {
+      setState({ status: "error", url: "", message: "El justificante no está disponible." });
+      return undefined;
+    }
+    supabase.storage.from("documents").createSignedUrl(item.filePath, 10 * 60)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error || !data?.signedUrl) setState({ status: "error", url: "", message: error?.message || "No se ha podido abrir el justificante." });
+        else setState({ status: "ready", url: data.signedUrl, message: "" });
+      })
+      .catch((error) => { if (active) setState({ status: "error", url: "", message: error.message || "No se ha podido abrir el justificante." }); });
+    return () => { active = false; };
+  }, [item.filePath]);
+
+  if (state.status === "loading") return <div className="invoice-private-document invoice-private-document--loading" role="status"><IconSparkles size={18} /><span><strong>Preparando justificante privado</strong><small>{item.fileName || "Documento del conductor"}</small></span></div>;
+  if (state.status === "error") return <div className="invoice-private-document invoice-private-document--error" role="alert"><IconAlertTriangle size={18} /><span><strong>No se ha podido mostrar el justificante</strong><small>{state.message}</small></span></div>;
+  const isImage = String(item.mimeType ?? "").startsWith("image/");
+  if (isImage) return <figure className="invoice-document-photo invoice-document-photo--private"><a href={state.url} target="_blank" rel="noreferrer" aria-label={`Abrir justificante original ${item.fileName || ""}`}><img src={state.url} alt={`Ticket original de ${item.provider} para ${item.plate}, ${item.date}`} /></a><figcaption><span>Justificante original archivado</span><a href={state.url} target="_blank" rel="noreferrer">Abrir a tamaño completo</a></figcaption></figure>;
+  return <div className="invoice-private-document"><IconFileInvoice size={20} /><span><strong>Justificante original archivado</strong><small>{item.fileName || "Documento PDF"}</small></span><a href={state.url} target="_blank" rel="noreferrer">Abrir documento</a></div>;
 }
 
 function DriverBillingMonthTick({ x, y, payload }) {
@@ -6270,6 +6336,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, dr
   const [fields, setFields] = useState(() => normalizeDocumentAnalysis(category, null, defaultVehicle));
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
+  const [saveState, setSaveState] = useState({ saving: false, message: "" });
 
   useEffect(() => {
     const isImage = validateDocumentFile(file, source).kind === "image";
@@ -6357,21 +6424,30 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, dr
     setError({ code: "CANCELLED", message: "Has cancelado el análisis. No se ha guardado ningún dato." });
     setStage("cancelled");
   };
-  const save = () => {
-    onSave({
-      id: `DOC-${String(Date.now()).slice(-8)}`,
-      category,
-      driverId,
-      source,
-      file: preparedFile,
-      fileName: preparedFile?.name || file.name,
-      fileType: preparedFile?.type || file.type,
-      fields: fieldsToRecord(fields),
-      fieldConfidence: Object.fromEntries(fields.map((field) => [field.key, field.confidence])),
-      overallConfidence,
-      warnings: analysis?.warnings ?? [],
-      lowConfidence: lowConfidenceFields.length > 0,
-    });
+  const save = async () => {
+    if (saveState.saving) return;
+    setSaveState({ saving: true, message: "" });
+    try {
+      const result = await onSave({
+        id: `DOC-${String(Date.now()).slice(-8)}`,
+        category,
+        driverId,
+        source,
+        file: preparedFile,
+        fileName: preparedFile?.name || file.name,
+        fileType: preparedFile?.type || file.type,
+        fields: fieldsToRecord(fields),
+        fieldConfidence: Object.fromEntries(fields.map((field) => [field.key, field.confidence])),
+        overallConfidence,
+        warnings: analysis?.warnings ?? [],
+        lowConfidence: lowConfidenceFields.length > 0,
+      });
+      if (result === false || result?.ok === false) {
+        setSaveState({ saving: false, message: result?.message || "No se han podido guardar los cambios. Revisa los datos e inténtalo de nuevo." });
+      }
+    } catch (caughtError) {
+      setSaveState({ saving: false, message: caughtError?.message || "No se han podido guardar los cambios." });
+    }
   };
 
   const renderPreview = () => previewUrl
@@ -6423,7 +6499,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, dr
               const value = field.value ?? "";
               return <label className={`document-field${low ? " document-field--low-confidence" : ""}`} key={field.key}>
                 <span><strong>{field.label}</strong><small>{field.confidence}%{low ? " · Revisar" : ""}</small></span>
-                {field.suffix ? <div className="document-field__input"><input type={field.type} step={field.step} value={value} placeholder={field.placeholder} onChange={(event) => updateField(field.key, event.target.value)} /><i>{field.suffix}</i></div> : <input type={field.type} step={field.step} value={value} placeholder={field.placeholder} onChange={(event) => updateField(field.key, event.target.value)} />}
+                {field.suffix ? <div className="document-field__input"><input type={field.type} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => updateField(field.key, event.target.value)} /><i>{field.suffix}</i></div> : <input type={field.type} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => updateField(field.key, event.target.value)} />}
               </label>;
             })}
           </div>
@@ -6431,9 +6507,10 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, dr
         </div>
       </section>}
 
+      {saveState.message && <div className="document-processing-save-error" role="alert"><IconAlertTriangle size={17} /><span>{saveState.message}</span></div>}
       <footer className="document-processing-actions">
-        <button type="button" className="secondary-button" onClick={stage === "processing" ? stopAnalysis : onCancel}>{stage === "processing" ? "Detener análisis" : "Cancelar"}</button>
-        {stage === "review" && <button type="button" className="primary-button" onClick={save}><IconCheck size={18} />Guardar datos</button>}
+        <button type="button" className="secondary-button" disabled={saveState.saving} onClick={stage === "processing" ? stopAnalysis : onCancel}>{stage === "processing" ? "Detener análisis" : "Cancelar"}</button>
+        {stage === "review" && <button type="button" className="primary-button" disabled={saveState.saving} onClick={save}>{saveState.saving ? <IconRefresh className="document-processing-actions__spinner" size={18} /> : <IconCheck size={18} />}{saveState.saving ? "Guardando cambios…" : "Guardar cambios"}</button>}
         {(stage === "error" || stage === "cancelled") && <button type="button" className="primary-button" onClick={onCancel}>Cerrar</button>}
       </footer>
     </div>

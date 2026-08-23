@@ -1,4 +1,4 @@
-import { canonicalizeVehiclePlate } from "./data/vehicleRegistry";
+import { canonicalizeVehiclePlate } from "./data/vehicleRegistry.js";
 
 const money = (value) => Math.max(0, Number(value) || 0);
 const isoDate = (value, fallback = "") => /^\d{4}-\d{2}-\d{2}$/.test(String(value ?? "")) ? String(value) : fallback;
@@ -29,6 +29,9 @@ export const operationsFromDocument = ({ category, fields = {}, driverId = "", v
   const metadataBase = {
     company: values.company || values.provider || values.gasStation || "",
     invoiceNumber: values.invoiceNumber || values.ticketNumber || "",
+    ticketNumber: values.ticketNumber || values.invoiceNumber || "",
+    time: values.time || "",
+    documentType: values.documentType || "",
     concept: values.concept || "",
     expenseCategory: values.expenseCategory || "",
     supplyType: values.supplyType || values.fuelType || "",

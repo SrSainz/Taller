@@ -4978,3 +4978,177 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .admin-driver-access-sheet__password { grid-template-columns: auto minmax(0, 1fr); }
   .admin-driver-access-sheet__password > button:not(.admin-driver-access-sheet__password-close) { grid-column: 2; justify-self: start; }
 }
+
+/* Auditoría de documentos: la revisión siempre queda por encima de la navegación y
+   conserva una barra de guardado visible en iOS y Android. */
+.modal-backdrop {
+  z-index: 320;
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-right: max(20px, env(safe-area-inset-right));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  padding-left: max(20px, env(safe-area-inset-left));
+}
+.modal--document-processing {
+  height: min(820px, calc(100dvh - 40px));
+  max-height: calc(100dvh - 40px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal--document-processing > header { flex: 0 0 auto; }
+.modal--document-processing > header p { margin: 4px 0 0; color: var(--muted); font-size: 8px; font-weight: 700; }
+.document-processing-workflow { flex: 1 1 auto; overflow: hidden; }
+.document-processing-file { flex: 0 0 auto; }
+.document-processing-state { flex: 1 1 auto; align-content: center; overflow-y: auto; }
+.document-review-layout { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
+.document-processing-actions {
+  position: sticky;
+  z-index: 4;
+  bottom: 0;
+  flex: 0 0 auto;
+  min-height: 66px;
+  align-items: center;
+  padding-bottom: max(13px, env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 22px rgba(14, 50, 40, .1);
+}
+.document-processing-actions button { min-height: 44px; }
+.document-processing-actions button:disabled { cursor: wait; opacity: .66; }
+.document-processing-actions__spinner { animation: driver-circle-spin .8s linear infinite; }
+.document-processing-save-error {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 19px;
+  border-top: 1px solid #edc887;
+  background: #fff8ea;
+  color: #8b4c13;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+.driver-mobile-bottom-nav { display: none !important; }
+.driver-mobile-body,
+.driver-mobile-app--updated .driver-mobile-body { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+.driver-mobile-reference-dialog,
+.driver-mobile-chart-dialog { z-index: 330; }
+
+/* Justificante real asociado al movimiento de combustible. */
+.invoice-private-document {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 13px 19px;
+  border-block: 1px solid var(--line);
+  background: #f5faf7;
+  color: var(--green-800);
+}
+.invoice-private-document > span { min-width: 0; display: grid; gap: 3px; flex: 1 1 auto; }
+.invoice-private-document strong { color: var(--text); font-size: 9px; }
+.invoice-private-document small { overflow-wrap: anywhere; color: var(--muted); font-size: 8px; }
+.invoice-private-document > a,
+.invoice-document-photo--private figcaption a { color: var(--green-800); font-size: 9px; font-weight: 850; }
+.invoice-private-document--error { border-color: #edc887; background: #fff8ea; color: #a96512; }
+.invoice-document-photo--private figcaption { display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; }
+.fuel-invoice-missing { display: inline-flex; min-height: 28px; align-items: center; color: #7b8983; font-size: 8px; font-weight: 750; white-space: nowrap; }
+
+/* Menús y submenús táctiles: tamaños legibles y límites seguros de viewport. */
+@media (max-width: 680px) {
+  .modal-backdrop {
+    place-items: end center;
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+  }
+  .modal--document-processing {
+    width: 100%;
+    height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: none;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 18px 18px 0 0;
+  }
+  .modal--document-processing > header { min-height: 60px; padding: 11px 14px; }
+  .modal--document-processing > header h2 { font-size: 17px; }
+  .document-processing-file { min-height: 56px; padding: 9px 14px; }
+  .document-processing-file strong { font-size: 12px; }
+  .document-processing-file small { font-size: 9px; line-height: 1.25; }
+  .document-review-layout { display: block; }
+  .document-review-preview { grid-template-columns: 76px minmax(0, 1fr); padding: 9px 14px; }
+  .document-review-preview > img,
+  .document-processing-preview__file { width: 76px; height: 82px; }
+  .document-review-preview strong { font-size: 11px; }
+  .document-review-preview small { font-size: 9px; }
+  .document-review-fields { padding: 12px 14px 18px; }
+  .document-review-heading h3 { font-size: 15px; }
+  .document-review-heading p { font-size: 10px; line-height: 1.35; }
+  .document-review-confidence { font-size: 10px; }
+  .document-field { gap: 6px; font-size: 12px; }
+  .document-field > span small { font-size: 10px; }
+  .document-field input {
+    min-height: 48px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 16px;
+  }
+  .document-field__input { grid-template-columns: minmax(0, 1fr) 48px; }
+  .document-field__input input { border-radius: 10px 0 0 10px; }
+  .document-field__input i { border-radius: 0 10px 10px 0; font-size: 13px; }
+  .document-review-warning { margin-bottom: 12px; }
+  .document-review-warning strong { font-size: 11px; }
+  .document-review-warning small { font-size: 9px; }
+  .document-processing-save-error { padding-inline: 14px; font-size: 11px; }
+  .document-processing-actions {
+    min-height: calc(68px + env(safe-area-inset-bottom));
+    padding: 10px 14px max(10px, env(safe-area-inset-bottom));
+  }
+  .document-processing-actions button { min-height: 48px; font-size: 13px; }
+  .topbar-management-menu,
+  .notification-popover {
+    position: fixed;
+    top: max(58px, calc(48px + env(safe-area-inset-top)));
+    right: max(10px, env(safe-area-inset-right));
+    left: max(10px, env(safe-area-inset-left));
+    width: auto;
+    max-height: calc(100dvh - 76px - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .topbar-management-menu__item { min-height: 48px; font-size: 13px; }
+  .topbar-management-menu__item strong { font-size: 13px; }
+  .topbar-management-menu__item small { font-size: 10px; }
+  .notification-popover > button { min-height: 48px; }
+  .notification-popover > button strong { font-size: 12px; }
+  .notification-popover > button small { font-size: 10px; }
+  .driver-mobile-topbar__popover { max-height: calc(100dvh - 70px - env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain; }
+  .driver-mobile-topbar__popover--menu button { min-height: 46px; font-size: 13px; }
+  .report-period-menu--months { max-height: calc(100dvh - 110px - env(safe-area-inset-bottom)); }
+  .report-period-menu button { min-height: 44px; font-size: 12px; }
+  .report-period-menu--wheel:not(.report-chart-metric-menu) button { min-height: 42px; font-size: 11px; }
+  .bottom-navigation__quick-menu button { min-height: 50px; font-size: 13px; }
+  .admin-driver-access-sheet__share-actions button,
+  .admin-driver-access-editor input,
+  .admin-driver-access-editor select,
+  .admin-driver-access-editor__actions button { min-height: 44px; font-size: 12px; }
+  .admin-driver-access-sheet__actions strong { font-size: 12px; }
+  .admin-driver-access-sheet__actions small { font-size: 10px; }
+  .net-detail-modal__period-trigger { min-height: 44px; font-size: 10px; }
+  .invoice-document-photo--private { padding-inline: 14px; }
+  .invoice-document-photo--private img { max-height: 42dvh; }
+  .invoice-document-photo--private figcaption { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 380px), (max-height: 600px) {
+  .modal--document-processing { border-radius: 0; }
+  .modal--document-processing > header { min-height: 52px; padding-block: 8px; }
+  .document-processing-file { min-height: 48px; padding-block: 6px; }
+  .document-review-preview { grid-template-columns: 58px minmax(0, 1fr); padding-block: 7px; }
+  .document-review-preview > img,
+  .document-processing-preview__file { width: 58px; height: 62px; }
+  .document-review-fields { padding-top: 9px; }
+  .document-processing-actions { min-height: calc(62px + env(safe-area-inset-bottom)); padding-top: 7px; }
+}

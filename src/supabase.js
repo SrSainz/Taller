@@ -40,8 +40,48 @@ const safeFileName = (value = "documento") => String(value)
   .replace(/^-|-$/g, "")
   .slice(0, 100) || "documento";
 
+const documentRecordColumns = "id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at";
+
+const findDocumentByHash = async (ownerId, fileHash) => {
+  if (!fileHash) return null;
+  const { data, error } = await supabase
+    .from("documents")
+    .select(documentRecordColumns)
+    .eq("owner_id", ownerId)
+    .eq("file_hash", fileHash)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+};
+
+const refreshPendingDocument = async (document, values) => {
+  if (!document || document.status === "approved") return document;
+  const { data, error } = await supabase
+    .from("documents")
+    .update({ ...values, status: "review", updated_at: new Date().toISOString() })
+    .eq("id", document.id)
+    .select(documentRecordColumns)
+    .single();
+  if (error) throw error;
+  return data;
+};
+
 export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, file, fileHash = null, documentDate = null, extractedData = {}, fieldConfidence = {}, overallConfidence = null, status = "review" }) => {
   if (!supabase || !ownerId || !file) throw new Error("No se puede guardar el documento sin una sesión activa.");
+  const documentValues = {
+    category,
+    vehicle_plate: vehiclePlate || null,
+    file_name: file.name || "documento",
+    mime_type: file.type || "application/octet-stream",
+    file_size: file.size || 0,
+    document_date: documentDate || null,
+    extracted_data: extractedData,
+    field_confidence: fieldConfidence,
+    overall_confidence: overallConfidence,
+  };
+  const existingDocument = await findDocumentByHash(ownerId, fileHash);
+  if (existingDocument) return refreshPendingDocument(existingDocument, documentValues);
+
   const path = `${ownerId}/${category}/${Date.now()}-${safeFileName(file.name)}`;
   const { error: uploadError } = await supabase.storage
     .from("documents")
@@ -52,24 +92,20 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
     .from("documents")
     .insert({
       owner_id: ownerId,
-      category,
-      vehicle_plate: vehiclePlate || null,
+      ...documentValues,
       file_path: path,
-      file_name: file.name || "documento",
-      mime_type: file.type || "application/octet-stream",
-      file_size: file.size || 0,
       file_hash: fileHash || null,
-      document_date: documentDate || null,
-      extracted_data: extractedData,
-      field_confidence: fieldConfidence,
-      overall_confidence: overallConfidence,
       status,
     })
-    .select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, status, created_at")
+    .select(documentRecordColumns)
     .single();
 
   if (error) {
     await supabase.storage.from("documents").remove([path]);
+    if (fileHash && (error.code === "23505" || /file_hash|duplicad/i.test(error.message ?? ""))) {
+      const racedDocument = await findDocumentByHash(ownerId, fileHash);
+      if (racedDocument) return refreshPendingDocument(racedDocument, documentValues);
+    }
     throw error;
   }
   return data;

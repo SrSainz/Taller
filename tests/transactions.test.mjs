@@ -16,13 +16,16 @@ test("facturación crea operaciones centrales para total, efectivo y propinas en
   ]);
 });
 
-test("gasolina conserva fecha, vehículo, litros y clave estable de duplicado", () => {
-  const input = { category: "consumption", fields: { date: "2026-08-14", cost: 72.4, consumption: 43.2, unit: "L" }, driverId: "driver-1", vehiclePlate: "5754 MJV", fileHash: "ticket" };
+test("gasolina conserva fecha, vehículo, justificante y clave estable de duplicado", () => {
+  const input = { category: "consumption", fields: { date: "2026-08-14", time: "19:42", ticketNumber: "R2602600017648", gasStation: "Plenergy Grupo, S.L.", cost: 72.4, consumption: 43.2, unit: "L" }, driverId: "driver-1", vehiclePlate: "5754 MJV", fileHash: "ticket" };
   const first = operationsFromDocument(input)[0];
   const second = operationsFromDocument(input)[0];
   assert.equal(first.type, "fuel");
   assert.equal(first.amount, 72.4);
   assert.equal(first.metadata.liters, 43.2);
+  assert.equal(first.metadata.time, "19:42");
+  assert.equal(first.metadata.ticketNumber, "R2602600017648");
+  assert.equal(first.metadata.provider, "Plenergy Grupo, S.L.");
   assert.equal(first.dedupeKey, second.dedupeKey);
 });
 
