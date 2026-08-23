@@ -5337,3 +5337,90 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-day-panel__document--header > span,
   .driver-day-panel__documents-empty--header > span[aria-hidden="true"] { font-size: 6.5px; }
 }
+
+/* Conductores: el importe y la foto abren el mismo editor del día. */
+.driver-day-panel__editable-metric {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.driver-day-panel__editable-metric:hover,
+.driver-day-panel__editable-metric:focus-visible { background: rgba(255, 255, 255, .72); outline: 2px solid currentColor; outline-offset: -2px; }
+.driver-day-panel__editable-metric small,
+.driver-day-panel__editable-metric strong,
+.driver-day-panel__editable-metric span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-day-panel__editable-metric small { color: var(--muted); font-size: 8px; }
+.driver-day-panel__editable-metric strong { font-size: 12px; line-height: 1.15; }
+.driver-day-panel__editable-metric > span { color: var(--muted); font-size: 6px; font-weight: 800; opacity: .9; }
+.driver-day-panel__metrics > .driver-day-panel__editable-metric + span,
+.driver-day-panel__metrics > .driver-day-panel__editable-metric + button,
+.driver-day-panel__metrics > span + .driver-day-panel__editable-metric { border-left: 1px solid var(--line); }
+.driver-day-panel__documents-empty--header { cursor: pointer; }
+.driver-day-panel__documents-empty--header:hover,
+.driver-day-panel__documents-empty--header:focus-visible { border-color: currentColor; background: #fff; outline: 2px solid currentColor; outline-offset: 1px; }
+
+.modal--driver-day-edit { width: min(650px, 100%); }
+.driver-day-edit-workflow { display: grid; gap: 15px; padding: 18px 19px 19px; }
+.driver-day-edit-context { display: grid; gap: 4px; padding: 13px 14px; border: 1px solid #b9d0c4; border-radius: 10px; background: #f3faf6; }
+.driver-day-edit-context span { color: var(--green-700); font-size: 8px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.driver-day-edit-context strong { color: var(--text); font-size: 16px; line-height: 1.15; }
+.driver-day-edit-context small { color: var(--muted); font-size: 9px; line-height: 1.35; }
+.driver-day-edit-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.driver-day-edit-form label { display: grid; gap: 6px; color: #424b47; font-size: 8px; font-weight: 800; }
+.driver-day-edit-form__wide { grid-column: 1 / -1; }
+.driver-day-edit-form input,
+.driver-day-edit-form textarea { width: 100%; min-height: 42px; padding: 9px 10px; border: 1px solid var(--line-dark); border-radius: 8px; background: #fff; color: var(--text); font: inherit; font-size: 12px; outline: 0; resize: vertical; }
+.driver-day-edit-form textarea { min-height: 66px; line-height: 1.4; }
+.driver-day-edit-form input:focus,
+.driver-day-edit-form textarea:focus { border-color: var(--green-700); box-shadow: 0 0 0 3px rgba(36, 123, 77, .12); }
+.driver-day-edit-input { display: grid; grid-template-columns: minmax(0, 1fr) 42px; }
+.driver-day-edit-input input { border-radius: 8px 0 0 8px; }
+.driver-day-edit-input i { display: grid; place-items: center; border: 1px solid var(--line-dark); border-left: 0; border-radius: 0 8px 8px 0; background: #f5f8f6; color: var(--muted); font-size: 11px; font-style: normal; }
+.driver-day-edit-documents { display: grid; gap: 9px; padding-top: 12px; border-top: 1px solid var(--line); }
+.driver-day-edit-documents > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.driver-day-edit-documents > header > div { min-width: 0; display: grid; gap: 3px; }
+.driver-day-edit-documents > header strong { font-size: 11px; }
+.driver-day-edit-documents > header small { color: var(--muted); font-size: 8px; }
+.driver-day-edit-documents > header .secondary-button { flex: 0 0 auto; min-height: 34px; padding: 7px 10px; font-size: 9px; }
+.driver-day-edit-document-list { display: grid; gap: 6px; }
+.driver-day-edit-document { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; padding: 8px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fbfdfc; }
+.driver-day-edit-document > span { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 7px; }
+.driver-day-edit-document > span svg { grid-row: span 2; color: var(--green-700); }
+.driver-day-edit-document strong,
+.driver-day-edit-document small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-day-edit-document strong { font-size: 9px; }
+.driver-day-edit-document small { color: var(--muted); font-size: 8px; }
+.driver-day-edit-document > div { display: flex; flex: 0 0 auto; gap: 6px; }
+.driver-day-edit-document .table-action { min-height: 28px; padding: 5px 7px; font-size: 8px; }
+.driver-day-edit-document__delete { color: #b42318; }
+.driver-day-edit-documents__empty { display: flex; align-items: center; gap: 7px; margin: 0; padding: 11px; border: 1px dashed var(--line-dark); border-radius: 8px; color: var(--muted); font-size: 9px; }
+.driver-day-edit-error { display: flex; align-items: flex-start; gap: 7px; margin: 0; color: #b42318; font-size: 9px; font-weight: 750; line-height: 1.4; }
+.driver-day-edit-workflow > footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 2px; }
+
+@media (max-width: 560px) {
+  .driver-day-edit-workflow { gap: 12px; padding: 14px; }
+  .driver-day-edit-form { grid-template-columns: 1fr; gap: 10px; }
+  .driver-day-edit-form__wide { grid-column: auto; }
+  .driver-day-edit-documents > header { align-items: flex-start; flex-direction: column; }
+  .driver-day-edit-documents > header .secondary-button { width: 100%; }
+  .driver-day-edit-document { align-items: flex-start; flex-direction: column; }
+  .driver-day-edit-document > div { width: 100%; }
+  .driver-day-edit-document .table-action { flex: 1 1 0; justify-content: center; }
+  .driver-day-edit-workflow > footer { flex-direction: column-reverse; }
+  .driver-day-edit-workflow > footer button { width: 100%; }
+}
+
+@media (max-width: 820px) {
+  .driver-day-panel__editable-metric { padding: 6px 6px; }
+  .driver-day-panel__editable-metric small { font-size: 7px; }
+  .driver-day-panel__editable-metric strong { font-size: 10px; }
+  .driver-day-panel__editable-metric > span { font-size: 5.5px; }
+}

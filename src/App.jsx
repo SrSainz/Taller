@@ -65,7 +65,7 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, createCommissionReportDownloadUrl, getProfile, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, roleFromUser, supabase, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
+import { confirmDocumentTransactions, createCommissionReportDownloadUrl, deleteDocumentRecord, getProfile, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, roleFromUser, supabase, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
@@ -1322,7 +1322,8 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
     });
     const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
     const recordedRevenue = Number(entries.reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0).toFixed(2));
-    const hasRecordedBilling = entries.some((entry) => Number(entry.billing) > 0);
+    const hasBillingOverride = entries.some((entry) => entry.billing_override === true);
+    const hasRecordedBilling = entries.some((entry) => Number(entry.billing) > 0) || hasBillingOverride;
     const importedBillingByPeriod = getImportedBillingByPeriod(driver);
     const importedTipsByPeriod = getImportedTipsByPeriod(driver);
     const importedRevenue = importedBillingByPeriod?.[periodKey] ?? 0;
@@ -1342,6 +1343,7 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
       revenue,
       entries: [...allEntries, ...importedPeriodEntry],
       billingByPeriod,
+      hasBillingOverride,
       billingSource: hasRecordedBilling ? "ledger" : importedRevenue > 0 ? "document" : "none",
     };
   }));
@@ -1395,7 +1397,7 @@ const getNetDriverRowsForVehicle = ({ vehicle, billingRows = [], historicalBilli
   });
 };
 
-const getDriverCalendarRows = (vehicle, row, month, year, documents = []) => {
+const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transactions = []) => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const realEntries = (row.entries ?? []).filter((entry) => {
     if (!entry.entry_date) return false;
@@ -1403,7 +1405,11 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = []) => {
     return entryDate.getMonth() === month && entryDate.getFullYear() === year;
   });
   const ownedDriverDocuments = (documents ?? [])
-    .filter((document) => document?.owner_id && document.owner_id === row.driverId);
+    .filter((document) => {
+      const extracted = getExtractedDocumentFields(document);
+      const assignedDriverId = document?.driver_id || extracted.driverId || extracted.driver_id || "";
+      return Boolean(row.driverId) && (document?.owner_id === row.driverId || assignedDriverId === row.driverId);
+    });
   const documentsByDate = new Map();
   ownedDriverDocuments.forEach((document) => {
     const dateKey = getDriverDocumentDateKey(document);
@@ -1460,12 +1466,41 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = []) => {
       days.set(day, Number(((days.get(day) ?? 0) + (Number(entry.billing) || 0)).toFixed(2)));
       return days;
     }, new Map())
-    : getDriverBillingDays(row.driver, row.plate, month, year, periodRevenue);
+    : row.hasBillingOverride ? new Map() : getDriverBillingDays(row.driver, row.plate, month, year, periodRevenue);
   const billingDayKeys = [...billingDays.keys()];
   const seed = `${row.driver}-${row.plate}-${month}-${year}`.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0);
   const tripsByDay = distributeInteger(row.trips, billingDayKeys, seed);
   const fuelByDay = new Map();
-  getDriverFuelEntriesForPeriod(vehicle, row.driver, month, year).forEach((entry) => {
+  const transactionFuelEntries = (transactions ?? [])
+    .filter((transaction) => transaction.type === "fuel" && transaction.driver_id === row.driverId && transaction.vehicle_plate === vehicle.plate && transaction.occurred_on)
+    .filter((transaction) => {
+      const transactionDate = new Date(`${transaction.occurred_on}T12:00:00`);
+      return transactionDate.getMonth() === month && transactionDate.getFullYear() === year;
+    })
+    .map((transaction) => ({
+      id: transaction.id,
+      transactionId: transaction.id,
+      sourceDocumentId: transaction.source_document_id,
+      date: transaction.occurred_on,
+      time: transaction.metadata?.time || "",
+      liters: Number(transaction.metadata?.liters) || 0,
+      cost: Number(transaction.amount) || 0,
+    }));
+  const entryFuelEntries = realEntries
+    .filter((entry) => Number(entry.fuel_cost) > 0 || Number(entry.fuel_liters) > 0)
+    .map((entry) => ({
+      id: entry.id,
+      date: entry.entry_date,
+      time: "",
+      liters: Number(entry.fuel_liters) || 0,
+      cost: Number(entry.fuel_cost) || 0,
+    }));
+  const periodFuelEntries = transactionFuelEntries.length
+    ? transactionFuelEntries
+    : entryFuelEntries.length
+      ? entryFuelEntries
+      : getDriverFuelEntriesForPeriod(vehicle, row.driver, month, year);
+  periodFuelEntries.forEach((entry) => {
     const day = Number(entry.date.split(" ")[0]);
     fuelByDay.set(day, [...(fuelByDay.get(day) ?? []), entry]);
   });
@@ -1487,6 +1522,7 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = []) => {
       fuelEntries,
       fuelLiters,
       fuelCost,
+      notes: realEntries.find((entry) => String(entry.entry_date) === dateKey)?.notes || "",
       documents: documentsByDate.get(dateKey) ?? [],
       active: billing > 0 || fuelEntries.length > 0 || km > 0 || totalKm > 0 || documentsByDate.has(dateKey),
     };
@@ -1875,7 +1911,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         .order("occurred_on", { ascending: false }),
       supabase
         .from("driver_entries")
-        .select("id, driver_id, vehicle_plate, entry_date, billing, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, wash_expenses, other_expenses, notes, created_at, updated_at")
+        .select("id, driver_id, vehicle_plate, entry_date, billing, billing_override, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, wash_expenses, other_expenses, notes, created_at, updated_at")
         .order("entry_date", { ascending: false }),
     ]);
     if (transactionResult.error) throw transactionResult.error;
@@ -1900,6 +1936,87 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     setDocumentRecords(nextDocuments);
     announceAdminDataChanges({ source: "documents", nextDocuments });
   }, [announceAdminDataChanges, isAdmin]);
+
+  const saveAdminDriverDay = useCallback(async ({ driverId, vehiclePlate, dateKey, mode, amount, liters, dailyKm, odometerKm, dailyKmChanged = false, odometerChanged = false, notes = "" }) => {
+    if (!driverId || !vehiclePlate || !dateKey) throw new Error("Falta la asociación del conductor, coche o día.");
+    const existing = driverEntries.find((entry) => entry.driver_id === driverId && String(entry.entry_date) === dateKey) ?? {};
+    const numberFor = (key, nextValue) => nextValue === undefined ? Math.max(0, Number(existing[key]) || 0) : Math.max(0, Number(String(nextValue).replace(",", ".")) || 0);
+    const nextBilling = mode === "billing" ? numberFor("billing", amount) : numberFor("billing");
+    const nextFuelCost = mode === "fuel" ? numberFor("fuel_cost", amount) : numberFor("fuel_cost");
+    const nextFuelLiters = mode === "fuel" ? numberFor("fuel_liters", liters) : numberFor("fuel_liters");
+    const previousOdometer = driverEntries
+      .filter((entry) => entry.driver_id === driverId && String(entry.entry_date) < dateKey)
+      .reduce((max, entry) => Math.max(max, Number(entry.odometer_km) || 0), 0);
+    const nextOdometer = mode === "mileage"
+      ? Math.round(odometerChanged || !dailyKmChanged ? numberFor("odometer_km", odometerKm) : Math.max(0, previousOdometer + numberFor("odometer_km", dailyKm)))
+      : Math.round(numberFor("odometer_km"));
+    const values = {
+      driver_id: driverId,
+      vehicle_plate: vehiclePlate,
+      entry_date: dateKey,
+      billing: nextBilling,
+      billing_override: mode === "billing" ? true : existing.billing_override === true,
+      cash_collected: numberFor("cash_collected"),
+      tips: numberFor("tips"),
+      fuel_cost: nextFuelCost,
+      fuel_liters: nextFuelLiters,
+      odometer_km: nextOdometer,
+      tolls: numberFor("tolls"),
+      wash_expenses: numberFor("wash_expenses"),
+      other_expenses: numberFor("other_expenses"),
+      notes: notes === undefined ? existing.notes ?? null : String(notes || "").trim() || null,
+      updated_at: new Date().toISOString(),
+    };
+    const localEntry = { ...existing, ...values, id: existing.id ?? `local-admin-${driverId}-${dateKey}`, created_at: existing.created_at ?? new Date().toISOString() };
+    if (!supabase) {
+      setDriverEntries((current) => mergeDriverEntries(current.filter((entry) => !(entry.driver_id === driverId && String(entry.entry_date) === dateKey)), [localEntry]));
+      return localEntry;
+    }
+
+    const transactionType = mode === "billing" ? "billing" : mode === "fuel" ? "fuel" : "";
+    const matchingTransactions = transactionType
+      ? transactions.filter((transaction) => transaction.type === transactionType && transaction.driver_id === driverId && transaction.vehicle_plate === vehiclePlate && String(transaction.occurred_on) === dateKey)
+      : [];
+    if (matchingTransactions.length > 0) {
+      const nextAmount = transactionType === "billing" ? nextBilling : nextFuelCost;
+      if (nextAmount <= 0) {
+        const { error } = await supabase.from("transactions").delete().in("id", matchingTransactions.map((transaction) => transaction.id));
+        if (error) throw error;
+      } else {
+        const [primary, ...duplicates] = matchingTransactions;
+        const nextMetadata = transactionType === "fuel"
+          ? { ...(primary.metadata ?? {}), liters: nextFuelLiters }
+          : primary.metadata ?? {};
+        const { error } = await supabase.from("transactions").update({ amount: Number(nextAmount.toFixed(2)), metadata: nextMetadata }).eq("id", primary.id);
+        if (error) throw error;
+        if (duplicates.length > 0) {
+          const { error: duplicateError } = await supabase.from("transactions").delete().in("id", duplicates.map((transaction) => transaction.id));
+          if (duplicateError) throw duplicateError;
+        }
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("driver_entries")
+      .upsert(values, { onConflict: "driver_id,entry_date" })
+      .select("id, driver_id, vehicle_plate, entry_date, billing, billing_override, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, wash_expenses, other_expenses, notes, created_at, updated_at")
+      .single();
+    if (error) throw error;
+    await refreshTransactions();
+    return normalizeDriverEntryRecord(data);
+  }, [driverEntries, refreshTransactions, transactions]);
+
+  const removeAdminDriverDocument = useCallback(async (document) => {
+    if (!document?.id) throw new Error("No se ha encontrado el documento.");
+    if (!supabase) {
+      setDocumentRecords((current) => current.filter((candidate) => candidate.id !== document.id));
+      return true;
+    }
+    const result = await deleteDocumentRecord(document);
+    await refreshDocuments();
+    if (result?.storageError) notify("Documento eliminado; el archivo privado quedó pendiente de limpieza.");
+    return true;
+  }, [notify, refreshDocuments]);
 
   useEffect(() => {
     if (!isAdmin || !supabase) {
@@ -2355,23 +2472,30 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     const vehiclePlate = resolveVehiclePlate(fields.vehicle);
     const documentDate = (savedDocument.category === "billing" ? fields.serviceDate || fields.issueDate || fields.date || fields.periodStart : fields.date || fields.serviceDate || fields.issueDate) || new Date().toISOString().slice(0, 10);
     const driverId = savedDocument.driverId || "";
+    const recordType = savedDocument.recordType || fields.recordType || "";
+    const mileageOnly = ["daily-km", "partial-1", "total-km", "total", "odometer", "odometro", "kilometraje diario", "km diarios", "kilometraje total", "km acumulados"].includes(normalizeText(recordType));
+    const extractedData = { ...fields, vehicle: vehiclePlate, ...(driverId ? { driverId } : {}), ...(recordType ? { recordType } : {}), source: savedDocument.source || "document-processing" };
     let cloudSaved = false;
     try {
       const fileHash = file ? await hashDocumentFile(file) : "";
-      const operations = operationsFromDocument({ category: savedDocument.category, fields: { ...fields, vehicle: vehiclePlate }, driverId, vehiclePlate, fileHash, fallbackDate: documentDate });
-      if (!operations.length) throw new Error("No se ha reconocido ningÃºn importe econÃ³mico. Revisa los campos antes de confirmar.");
+      const operations = mileageOnly ? [] : operationsFromDocument({ category: savedDocument.category, fields: extractedData, driverId, vehiclePlate, fileHash, fallbackDate: documentDate });
+      if (!mileageOnly && !operations.length) throw new Error("No se ha reconocido ningÃºn importe econÃ³mico. Revisa los campos antes de confirmar.");
       if (file && supabase && session.user?.id) {
-        const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate, file, fileHash, documentDate, extractedData: { ...fields, vehicle: vehiclePlate }, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
-        const result = await confirmDocumentTransactions(uploaded.id, operations);
-        if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
+        const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate, file, fileHash, documentDate, extractedData, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
+        if (operations.length > 0) {
+          const result = await confirmDocumentTransactions(uploaded.id, operations);
+          if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
+        }
         const normalizedUploaded = normalizeDocumentRecord(uploaded);
         setDocumentRecords((current) => [normalizedUploaded, ...current.filter((record) => record.id !== normalizedUploaded.id)]);
         await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
         cloudSaved = true;
       } else {
-        const result = addLocalDocumentTransactions(savedDocument.id, operations);
-        if (result.duplicate) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
-        const localDocument = { ...savedDocument, vehicle_plate: vehiclePlate, extracted_data: { ...fields, vehicle: vehiclePlate }, status: "approved", created_at: new Date().toISOString() };
+        if (operations.length > 0) {
+          const result = addLocalDocumentTransactions(savedDocument.id, operations);
+          if (result.duplicate) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
+        }
+        const localDocument = { ...savedDocument, vehicle_plate: vehiclePlate, extracted_data: extractedData, status: operations.length > 0 ? "approved" : "review", created_at: new Date().toISOString() };
         const normalizedLocalDocument = normalizeDocumentRecord(localDocument);
         setDocumentRecords((current) => [normalizedLocalDocument, ...current.filter((record) => record.id !== normalizedLocalDocument.id)]);
       }
@@ -2523,7 +2647,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
           {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
-          {activeNav === "Conductores" && <DriversView reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} setModal={setModal} />}
+          {activeNav === "Conductores" && <DriversView reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} />}
           {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
@@ -2772,7 +2896,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     let mounted = true;
     if (!supabase) return undefined;
     Promise.all([
-      supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
+      supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
       supabase.from("documents").select("id, category, vehicle_plate, file_path, file_name, mime_type, file_size, extracted_data, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(180),
     ]).then(([entryResult, documentResult]) => {
       if (!mounted) return;
@@ -2885,7 +3009,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       setEntries((current) => [localEntry, ...current.filter((candidate) => String(candidate.entry_date) !== dateKey)]);
       return localEntry;
     }
-    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").single();
+    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").single();
     if (error) throw error;
     const normalizedData = normalizeDriverEntryRecord(data);
     setEntries((current) => [normalizedData, ...current.filter((candidate) => candidate.id !== normalizedData.id && String(candidate.entry_date) !== dateKey)]);
@@ -3347,7 +3471,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       }
       if (Object.keys(entryPatch).length > 0 && (!centralEconomic || !supabase)) await upsertDriverEntry(targetDate, entryPatch);
       if (centralEconomic && supabase) {
-        const { data: refreshedEntries } = await supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180);
+        const { data: refreshedEntries } = await supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180);
         if (refreshedEntries) setEntries(refreshedEntries.map(normalizeDriverEntryRecord));
       }
       const normalizedDocument = normalizeDocumentRecord(savedDocument);
@@ -5416,7 +5540,7 @@ function FuelDriversReport({ vehicles, selectedDriverKey, onSelectDriver }) {
   );
 }
 
-function DriversView({ vehicles, driverEntries = [], transactions = [], documents = [], setModal, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange }) {
+function DriversView({ vehicles, driverEntries = [], transactions = [], documents = [], setModal, onSaveDriverDay, onDeleteDriverDocument, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange }) {
   const [internalReportMonth, setInternalReportMonth] = useState(() => new Date().getMonth());
   const [internalReportYear, setInternalReportYear] = useState(() => new Date().getFullYear());
   const reportMonth = controlledReportMonth ?? internalReportMonth;
@@ -5463,7 +5587,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       if (transaction.type !== "fuel" || transaction.driver_id !== row.driverId) return false;
       const date = new Date(`${transaction.occurred_on}T12:00:00`);
       return date.getFullYear() === reportYear && date.getMonth() === reportMonth;
-    }).map((transaction) => ({ date: transaction.occurred_on, liters: Number(transaction.metadata?.liters) || 0, cost: Number(transaction.amount) || 0 }));
+    }).map((transaction) => ({ id: transaction.id, transactionId: transaction.id, sourceDocumentId: transaction.source_document_id, date: transaction.occurred_on, time: transaction.metadata?.time || "", liters: Number(transaction.metadata?.liters) || 0, cost: Number(transaction.amount) || 0 }));
     return {
       ...row,
       vehicle,
@@ -5473,7 +5597,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     };
   }), [billingRows, professionalVehicles, reportMonth, reportYear, transactions]);
   const selectedDriver = driverRows.find((row) => row.key === selectedDriverKey) ?? null;
-  const calendarRows = useMemo(() => selectedDriver ? getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, reportMonth, reportYear, documents) : [], [selectedDriver, reportMonth, reportYear, documents]);
+  const calendarRows = useMemo(() => selectedDriver ? getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, reportMonth, reportYear, documents, transactions) : [], [selectedDriver, reportMonth, reportYear, documents, transactions]);
   const periodKilometres = useMemo(() => calendarRows.reduce((sum, day) => sum + (Number(day.km) || 0), 0), [calendarRows]);
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;
   const calendarPeriods = useMemo(() => {
@@ -5482,7 +5606,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       const date = new Date(reportYear, reportMonth + delta, 1);
       const month = date.getMonth();
       const year = date.getFullYear();
-      const rows = getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, month, year, documents);
+      const rows = getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, month, year, documents, transactions);
       const leadingDays = (new Date(year, month, 1).getDay() + 6) % 7;
       return {
         key: `${year}-${month}`,
@@ -5492,7 +5616,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         cells: [...Array.from({ length: leadingDays }, (_, index) => ({ key: `leading-${year}-${month}-${index}`, empty: true })), ...rows.map((row) => ({ ...row, key: `day-${year}-${month}-${row.day}` }))],
       };
     });
-  }, [selectedDriver, reportMonth, reportYear, documents]);
+  }, [selectedDriver, reportMonth, reportYear, documents, transactions]);
   const totalBilling = billingRows.reduce((sum, row) => sum + row.revenue, 0);
   const totalFuel = fuelSummaries.reduce((sum, summary) => sum + summary.cost, 0);
 
@@ -5524,7 +5648,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
 
   const selectDriver = (row) => {
     setSelectedDriverKey(row.key);
-    const nextCalendarRows = getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear, documents);
+    const nextCalendarRows = getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear, documents, transactions);
     setSelectedDay(nextCalendarRows.find((calendarRow) => calendarRow.active)?.day ?? 1);
   };
   const shiftMonth = (delta) => {
@@ -5649,6 +5773,28 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const selectedDayBillingDocuments = selectedDayDocuments.filter((document) => getDriverDocumentKind(document) === "billing");
   const selectedDayFuelDocuments = selectedDayDocuments.filter((document) => ["fuel", "consumption"].includes(getDriverDocumentKind(document)));
   const selectedDayMileageDocuments = selectedDayDocuments.filter((document) => getDriverDocumentKind(document) === "mileage");
+  const selectedDateKey = selectedDay ? `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}` : "";
+  const openDayEditor = (mode) => {
+    if (!selectedDriver || !selectedDayDetail || !selectedDateKey) return;
+    const modeDocuments = mode === "billing" ? selectedDayBillingDocuments : mode === "fuel" ? selectedDayFuelDocuments : selectedDayMileageDocuments;
+    const recordType = mode === "billing" ? "billing" : mode === "fuel" ? "fuel" : "daily-km";
+    setModal({
+      type: "driver-day-edit",
+      item: {
+        mode,
+        dateKey: selectedDateKey,
+        driver: selectedDriver.driver,
+        driverId: selectedDriver.driverId,
+        vehiclePlate: selectedDriver.plate,
+        detail: selectedDayDetail,
+        documents: modeDocuments,
+        onSave: (values) => onSaveDriverDay?.({ driverId: selectedDriver.driverId, vehiclePlate: selectedDriver.plate, dateKey: selectedDateKey, mode, amount: values.amount, liters: values.liters, dailyKm: values.dailyKm, odometerKm: values.odometerKm, dailyKmChanged: values.dailyKmChanged, odometerChanged: values.odometerChanged, notes: values.notes }),
+        onDeleteDocument: (document) => onDeleteDriverDocument?.(document),
+        onOpenDocument: openDriverSourceDocument,
+        onAddDocument: (file) => setModal({ type: "document-processing", category: mode === "billing" ? "billing" : "consumption", source: "upload", file, selectedPlate: selectedDriver.plate, defaultDate: selectedDateKey, driverId: selectedDriver.driverId, recordType }),
+      },
+    });
+  };
   const renderCalendarPage = (period) => (
     <div ref={period.delta === 0 ? calendarActivePageRef : undefined} className="drivers-calendar-page" key={period.key}>
       {period.delta !== 0 && <div className="drivers-calendar-page__period">{reportMonths[period.month]} {period.year}</div>}
@@ -5700,24 +5846,24 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           <article className="driver-day-panel driver-day-panel--billing">
             <header>
               <span className="driver-day-panel__heading"><IconFileInvoice size={17} /><strong>Facturación</strong></span>
-              <DriverDayDocumentButtons compact documents={selectedDayBillingDocuments} onOpen={openDriverSourceDocument} />
+              <DriverDayDocumentButtons compact documents={selectedDayBillingDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("billing")} />
             </header>
-            <div className="driver-day-panel__metrics"><span><small>Ingreso del día</small><strong>{formatCurrency(selectedDayDetail.billing)}</strong></span><span><small>Viajes</small><strong>{selectedDayDetail.trips}</strong></span></div>
+            <div className="driver-day-panel__metrics"><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("billing")}><small>Ingreso del día</small><strong>{formatCurrency(selectedDayDetail.billing)}</strong><span>Editar importe</span></button><span><small>Viajes</small><strong>{selectedDayDetail.trips}</strong></span></div>
           </article>
           <article className="driver-day-panel driver-day-panel--fuel">
             <header>
               <span className="driver-day-panel__heading"><IconGasStation size={17} /><strong>Repostaje</strong></span>
-              <DriverDayDocumentButtons compact documents={selectedDayFuelDocuments} onOpen={openDriverSourceDocument} />
+              <DriverDayDocumentButtons compact documents={selectedDayFuelDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("fuel")} />
             </header>
-            <div className="driver-day-panel__metrics"><span><small>Consumo diario</small><strong>{selectedDayDetail.fuelLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong></span><span><small>Importe</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div>
+            <div className="driver-day-panel__metrics"><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("fuel")}><small>Consumo diario</small><strong>{selectedDayDetail.fuelLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong><span>Editar datos</span></button><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("fuel")}><small>Importe</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong><span>Editar importe</span></button><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div>
             <div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.length > 0 ? selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}`}><span><strong>{entry.time}</strong><small>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L · {formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>) : <small>Sin repostaje registrado este día.</small>}</div>
           </article>
           <article className="driver-day-panel driver-day-panel--mileage">
             <header>
               <span className="driver-day-panel__heading"><IconGauge size={17} /><strong>Kilómetros</strong></span>
-              <DriverDayDocumentButtons compact documents={selectedDayMileageDocuments} onOpen={openDriverSourceDocument} />
+              <DriverDayDocumentButtons compact documents={selectedDayMileageDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("mileage")} />
             </header>
-            <div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><span><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div>
+            <div className="driver-day-panel__metrics"><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("mileage")}><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong><span>Editar kilometraje</span></button><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("mileage")}><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong><span>Editar kilometraje</span></button></div>
           </article>
         </div>
       </section>}
@@ -5725,11 +5871,81 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   );
 }
 
-function DriverDayDocumentButtons({ documents = [], onOpen, compact = false }) {
+function DriverDayDocumentButtons({ documents = [], onOpen, onEdit, compact = false }) {
   if (!documents.length) {
+    if (onEdit) return <button type="button" className={`driver-day-panel__documents-empty${compact ? " driver-day-panel__documents-empty--header" : ""}`} onClick={onEdit} title="Añadir foto o documento"><IconCamera size={compact ? 15 : 14} /><span aria-hidden="true">{compact ? "0" : "Sin foto original archivada"}</span>{compact && <span className="sr-only">Añadir foto o documento</span>}</button>;
     return <span className={`driver-day-panel__documents-empty${compact ? " driver-day-panel__documents-empty--header" : ""}`} title="Sin foto original archivada"><IconCamera size={compact ? 15 : 14} /><span aria-hidden="true">{compact ? "0" : "Sin foto original archivada"}</span>{compact && <span className="sr-only">Sin foto original archivada</span>}</span>;
   }
-  return <div className={`driver-day-panel__documents${compact ? " driver-day-panel__documents--header" : ""}`} aria-label="Fotos originales archivadas">{documents.map((document, index) => <button type="button" className={`driver-day-panel__document${compact ? " driver-day-panel__document--header" : ""}`} key={document.id} onClick={() => onOpen(document)} aria-label={`Ver foto original de ${getDriverDocumentKindLabel(document)}`} title={`${getDriverDocumentKindLabel(document)} · ${document.file_name || "Foto original"}`}><IconCamera size={compact ? 15 : 14} />{compact ? <span aria-hidden="true">{documents.length > 1 ? index + 1 : "Foto"}</span> : <><span><strong>{getDriverDocumentKindLabel(document)}</strong><small>{document.file_name || "Ver foto original"}</small></span><IconChevronRight size={14} /></>}</button>)}</div>;
+  return <div className={`driver-day-panel__documents${compact ? " driver-day-panel__documents--header" : ""}`} aria-label="Fotos originales archivadas">{documents.map((document, index) => <button type="button" className={`driver-day-panel__document${compact ? " driver-day-panel__document--header" : ""}`} key={document.id} onClick={() => (onEdit ? onEdit(document) : onOpen?.(document))} aria-label={`${onEdit ? "Editar" : "Ver"} foto original de ${getDriverDocumentKindLabel(document)}`} title={`${onEdit ? "Editar" : "Ver"} ${getDriverDocumentKindLabel(document)} · ${document.file_name || "Foto original"}`}><IconCamera size={compact ? 15 : 14} />{compact ? <span aria-hidden="true">{documents.length > 1 ? index + 1 : "Foto"}</span> : <><span><strong>{getDriverDocumentKindLabel(document)}</strong><small>{document.file_name || "Ver foto original"}</small></span><IconChevronRight size={14} /></>}</button>)}</div>;
+}
+
+function DriverDayEditWorkflow({ item, onCancel }) {
+  const mode = item.mode || "billing";
+  const detail = item.detail ?? {};
+  const [amount, setAmount] = useState(() => String(mode === "billing" ? Number(detail.billing) || 0 : Number(detail.fuelCost) || 0));
+  const [liters, setLiters] = useState(() => String(Number(detail.fuelLiters) || 0));
+  const [dailyKm, setDailyKm] = useState(() => String(Number(detail.km) || 0));
+  const [odometerKm, setOdometerKm] = useState(() => String(Number(detail.totalKm) || 0));
+  const [notes, setNotes] = useState(() => String(detail.notes || ""));
+  const [documents, setDocuments] = useState(() => item.documents ?? []);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef(null);
+  const label = mode === "billing" ? "Facturación" : mode === "fuel" ? "Repostaje" : "Kilómetros";
+  const dateLabel = formatDocumentDisplayDate(item.dateKey);
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await item.onSave?.({ amount, liters, dailyKm, odometerKm, dailyKmChanged: Number(dailyKm) !== (Number(detail.km) || 0), odometerChanged: Number(odometerKm) !== (Number(detail.totalKm) || 0), notes });
+      onCancel();
+    } catch (caughtError) {
+      setError(caughtError?.message || "No se han podido guardar los cambios.");
+      setSaving(false);
+    }
+  };
+
+  const handleFile = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const validation = validateDocumentFile(file, "upload");
+    if (!validation.valid) {
+      setError(validation.message);
+      return;
+    }
+    item.onAddDocument?.(file);
+  };
+
+  const removeDocument = async (document) => {
+    if (!window.confirm(`¿Borrar ${document.file_name || "este documento"}?`)) return;
+    setError("");
+    try {
+      await item.onDeleteDocument?.(document);
+      setDocuments((current) => current.filter((candidate) => candidate.id !== document.id));
+    } catch (caughtError) {
+      setError(caughtError?.message || "No se ha podido borrar el documento.");
+    }
+  };
+
+  return (
+    <div className="driver-day-edit-workflow">
+      <div className="driver-day-edit-context"><span>{item.driver} · {item.vehiclePlate}</span><strong>{label} · {dateLabel}</strong><small>El cambio se refleja en Conductores, Neto y en el vehículo asociado.</small></div>
+      <div className="driver-day-edit-form">
+        {(mode === "billing" || mode === "fuel") && <label>{mode === "billing" ? "Importe facturado" : "Importe del repostaje"}<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} /><i>€</i></div></label>}
+        {mode === "fuel" && <label>Litros repostados<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" value={liters} onChange={(event) => setLiters(event.target.value)} /><i>L</i></div></label>}
+        {mode === "mileage" && <><label>Km diarios<div className="driver-day-edit-input"><input type="number" min="0" step="1" value={dailyKm} onChange={(event) => setDailyKm(event.target.value)} /><i>km</i></div></label><label>Kilometraje acumulado<div className="driver-day-edit-input"><input type="number" min="0" step="1" value={odometerKm} onChange={(event) => setOdometerKm(event.target.value)} /><i>km</i></div></label></>}
+        <label className="driver-day-edit-form__wide">Notas del registro<textarea rows="2" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Añade una aclaración para este día (opcional)" /></label>
+      </div>
+      <section className="driver-day-edit-documents" aria-labelledby="driver-day-edit-documents-title">
+        <header><div><strong id="driver-day-edit-documents-title">Documentos del día</strong><small>Las fotos originales quedan archivadas junto al registro.</small></div><button type="button" className="secondary-button" onClick={() => fileInputRef.current?.click()}><IconUpload size={16} />Añadir documento</button><input ref={fileInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" onChange={handleFile} /></header>
+        {documents.length > 0 ? <div className="driver-day-edit-document-list">{documents.map((document) => <div className="driver-day-edit-document" key={document.id}><span><IconCamera size={16} /><strong>{getDriverDocumentKindLabel(document)}</strong><small>{document.file_name || "Documento original"}</small></span><div><button type="button" className="table-action" onClick={() => item.onOpenDocument?.(document)}>Ver</button><button type="button" className="table-action driver-day-edit-document__delete" onClick={() => removeDocument(document)}><IconTrash size={14} />Borrar</button></div></div>)}</div> : <p className="driver-day-edit-documents__empty"><IconCamera size={17} />No hay foto o documento archivado para este día.</p>}
+      </section>
+      {error && <p className="driver-day-edit-error" role="alert"><IconAlertTriangle size={16} />{error}</p>}
+      <footer><button type="button" className="secondary-button" onClick={onCancel} disabled={saving}>Cancelar</button><button type="button" className="primary-button" onClick={save} disabled={saving}>{saving ? <IconRefresh className="document-processing-actions__spinner" size={17} /> : <IconCheck size={17} />}{saving ? "Guardando…" : "Guardar cambios"}</button></footer>
+    </div>
+  );
 }
 
 function ReadingsView({ setModal }) {
@@ -6517,22 +6733,24 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
   const isPhotoInvoice = modal.type === "invoice-upload";
   const isDocumentProcessing = modal.type === "document-processing";
   const isMaintenanceEdit = modal.type === "maintenance-edit";
-  const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", "driver-document": "Foto original del conductor", "maintenance-edit": "Editar intervención", support: "Contactar con soporte" };
+  const isDriverDayEdit = modal.type === "driver-day-edit";
+  const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", "driver-document": "Foto original del conductor", "driver-day-edit": "Editar registro del día", "maintenance-edit": "Editar intervención", support: "Contactar con soporte" };
   const complete = (message) => { notify(message); onClose(); };
   if (isDocumentProcessing) titles[modal.type] = `${documentCategoryLabels[modal.category] ?? "Documento"} · Análisis IA`;
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}${isDriverDocument ? " modal--driver-document" : ""}${isMaintenanceEdit ? " modal--maintenance-edit" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}${isDriverDocument ? " modal--driver-document" : ""}${isDriverDayEdit ? " modal--driver-day-edit" : ""}${isMaintenanceEdit ? " modal--maintenance-edit" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header><div><span>{isDriverDocument ? "ARCHIVO DEL DÍA" : "Acción rápida"}</span><h2 id="modal-title">{isFuelInvoice ? "Ticket de gasolina" : isGestoriaInvoice ? "Factura de gestoría" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
         {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.documentNumber ?? item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc ? <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate || item.plateReference || "la flota"}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure> : item.filePath ? <PrivateDocumentAttachment item={item} /> : null}{isGestoriaInvoice && !item.imageSrc && !item.filePath && <div className="invoice-source-file"><IconMail size={17} /><span><strong>Adjunto rescatado del correo</strong><small>{item.sourceFile || "Archivo de Gestoría Durán Rivas"} · {item.sourceAccount}</small></span></div>}<dl><div><dt>Vehículo</dt><dd>{item.plate || `Sin matrícula${item.plateReference ? ` · ref. ${item.plateReference}` : ""}`}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>{[itemOwner.dni ? `DNI ${itemOwner.dni}` : "", itemOwner.location].filter(Boolean).join(" · ")}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div>{item.periodKey && <div><dt>Periodo imputado</dt><dd>{item.periodKey}</dd></div>}<div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
         {isDriverDocument && <><div className="driver-document-context"><IconCamera size={20} /><span><strong>{item.concept}</strong><small>{item.driver} · {item.date} · {item.fileName}</small></span></div><PrivateDocumentAttachment item={item} /></>}
+        {isDriverDayEdit && <DriverDayEditWorkflow item={item} onCancel={onClose} />}
         {isMaintenanceEdit && <MaintenanceEditWorkflow item={item} onCancel={onClose} onSave={(values) => { const saved = onSaveMaintenance?.(values); if (saved !== false) complete("Intervención actualizada y reordenada por fecha"); }} />}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={async (invoice) => { const saved = await onSaveInvoice(invoice); if (saved !== false) complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
-        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument(document); if (saved === false || saved?.ok === false) return saved; complete("Documento procesado y guardado"); return { ok: true }; }} />}
+        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} defaultDate={modal.defaultDate} recordType={modal.recordType} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument({ ...document, recordType: modal.recordType || document.recordType }); if (saved === false || saved?.ok === false) return saved; complete("Documento procesado y guardado"); return { ok: true }; }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
-        {!isPhotoInvoice && !isDocumentProcessing && !isDriverDocument && !isMaintenanceEdit && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Ticket de gasolina revisado" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar ticket" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
+        {!isPhotoInvoice && !isDocumentProcessing && !isDriverDocument && !isDriverDayEdit && !isMaintenanceEdit && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Ticket de gasolina revisado" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar ticket" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
       </section>
     </div>
   );
@@ -6648,7 +6866,7 @@ function DriverCircleReviewDialog({ review, profile, driverId, onClose, onSave }
   </div>;
 }
 
-function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, driverId = "", onCancel, onSave }) {
+function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, defaultDate = "", recordType = "", driverId = "", onCancel, onSave }) {
   const controllerRef = useRef(null);
   const [stage, setStage] = useState("processing");
   const [progress, setProgress] = useState(5);
@@ -6658,6 +6876,12 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, dr
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
   const [saveState, setSaveState] = useState({ saving: false, message: "" });
+  const applyContextDefaults = useCallback((nextFields) => {
+    const dateKeys = category === "billing" ? ["serviceDate", "issueDate", "date", "periodStart"] : ["date"];
+    const hasDetectedDate = nextFields.some((field) => dateKeys.includes(field.key) && field.value);
+    if (!defaultDate || hasDetectedDate) return nextFields;
+    return nextFields.map((field) => field.key === (category === "billing" ? "serviceDate" : "date") ? { ...field, value: defaultDate } : field);
+  }, [category, defaultDate]);
 
   useEffect(() => {
     const isImage = validateDocumentFile(file, source).kind === "image";
@@ -6718,7 +6942,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, dr
       if (controller.signal.aborted) return;
       setProgress(82);
       setAnalysis(responseBody);
-      setFields(normalizeDocumentAnalysis(category, responseBody, defaultVehicle));
+      setFields(applyContextDefaults(normalizeDocumentAnalysis(category, responseBody, defaultVehicle)));
       setProgress(100);
       setStage("review");
     } catch (caughtError) {
@@ -6730,7 +6954,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, dr
         setError({ code: caughtError?.code || "PROCESSING_ERROR", message: caughtError?.message || "No se ha podido procesar el documento." });
       }
     }
-  }, [category, defaultVehicle, file, source]);
+  }, [applyContextDefaults, category, defaultVehicle, file, source]);
 
   useEffect(() => {
     runAnalysis();
@@ -6762,6 +6986,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, dr
         overallConfidence,
         warnings: analysis?.warnings ?? [],
         lowConfidence: lowConfidenceFields.length > 0,
+        recordType,
       });
       if (result === false || result?.ok === false) {
         setSaveState({ saving: false, message: result?.message || "No se han podido guardar los cambios. Revisa los datos e inténtalo de nuevo." });

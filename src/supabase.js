@@ -118,6 +118,18 @@ export const confirmDocumentTransactions = async (documentId, operations) => {
   return data;
 };
 
+export const deleteDocumentRecord = async (document) => {
+  if (!supabase || !document?.id) throw new Error("No se puede borrar el documento sin una sesión activa.");
+  const { error } = await supabase.from("documents").delete().eq("id", document.id);
+  if (error) throw error;
+  let storageError = null;
+  if (document.file_path) {
+    const result = await supabase.storage.from("documents").remove([document.file_path]);
+    storageError = result.error ?? null;
+  }
+  return { deleted: true, storageError: storageError?.message || "" };
+};
+
 export const invokeAdminUsers = async (body) => {
   if (!supabase) throw new Error("Supabase no está configurado.");
   const { data, error } = await supabase.functions.invoke("admin-users", { body });
