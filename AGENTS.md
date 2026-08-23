@@ -198,6 +198,7 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Los retratos de conductores en Administración son círculos reales y los nombres quedan debajo sin quedar ocultos; la cabecera de la aplicación del conductor muestra el retrato, el nombre y la matrícula.
 - El cuadro comparativo de consumo de la vista del conductor se titula «CONSUMO VS RESTO».
 - La vista inicial de Administración reparte toda la altura útil entre las tres tarjetas de coche con sus retratos y la barra de «Crear nuevo acceso», sin dejar un hueco inferior vacío.
+- La cabecera de la página del conductor muestra únicamente flecha de retroceso, retrato, nombre y matrícula; no presenta menú ni notificaciones en esa barra.
 
 - Administración consume siempre el ledger central de documentos IA y sus proyecciones de `driver_entries`; los cambios de combustible, facturación, consumo y kilometraje se refrescan mediante Realtime con sondeo de respaldo y generan avisos dinámicos en el timbre, sin duplicar importes.
 - El acceso inicial de administración usa Supabase Auth con el correo del administrador; el formulario mantiene el correo preparado, ofrece mostrar/ocultar la contraseña y permite solicitar un enlace oficial de recuperación para actualizarla sin almacenar credenciales en el cliente.

@@ -3614,10 +3614,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   return (
     <main className={`driver-app driver-mobile-app${preview ? " driver-app--preview" : ""}`}>
       <header className="driver-mobile-topbar">
-        {preview && <button type="button" className="driver-mobile-topbar__back" onClick={onExitPreview} aria-label="Volver a administración" title="Volver a administración"><IconChevronLeft size={24} /></button>}
-        <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir menú del conductor" aria-expanded={driverMenuOpen} onClick={() => { setDriverMenuOpen((current) => !current); setDriverNoticeOpen(false); }}><IconMenu2 size={23} /></button>
+        <button type="button" className="driver-mobile-topbar__back" onClick={preview ? onExitPreview : onSignOut} aria-label={preview ? "Volver a administración" : "Cerrar sesión"} title={preview ? "Volver a administración" : "Cerrar sesión"}><IconChevronLeft size={24} /></button>
         <div className="driver-mobile-topbar__title"><span className="driver-mobile-topbar__avatar" aria-hidden="true">{driverAvatarPath ? <img src={driverAvatarPath} alt="" /> : <span>{driverAvatarInitials}</span>}</span><span className="driver-mobile-topbar__identity"><strong>{profile.full_name.toUpperCase()}</strong><VehiclePlateLabel vehicleOrPlate={vehicle?.plate ?? profileVehiclePlate} className="driver-mobile-topbar__plate" /></span></div>
-        <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir notificaciones" aria-expanded={driverNoticeOpen} onClick={() => { setDriverNoticeOpen((current) => !current); setDriverMenuOpen(false); }}><IconBell size={23} /></button>
         {driverMenuOpen && <aside className="driver-mobile-topbar__popover driver-mobile-topbar__popover--menu" aria-label="Menú del conductor">
           <button type="button" onClick={() => scrollTo("home", homeRef)}><IconHome size={16} />Inicio</button>
           <button type="button" onClick={() => scrollTo("history", historyRef)}><IconHistory size={16} />Historial semanal</button>
