@@ -5288,9 +5288,11 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
   const [calendarSwipeTransition, setCalendarSwipeTransition] = useState(false);
   const driverGridRef = useRef(null);
   const calendarSurfaceRef = useRef(null);
+  const calendarTrackRef = useRef(null);
   const calendarActivePageRef = useRef(null);
   const touchStartX = useRef(null);
   const calendarSwipeWidth = useRef(0);
+  const pendingCalendarShift = useRef(0);
   const swipeResetTimer = useRef(null);
   const [calendarSurfaceHeight, setCalendarSurfaceHeight] = useState(null);
   const professionalVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.use === "Profesional"), [vehicles]);
@@ -5389,6 +5391,9 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
     setReportYear(next.getFullYear());
     setSelectedDay(null);
   };
+  const setCalendarTrackOffset = (offset) => {
+    calendarTrackRef.current?.style.setProperty("--calendar-swipe-offset", `${offset}px`);
+  };
   const getCalendarSwipeWidth = () => {
     const width = calendarSurfaceRef.current?.clientWidth ?? 360;
     calendarSwipeWidth.current = width;
@@ -5397,6 +5402,9 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
   const beginCalendarSwipe = (clientX) => {
     touchStartX.current = clientX ?? null;
     getCalendarSwipeWidth();
+    pendingCalendarShift.current = 0;
+    if (swipeResetTimer.current) window.clearTimeout(swipeResetTimer.current);
+    setCalendarTrackOffset(0);
     setCalendarSwipeTransition(false);
     setCalendarSwipeOffset(0);
   };
@@ -5404,29 +5412,40 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
     if (touchStartX.current === null) return;
     const delta = (clientX ?? touchStartX.current) - touchStartX.current;
     const width = calendarSwipeWidth.current || 360;
-    setCalendarSwipeOffset(Math.max(-width, Math.min(width, delta)));
+    setCalendarTrackOffset(Math.max(-width, Math.min(width, delta)));
+  };
+  const settleCalendarSwipe = () => {
+    if (swipeResetTimer.current) {
+      window.clearTimeout(swipeResetTimer.current);
+      swipeResetTimer.current = null;
+    }
+    const delta = pendingCalendarShift.current;
+    pendingCalendarShift.current = 0;
+    if (delta) shiftMonth(delta);
+    setCalendarSwipeOffset(0);
+    setCalendarSwipeTransition(false);
+    setCalendarTrackOffset(0);
   };
   const endCalendarSwipe = (clientX) => {
     if (touchStartX.current === null) return;
     const delta = (clientX ?? touchStartX.current) - touchStartX.current;
     const width = calendarSwipeWidth.current || 360;
     touchStartX.current = null;
-    if (swipeResetTimer.current) window.clearTimeout(swipeResetTimer.current);
     if (Math.abs(delta) >= Math.min(80, Math.max(46, width * .14))) {
+      pendingCalendarShift.current = delta < 0 ? 1 : -1;
       setCalendarSwipeTransition(true);
       setCalendarSwipeOffset(delta < 0 ? -width : width);
-      swipeResetTimer.current = window.setTimeout(() => {
-        shiftMonth(delta < 0 ? 1 : -1);
-        setCalendarSwipeOffset(0);
-        setCalendarSwipeTransition(false);
-      }, 220);
+      setCalendarTrackOffset(delta < 0 ? -width : width);
+      swipeResetTimer.current = window.setTimeout(settleCalendarSwipe, 380);
       return;
     }
     setCalendarSwipeTransition(true);
     setCalendarSwipeOffset(0);
+    setCalendarTrackOffset(0);
   };
   const onCalendarPointerDown = (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (pendingCalendarShift.current) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     beginCalendarSwipe(event.clientX);
   };
@@ -5434,8 +5453,15 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
   const onCalendarPointerUp = (event) => endCalendarSwipe(event.clientX);
   const onCalendarPointerCancel = () => {
     touchStartX.current = null;
+    pendingCalendarShift.current = 0;
+    if (swipeResetTimer.current) window.clearTimeout(swipeResetTimer.current);
     setCalendarSwipeTransition(true);
     setCalendarSwipeOffset(0);
+    setCalendarTrackOffset(0);
+  };
+  const onCalendarTrackTransitionEnd = (event) => {
+    if (event.propertyName !== "transform") return;
+    settleCalendarSwipe();
   };
   const scrollToDrivers = () => driverGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   const openFuelInvoice = (entry, index) => {
@@ -5497,7 +5523,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], setModal
           <div className="drivers-calendar-card__actions"><button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><IconChevronRight size={18} /></button><button type="button" className="icon-button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar calendario de ${selectedDriver.driver}`}><IconX size={17} /></button></div>
         </header>
         <div ref={calendarSurfaceRef} className="drivers-calendar-surface" style={calendarSurfaceHeight ? { height: `${calendarSurfaceHeight}px` } : undefined} onPointerDown={onCalendarPointerDown} onPointerMove={onCalendarPointerMove} onPointerUp={onCalendarPointerUp} onPointerCancel={onCalendarPointerCancel}>
-          <div className="drivers-calendar-track" style={{ transform: `translate3d(calc(-33.333333% + ${calendarSwipeOffset}px), 0, 0)`, transition: calendarSwipeTransition ? "transform 220ms cubic-bezier(.22,.75,.3,1)" : "none" }}>
+          <div ref={calendarTrackRef} className="drivers-calendar-track" onTransitionEnd={onCalendarTrackTransitionEnd} style={{ "--calendar-swipe-offset": `${calendarSwipeOffset}px`, transition: calendarSwipeTransition ? "transform 280ms cubic-bezier(.22,.75,.3,1)" : "none" }}>
             {calendarPeriods.map(renderCalendarPage)}
           </div>
         </div>

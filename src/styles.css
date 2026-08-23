@@ -684,7 +684,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-calendar-nav { width: 29px; height: 29px; display: grid; place-items: center; padding: 0; border: 1px solid #b8d9c3; border-radius: 8px; background: #fff; color: var(--billing-strong); cursor: pointer; }
 .drivers-calendar-nav:hover { background: var(--billing-soft); }
 .drivers-calendar-surface { overflow: hidden; touch-action: pan-y; }
-.drivers-calendar-track { display: flex; width: 300%; align-items: flex-start; will-change: transform; }
+.drivers-calendar-track { display: flex; width: 300%; align-items: flex-start; transform: translate3d(calc(-33.333333% + var(--calendar-swipe-offset, 0px)), 0, 0); will-change: transform; backface-visibility: hidden; }
 .drivers-calendar-page { min-width: 0; flex: 0 0 33.333333%; }
 .drivers-calendar-page__period { padding: 4px 13px 0; color: var(--billing-strong); font-size: 7px; font-weight: 800; letter-spacing: .06em; text-align: center; text-transform: uppercase; }
 .drivers-calendar-weekdays, .drivers-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); }
