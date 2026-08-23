@@ -678,7 +678,7 @@ const applyNetBreakdownOverrides = (expenseKey, breakdowns, manualBreakdowns = [
   return override ? { ...breakdown, amount: Number(override.amount), concept: override.concept, date: override.date || breakdown.date || "", manualBreakdownId: override.id } : breakdown;
 });
 
-const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], fuelEntries = [], periodFinancials = [], manualBreakdowns = [], reportMonth = 6, reportYear = 2026 }) => {
+const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, periodFactor, driverRows = [], driverNames = [], fuelEntries = [], periodFinancials = [], manualBreakdowns = [], reportMonth = 6, reportYear = 2026 }) => {
   const amounts = vehicleExpenseAmounts[vehicle.plate] ?? [];
   const additional = netAdditionalExpenseAmounts[vehicle.plate] ?? {};
   const scale = (amount) => Number(((amount ?? 0) * periodFactor).toFixed(2));
@@ -688,7 +688,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const inspectionAmount = getAnnualRecurringExpenseAmount("inspection", vehicle.plate, reportMonth);
   const gestoriaPeriodDocuments = getGestoriaDocumentsForPeriod(vehicle.plate, reportYear, reportMonth);
   const gestoriaPeriodAmount = getGestoriaExpenseForPeriod(vehicle.plate, reportYear, reportMonth);
-  const vehicleDrivers = vehicle.drivers.slice(0, 2);
+  const vehicleDrivers = (driverNames.length ? driverNames : vehicle.drivers).slice(0, 2);
   const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: 0 }));
   const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
   const driverBillingTotal = resolvedDriverRows.slice(0, 2).reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
@@ -1293,16 +1293,15 @@ const importedBillingSources = Object.freeze([
   { key: "mauricio", label: "Mauricio", summary: mauricioBillingByPeriod },
   { key: "tirso", label: "Tirso", summary: tirsoBillingByPeriod },
 ]);
-const getImportedBillingSource = (driver) => {
-  const driverKey = String(driver ?? "").trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/)[0];
-  return importedBillingSources.find((source) => source.key === driverKey) ?? null;
-};
+const historicalDriverVehicleByKey = Object.freeze({ alex: "5750 MJV", amin: "5043 MLC", fernando: "5754 MJV", mauricio: "5043 MLC", tirso: "5750 MJV" });
+const historicalDriverNamesByPlate = Object.freeze({ "5043 MLC": ["Mauricio", "Amin"], "5750 MJV": ["Tirso", "Alex"], "5754 MJV": ["Andrés", "Fernando"] });
+const getImportedDriverKey = (driver) => String(driver ?? "").trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/)[0];
+const getImportedBillingSource = (driver) => importedBillingSources.find((source) => source.key === getImportedDriverKey(driver)) ?? null;
 const getImportedBillingByPeriod = (driver) => {
   const summary = getImportedBillingSource(driver)?.summary ?? null;
   if (!summary) return null;
   return Object.fromEntries(Object.entries(summary).map(([period, record]) => [period, record.amount]));
 };
-const getImportedBillingRecordForPeriod = (driver, periodKey) => getImportedBillingSource(driver)?.summary?.[periodKey] ?? null;
 
 const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
   .filter((vehicle) => vehicle.use === "Profesional")
@@ -1341,29 +1340,45 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
 
 const getHistoricalBillingRowsForPeriod = (vehicles, driverEntries = [], month, year) => {
   const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
-  return vehicles
-    .filter((vehicle) => vehicle.use === "Profesional")
-    .flatMap((vehicle) => vehicle.drivers.map((driver, driverIndex) => {
-      const record = getImportedBillingRecordForPeriod(driver, periodKey);
-      const profile = vehicle.driverProfiles?.[driverIndex];
-      const recordedAmount = driverEntries
-        .filter((entry) => profile?.id && entry.driver_id === profile.id && String(entry.entry_date ?? "").startsWith(periodKey))
-        .reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0);
-      if (!record || !(Number(record.amount) > 0)) return null;
-      return {
-        key: `historical-${String(driver).toLocaleLowerCase("es").replace(/\s+/g, "-")}-${periodKey}`,
-        driver,
-        driverId: "",
-        plate: vehicle.plate,
-        model: vehicle.model,
-        revenue: Number(record.amount) || 0,
-        sourceFile: record.sourceFile ?? "Documento de facturación",
-        extractedLabel: record.extractedLabel ?? "Total facturado",
-        usedInNet: recordedAmount <= 0,
-        recordedAmount: Number(recordedAmount.toFixed(2)),
-        isHistoricalBilling: true,
-      };
-    }).filter(Boolean));
+  const profiles = vehicles.flatMap((vehicle) => vehicle.driverProfiles ?? []);
+  return importedBillingSources.map((source) => {
+    const record = source.summary?.[periodKey];
+    const vehicle = vehicles.find((candidate) => candidate.plate === historicalDriverVehicleByKey[source.key])
+      ?? vehicles.find((candidate) => candidate.use === "Profesional" && candidate.drivers.some((driver) => getImportedDriverKey(driver) === source.key));
+    const profile = profiles.find((candidate) => getImportedDriverKey(candidate.full_name) === source.key);
+    const recordedAmount = driverEntries
+      .filter((entry) => profile?.id && entry.driver_id === profile.id && String(entry.entry_date ?? "").startsWith(periodKey))
+      .reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0);
+    const importedTips = getImportedTipsByPeriod(source.label)?.[periodKey] ?? 0;
+    if (!vehicle || !record || !(Number(record.amount) > 0)) return null;
+    return {
+      key: `historical-${source.key}-${periodKey}`,
+      driver: source.label,
+      driverId: "",
+      plate: vehicle.plate,
+      model: vehicle.model,
+      revenue: Number(record.amount) || 0,
+      entries: [{ id: `historical-entry-${source.key}-${periodKey}`, entry_date: `${periodKey}-01`, billing: Number(record.amount) || 0, tips: Number(importedTips) || 0, tolls: 0, driver_id: "", isImportedBilling: true }],
+      sourceFile: record.sourceFile ?? "Documento de facturación",
+      extractedLabel: record.extractedLabel ?? "Total facturado",
+      usedInNet: recordedAmount <= 0,
+      recordedAmount: Number(recordedAmount.toFixed(2)),
+      isHistoricalBilling: true,
+    };
+  }).filter(Boolean);
+};
+
+const getNetDriverRowsForVehicle = ({ vehicle, billingRows = [], historicalBillingRows = [] }) => {
+  const driverNames = historicalDriverNamesByPlate[vehicle.plate] ?? vehicle.drivers.slice(0, 2);
+  return driverNames.map((driver, index) => {
+    const driverKey = getImportedDriverKey(driver);
+    const liveRow = billingRows.find((row) => getImportedDriverKey(row.driver) === driverKey && row.billingSource === "ledger");
+    const historicalRow = historicalBillingRows.find((row) => getImportedDriverKey(row.driver) === driverKey);
+    const profile = vehicle.driverProfiles?.find((candidate) => getImportedDriverKey(candidate.full_name) === driverKey);
+    if (liveRow) return { ...liveRow, plate: vehicle.plate, model: vehicle.model };
+    if (historicalRow) return { ...historicalRow, driverId: profile?.id ?? historicalRow.driverId, plate: vehicle.plate, model: vehicle.model };
+    return { key: `${vehicle.plate}-${driver}-${index}`, driver, driverId: profile?.id ?? "", plate: vehicle.plate, model: vehicle.model, trips: 0, revenue: 0, entries: [], billingSource: "none" };
+  });
 };
 
 const getDriverCalendarRows = (vehicle, row, month, year, documents = []) => {
@@ -4808,9 +4823,9 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     .filter((vehicle) => vehicle.use === "Profesional")
     .map((vehicle) => {
       const vehicleIndex = vehicles.findIndex((candidate) => candidate.plate === vehicle.plate);
-      const vehicleBillingRows = billingRows.filter((row) => row.plate === vehicle.plate);
       const vehicleHistoricalBilling = historicalBillingRows.filter((row) => row.plate === vehicle.plate);
-      const revenue = vehicleBillingTotals[vehicleIndex] ?? vehicleBillingRows.reduce((sum, row) => sum + row.revenue, 0);
+      const vehicleBillingRows = getNetDriverRowsForVehicle({ vehicle, billingRows, historicalBillingRows: vehicleHistoricalBilling });
+      const revenue = vehicleBillingRows.reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
       const commission = Number(vehicleBillingRows.reduce((sum, row) => sum + calculateNetDriverCommission(row.driver, row.revenue), 0).toFixed(2));
       const expenses = buildNetExpenseBreakdown({
         vehicle,
@@ -4820,6 +4835,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         commission,
         periodFactor,
         driverRows: vehicleBillingRows,
+        driverNames: vehicleBillingRows.map((row) => row.driver),
         periodFinancials,
         manualBreakdowns: manualNetBreakdowns.filter((breakdown) => breakdown.periodKey === netPeriodKey && breakdown.plate === vehicle.plate),
         reportMonth,
