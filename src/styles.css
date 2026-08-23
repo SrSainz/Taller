@@ -4289,3 +4289,31 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .net-detail-card__add-form { grid-template-columns: minmax(0, 1fr) minmax(94px, 112px); }
   .net-detail-card__breakdown-editor { grid-template-columns: minmax(0, 1fr) minmax(94px, 112px); }
 }
+
+/* Neto: total combinado a la izquierda y periodo consultable a la derecha. */
+.net-detail-modal__header-content { min-width: 0; display: flex !important; flex: 1 1 auto; align-items: center; justify-content: space-between; gap: 14px; }
+.net-detail-modal__total { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.net-detail-modal__total > span { overflow: hidden; color: #d9e5e4; font-size: 8px; font-weight: 850; letter-spacing: .1em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.net-detail-modal__total > strong { color: #6fe28e; font-size: clamp(22px, 5vw, 30px); font-weight: 900; letter-spacing: -.04em; line-height: 1; white-space: nowrap; }
+.net-detail-modal__period-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 5px; margin-left: auto; }
+.net-detail-modal__period-dropdown { position: relative; }
+.net-detail-modal__period-trigger { min-width: 92px; min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 5px; padding: 0 8px; border: 1px solid rgba(255,255,255,.24); border-radius: 8px; background: rgba(255,255,255,.08); color: #f7fbfa; font: inherit; font-size: 8px; font-weight: 850; text-transform: uppercase; cursor: pointer; }
+.net-detail-modal__period-trigger--year { min-width: 68px; }
+.net-detail-modal__period-trigger:hover, .net-detail-modal__period-trigger[aria-expanded="true"], .net-detail-modal__period-trigger:focus-visible { border-color: #6fe28e; background: rgba(111,226,142,.14); outline: 0; }
+.net-detail-modal .net-detail-modal__period-menu.report-period-menu--wheel { top: calc(100% + 6px); z-index: 60; width: 118px; min-width: 118px; }
+.net-detail-modal .net-detail-modal__period-menu--years.report-period-menu--wheel { width: 82px; min-width: 82px; }
+
+@media (max-width: 520px) {
+  .net-detail-modal__header-content { gap: 7px; }
+  .net-detail-modal__total > span { font-size: 6.5px; letter-spacing: .07em; }
+  .net-detail-modal__total > strong { font-size: 20px; }
+  .net-detail-modal__period-controls { gap: 3px; }
+  .net-detail-modal__period-trigger { min-width: 78px; min-height: 31px; padding-inline: 6px; font-size: 7.5px; }
+  .net-detail-modal__period-trigger--year { min-width: 56px; }
+}
+
+@media (max-width: 380px) {
+  .net-detail-modal__total > strong { font-size: 18px; }
+  .net-detail-modal__period-trigger { min-width: 68px; padding-inline: 5px; font-size: 7px; }
+  .net-detail-modal__period-trigger--year { min-width: 52px; }
+}

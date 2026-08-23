@@ -3963,7 +3963,7 @@ function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }
   );
 }
 
-function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onSaveBreakdown, onClose }) {
+function NetDetailModal({ details, periodKey, periodLabel, reportMonth, reportYear, onSelectMonth, onSelectYear, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onSaveBreakdown, onClose }) {
   const closeButtonRef = useRef(null);
   const breakdownAmountRef = useRef(null);
   const breakdownPressTimerRef = useRef(null);
@@ -3977,6 +3977,7 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
   const [breakdownFormState, setBreakdownFormState] = useState({ expenseKey: "", breakdownKey: "", driverLabel: "", concept: "", amount: "", date: "" });
   const [breakdownFormError, setBreakdownFormError] = useState("");
   const [focusBreakdownAmount, setFocusBreakdownAmount] = useState(false);
+  const [periodMenu, setPeriodMenu] = useState("");
   useEffect(() => {
     closeButtonRef.current?.focus();
   }, []);
@@ -3992,11 +3993,26 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
     });
     return () => window.cancelAnimationFrame(frame);
   }, [activeBreakdownEditor, focusBreakdownAmount]);
+  useEffect(() => {
+    if (!periodMenu) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
+    const closeOnPointerDown = (event) => {
+      if (!event.target.closest?.(".net-detail-modal__period-dropdown")) setPeriodMenu("");
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+    };
+  }, [periodMenu]);
   const total = details.reduce((sum, detail) => sum + detail.net, 0);
   const orderedDetails = [...details].sort((left, right) => vehicleOrder.indexOf(left.vehicle.plate) - vehicleOrder.indexOf(right.vehicle.plate));
   const selectedDetail = orderedDetails.find((detail) => detail.vehicle.plate === selectedPlate) ?? null;
   const selectedTone = selectedDetail ? (netVehicleImages[selectedDetail.vehicle.plate]?.tone ?? "green") : "green";
   const netExpenseDateRange = getNetExpensePeriodRange(periodKey);
+  const selectNetMonth = (month) => { onSelectMonth?.(month); setPeriodMenu(""); };
+  const selectNetYear = (year) => { onSelectYear?.(year); setPeriodMenu(""); };
   const toggleVehicle = (plate) => {
     setSelectedPlate((current) => current === plate ? "" : plate);
     setExpandedExpenseRows(new Set());
@@ -4144,7 +4160,19 @@ function NetDetailModal({ details, periodKey, periodLabel, commissionReports = [
     <div className="net-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className={`net-detail-modal${selectedDetail ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-label="Detalle de NETO">
         <header className="net-detail-modal__header">
-          <div className="net-detail-modal__header-content"><strong aria-label={`Total neto de ${periodLabel}`}>{formatCurrency(total)}</strong></div>
+          <div className="net-detail-modal__header-content">
+            <div className="net-detail-modal__total"><span>NETO TOTAL · 3 COCHES</span><strong aria-label={`Total neto de ${periodLabel}`}>{formatCurrency(total)}</strong></div>
+            <div className="net-detail-modal__period-controls" role="group" aria-label="Periodo de Neto">
+              <div className="net-detail-modal__period-dropdown">
+                <button type="button" className="net-detail-modal__period-trigger" aria-label="Seleccionar mes de Neto" title="Mes de Neto" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
+                {periodMenu === "month" && <WheelPickerMenu options={reportMonths.map((label, index) => ({ value: index, label }))} value={reportMonth} onChange={selectNetMonth} ariaLabel="Seleccionar mes de Neto" className="net-detail-modal__period-menu net-detail-modal__period-menu--months" />}
+              </div>
+              <div className="net-detail-modal__period-dropdown">
+                <button type="button" className="net-detail-modal__period-trigger net-detail-modal__period-trigger--year" aria-label="Seleccionar año de Neto" title="Año de Neto" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
+                {periodMenu === "year" && <WheelPickerMenu options={reportYears.map((year) => ({ value: year, label: String(year) }))} value={reportYear} onChange={selectNetYear} ariaLabel="Seleccionar año de Neto" className="net-detail-modal__period-menu net-detail-modal__period-menu--years" />}
+              </div>
+            </div>
+          </div>
           <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
         </header>
         {!selectedDetail ? <>
@@ -4667,7 +4695,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
-              {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onSaveBreakdown={(breakdown) => setManualNetBreakdowns((current) => { const next = current.filter((candidate) => !(candidate.periodKey === netPeriodKey && candidate.plate === breakdown.plate && candidate.expenseKey === breakdown.expenseKey && candidate.breakdownKey === breakdown.breakdownKey)); return [...next, { ...breakdown, id: `breakdown-${Date.now()}-${current.length}`, periodKey: netPeriodKey }]; })} onClose={() => setNetDetailOpen(false)} />}
+              {netDetailOpen && <NetDetailModal details={netVehicleDetails} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} reportMonth={reportMonth} reportYear={reportYear} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onSaveBreakdown={(breakdown) => setManualNetBreakdowns((current) => { const next = current.filter((candidate) => !(candidate.periodKey === netPeriodKey && candidate.plate === breakdown.plate && candidate.expenseKey === breakdown.expenseKey && candidate.breakdownKey === breakdown.breakdownKey)); return [...next, { ...breakdown, id: `breakdown-${Date.now()}-${current.length}`, periodKey: netPeriodKey }]; })} onClose={() => setNetDetailOpen(false)} />}
             </div>
           </>
         )}
