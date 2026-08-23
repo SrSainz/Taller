@@ -74,6 +74,7 @@ import { aminBillingByPeriod } from "./data/aminBillingSummary";
 import { fernandoBillingByPeriod } from "./data/fernandoBillingSummary";
 import { mauricioBillingByPeriod } from "./data/mauricioBillingSummary";
 import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
+import { getImportedTipsByPeriod } from "./data/driverTipsSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
 import { gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender, getGestoriaDocumentsForPeriod, getGestoriaExpenseForPeriod } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleOwner as getCanonicalVehicleOwner, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
@@ -1236,11 +1237,13 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
     const recordedRevenue = Number(entries.reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0).toFixed(2));
     const hasRecordedBilling = entries.some((entry) => Number(entry.billing) > 0);
     const importedBillingByPeriod = getImportedBillingByPeriod(driver);
+    const importedTipsByPeriod = getImportedTipsByPeriod(driver);
     const importedRevenue = importedBillingByPeriod?.[periodKey] ?? 0;
+    const importedTips = importedTipsByPeriod?.[periodKey] ?? 0;
     const revenue = hasRecordedBilling ? recordedRevenue : importedRevenue;
     const billingByPeriod = importedBillingByPeriod ? { ...importedBillingByPeriod, ...(hasRecordedBilling ? { [periodKey]: recordedRevenue } : {}) } : null;
     const importedPeriodEntry = !hasRecordedBilling && importedRevenue > 0
-      ? [{ id: `${String(driver).toLocaleLowerCase("es").replace(/\s+/g, "-")}-billing-${periodKey}`, driver_id: profile?.id ?? "", vehicle_plate: vehicle.plate, entry_date: `${periodKey}-01`, billing: importedRevenue, cash_collected: 0, tips: 0, tolls: 0, fuel_cost: 0, fuel_liters: 0, other_expenses: 0, odometer_km: 0, isImportedBilling: true }]
+      ? [{ id: `${String(driver).toLocaleLowerCase("es").replace(/\s+/g, "-")}-billing-${periodKey}`, driver_id: profile?.id ?? "", vehicle_plate: vehicle.plate, entry_date: `${periodKey}-01`, billing: importedRevenue, cash_collected: 0, tips: importedTips, tolls: 0, fuel_cost: 0, fuel_liters: 0, other_expenses: 0, odometer_km: 0, isImportedBilling: true }]
       : [];
     return {
       key: `${vehicle.plate}-${driver}`,
@@ -2626,8 +2629,12 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
     const recordedMonthlyBilling = total(monthEntries, "billing");
     const importedBillingByPeriod = getImportedBillingByPeriod(profile.full_name);
+    const importedTipsByPeriod = getImportedTipsByPeriod(profile.full_name);
     const importedMonthlyBilling = importedBillingByPeriod?.[monthKey] ?? 0;
+    const recordedMonthlyTips = total(monthEntries, "tips");
+    const importedMonthlyTips = importedTipsByPeriod?.[monthKey] ?? 0;
     const monthlyBilling = recordedMonthlyBilling > 0 ? recordedMonthlyBilling : importedMonthlyBilling;
+    const monthlyTips = recordedMonthlyTips > 0 ? recordedMonthlyTips : importedMonthlyTips;
     const billingGoal = 7000;
     const billingScaleMax = 9000;
     const billingMilestones = [5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000];
@@ -2646,10 +2653,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       monthLabel: new Intl.DateTimeFormat("es-ES", { month: "long" }).format(periodDate),
       weekLabel: `${periodFormatter.format(weekStart)} · ${periodFormatter.format(weekEndLabel)}`.replace(/\./g, ""),
       monthlyBilling,
-      monthlyTips: total(monthEntries, "tips"),
+      monthlyTips,
       monthlyTolls: total(monthEntries, "tolls"),
       monthlyOther: total(monthEntries, "other_expenses") + monthlyWash,
-      tipsProgress: monthlyBilling > 0 ? Math.min(100, (total(monthEntries, "tips") / monthlyBilling) * 100) : 0,
+      tipsProgress: monthlyBilling > 0 ? Math.min(100, (monthlyTips / monthlyBilling) * 100) : 0,
       billingGoal,
       billingScaleMax,
       billingMilestones,
