@@ -4382,6 +4382,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
   const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
   const [periodMenu, setPeriodMenu] = useState("");
+  const dashboardPeriodPointerRef = useRef(null);
   const [selectedChartBar, setSelectedChartBar] = useState("");
   const [netDetailOpen, setNetDetailOpen] = useState(false);
   const [manualNetExpenses, setManualNetExpenses] = useState(() => loadManualNetExpenses());
@@ -4446,6 +4447,30 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     saveManualNetBreakdowns(manualNetBreakdowns);
   }, [manualNetBreakdowns]);
   const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
+  const shiftDashboardPeriod = (delta) => {
+    const firstPeriod = reportYears[0] * 12;
+    const lastPeriod = reportYears[reportYears.length - 1] * 12 + 11;
+    const currentPeriod = reportYear * 12 + reportMonth;
+    const nextPeriod = Math.max(firstPeriod, Math.min(lastPeriod, currentPeriod + delta));
+    setReportYear(Math.floor(nextPeriod / 12));
+    setReportMonth(nextPeriod % 12);
+    setPeriodMenu("");
+  };
+  const handleDashboardPeriodPointerDown = (event) => {
+    if (event.target.closest?.(".report-period-menu")) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    dashboardPeriodPointerRef.current = { x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const handleDashboardPeriodPointerUp = (event) => {
+    const start = dashboardPeriodPointerRef.current;
+    dashboardPeriodPointerRef.current = null;
+    if (!start || event.target.closest?.(".report-period-menu")) return;
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    if (Math.abs(deltaX) < 34 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+    shiftDashboardPeriod(deltaX < 0 ? 1 : -1);
+  };
   useEffect(() => {
     let mounted = true;
     if (!supabase) return undefined;
@@ -4778,12 +4803,8 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       <div className="fuel-report-canvas">
         {reportTab === "General" && (
           <>
-            <div className="dashboard-period-bar" role="group" aria-label="Calendario del resumen general">
-              <div className="dashboard-period-bar__identity">
-                <span className="dashboard-period-bar__icon" aria-hidden="true"><IconCalendar size={16} /></span>
-                <span><strong>CALENDARIO</strong><small>{selectedPeriodLabel}</small></span>
-              </div>
-              <div className="report-chart-filters" role="group" aria-label="Seleccionar periodo del resumen general">
+            <div className="dashboard-period-bar" role="group" aria-label="Seleccionar periodo del resumen general" onPointerDown={handleDashboardPeriodPointerDown} onPointerUp={handleDashboardPeriodPointerUp} onPointerCancel={() => { dashboardPeriodPointerRef.current = null; }}>
+              <div className="report-chart-filters" role="group" aria-label="Mes y año del resumen general">
                 <div className="report-period-dropdown">
                   <span className="sr-only">Mes</span>
                   <button type="button" className="report-period-trigger" aria-label="Seleccionar mes" title="Mes" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
