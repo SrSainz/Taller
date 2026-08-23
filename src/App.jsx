@@ -3395,6 +3395,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const [maintenanceNoteOpen, setMaintenanceNoteOpen] = useState(false);
   const [maintenanceNoteDraft, setMaintenanceNoteDraft] = useState(maintenanceNote ?? "");
   const maintenanceNoteInputRef = useRef(null);
+  const driverAvatarPath = getDriverAvatarPath(profile.full_name);
+  const driverAvatarInitials = String(profile.full_name ?? "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
   const referenceLabels = {
     consumption: { title: "Ejemplo de consumo", caption: "Historial del vehículo", alt: "Ejemplo de historial de consumo del vehículo" },
     billing: { title: "Ejemplo de facturación", caption: "Resumen semanal", alt: "Ejemplo de resumen semanal de facturación" },
@@ -3609,7 +3611,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
       <header className="driver-mobile-topbar">
         {preview && <button type="button" className="driver-mobile-topbar__back" onClick={onExitPreview} aria-label="Volver a administración" title="Volver a administración"><IconChevronLeft size={24} /></button>}
         <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir menú del conductor" aria-expanded={driverMenuOpen} onClick={() => { setDriverMenuOpen((current) => !current); setDriverNoticeOpen(false); }}><IconMenu2 size={23} /></button>
-        <div className="driver-mobile-topbar__title"><strong>{profile.full_name.toUpperCase()}</strong><VehiclePlateLabel vehicleOrPlate={vehicle?.plate ?? profileVehiclePlate} className="driver-mobile-topbar__plate" /></div>
+        <div className="driver-mobile-topbar__title"><span className="driver-mobile-topbar__avatar" aria-hidden="true">{driverAvatarPath ? <img src={driverAvatarPath} alt="" /> : <span>{driverAvatarInitials}</span>}</span><span className="driver-mobile-topbar__identity"><strong>{profile.full_name.toUpperCase()}</strong><VehiclePlateLabel vehicleOrPlate={vehicle?.plate ?? profileVehiclePlate} className="driver-mobile-topbar__plate" /></span></div>
         <button type="button" className="driver-mobile-topbar__icon" aria-label="Abrir notificaciones" aria-expanded={driverNoticeOpen} onClick={() => { setDriverNoticeOpen((current) => !current); setDriverMenuOpen(false); }}><IconBell size={23} /></button>
         {driverMenuOpen && <aside className="driver-mobile-topbar__popover driver-mobile-topbar__popover--menu" aria-label="Menú del conductor">
           <button type="button" onClick={() => scrollTo("home", homeRef)}><IconHome size={16} />Inicio</button>
