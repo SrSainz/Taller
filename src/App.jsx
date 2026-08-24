@@ -3941,7 +3941,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   };
   const showDriverChartTooltip = (chartKey, state) => {
     const hasActivePoint = state?.isTooltipActive !== false && (state?.activeTooltipIndex !== undefined || state?.activeIndex !== undefined || state?.activePayload?.length);
-    if (hasActivePoint) setActiveDriverChartTooltip(chartKey);
+    setActiveDriverChartTooltip(hasActivePoint ? chartKey : "");
   };
   const hideDriverChartTooltip = () => setActiveDriverChartTooltip("");
   const handlePreviewGridClick = (event) => {
