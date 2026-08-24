@@ -1030,6 +1030,58 @@ const getDriverDocumentKind = (document) => {
 };
 const driverDocumentKindLabels = Object.freeze({ billing: "Facturación", fuel: "Repostaje", mileage: "Kilómetros", consumption: "Consumo diario" });
 const getDriverDocumentKindLabel = (document) => driverDocumentKindLabels[getDriverDocumentKind(document)] ?? "Documento";
+const getDriverDocumentFieldValue = (fields = {}, keys = []) => {
+  for (const key of keys) {
+    const candidate = fields?.[key];
+    const value = candidate && typeof candidate === "object" && "value" in candidate ? candidate.value : candidate;
+    if (value !== null && value !== undefined && String(value).trim() !== "") return value;
+  }
+  return "";
+};
+const getDriverBillingDocumentStats = (document) => {
+  const fields = getExtractedDocumentFields(document);
+  const netValue = getDriverDocumentFieldValue(fields, ["netAmount", "priceNet", "net"]);
+  const totalValue = getDriverDocumentFieldValue(fields, ["total", "earningsTotal", "grossTotal"]);
+  const tips = getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["tips", "tip"]));
+  const netAmount = netValue !== ""
+    ? getDriverDocumentNumber(netValue)
+    : totalValue !== ""
+      ? Math.max(0, getDriverDocumentNumber(totalValue) - tips)
+      : getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["billing", "amount"]));
+  const total = totalValue !== "" ? getDriverDocumentNumber(totalValue) : netAmount + tips;
+  return {
+    dateKey: getDriverDocumentDateKey(document),
+    connection: String(getDriverDocumentFieldValue(fields, ["connection", "connectionTime", "duration"]) || "").trim(),
+    trips: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["trips", "journeys", "viajes"])),
+    points: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["points", "puntos"])),
+    netAmount,
+    tips,
+    total,
+    refunds: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["refunds", "reimbursements", "reembolsos"])),
+    cashCollected: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["cashCollected", "cash_collected", "cash", "efectivo"])),
+    hasBillingAmount: netValue !== "" || totalValue !== "" || getDriverDocumentFieldValue(fields, ["billing", "amount"]) !== "",
+  };
+};
+const isDriverBillingDocument = (document) => {
+  const data = document?.extracted_data ?? {};
+  const recordType = getDriverDocumentRecordType(document);
+  const metric = normalizeText(data.metric || getExtractedDocumentFields(document).metric || "");
+  return document?.category === "billing" && (recordType === "billing" || recordType === "billing_daily" || metric === "billing_daily");
+};
+const getDriverBillingDocumentsForDriver = (documents = [], driverId) => (documents ?? [])
+  .filter((document) => {
+    if (!driverId || !isDriverBillingDocument(document)) return false;
+    const fields = getExtractedDocumentFields(document);
+    const assignedDriverId = document?.driver_id || fields.driverId || fields.driver_id || "";
+    return document?.owner_id === driverId || assignedDriverId === driverId;
+  });
+const getDriverBillingDocumentsForPeriod = (documents = [], driverId, month, year) => getDriverBillingDocumentsForDriver(documents, driverId)
+  .filter((document) => {
+    const dateKey = getDriverDocumentDateKey(document);
+    if (!dateKey) return false;
+    const date = new Date(`${dateKey}T12:00:00`);
+    return date.getFullYear() === year && date.getMonth() === month;
+  });
 const normalizeTransactionRecord = (transaction = {}) => ({
   ...transaction,
   vehicle_plate: canonicalizeVehiclePlate(transaction.vehicle_plate),
@@ -1311,7 +1363,7 @@ const getImportedBillingByPeriod = (driver) => {
   return Object.fromEntries(Object.entries(summary).map(([period, record]) => [period, record.amount]));
 };
 
-const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
+const getDriverBillingRows = (vehicles, driverEntries, month, year, documents = []) => vehicles
   .filter((vehicle) => vehicle.use === "Profesional")
   .flatMap((vehicle) => vehicle.drivers.map((driver, driverIndex) => {
     const profile = vehicle.driverProfiles?.[driverIndex];
@@ -1320,10 +1372,14 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
       const entryDate = new Date(`${entry.entry_date}T12:00:00`);
       return entryDate.getMonth() === month && entryDate.getFullYear() === year;
     });
+    const billingDocumentStats = getDriverBillingDocumentsForPeriod(documents, profile?.id, month, year).map(getDriverBillingDocumentStats);
+    const hasDocumentedBilling = billingDocumentStats.some((stats) => stats.hasBillingAmount);
     const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
-    const recordedRevenue = Number(entries.reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0).toFixed(2));
+    const recordedRevenue = Number((hasDocumentedBilling
+      ? billingDocumentStats.reduce((sum, stats) => sum + stats.netAmount, 0)
+      : entries.reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0)).toFixed(2));
     const hasBillingOverride = entries.some((entry) => entry.billing_override === true);
-    const hasRecordedBilling = entries.some((entry) => Number(entry.billing) > 0) || hasBillingOverride;
+    const hasRecordedBilling = hasDocumentedBilling || entries.some((entry) => Number(entry.billing) > 0) || hasBillingOverride;
     const importedBillingByPeriod = getImportedBillingByPeriod(driver);
     const importedTipsByPeriod = getImportedTipsByPeriod(driver);
     const importedRevenue = importedBillingByPeriod?.[periodKey] ?? 0;
@@ -1339,9 +1395,10 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year) => vehicles
       driverId: profile?.id ?? "",
       plate: vehicle.plate,
       model: vehicle.model,
-      trips: 0,
+      trips: billingDocumentStats.reduce((sum, stats) => sum + stats.trips, 0),
       revenue,
       entries: [...allEntries, ...importedPeriodEntry],
+      billingDocumentStats,
       billingByPeriod,
       hasBillingOverride,
       billingSource: hasRecordedBilling ? "ledger" : importedRevenue > 0 ? "document" : "none",
@@ -1421,6 +1478,23 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
     const dateKey = getDriverDocumentDateKey(document);
     if (dateKey) documentsByDate.set(dateKey, [...(documentsByDate.get(dateKey) ?? []), document]);
   });
+  const billingStatsByDate = new Map();
+  ownedDriverDocuments.filter(isDriverBillingDocument).forEach((document) => {
+    const stats = getDriverBillingDocumentStats(document);
+    if (!stats.dateKey || !stats.hasBillingAmount || !stats.dateKey.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-`)) return;
+    const current = billingStatsByDate.get(stats.dateKey) ?? { connection: "", trips: 0, points: 0, netAmount: 0, tips: 0, total: 0, refunds: 0, cashCollected: 0, hasBillingAmount: true };
+    billingStatsByDate.set(stats.dateKey, {
+      ...current,
+      connection: stats.connection || current.connection,
+      trips: current.trips + stats.trips,
+      points: current.points + stats.points,
+      netAmount: current.netAmount + stats.netAmount,
+      tips: current.tips + stats.tips,
+      total: current.total + stats.total,
+      refunds: current.refunds + stats.refunds,
+      cashCollected: current.cashCollected + stats.cashCollected,
+    });
+  });
   const mileageDocuments = ownedDriverDocuments
     .map((document) => {
       const data = document?.extracted_data ?? {};
@@ -1466,7 +1540,10 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
   const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
   const periodRevenue = row.billingByPeriod ? (row.billingByPeriod[periodKey] ?? 0) : row.revenue;
   const billingEntries = realEntries.filter((entry) => Number(entry.billing) > 0);
-  const billingDays = billingEntries.length
+  const documentedBillingDays = new Map([...billingStatsByDate.entries()].map(([dateKey, stats]) => [Number(dateKey.slice(8, 10)), Number(stats.netAmount.toFixed(2))]));
+  const billingDays = documentedBillingDays.size > 0
+    ? documentedBillingDays
+    : billingEntries.length
     ? billingEntries.reduce((days, entry) => {
       const day = Number(entry.entry_date.slice(8, 10));
       days.set(day, Number(((days.get(day) ?? 0) + (Number(entry.billing) || 0)).toFixed(2)));
@@ -1475,7 +1552,8 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
     : row.hasBillingOverride ? new Map() : getDriverBillingDays(row.driver, row.plate, month, year, periodRevenue);
   const billingDayKeys = [...billingDays.keys()];
   const seed = `${row.driver}-${row.plate}-${month}-${year}`.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0);
-  const tripsByDay = distributeInteger(row.trips, billingDayKeys, seed);
+  const documentedTripsByDay = new Map([...billingStatsByDate.entries()].map(([dateKey, stats]) => [Number(dateKey.slice(8, 10)), stats.trips]));
+  const tripsByDay = documentedTripsByDay.size > 0 ? documentedTripsByDay : distributeInteger(row.trips, billingDayKeys, seed);
   const fuelByDay = new Map();
   const transactionFuelEntries = (transactions ?? [])
     .filter((transaction) => transaction.type === "fuel" && transaction.driver_id === row.driverId && transaction.vehicle_plate === vehicle.plate && transaction.occurred_on)
@@ -1519,10 +1597,28 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
     const fuelLiters = fuelEntries.reduce((sum, entry) => sum + entry.liters, 0);
     const fuelCost = fuelEntries.reduce((sum, entry) => sum + entry.cost, 0);
     const totalKm = totalKmResolvedByDate.get(dateKey) ?? 0;
+    const entryForDate = realEntries.find((entry) => String(entry.entry_date) === dateKey);
+    const documentBillingStats = billingStatsByDate.get(dateKey);
+    const billingStats = documentBillingStats ? { ...documentBillingStats } : {
+      connection: "",
+      trips: tripsByDay.get(day) ?? 0,
+      points: 0,
+      netAmount: billing,
+      tips: Number(entryForDate?.tips) || 0,
+      total: billing + (Number(entryForDate?.tips) || 0),
+      refunds: 0,
+      cashCollected: Number(entryForDate?.cash_collected) || 0,
+      hasBillingAmount: billing > 0,
+    };
+    if (entryForDate?.billing_override === true) {
+      billingStats.netAmount = Number(entryForDate.billing) || 0;
+      billingStats.total = billingStats.netAmount + billingStats.tips;
+    }
     return {
       day,
       billing,
       trips: tripsByDay.get(day) ?? 0,
+      billingStats,
       km,
       totalKm,
       fuelEntries,
@@ -3093,13 +3189,17 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
     const recordedMonthlyBilling = total(monthEntries, "billing");
+    const billingDocuments = getDriverBillingDocumentsForPeriod(documents, activeProfileId, periodDate.getMonth(), periodDate.getFullYear()).map(getDriverBillingDocumentStats);
+    const hasDocumentedMonthlyBilling = billingDocuments.some((stats) => stats.hasBillingAmount);
+    const documentedMonthlyBilling = billingDocuments.reduce((sum, stats) => sum + stats.netAmount, 0);
+    const documentedMonthlyTips = billingDocuments.reduce((sum, stats) => sum + stats.tips, 0);
     const importedBillingByPeriod = getImportedBillingByPeriod(profile.full_name);
     const importedTipsByPeriod = getImportedTipsByPeriod(profile.full_name);
     const importedMonthlyBilling = importedBillingByPeriod?.[monthKey] ?? 0;
     const recordedMonthlyTips = total(monthEntries, "tips");
     const importedMonthlyTips = importedTipsByPeriod?.[monthKey] ?? 0;
-    const monthlyBilling = recordedMonthlyBilling > 0 ? recordedMonthlyBilling : importedMonthlyBilling;
-    const monthlyTips = recordedMonthlyTips > 0 ? recordedMonthlyTips : importedMonthlyTips;
+    const monthlyBilling = hasDocumentedMonthlyBilling ? documentedMonthlyBilling : recordedMonthlyBilling > 0 ? recordedMonthlyBilling : importedMonthlyBilling;
+    const monthlyTips = hasDocumentedMonthlyBilling ? documentedMonthlyTips : recordedMonthlyTips > 0 ? recordedMonthlyTips : importedMonthlyTips;
     const billingGoal = getDriverBillingGoal(profile.full_name);
     const billingScaleMax = 9000;
     const billingMilestones = [5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000];
@@ -3137,11 +3237,13 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       weeklyProgress: weeklyCash > 0 ? Math.max(0, Math.min(100, (weeklyNet / weeklyCash) * 100)) : 0,
       weekEntries: weekEntries.length,
     };
-  }, [entries, profile.full_name, profileVehiclePlate, selectedDate, vehicle, weeklyManualValues]);
+  }, [activeProfileId, documents, entries, profile.full_name, profileVehiclePlate, selectedDate, vehicle, weeklyManualValues]);
 
   const selectedDayDocumentData = useMemo(() => selectedDayDocuments.reduce((summary, document) => {
     const data = document.extracted_data ?? {};
-    const billing = getDriverDocumentNumber(data.billing ?? data.total ?? data.amount ?? data.netAmount);
+    const billing = document.category === "billing"
+      ? getDriverBillingDocumentStats(document).netAmount
+      : getDriverDocumentNumber(data.billing ?? data.total ?? data.amount ?? data.netAmount);
     const fuelCost = getDriverDocumentNumber(data.fuelCost ?? data.fuel_cost ?? data.cost ?? (document.category === "consumption" ? data.amount : 0));
     const fuelLiters = getDriverDocumentNumber(data.fuelLiters ?? data.fuel_liters ?? data.consumption ?? data.liters);
     const odometerKm = getDriverDocumentNumber(data.odometerKm ?? data.odometer_km ?? data.kilometres ?? data.km);
@@ -3244,11 +3346,20 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const averageConsumption = partialKm2 > 0 ? (Number(selectedDayData.fuel_liters) || 0) / partialKm2 * 100 : 0;
   const monthlyBillingHistory = useMemo(() => {
     const monthly = new Map();
+    const documentedBillingMonths = new Set();
     entries.forEach((item) => {
       const entryDate = parseDriverDateKey(item.entry_date);
       if (!entryDate) return;
       const monthKey = String(item.entry_date).slice(0, 7);
       monthly.set(monthKey, (monthly.get(monthKey) || 0) + getDriverEntryAmount(item, "billing"));
+    });
+    getDriverBillingDocumentsForDriver(documents, activeProfileId).forEach((document) => {
+      const stats = getDriverBillingDocumentStats(document);
+      if (!stats.dateKey || !stats.hasBillingAmount) return;
+      const monthKey = stats.dateKey.slice(0, 7);
+      if (!documentedBillingMonths.has(monthKey)) monthly.set(monthKey, 0);
+      documentedBillingMonths.add(monthKey);
+      monthly.set(monthKey, Number((monthly.get(monthKey) + stats.netAmount).toFixed(2)));
     });
     const currentMonthKey = `${driverPeriodYear}-${String(driverPeriodMonth + 1).padStart(2, "0")}`;
     if (!monthly.has(currentMonthKey)) monthly.set(currentMonthKey, 0);
@@ -3259,7 +3370,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     if (importedBillingByPeriod) {
       Object.entries(importedBillingByPeriod).forEach(([monthKey, amount]) => {
         const recordedAmount = monthly.get(monthKey) || 0;
-        monthly.set(monthKey, recordedAmount > 0 ? recordedAmount : Number(amount) || 0);
+        monthly.set(monthKey, documentedBillingMonths.has(monthKey) || recordedAmount > 0 ? recordedAmount : Number(amount) || 0);
       });
     }
     const currentDate = new Date(driverPeriodYear, driverPeriodMonth, 1);
@@ -3281,7 +3392,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
       const recordedAmount = monthly.get(monthKey) || 0;
       const importedAmount = importedBillingByPeriod?.[monthKey] ?? 0;
-      months.push([monthKey, recordedAmount > 0 ? recordedAmount : importedAmount]);
+      months.push([monthKey, documentedBillingMonths.has(monthKey) || recordedAmount > 0 ? recordedAmount : importedAmount]);
     }
     const maximum = Math.max(1, ...months.map(([, amount]) => amount));
     return months.map(([monthKey, amount]) => {
@@ -3300,7 +3411,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         isCurrent: monthKey === currentMonthKey,
       };
     });
-  }, [entries, driverPeriodMonth, driverPeriodYear, profile.full_name]);
+  }, [activeProfileId, documents, entries, driverPeriodMonth, driverPeriodYear, profile.full_name]);
   const imageDocument = (predicate) => documentPreviews.find((document) => predicate(document) && document.signedUrl)?.signedUrl ?? "";
   const uploadedDriverImages = {
     fuelReceipt: circlePreviewUrls.fuel || imageDocument((document) => document.extracted_data?.recordType === "fuel" || document.category === "consumption" && document.extracted_data?.metric === "fuel_receipt"),
@@ -3363,7 +3474,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       setMessage(validation.message);
       return;
     }
-    setCircleReview({ recordKey, file });
+    setCircleReview({ recordKey, file, defaultDate: selectedDate });
     setCircleUpload({ key: recordKey, status: "review", fileName: file.name });
     return;
   };
@@ -3372,10 +3483,17 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const file = reviewDocument?.file;
     if (!recordKey || !file) return { ok: false, message: "No se ha encontrado el archivo que estabas revisando." };
     const fields = reviewDocument.fields ?? {};
-    const fieldNumber = (...keys) => keys.map((key) => getDriverDocumentNumber(fields[key])).find((value) => value > 0) || 0;
+    const fieldNumber = (...keys) => {
+      for (const key of keys) {
+        const rawValue = fields[key] && typeof fields[key] === "object" && "value" in fields[key] ? fields[key].value : fields[key];
+        if (rawValue === null || rawValue === undefined || String(rawValue).trim() === "") continue;
+        return getDriverDocumentNumber(rawValue);
+      }
+      return 0;
+    };
     const documentCategory = recordKey === "billing" ? "billing" : "consumption";
     const printedDate = recordKey === "billing"
-      ? fields.serviceDate || fields.issueDate || fields.date || fields.periodStart
+      ? fields.date || fields.serviceDate || fields.issueDate || fields.periodStart
       : fields.date;
     const detectedDate = normalizeDriverDocumentDate(printedDate);
     const targetDate = detectedDate ?? selectedDate;
@@ -3383,9 +3501,13 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const consumption = fieldNumber("consumption");
     const dailyKm = fieldNumber("dailyKm");
     const odometerKm = fieldNumber("odometerKm");
-    const billing = fieldNumber("total", "netAmount", "amount");
+    const billing = recordKey === "billing" ? fieldNumber("netAmount", "total", "amount") : fieldNumber("total", "netAmount", "amount");
+    const grossTotal = recordKey === "billing" ? fieldNumber("total", "earningsTotal", "amount", "netAmount") : 0;
     const cashCollected = fieldNumber("cashCollected");
     const tips = fieldNumber("tips");
+    const connection = String(fields.connection ?? "").trim();
+    const points = fieldNumber("points");
+    const refunds = fieldNumber("refunds");
     const extractedData = {
       date: targetDate,
       source: "driver-circle",
@@ -3404,8 +3526,13 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       dailyKm,
       odometerKm,
       billing,
+      netAmount: recordKey === "billing" ? billing : 0,
+      earningsTotal: recordKey === "billing" ? grossTotal : 0,
       cashCollected,
       tips,
+      connection,
+      points,
+      refunds,
       unit: fields.unit ?? "",
     };
     const centralEconomic = recordKey === "fuel" || recordKey === "billing";
@@ -3428,7 +3555,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         });
         const operations = operationsFromDocument({
           category: documentCategory,
-          fields: { ...fields, date: targetDate, serviceDate: targetDate, vehicle: canonicalizeVehiclePlate(fields.vehicle || profileVehiclePlate) },
+          fields: { ...fields, date: targetDate, serviceDate: targetDate, vehicle: canonicalizeVehiclePlate(fields.vehicle || profileVehiclePlate), recordType: recordKey },
+          recordType: recordKey,
           driverId: activeProfileId,
           vehiclePlate: profileVehiclePlate,
           fileHash,
@@ -3473,8 +3601,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
         if (odometerKm > 0) entryPatch.odometer_km = odometerKm;
       } else if (recordKey === "billing") {
         if (billing > 0) entryPatch.billing = billing;
-        if (cashCollected > 0) entryPatch.cash_collected = cashCollected;
-        if (tips > 0) entryPatch.tips = tips;
+        entryPatch.cash_collected = cashCollected;
+        entryPatch.tips = tips;
       } else if (recordKey === "daily-km") {
         const previous = [...entries]
           .filter((item) => String(item.entry_date ?? "") < targetDate)
@@ -5049,7 +5177,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   }), { liters: 0, cost: 0, refuels: 0 });
   const totalDistance = 0;
   const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
-  const billingRows = getDriverBillingRows(vehicles, driverEntries, reportMonth, reportYear);
+  const billingRows = getDriverBillingRows(vehicles, driverEntries, reportMonth, reportYear, documents);
   const historicalBillingRows = getHistoricalBillingRowsForPeriod(vehicles, driverEntries, reportMonth, reportYear);
   const unassignedBillingByPlate = vehicles.reduce((result, vehicle) => {
     result[vehicle.plate] = periodTransactions
@@ -5685,7 +5813,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const [calendarSurfaceHeight, setCalendarSurfaceHeight] = useState(null);
   const professionalVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.use === "Profesional"), [vehicles]);
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
-  const billingRows = useMemo(() => getDriverBillingRows(professionalVehicles, driverEntries, reportMonth, reportYear), [professionalVehicles, driverEntries, reportMonth, reportYear]);
+  const billingRows = useMemo(() => getDriverBillingRows(professionalVehicles, driverEntries, reportMonth, reportYear, documents), [professionalVehicles, driverEntries, reportMonth, reportYear, documents]);
   const fuelSummaries = useMemo(() => professionalVehicles.map((vehicle) => {
     const entries = transactions.filter((transaction) => {
       if (transaction.type !== "fuel" || transaction.vehicle_plate !== vehicle.plate) return false;
@@ -5897,6 +6025,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const selectedDayFuelDocuments = selectedDayDocuments.filter((document) => ["fuel", "consumption"].includes(getDriverDocumentKind(document)));
   const selectedDayMileageDocuments = selectedDayDocuments.filter((document) => getDriverDocumentKind(document) === "mileage");
   const selectedDateKey = selectedDay ? `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}` : "";
+  const selectedBillingStats = selectedDayDetail?.billingStats ?? { connection: "", trips: 0, points: 0, netAmount: 0, tips: 0, total: 0, refunds: 0, cashCollected: 0 };
   const openDayEditor = (mode) => {
     if (!selectedDriver || !selectedDayDetail || !selectedDateKey) return;
     const modeDocuments = mode === "billing" ? selectedDayBillingDocuments : mode === "fuel" ? selectedDayFuelDocuments : selectedDayMileageDocuments;
@@ -5971,7 +6100,17 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
               <span className="driver-day-panel__heading"><IconFileInvoice size={17} /><strong>Facturación</strong></span>
               <DriverDayDocumentButtons compact documents={selectedDayBillingDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("billing")} />
             </header>
-            <div className="driver-day-panel__metrics"><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("billing")}><small>Ingreso del día</small><strong>{formatCurrency(selectedDayDetail.billing)}</strong><span>Editar importe</span></button><span><small>Viajes</small><strong>{selectedDayDetail.trips}</strong></span></div>
+            <div className="driver-day-panel__metrics driver-day-panel__metrics--billing">
+              <span><small>Día</small><strong>{selectedDateKey ? formatDocumentDisplayDate(selectedDateKey) : "—"}</strong></span>
+              <span><small>Conexión</small><strong>{selectedBillingStats.connection || "—"}</strong></span>
+              <span><small>Viajes</small><strong>{selectedBillingStats.trips}</strong></span>
+              <span><small>Puntos</small><strong>{selectedBillingStats.points}</strong></span>
+              <button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("billing")}><small>Precio neto</small><strong>{formatCurrency(selectedBillingStats.netAmount)}</strong><span>Editar importe</span></button>
+              <span><small>Propina</small><strong>{formatCurrency(selectedBillingStats.tips)}</strong></span>
+              <span><small>Ganancias totales</small><strong>{formatCurrency(selectedBillingStats.total)}</strong></span>
+              <span><small>Reembolsos</small><strong>{formatCurrency(selectedBillingStats.refunds)}</strong></span>
+              <span><small>Efectivo cobrado</small><strong>{formatCurrency(selectedBillingStats.cashCollected)}</strong></span>
+            </div>
           </article>
           <article className="driver-day-panel driver-day-panel--fuel">
             <header>
@@ -6984,7 +7123,7 @@ function DriverCircleReviewDialog({ review, profile, driverId, onClose, onSave }
   return <div className="modal-backdrop" role="presentation">
     <section className="modal modal--document-processing" role="dialog" aria-modal="true" aria-labelledby="driver-circle-review-title">
       <header className="modal__header"><div><span>REGISTRO DEL CONDUCTOR</span><h2 id="driver-circle-review-title">Revisar documento</h2><p>{profile.full_name} · {canonicalizeVehiclePlate(profile.vehicle_plate)}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar revisión"><IconX size={19} /></button></header>
-      <DocumentProcessingWorkflow category={category} source="upload" file={review.file} defaultVehicle={canonicalizeVehiclePlate(profile.vehicle_plate)} recordType={review.recordKey} driverId={driverId} onCancel={onClose} onSave={onSave} />
+      <DocumentProcessingWorkflow category={category} source="upload" file={review.file} defaultVehicle={canonicalizeVehiclePlate(profile.vehicle_plate)} defaultDate={review.defaultDate} recordType={review.recordKey} driverId={driverId} onCancel={onClose} onSave={onSave} />
     </section>
   </div>;
 }
@@ -7002,9 +7141,16 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   const applyContextDefaults = useCallback((nextFields) => {
     const dateKeys = category === "billing" ? ["serviceDate", "issueDate", "date", "periodStart"] : ["date"];
     const hasDetectedDate = nextFields.some((field) => dateKeys.includes(field.key) && field.value);
-    if (!defaultDate || hasDetectedDate) return nextFields;
-    return nextFields.map((field) => field.key === (category === "billing" ? "serviceDate" : "date") ? { ...field, value: defaultDate } : field);
-  }, [category, defaultDate]);
+    const isDriverBilling = category === "billing" && ["billing", "billing_daily"].includes(normalizeText(recordType));
+    const detectedDate = nextFields.find((field) => ["date", "serviceDate", "issueDate", "periodStart"].includes(field.key) && field.value)?.value;
+    const fallbackDate = defaultDate && !hasDetectedDate ? defaultDate : "";
+    const defaultDateKey = isDriverBilling ? "date" : "serviceDate";
+    if (!isDriverBilling && (!defaultDate || hasDetectedDate)) return nextFields;
+    return nextFields.map((field) => {
+      if (field.key === defaultDateKey && !field.value) return { ...field, value: detectedDate || fallbackDate };
+      return field;
+    });
+  }, [category, defaultDate, recordType]);
 
   useEffect(() => {
     const isImage = validateDocumentFile(file, source).kind === "image";
@@ -7085,9 +7231,14 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   }, [runAnalysis]);
 
   const isDriverFuelReview = category === "consumption" && recordType === "fuel";
+  const isDriverBillingReview = category === "billing" && ["billing", "billing_daily"].includes(normalizeText(recordType));
+  const driverBillingReviewLabels = { date: "Día", connection: "Conexión", trips: "Viajes", points: "Puntos", netAmount: "Precio neto", tips: "Propina", total: "Ganancias totales", refunds: "Reembolsos", cashCollected: "Efectivo cobrado" };
+  const driverBillingReviewKeys = ["date", "connection", "trips", "points", "netAmount", "tips", "total", "refunds", "cashCollected"];
   const reviewFields = isDriverFuelReview
     ? fields.filter((field) => field.key === "date" || field.key === "cost").map((field) => field.key === "cost" ? { ...field, label: "Importe total" } : field)
-    : fields;
+    : isDriverBillingReview
+      ? driverBillingReviewKeys.map((key) => fields.find((field) => field.key === key)).filter(Boolean).map((field) => ({ ...field, label: driverBillingReviewLabels[field.key] ?? field.label }))
+      : fields;
   const workflowLabel = isDriverFuelReview ? "Repostaje" : documentCategoryLabels[category];
   const lowConfidenceFields = reviewFields.filter((field) => field.confidence < 80);
   const overallConfidence = Math.round(Number(analysis?.overallConfidence) || (reviewFields.length ? reviewFields.reduce((total, field) => total + field.confidence, 0) / reviewFields.length : 0));
@@ -7166,7 +7317,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         </aside>
         <div className="document-review-fields">
           {lowConfidenceFields.length > 0 && <div className="document-review-warning" role="status"><IconAlertTriangle size={17} /><span><strong>Revisión necesaria</strong><small>Los campos marcados en ámbar tienen una confianza inferior al 80%.</small></span></div>}
-          <div className="document-review-heading"><div><h3>{isDriverFuelReview ? "Importe del repostaje" : "Datos clasificados"}</h3><p>{isDriverFuelReview ? "Comprueba la fecha y el importe total antes de archivarlo." : "Revisa y corrige antes de guardarlos en la aplicación."}</p></div><span className="document-review-confidence">{overallConfidence}% IA</span></div>
+          <div className="document-review-heading"><div><h3>{isDriverFuelReview ? "Importe del repostaje" : isDriverBillingReview ? "Estadísticas del día" : "Datos clasificados"}</h3><p>{isDriverFuelReview ? "Comprueba la fecha y el importe total antes de archivarlo." : isDriverBillingReview ? "Comprueba estos datos de la captura antes de archivarlos." : "Revisa y corrige antes de guardarlos en la aplicación."}</p></div><span className="document-review-confidence">{overallConfidence}% IA</span></div>
           <div className="document-fields-grid">
             {reviewFields.map((field) => {
               const low = field.confidence < 80;

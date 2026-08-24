@@ -1,6 +1,14 @@
 import { canonicalizeVehiclePlate } from "./data/vehicleRegistry.js";
 
-const money = (value) => Math.max(0, Number(value) || 0);
+const parseNumeric = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const raw = String(value ?? "").replace(/[^\d,.-]/g, "").trim();
+  if (!raw) return 0;
+  const normalized = raw.includes(",") && raw.includes(".") ? raw.replace(/\./g, "").replace(",", ".") : raw.replace(",", ".");
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : 0;
+};
+const money = (value) => Math.max(0, parseNumeric(value));
 const isoDate = (value, fallback = "") => /^\d{4}-\d{2}-\d{2}$/.test(String(value ?? "")) ? String(value) : fallback;
 const normalized = (value) => String(value ?? "").trim().toLocaleLowerCase("es");
 const fieldValue = (value) => value && typeof value === "object" && "value" in value ? value.value : value;
@@ -15,8 +23,11 @@ export const hashDocumentFile = async (file) => {
 export const buildDedupeKey = ({ fileHash, type, date, amount, driverId, vehiclePlate, sourceIdentity = "" }) =>
   [fileHash || "nohash", type, date, money(amount).toFixed(2), driverId || "", normalized(canonicalizeVehiclePlate(vehiclePlate)).replace(/\s+/g, ""), normalized(sourceIdentity).replace(/\s+/g, "")].join(":");
 
-export const operationsFromDocument = ({ category, fields = {}, driverId = "", vehiclePlate = "", fileHash = "", fallbackDate = "" }) => {
+export const operationsFromDocument = ({ category, fields = {}, recordType = "", driverId = "", vehiclePlate = "", fileHash = "", fallbackDate = "" }) => {
   const values = normalizedFields(fields);
+  const normalizedRecordType = normalized(recordType || values.recordType);
+  const isDriverBilling = category === "billing" && ["billing", "billing_daily"].includes(normalizedRecordType);
+  const firstPresent = (...keys) => keys.map((key) => values[key]).find((value) => value !== null && value !== undefined && String(value).trim() !== "");
   const date = category === "billing"
     ? isoDate(values.serviceDate || values.issueDate || values.date || values.periodStart, fallbackDate)
     : isoDate(values.date || values.serviceDate || values.issueDate, fallbackDate);
@@ -54,8 +65,22 @@ export const operationsFromDocument = ({ category, fields = {}, driverId = "", v
     })].filter(Boolean);
   }
   const primaryType = isMaintenanceDocument ? "maintenance" : "billing";
+  const primaryAmount = isDriverBilling
+    ? firstPresent("netAmount", "total", "amount")
+    : firstPresent("total", "netAmount", "amount");
+  const driverBillingMetadata = isDriverBilling ? {
+    recordType: normalizedRecordType,
+    connection: values.connection || "",
+    trips: money(values.trips),
+    points: money(values.points),
+    netAmount: money(values.netAmount),
+    earningsTotal: money(values.total || values.earningsTotal),
+    refunds: money(values.refunds || values.reimbursements),
+    tips: money(values.tips),
+    cashCollected: parseNumeric(values.cashCollected),
+  } : {};
   return [
-    operation(primaryType, values.total || values.netAmount || values.amount, { category: isMaintenanceDocument ? "taller" : "billing" }),
+    operation(primaryType, primaryAmount, { category: isMaintenanceDocument ? "taller" : "billing", ...driverBillingMetadata }),
     operation("cash", values.cashCollected, { category: "cash" }),
     operation("tip", values.tips, { category: "tip" }),
     operation("toll", values.tolls, { category: "toll" }),

@@ -721,6 +721,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .driver-day-panel--fuel > header { color: #c3382f; background: #fff3f1; }
 .driver-day-panel--mileage > header { color: #8a5a08; background: #fff8e9; }
 .driver-day-panel__metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); }
+.driver-day-panel--billing .driver-day-panel__metrics--billing { grid-template-columns: repeat(4, minmax(0,1fr)); }
 .driver-day-panel--fuel .driver-day-panel__metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
 .driver-day-panel__metrics > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 7px 8px; }
 .driver-day-panel__metrics > span + span { border-left: 1px solid var(--line); }
@@ -1577,7 +1578,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .driver-day-detail__columns { gap: 5px; padding: 5px; }
   .driver-day-panel > header { padding: 6px 8px; font-size: 13px; }
   .driver-day-panel > header svg { width: 18px; height: 18px; }
-  .driver-day-panel__metrics, .driver-day-panel--fuel .driver-day-panel__metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .driver-day-panel__metrics, .driver-day-panel--fuel .driver-day-panel__metrics, .driver-day-panel--billing .driver-day-panel__metrics--billing { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .driver-day-panel__metrics > span { padding: 6px 7px; gap: 3px; }
   .driver-day-panel__metrics small { font-size: 8px; }
   .driver-day-panel__metrics strong { font-size: 10.5px; }
@@ -2549,8 +2550,11 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .drivers-page--calendar-open .driver-day-panel > header { min-height: 46px; justify-content: center; padding: 8px 10px; font-size: clamp(18px, 1.65vw, 22px); line-height: 1; }
 .drivers-page--calendar-open .driver-day-panel > header svg { width: 24px; height: 24px; }
 .drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 8px 7px; gap: 2px; }
+.drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric { padding: 8px 7px; gap: 2px; }
 .drivers-page--calendar-open .driver-day-panel__metrics small { font-size: clamp(9px, .8vw, 11px); font-weight: 850; line-height: 1; }
+.drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric small { font-size: clamp(9px, .8vw, 11px); font-weight: 850; line-height: 1; }
 .drivers-page--calendar-open .driver-day-panel__metrics strong { font-size: clamp(14px, 1.7vw, 22px); font-weight: 900; line-height: 1.05; }
+.drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric strong { font-size: clamp(14px, 1.7vw, 22px); font-weight: 900; line-height: 1.05; }
 .drivers-page--calendar-open .driver-day-fuel-list strong { font-size: clamp(9px, .8vw, 11px); }
 .drivers-page--calendar-open .driver-day-fuel-list small { font-size: clamp(8px, .7vw, 10px); }
 .drivers-page--calendar-open .drivers-day-invoice-button { min-height: 28px; font-size: 8px; }
@@ -2569,8 +2573,11 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .drivers-page--calendar-open .driver-day-panel > header { min-height: 40px; padding: 7px 8px; font-size: clamp(16px, 4.2vw, 20px); }
   .drivers-page--calendar-open .driver-day-panel > header svg { width: 22px; height: 22px; }
   .drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 7px 6px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric { padding: 7px 6px; }
   .drivers-page--calendar-open .driver-day-panel__metrics small { font-size: clamp(8px, 2.6vw, 10px); }
+  .drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric small { font-size: clamp(8px, 2.6vw, 10px); }
   .drivers-page--calendar-open .driver-day-panel__metrics strong { font-size: clamp(13px, 3.8vw, 18px); }
+  .drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric strong { font-size: clamp(13px, 3.8vw, 18px); }
   .drivers-page--calendar-open .driver-day-fuel-list strong { font-size: clamp(8px, 2.5vw, 10px); }
   .drivers-page--calendar-open .driver-day-fuel-list small { font-size: clamp(7px, 2.1vw, 9px); }
   .drivers-page--calendar-open .drivers-day-invoice-button { min-height: 25px; font-size: 7px; }
@@ -2589,8 +2596,11 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .drivers-page--calendar-open .driver-day-panel > header { min-height: 34px; padding: 5px 6px; font-size: clamp(14px, 3.8vw, 17px); }
   .drivers-page--calendar-open .driver-day-panel > header svg { width: 18px; height: 18px; }
   .drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 6px 5px; gap: 1px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric { padding: 6px 5px; gap: 1px; }
   .drivers-page--calendar-open .driver-day-panel__metrics small { font-size: clamp(7px, 2.2vw, 9px); }
+  .drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric small { font-size: clamp(7px, 2.2vw, 9px); }
   .drivers-page--calendar-open .driver-day-panel__metrics strong { font-size: clamp(11px, 3.3vw, 15px); }
+  .drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric strong { font-size: clamp(11px, 3.3vw, 15px); }
   .drivers-page--calendar-open .driver-day-fuel-list { gap: 2px; padding: 3px 5px 4px; }
   .drivers-page--calendar-open .driver-day-fuel-list strong { font-size: clamp(7px, 2.1vw, 9px); }
   .drivers-page--calendar-open .driver-day-fuel-list small { font-size: clamp(6px, 1.8vw, 8px); }
@@ -2606,8 +2616,11 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .drivers-page--calendar-open .driver-day-panel > header { min-height: 36px; padding: 5px 8px; font-size: clamp(16px, 1.45vw, 19px); }
 .drivers-page--calendar-open .driver-day-panel > header svg { width: 20px; height: 20px; }
 .drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 5px 6px; gap: 1px; }
+.drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric { padding: 5px 6px; gap: 1px; }
 .drivers-page--calendar-open .driver-day-panel__metrics small { font-size: clamp(8px, .72vw, 10px); }
+.drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric small { font-size: clamp(8px, .72vw, 10px); }
 .drivers-page--calendar-open .driver-day-panel__metrics strong { font-size: clamp(16px, 1.8vw, 23px); line-height: 1; letter-spacing: -.04em; }
+.drivers-page--calendar-open .driver-day-panel__metrics--billing > .driver-day-panel__editable-metric strong { font-size: clamp(16px, 1.8vw, 23px); line-height: 1; letter-spacing: -.04em; }
 .drivers-page--calendar-open .driver-day-fuel-list { gap: 2px; padding: 4px 6px 5px; }
 .drivers-page--calendar-open .driver-day-fuel-list strong { font-size: clamp(10px, .85vw, 12px); }
 .drivers-page--calendar-open .driver-day-fuel-list small { font-size: clamp(9px, .75vw, 11px); }
