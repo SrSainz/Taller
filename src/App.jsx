@@ -1637,10 +1637,19 @@ const navFromHash = () => {
   return [...navItems, conductorNavItem, ...fleetSubItems, adminNavItem, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Informes";
 };
 
+const passwordRecoveryPath = "/reset-password";
+const passwordRecoveryRedirectUrl = () => "https://talleria-flota.vercel.app/";
+const passwordRecoveryCode = () => new URLSearchParams(window.location.search ?? "").get("code");
+
 const isPasswordRecoveryLink = () => {
   const hash = window.location.hash ?? "";
   const search = window.location.search ?? "";
-  return /(?:^|[&#?])type=recovery(?:&|$)/.test(hash) || new URLSearchParams(search).get("type") === "recovery";
+  const searchParams = new URLSearchParams(search);
+  const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+  return pathname === passwordRecoveryPath
+    || /(?:^|[&#?])type=recovery(?:&|$)/.test(hash)
+    || searchParams.get("type") === "recovery"
+    || searchParams.has("code");
 };
 
 const isStandaloneApp = () => window.matchMedia("(display-mode: standalone)").matches || Boolean(window.navigator.standalone);
@@ -1768,23 +1777,45 @@ export function App() {
       return undefined;
     }
     let mounted = true;
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
-      if (isPasswordRecoveryLink()) setPasswordRecovery(true);
-      const keepSignedIn = window.localStorage.getItem("sobre-ruedas:keep-signed-in") !== "false";
-      const temporarySessionActive = window.sessionStorage.getItem("sobre-ruedas:temporary-session") === "active";
-      if (session && !keepSignedIn && !temporarySessionActive && !isPasswordRecoveryLink()) {
-        await supabase.auth.signOut();
-        if (mounted) applySession(null);
-        return;
-      }
-      applySession(session);
-    });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
       if (event === "SIGNED_OUT") setPasswordRecovery(false);
       window.setTimeout(() => { if (mounted) applySession(session); }, 0);
     });
+    const loadSession = async () => {
+      const recoveryLink = isPasswordRecoveryLink();
+      const recoveryCode = passwordRecoveryCode();
+      if (recoveryLink) setPasswordRecovery(true);
+
+      let session = null;
+      let sessionError = null;
+      if (recoveryCode) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(recoveryCode);
+        session = data?.session ?? null;
+        sessionError = error ?? null;
+      } else {
+        const { data, error } = await supabase.auth.getSession();
+        session = data?.session ?? null;
+        sessionError = error ?? null;
+      }
+      if (!mounted) return;
+      if (sessionError) {
+        setAuthState({ loading: false, session: null, profile: null, error: sessionError });
+        return;
+      }
+      if (recoveryLink && session) {
+        window.history.replaceState(null, "", passwordRecoveryPath);
+      }
+      const keepSignedIn = window.localStorage.getItem("sobre-ruedas:keep-signed-in") !== "false";
+      const temporarySessionActive = window.sessionStorage.getItem("sobre-ruedas:temporary-session") === "active";
+      if (session && !keepSignedIn && !temporarySessionActive && !recoveryLink) {
+        await supabase.auth.signOut();
+        if (mounted) applySession(null);
+        return;
+      }
+      applySession(session);
+    };
+    loadSession();
     return () => { mounted = false; subscription.unsubscribe(); };
   }, [applySession]);
 
@@ -1797,7 +1828,7 @@ export function App() {
   if (authState.loading) return <AuthLoadingScreen />;
   if (!isSupabaseConfigured) return <AuthScreen configurationError />;
   if (passwordRecovery) {
-    if (!authState.session) return <AuthScreen error={new Error("El enlace de recuperación ha caducado. Solicita uno nuevo para continuar.")} />;
+    if (!authState.session) return <AuthScreen error={authState.error ?? new Error("El enlace de recuperación ha caducado. Solicita uno nuevo para continuar.")} />;
     return <PasswordRecoveryScreen onComplete={() => setPasswordRecovery(false)} />;
   }
   if (!authState.session) return <AuthScreen error={authState.error} />;
@@ -2863,7 +2894,7 @@ function AuthScreen({ error, configurationError = false }) {
     }
     setSubmitting(true);
     const { error: recoveryError } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
-      redirectTo: `${window.location.origin}${window.location.pathname}`,
+      redirectTo: passwordRecoveryRedirectUrl(),
     });
     setSubmitting(false);
     if (recoveryError) {
