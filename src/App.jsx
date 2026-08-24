@@ -3912,6 +3912,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const weekSuppressClickRef = useRef(false);
   const [referenceOpen, setReferenceOpen] = useState("");
   const [expandedPreviewMetric, setExpandedPreviewMetric] = useState("");
+  const [activeDriverChartTooltip, setActiveDriverChartTooltip] = useState("");
   const billingChartScrollRef = useRef(null);
   const [billingChartWidth, setBillingChartWidth] = useState(760);
   const [weekSwipeOffset, setWeekSwipeOffset] = useState(0);
@@ -3934,7 +3935,15 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const compactBillingHistoryEnd = currentBillingHistoryIndex >= 0 ? currentBillingHistoryIndex + 1 : monthlyBillingHistory.length;
   const compactMonthlyBillingHistory = monthlyBillingHistory.slice(Math.max(0, compactBillingHistoryEnd - DRIVER_BILLING_VISIBLE_MONTHS), compactBillingHistoryEnd);
   const consumptionDifference = weeklyConsumptionAverage - otherDriversConsumptionAverage;
-  const openPreviewMetric = (metric) => setExpandedPreviewMetric(metric);
+  const openPreviewMetric = (metric) => {
+    setActiveDriverChartTooltip("");
+    setExpandedPreviewMetric(metric);
+  };
+  const showDriverChartTooltip = (chartKey, state) => {
+    const hasActivePoint = state?.isTooltipActive !== false && (state?.activeTooltipIndex !== undefined || state?.activeIndex !== undefined || state?.activePayload?.length);
+    if (hasActivePoint) setActiveDriverChartTooltip(chartKey);
+  };
+  const hideDriverChartTooltip = () => setActiveDriverChartTooltip("");
   const handlePreviewGridClick = (event) => {
     if (event.target.closest("button")) {
       if (event.target.closest(".driver-mobile-preview-history")) openPreviewMetric("billing");
@@ -3953,6 +3962,9 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     event.preventDefault();
     openPreviewMetric(card.classList.contains("driver-mobile-preview-km") ? "km" : card.classList.contains("driver-mobile-preview-consumption") ? "consumption" : "billing");
   };
+  useEffect(() => {
+    setActiveDriverChartTooltip("");
+  }, [expandedPreviewMetric]);
   useEffect(() => {
     if (!expandedPreviewMetric) return undefined;
     const handleEscape = (event) => { if (event.key === "Escape") setExpandedPreviewMetric(""); };
@@ -4189,7 +4201,60 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
           <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={row.key}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{weeklyCell(row, value, driverWeekDays[index].key)}</td>)}</tr>)}</tbody></table></div>
         </section>
         {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Facturación<input type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Peajes<input type="number" min="0" step="0.01" value={entry.tolls} onChange={(event) => updateEntry("tolls", event.target.value)} /><i>€</i></label><label>Otros gastos<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, peaje u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
-        {expandedPreviewMetric && <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}><div className="driver-mobile-chart-dialog__panel"><header><div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "km" ? "Kilómetros realizados" : "Consumo comparado"}</h2></div><button type="button" aria-label="Cerrar gráfica ampliada" onClick={() => setExpandedPreviewMetric("")}><IconX size={18} /></button></header>{expandedPreviewMetric === "billing" && <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--billing"><div ref={billingChartScrollRef} className="driver-mobile-chart-dialog__billing-scroll" role="region" aria-label="Facturación mensual por año. Los meses más recientes aparecen primero; desliza horizontalmente para consultar el resto"><div className="driver-mobile-chart-dialog__billing-canvas" style={{ width: `${billingChartWidth}px` }}><BarChart width={billingChartWidth} height={340} data={monthlyBillingHistory} margin={{ top: 26, right: 22, bottom: 62, left: 76 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" interval={0} tick={<DriverBillingMonthTick />} tickLine={false} axisLine={{ stroke: "#cbd8e8" }} /><YAxis width={66} tick={{ fontSize: 14, fontWeight: 850, fill: "#526783" }} tickLine={false} axisLine={false} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} domain={[0, Math.max(periodSummary.billingScaleMax, ...monthlyBillingHistory.map((month) => month.amount))]} /><Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} labelFormatter={(label, payload) => payload?.[0]?.payload?.label ?? label} /><ReferenceLine y={periodSummary.billingGoal} stroke="#f2a62a" strokeDasharray="5 4" />{periodSummary.billingMilestones.slice(1).map((milestone) => <ReferenceLine key={milestone} y={milestone} stroke="#e6edf5" strokeDasharray="2 4" />)}<Bar dataKey="amount" fill="#2c6de9" radius={[5, 5, 0, 0]} minPointSize={24} isAnimationActive={false}><LabelList dataKey="amount" content={<DriverBillingBarValueLabel />} /></Bar></BarChart></div></div><p className="driver-mobile-chart-dialog__hint">Desliza a derecha e izquierda para consultar el resto de meses.</p></div>}{expandedPreviewMetric === "km" && <div className="driver-mobile-chart-dialog__chart"><LineChart width={520} height={250} data={weeklyKmData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} /><Tooltip formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} /><Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} /><Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} /></LineChart></div>}{expandedPreviewMetric === "consumption" && <div className="driver-mobile-chart-dialog__chart"><LineChart width={520} height={250} data={weeklyConsumptionData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l`} /><Tooltip formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km`} /><Line type="monotone" dataKey="driverConsumption" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} /><Line type="monotone" dataKey="otherConsumption" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} /></LineChart></div>}</div></div>}
+        {expandedPreviewMetric && (
+          <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}>
+            <div className="driver-mobile-chart-dialog__panel">
+              <header>
+                <div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "km" ? "Kilómetros realizados" : "Consumo comparado"}</h2></div>
+                <button type="button" aria-label="Cerrar gráfica ampliada" onClick={() => setExpandedPreviewMetric("")}><IconX size={18} /></button>
+              </header>
+              {expandedPreviewMetric === "billing" && (
+                <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--billing" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                  <div ref={billingChartScrollRef} className="driver-mobile-chart-dialog__billing-scroll" role="region" aria-label="Facturación mensual por año. Los meses más recientes aparecen primero; desliza horizontalmente para consultar el resto">
+                    <div className="driver-mobile-chart-dialog__billing-canvas" style={{ width: `${billingChartWidth}px` }}>
+                      <BarChart width={billingChartWidth} height={340} data={monthlyBillingHistory} margin={{ top: 26, right: 22, bottom: 62, left: 76 }} onMouseMove={(state) => showDriverChartTooltip("billing", state)} onTouchStart={(state) => showDriverChartTooltip("billing", state)} onTouchMove={(state) => showDriverChartTooltip("billing", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
+                        <XAxis dataKey="label" interval={0} tick={<DriverBillingMonthTick />} tickLine={false} axisLine={{ stroke: "#cbd8e8" }} />
+                        <YAxis width={66} tick={{ fontSize: 14, fontWeight: 850, fill: "#526783" }} tickLine={false} axisLine={false} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} domain={[0, Math.max(periodSummary.billingScaleMax, ...monthlyBillingHistory.map((month) => month.amount))]} />
+                        <Tooltip active={activeDriverChartTooltip === "billing"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => formatCurrency(Number(value) || 0)} labelFormatter={(label, payload) => payload?.[0]?.payload?.label ?? label} />
+                        <ReferenceLine y={periodSummary.billingGoal} stroke="#f2a62a" strokeDasharray="5 4" />
+                        {periodSummary.billingMilestones.slice(1).map((milestone) => <ReferenceLine key={milestone} y={milestone} stroke="#e6edf5" strokeDasharray="2 4" />)}
+                        <Bar dataKey="amount" fill="#2c6de9" radius={[5, 5, 0, 0]} minPointSize={24} isAnimationActive={false}>
+                          <LabelList dataKey="amount" content={<DriverBillingBarValueLabel />} />
+                        </Bar>
+                      </BarChart>
+                    </div>
+                  </div>
+                  <p className="driver-mobile-chart-dialog__hint">Desliza a derecha e izquierda para consultar el resto de meses.</p>
+                </div>
+              )}
+              {expandedPreviewMetric === "km" && (
+                <div className="driver-mobile-chart-dialog__chart" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                  <LineChart width={520} height={250} data={weeklyKmData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }} onMouseMove={(state) => showDriverChartTooltip("km", state)} onTouchStart={(state) => showDriverChartTooltip("km", state)} onTouchMove={(state) => showDriverChartTooltip("km", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} />
+                    <Tooltip active={activeDriverChartTooltip === "km"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} />
+                    <Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} />
+                  </LineChart>
+                </div>
+              )}
+              {expandedPreviewMetric === "consumption" && (
+                <div className="driver-mobile-chart-dialog__chart" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                  <LineChart width={520} height={250} data={weeklyConsumptionData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }} onMouseMove={(state) => showDriverChartTooltip("consumption", state)} onTouchStart={(state) => showDriverChartTooltip("consumption", state)} onTouchMove={(state) => showDriverChartTooltip("consumption", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l`} />
+                    <Tooltip active={activeDriverChartTooltip === "consumption"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km`} />
+                    <Line type="monotone" dataKey="driverConsumption" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="otherConsumption" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} />
+                  </LineChart>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {referenceOpen && referenceLabels[referenceOpen] && <div className="driver-mobile-reference-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-reference-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setReferenceOpen(""); }}><div className="driver-mobile-reference-dialog__panel"><header><div><span>REFERENCIA VISUAL</span><h2 id="driver-mobile-reference-title">{referenceLabels[referenceOpen].title}</h2></div><button type="button" aria-label="Cerrar referencia" onClick={() => setReferenceOpen("")}><IconX size={18} /></button></header><img src={driverReferenceImages[referenceOpen]} alt={referenceLabels[referenceOpen].alt} /><p>{referenceLabels[referenceOpen].caption}. Esta imagen es un ejemplo y no modifica los datos del conductor.</p><button type="button" className="primary-button" onClick={() => setReferenceOpen("")}>Cerrar</button></div></div>}
         {circleReview && <DriverCircleReviewDialog review={circleReview} profile={profile} driverId={profile.id} onClose={closeCircleReview} onSave={saveCircleReview} />}
       </div>

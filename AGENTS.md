@@ -214,6 +214,7 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - El cuadro comparativo de consumo de la vista del conductor se titula «CONSUMO VS RESTO».
 - La vista inicial de Administración reparte toda la altura útil entre las tres tarjetas de coche con sus retratos y la barra de «Crear nuevo acceso», sin dejar un hueco inferior vacío.
 - La cabecera de la página del conductor muestra únicamente flecha de retroceso, retrato, nombre y matrícula; no presenta menú ni notificaciones en esa barra.
+- Las gráficas ampliadas de Facturación, Km realizados vs resto y Consumo vs resto muestran el tooltip solo durante la interacción táctil o hover; se oculta al levantar el dedo, cancelar el gesto o salir de la superficie y no bloquea el desplazamiento entre columnas.
 
 - Administración consume siempre el ledger central de documentos IA y sus proyecciones de `driver_entries`; los cambios de combustible, facturación, consumo y kilometraje se refrescan mediante Realtime con sondeo de respaldo y generan avisos dinámicos en el timbre, sin duplicar importes.
 - El acceso inicial de administración usa Supabase Auth con el correo del administrador; el formulario mantiene el correo preparado, ofrece mostrar/ocultar la contraseña y permite solicitar un enlace oficial de recuperación para actualizarla sin almacenar credenciales en el cliente.
