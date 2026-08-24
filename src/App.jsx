@@ -1652,12 +1652,20 @@ const isFutureJwtError = (error) => {
 };
 const clearLocalSupabaseSession = async () => {
   if (!supabase) return;
+  const storageKey = supabase.storageKey || "";
   try {
     // Solo elimina la sesión local. No intenta revocar el token en el servidor,
     // porque un JWT con una fecha futura puede ser rechazado también al cerrar sesión.
     await supabase.auth.signOut({ scope: "local" });
   } catch {
     // El objetivo es dejar el navegador limpio aunque Supabase rechace el token.
+  }
+  try {
+    // Elimina también la entrada persistida por si el cierre local no pudo
+    // completarse mientras el JWT seguía siendo rechazado.
+    if (storageKey) window.localStorage.removeItem(storageKey);
+  } catch {
+    // La sesión ya no se puede usar; no bloqueamos el acceso por esta limpieza.
   }
   try {
     window.sessionStorage.removeItem("sobre-ruedas:temporary-session");
@@ -1806,20 +1814,20 @@ export function App() {
       await clearLocalSupabaseSession();
     }
     // La notificación SIGNED_OUT puede llegar después de limpiar el almacenamiento.
-    // Colocamos el aviso en la siguiente cola para que no lo borre ese evento.
+    // Dejamos directamente el formulario de acceso, sin mantener el error del JWT.
     window.setTimeout(() => {
-      setAuthState({ loading: false, session: null, profile: null, error: new Error(futureJwtErrorMessage) });
+      setAuthState({ loading: false, session: null, profile: null, error: null });
     }, 0);
   }, []);
 
   const applySession = useCallback(async (session) => {
     if (!session?.user) {
-      setAuthState((current) => ({
+      setAuthState({
         loading: false,
         session: null,
         profile: null,
-        error: futureJwtResetRef.current ? current.error ?? new Error(futureJwtErrorMessage) : null,
-      }));
+        error: null,
+      });
       return;
     }
     const { data: profile, error } = await getProfile(session.user);
