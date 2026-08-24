@@ -1640,6 +1640,31 @@ const navFromHash = () => {
 const passwordRecoveryPath = "/reset-password";
 const passwordRecoveryRedirectUrl = () => "https://talleria-flota.vercel.app/";
 const passwordRecoveryCode = () => new URLSearchParams(window.location.search ?? "").get("code");
+const futureJwtErrorMessage = "La sesión guardada en este dispositivo tenía una fecha futura y se ha eliminado. Comprueba que la fecha y hora estén configuradas automáticamente y vuelve a entrar.";
+const isFutureJwtError = (error) => {
+  const details = [error?.message, error?.details, error?.hint, error?.code]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return details.includes("jwt issued at future")
+    || details.includes("issued at future")
+    || details.includes("token issued in the future");
+};
+const clearLocalSupabaseSession = async () => {
+  if (!supabase) return;
+  try {
+    // Solo elimina la sesión local. No intenta revocar el token en el servidor,
+    // porque un JWT con una fecha futura puede ser rechazado también al cerrar sesión.
+    await supabase.auth.signOut({ scope: "local" });
+  } catch {
+    // El objetivo es dejar el navegador limpio aunque Supabase rechace el token.
+  }
+  try {
+    window.sessionStorage.removeItem("sobre-ruedas:temporary-session");
+  } catch {
+    // La sesión de Supabase ya se ha limpiado; esta preferencia no es esencial.
+  }
+};
 const passwordRecoveryErrorMessage = (error) => {
   const code = String(error?.code ?? "").toLowerCase();
   const message = String(error?.message ?? "").toLowerCase();
@@ -1773,15 +1798,38 @@ function QuickActionMenu({ step, category, onCategory, onDocumentAction, onNotic
 export function App() {
   const [authState, setAuthState] = useState({ loading: true, session: null, profile: null, error: null });
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const futureJwtResetRef = useRef(false);
+
+  const handleFutureJwt = useCallback(async () => {
+    if (!futureJwtResetRef.current) {
+      futureJwtResetRef.current = true;
+      await clearLocalSupabaseSession();
+    }
+    // La notificación SIGNED_OUT puede llegar después de limpiar el almacenamiento.
+    // Colocamos el aviso en la siguiente cola para que no lo borre ese evento.
+    window.setTimeout(() => {
+      setAuthState({ loading: false, session: null, profile: null, error: new Error(futureJwtErrorMessage) });
+    }, 0);
+  }, []);
 
   const applySession = useCallback(async (session) => {
     if (!session?.user) {
-      setAuthState({ loading: false, session: null, profile: null, error: null });
+      setAuthState((current) => ({
+        loading: false,
+        session: null,
+        profile: null,
+        error: futureJwtResetRef.current ? current.error ?? new Error(futureJwtErrorMessage) : null,
+      }));
       return;
     }
     const { data: profile, error } = await getProfile(session.user);
+    if (isFutureJwtError(error)) {
+      await handleFutureJwt();
+      return;
+    }
+    futureJwtResetRef.current = false;
     setAuthState({ loading: false, session, profile: profile ?? null, error: error ?? null });
-  }, []);
+  }, [handleFutureJwt]);
 
   useEffect(() => {
     if (!supabase) {
@@ -1801,17 +1849,25 @@ export function App() {
 
       let session = null;
       let sessionError = null;
-      if (recoveryCode) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(recoveryCode);
-        session = data?.session ?? null;
-        sessionError = error ?? null;
-      } else {
-        const { data, error } = await supabase.auth.getSession();
-        session = data?.session ?? null;
-        sessionError = error ?? null;
+      try {
+        if (recoveryCode) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(recoveryCode);
+          session = data?.session ?? null;
+          sessionError = error ?? null;
+        } else {
+          const { data, error } = await supabase.auth.getSession();
+          session = data?.session ?? null;
+          sessionError = error ?? null;
+        }
+      } catch (error) {
+        sessionError = error;
       }
       if (!mounted) return;
       if (sessionError) {
+        if (isFutureJwtError(sessionError)) {
+          await handleFutureJwt();
+          return;
+        }
         setAuthState({ loading: false, session: null, profile: null, error: sessionError });
         return;
       }
@@ -1825,11 +1881,11 @@ export function App() {
         if (mounted) applySession(null);
         return;
       }
-      applySession(session);
+      await applySession(session);
     };
     loadSession();
     return () => { mounted = false; subscription.unsubscribe(); };
-  }, [applySession]);
+  }, [applySession, handleFutureJwt]);
 
   const updateProfile = (profile) => setAuthState((current) => ({ ...current, profile: { ...current.profile, ...profile } }));
   const signOut = () => {
@@ -2881,7 +2937,12 @@ function AuthScreen({ error, configurationError = false }) {
     const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setSubmitting(false);
     if (signInError) {
-      setFormError("Usuario o contraseña incorrectos. Si eres conductor, solicita un restablecimiento al administrador.");
+      if (isFutureJwtError(signInError)) {
+        await clearLocalSupabaseSession();
+        setFormError(futureJwtErrorMessage);
+      } else {
+        setFormError("Usuario o contraseña incorrectos. Si eres conductor, solicita un restablecimiento al administrador.");
+      }
       return;
     }
     try {
