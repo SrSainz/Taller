@@ -1640,6 +1640,18 @@ const navFromHash = () => {
 const passwordRecoveryPath = "/reset-password";
 const passwordRecoveryRedirectUrl = () => "https://talleria-flota.vercel.app/";
 const passwordRecoveryCode = () => new URLSearchParams(window.location.search ?? "").get("code");
+const passwordRecoveryErrorMessage = (error) => {
+  const code = String(error?.code ?? "").toLowerCase();
+  const message = String(error?.message ?? "").toLowerCase();
+  const status = Number(error?.status ?? 0);
+  if (status === 429 || code === "over_email_send_rate_limit" || message.includes("rate limit") || message.includes("after 20 seconds")) {
+    return "Supabase ha limitado temporalmente los correos de recuperación por varios intentos. Espera a que se libere el límite y solicita un único correo nuevo; no es un problema de tu contraseña.";
+  }
+  if (message.includes("redirect") || message.includes("url")) {
+    return "Supabase ha rechazado la dirección de retorno del correo. Actualiza la aplicación y vuelve a solicitar el enlace desde la dirección pública.";
+  }
+  return "No se ha podido enviar el correo de recuperación. Comprueba la dirección e inténtalo de nuevo.";
+};
 
 const isPasswordRecoveryLink = () => {
   const hash = window.location.hash ?? "";
@@ -2898,7 +2910,7 @@ function AuthScreen({ error, configurationError = false }) {
     });
     setSubmitting(false);
     if (recoveryError) {
-      setFormError("No se ha podido enviar el correo de recuperación. Comprueba la dirección e inténtalo de nuevo.");
+      setFormError(passwordRecoveryErrorMessage(recoveryError));
       return;
     }
     setRecoverySent(true);
