@@ -3556,8 +3556,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const selectedDayMetrics = [
     ["Facturación", getDriverEntryAmount(selectedDayData, "billing"), "€"],
     ["Kilómetros", getDriverEntryAmount(selectedDayData, "odometer_km"), "km"],
-    ["Gasolina", getDriverEntryAmount(selectedDayData, "fuel_cost"), "€"],
-    ["Repostaje", getDriverEntryAmount(selectedDayData, "fuel_liters"), "L"],
+    ["Repostaje", getDriverEntryAmount(selectedDayData, "fuel_cost"), "€"],
   ];
 
   return <DriverMobileExperience
@@ -5979,8 +5978,8 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
               <span className="driver-day-panel__heading"><IconGasStation size={17} /><strong>Repostaje</strong></span>
               <DriverDayDocumentButtons compact documents={selectedDayFuelDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("fuel")} />
             </header>
-            <div className="driver-day-panel__metrics"><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("fuel")}><small>Consumo diario</small><strong>{selectedDayDetail.fuelLiters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</strong><span>Editar datos</span></button><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("fuel")}><small>Importe</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong><span>Editar importe</span></button><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div>
-            <div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.length > 0 ? selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}`}><span><strong>{entry.time}</strong><small>{entry.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L · {formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>) : <small>Sin repostaje registrado este día.</small>}</div>
+            <div className="driver-day-panel__metrics"><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("fuel")}><small>Importe total</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong><span>Editar importe</span></button><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div>
+            {selectedDayDetail.fuelEntries.length > 0 && <div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}-${index}`}><span><strong>{entry.time || "Repostaje"}</strong><small>{formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>)}</div>}
           </article>
           <article className="driver-day-panel driver-day-panel--mileage">
             <header>
@@ -6985,7 +6984,7 @@ function DriverCircleReviewDialog({ review, profile, driverId, onClose, onSave }
   return <div className="modal-backdrop" role="presentation">
     <section className="modal modal--document-processing" role="dialog" aria-modal="true" aria-labelledby="driver-circle-review-title">
       <header className="modal__header"><div><span>REGISTRO DEL CONDUCTOR</span><h2 id="driver-circle-review-title">Revisar documento</h2><p>{profile.full_name} · {canonicalizeVehiclePlate(profile.vehicle_plate)}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar revisión"><IconX size={19} /></button></header>
-      <DocumentProcessingWorkflow category={category} source="upload" file={review.file} defaultVehicle={canonicalizeVehiclePlate(profile.vehicle_plate)} driverId={driverId} onCancel={onClose} onSave={onSave} />
+      <DocumentProcessingWorkflow category={category} source="upload" file={review.file} defaultVehicle={canonicalizeVehiclePlate(profile.vehicle_plate)} recordType={review.recordKey} driverId={driverId} onCancel={onClose} onSave={onSave} />
     </section>
   </div>;
 }
@@ -7085,8 +7084,13 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
     return () => controllerRef.current?.abort();
   }, [runAnalysis]);
 
-  const lowConfidenceFields = fields.filter((field) => field.confidence < 80);
-  const overallConfidence = Math.round(Number(analysis?.overallConfidence) || (fields.length ? fields.reduce((total, field) => total + field.confidence, 0) / fields.length : 0));
+  const isDriverFuelReview = category === "consumption" && recordType === "fuel";
+  const reviewFields = isDriverFuelReview
+    ? fields.filter((field) => field.key === "date" || field.key === "cost").map((field) => field.key === "cost" ? { ...field, label: "Importe total" } : field)
+    : fields;
+  const workflowLabel = isDriverFuelReview ? "Repostaje" : documentCategoryLabels[category];
+  const lowConfidenceFields = reviewFields.filter((field) => field.confidence < 80);
+  const overallConfidence = Math.round(Number(analysis?.overallConfidence) || (reviewFields.length ? reviewFields.reduce((total, field) => total + field.confidence, 0) / reviewFields.length : 0));
   const updateField = (key, value) => setFields((current) => current.map((field) => field.key === key ? { ...field, value } : field));
   const stopAnalysis = () => {
     controllerRef.current?.abort();
@@ -7128,13 +7132,13 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
     <div className="document-processing-workflow">
       <header className="document-processing-file">
         <span className="document-processing-file__icon">{category === "billing" ? <IconFileInvoice size={20} /> : <IconGasStation size={20} />}</span>
-        <span><strong>{file.name}</strong><small>{documentCategoryLabels[category]} · {formatFileSize(file.size)} · {source === "camera" ? "Cámara" : "Selector del dispositivo"}</small></span>
+        <span><strong>{file.name}</strong><small>{workflowLabel} · {formatFileSize(file.size)} · {source === "camera" ? "Cámara" : "Selector del dispositivo"}</small></span>
       </header>
 
       {stage === "processing" && <section className="document-processing-state" aria-live="polite">
         <span className="document-processing-state__spinner"><IconSparkles size={26} /></span>
         <strong>Analizando documento con IA</strong>
-        <p>Preparando la imagen, ejecutando OCR y clasificando los campos de {documentCategoryLabels[category].toLocaleLowerCase("es")}.</p>
+        <p>Preparando la imagen, ejecutando OCR y clasificando los campos de {workflowLabel.toLocaleLowerCase("es")}.</p>
         <div className="document-processing-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></div>
         <small>{progress < 40 ? "Optimizando archivo…" : progress < 80 ? "Extrayendo información…" : "Preparando la revisión…"} {progress}%</small>
       </section>}
@@ -7162,9 +7166,9 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         </aside>
         <div className="document-review-fields">
           {lowConfidenceFields.length > 0 && <div className="document-review-warning" role="status"><IconAlertTriangle size={17} /><span><strong>Revisión necesaria</strong><small>Los campos marcados en ámbar tienen una confianza inferior al 80%.</small></span></div>}
-          <div className="document-review-heading"><div><h3>Datos clasificados</h3><p>Revisa y corrige antes de guardarlos en la aplicación.</p></div><span className="document-review-confidence">{overallConfidence}% IA</span></div>
+          <div className="document-review-heading"><div><h3>{isDriverFuelReview ? "Importe del repostaje" : "Datos clasificados"}</h3><p>{isDriverFuelReview ? "Comprueba la fecha y el importe total antes de archivarlo." : "Revisa y corrige antes de guardarlos en la aplicación."}</p></div><span className="document-review-confidence">{overallConfidence}% IA</span></div>
           <div className="document-fields-grid">
-            {fields.map((field) => {
+            {reviewFields.map((field) => {
               const low = field.confidence < 80;
               const value = field.value ?? "";
               return <label className={`document-field${low ? " document-field--low-confidence" : ""}`} key={field.key}>

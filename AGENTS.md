@@ -129,6 +129,7 @@ When implementing from a selected generated mock, treat that image as the source
 - Conductores keeps the two summary cards unchanged and distributes the six complete driver rows through the remaining viewport height, with equal vertical spacing and no hidden names or metrics before the fixed bottom navigation.
 - En Conductores, al seleccionar un conductor, el detalle bajo el calendario incluye una sección Kilómetros alimentada por las lecturas diarias extraídas de sus fotos, con km diarios, total del periodo y odómetro acumulado.
 - Las fotos originales subidas por cada conductor se conservan asociadas al día y a su tipo (Facturación, Repostaje, Consumo diario o Kilómetros) y se abren desde el panel correspondiente del detalle diario.
+- En el panel diario de Repostaje de Conductores se muestra el importe total y el número de repostajes; no se muestran litros ni el aviso vacío cuando no hay repostajes. La captura de gasolina conserva los litros internamente para Consumo general y Consumo del conductor, pero la revisión del conductor prioriza el importe total.
 
 - Opening the General chart uses a fixed two-by-two detail surface showing only the four chart cards without page scrolling; the previous detail header is hidden and a floating X returns to the General dashboard.
 - The administrator creates each driver's definitive password and is the only in-app actor with a password reset action; drivers do not receive a first-login password-change screen.
