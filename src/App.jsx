@@ -922,14 +922,14 @@ const saveDriverMaintenanceNote = (vehiclePlate, note) => {
     // La nota se mantiene en memoria aunque el navegador no permita guardar preferencias locales.
   }
 };
-const buildDriverWeekPage = (anchorDate, entries, manualValues = {}) => {
+const buildDriverWeekPage = (anchorDate, entries, manualValues = {}, billingStatsByDate = new Map()) => {
   const weekStart = getDriverWeekStart(anchorDate);
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(weekStart);
     date.setDate(date.getDate() + index);
     return { date, key: getDriverDateKey(date) };
   });
-  const weekEntries = days.map(({ key }) => entries.find((item) => String(item.entry_date) === key) ?? null);
+  const weekEntries = days.map(({ key }) => getDriverDailyLedgerEntry(entries, key, billingStatsByDate));
   const total = (entry, key, index) => getDriverWeeklyAmount(entry, key, days[index]?.key, manualValues);
   const cumulativeTotals = accumulateDriverWeekTotals(days.map(({ key }, index) => getDriverDailyNetAmount(weekEntries[index], key, manualValues)));
   const rows = [
@@ -1112,6 +1112,67 @@ const getDriverBillingDocumentsForPeriod = (documents = [], driverId, month, yea
     const date = new Date(`${dateKey}T12:00:00`);
     return date.getFullYear() === year && date.getMonth() === month;
   });
+function getDriverBillingStatsByDate(documents = [], driverId) {
+  const statsByDate = new Map();
+  getDriverBillingDocumentsForDriver(documents, driverId).forEach((document) => {
+    const stats = getDriverBillingDocumentStats(document);
+    if (!stats.dateKey || !stats.hasBillingAmount) return;
+    const current = statsByDate.get(stats.dateKey) ?? {
+      dateKey: stats.dateKey,
+      connection: "",
+      trips: 0,
+      points: 0,
+      baseNetAmount: 0,
+      netAmount: 0,
+      promotions: 0,
+      tips: 0,
+      total: 0,
+      refunds: 0,
+      cashCollected: 0,
+      hasBillingAmount: true,
+    };
+    statsByDate.set(stats.dateKey, {
+      ...current,
+      connection: stats.connection || current.connection,
+      trips: current.trips + stats.trips,
+      points: current.points + stats.points,
+      baseNetAmount: Number((current.baseNetAmount + stats.baseNetAmount).toFixed(2)),
+      netAmount: Number((current.netAmount + stats.netAmount).toFixed(2)),
+      promotions: Number((current.promotions + stats.promotions).toFixed(2)),
+      tips: Number((current.tips + stats.tips).toFixed(2)),
+      total: Number((current.total + stats.total).toFixed(2)),
+      refunds: Number((current.refunds + stats.refunds).toFixed(2)),
+      cashCollected: Number((current.cashCollected + stats.cashCollected).toFixed(2)),
+    });
+  });
+  return statsByDate;
+}
+function getDriverDailyLedgerEntry(entries = [], dateKey, billingStatsByDate = new Map()) {
+  const existing = entries.find((item) => String(item.entry_date) === dateKey) ?? null;
+  const billingStats = billingStatsByDate.get(dateKey);
+  if (!billingStats) return existing;
+  return {
+    ...(existing ?? {}),
+    entry_date: dateKey,
+    billing: billingStats.netAmount,
+    billing_override: true,
+    cash_collected: billingStats.cashCollected,
+    tips: billingStats.tips,
+    refunds: billingStats.refunds,
+    driver_billing_stats: billingStats,
+  };
+}
+function getDriverDailyLedgerEntries(entries = [], billingStatsByDate = new Map(), datePredicate = () => true) {
+  const byDate = new Map();
+  (entries ?? []).forEach((entry) => {
+    const dateKey = String(entry?.entry_date ?? "");
+    if (dateKey && datePredicate(dateKey)) byDate.set(dateKey, entry);
+  });
+  billingStatsByDate.forEach((stats, dateKey) => {
+    if (datePredicate(dateKey)) byDate.set(dateKey, getDriverDailyLedgerEntry(entries, dateKey, billingStatsByDate));
+  });
+  return [...byDate.values()].sort((left, right) => String(left.entry_date ?? "").localeCompare(String(right.entry_date ?? "")));
+}
 const normalizeTransactionRecord = (transaction = {}) => ({
   ...transaction,
   vehicle_plate: canonicalizeVehiclePlate(transaction.vehicle_plate),
@@ -3272,7 +3333,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     if (!supabase) return undefined;
     Promise.all([
       supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
-      supabase.from("documents").select("id, category, vehicle_plate, file_path, file_name, mime_type, file_size, extracted_data, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(180),
+      supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, document_date, extracted_data, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(180),
     ]).then(([entryResult, documentResult]) => {
       if (!mounted) return;
       if (entryResult.error) setMessage(entryResult.error.message);
@@ -3315,6 +3376,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const calendarDays = useMemo(() => getDriverCalendarDays(driverPeriodDate, 13, -6), [selectedDate]);
   const selectedDayEntry = useMemo(() => entries.find((item) => String(item.entry_date) === selectedDate) ?? null, [entries, selectedDate]);
   const selectedDayDocuments = useMemo(() => documents.filter((document) => getDriverDocumentDateKey(document) === selectedDate), [documents, selectedDate]);
+  const driverBillingStatsByDate = useMemo(() => getDriverBillingStatsByDate(documents, activeProfileId), [documents, activeProfileId]);
 
   useEffect(() => {
     if (!periodPickerOpen) return undefined;
@@ -3442,9 +3504,9 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const weekStart = getDriverWeekStart(periodDate);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
-    const monthEntries = entries.filter((item) => String(item.entry_date ?? "").startsWith(monthKey));
-    const weekEntries = entries.filter((item) => {
-      const date = parseDriverDateKey(item.entry_date);
+    const monthEntries = getDriverDailyLedgerEntries(entries, driverBillingStatsByDate, (dateKey) => dateKey.startsWith(monthKey));
+    const weekEntries = getDriverDailyLedgerEntries(entries, driverBillingStatsByDate, (dateKey) => {
+      const date = parseDriverDateKey(dateKey);
       return date && date >= weekStart && date < weekEnd;
     });
     const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
@@ -3504,17 +3566,19 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       weeklyProgress: weeklyCash > 0 ? Math.max(0, Math.min(100, (weeklyNet / weeklyCash) * 100)) : 0,
       weekEntries: weekEntries.length,
     };
-  }, [activeProfileId, documents, entries, profile.full_name, profileVehiclePlate, selectedDate, vehicle, weeklyManualValues]);
+  }, [activeProfileId, documents, driverBillingStatsByDate, entries, profile.full_name, profileVehiclePlate, selectedDate, vehicle, weeklyManualValues]);
 
   const selectedDayDocumentData = useMemo(() => selectedDayDocuments.reduce((summary, document) => {
     const data = document.extracted_data ?? {};
-    const billing = document.category === "billing"
-      ? getDriverBillingDocumentStats(document).netAmount
+    const billingStats = document.category === "billing" ? getDriverBillingDocumentStats(document) : null;
+    const billing = billingStats
+      ? billingStats.netAmount
       : getDriverDocumentNumber(data.billing ?? data.total ?? data.amount ?? data.netAmount);
     const fuelCost = getDriverDocumentNumber(data.fuelCost ?? data.fuel_cost ?? data.cost ?? (document.category === "consumption" ? data.amount : 0));
     const fuelLiters = getDriverDocumentNumber(data.fuelLiters ?? data.fuel_liters ?? data.consumption ?? data.liters);
     const odometerKm = getDriverDocumentNumber(data.odometerKm ?? data.odometer_km ?? data.kilometres ?? data.km);
     summary.billing += document.category === "billing" ? billing : getDriverDocumentNumber(data.billing);
+    summary.hasBilling = summary.hasBilling || Boolean(billingStats?.hasBillingAmount);
     summary.fuelCost += fuelCost;
     summary.fuelLiters += fuelLiters;
     summary.odometerKm = odometerKm || summary.odometerKm;
@@ -3523,16 +3587,16 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     summary.refunds += getDriverDocumentNumber(data.refunds ?? data.reimbursements);
     summary.otherExpenses += getDriverDocumentNumber(data.otherExpenses ?? data.other_expenses);
     return summary;
-  }, { billing: 0, fuelCost: 0, fuelLiters: 0, odometerKm: 0, cashCollected: 0, tips: 0, refunds: 0, tolls: 0, otherExpenses: 0 }), [selectedDayDocuments]);
+  }, { billing: 0, fuelCost: 0, fuelLiters: 0, odometerKm: 0, cashCollected: 0, tips: 0, refunds: 0, tolls: 0, otherExpenses: 0, hasBilling: false }), [selectedDayDocuments]);
   const selectedDaySource = selectedDayEntry ?? entry;
   const selectedDayData = {
-    billing: getDriverEntryAmount(selectedDaySource, "billing") || selectedDayDocumentData.billing,
+    billing: selectedDayDocumentData.hasBilling ? selectedDayDocumentData.billing : getDriverEntryAmount(selectedDaySource, "billing") || selectedDayDocumentData.billing,
     odometer_km: getDriverEntryAmount(selectedDaySource, "odometer_km") || selectedDayDocumentData.odometerKm,
     fuel_cost: getDriverEntryAmount(selectedDaySource, "fuel_cost") || selectedDayDocumentData.fuelCost,
     fuel_liters: getDriverEntryAmount(selectedDaySource, "fuel_liters") || selectedDayDocumentData.fuelLiters,
-    cash_collected: getDriverEntryAmount(selectedDaySource, "cash_collected") || selectedDayDocumentData.cashCollected,
-    tips: getDriverEntryAmount(selectedDaySource, "tips") || selectedDayDocumentData.tips,
-    refunds: getDriverEntryAmount(selectedDaySource, "refunds") || selectedDayDocumentData.refunds,
+    cash_collected: selectedDayDocumentData.hasBilling ? selectedDayDocumentData.cashCollected : getDriverEntryAmount(selectedDaySource, "cash_collected") || selectedDayDocumentData.cashCollected,
+    tips: selectedDayDocumentData.hasBilling ? selectedDayDocumentData.tips : getDriverEntryAmount(selectedDaySource, "tips") || selectedDayDocumentData.tips,
+    refunds: selectedDayDocumentData.hasBilling ? selectedDayDocumentData.refunds : getDriverEntryAmount(selectedDaySource, "refunds") || selectedDayDocumentData.refunds,
     tolls: getDriverEntryAmount(selectedDaySource, "tolls") || selectedDayDocumentData.tolls,
     other_expenses: getDriverEntryAmount(selectedDaySource, "other_expenses") || selectedDayDocumentData.otherExpenses,
   };
@@ -3544,12 +3608,12 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       return { date, key: getDriverDateKey(date) };
     });
   }, [selectedDate]);
-  const driverWeekEntries = useMemo(() => driverWeekDays.map(({ key }) => entries.find((item) => String(item.entry_date) === key) ?? null), [driverWeekDays, entries]);
+  const driverWeekEntries = useMemo(() => driverWeekDays.map(({ key }) => getDriverDailyLedgerEntry(entries, key, driverBillingStatsByDate)), [driverWeekDays, entries, driverBillingStatsByDate]);
   const driverWeekPages = useMemo(() => [-1, 0, 1].map((offset) => {
     const pageDate = new Date(driverPeriodDate);
     pageDate.setDate(pageDate.getDate() + (offset * 7));
-    return { offset, ...buildDriverWeekPage(pageDate, entries, weeklyManualValues) };
-  }), [selectedDate, entries, weeklyManualValues]);
+    return { offset, ...buildDriverWeekPage(pageDate, entries, weeklyManualValues, driverBillingStatsByDate) };
+  }), [driverPeriodDate, entries, weeklyManualValues, driverBillingStatsByDate]);
   const seededDriverShift = vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name)) ?? vehicle?.shifts?.[0] ?? null;
   const seededDriverConsumption = 0;
   const otherDriversConsumptionAverage = useMemo(() => {
