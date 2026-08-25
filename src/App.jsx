@@ -878,9 +878,13 @@ const getDriverWeekStart = (date) => {
   return start;
 };
 const getDriverEntryAmount = (entry, key) => Number(entry?.[key]) || 0;
-const getDriverWeeklyAmount = (entry, key, dateKey, manualValues = {}) => key === "wash" && Object.hasOwn(manualValues?.[dateKey] ?? {}, "wash")
-  ? Number(manualValues[dateKey].wash) || 0
-  : getDriverEntryAmount(entry, key === "wash" ? "wash_expenses" : key === "net" ? "billing" : key);
+const getDriverWeeklyAmount = (entry, key, dateKey, manualValues = {}) => {
+  const manualKey = key === "wash" ? "wash" : key === "other_expenses" ? "other" : "";
+  if (manualKey && Object.hasOwn(manualValues?.[dateKey] ?? {}, manualKey)) {
+    return Number(manualValues[dateKey][manualKey]) || 0;
+  }
+  return getDriverEntryAmount(entry, key === "wash" ? "wash_expenses" : key === "net" ? "billing" : key);
+};
 const getDriverDailyNetAmount = (entry, dateKey, manualValues = {}) => Number((
   getDriverWeeklyAmount(entry, "cash_collected", dateKey, manualValues)
   - getDriverWeeklyAmount(entry, "fuel_cost", dateKey, manualValues)
@@ -3995,8 +3999,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     if (!entryField) return;
     try {
       await upsertDriverEntry(dateKey, { [entryField]: amount });
-      if (rowKey === "wash") {
-        setWeeklyManualValues((current) => ({ ...current, [dateKey]: { ...(current[dateKey] ?? {}), wash: amount } }));
+      if (rowKey === "wash" || rowKey === "other") {
+        setWeeklyManualValues((current) => ({ ...current, [dateKey]: { ...(current[dateKey] ?? {}), [rowKey]: amount } }));
       }
       setMessage(`${rowLabelByKey[rowKey]} del ${dateKey}: ${formatCurrency(amount)}.`);
     } catch (error) {
@@ -4415,16 +4419,18 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     window.clearTimeout(weeklyLongPressTimerRef.current);
     weeklyLongPressTimerRef.current = null;
   };
-  const openWeeklyEditor = (draftKey, value) => {
+  const openWeeklyEditor = (draftKey, value, rowKey = "") => {
+    if (rowKey && !editableWeeklyRows.has(rowKey)) return;
     setWeeklyDrafts((current) => Object.hasOwn(current, draftKey) ? current : { ...current, [draftKey]: formatWeeklyAmount(value) });
     setWeeklyEditKey(draftKey);
   };
-  const startWeeklyLongPress = (draftKey, value, event) => {
+  const startWeeklyLongPress = (draftKey, value, rowKey, event) => {
+    if (!editableWeeklyRows.has(rowKey)) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     clearWeeklyLongPress();
     weeklyLongPressTimerRef.current = window.setTimeout(() => {
       weeklyLongPressTimerRef.current = null;
-      openWeeklyEditor(draftKey, value);
+      openWeeklyEditor(draftKey, value, rowKey);
     }, 2000);
   };
   useEffect(() => () => clearWeeklyLongPress(), []);
@@ -4445,8 +4451,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     const draftKey = `${dateKey}:${row.key}`;
     const hasDraft = Object.hasOwn(weeklyDrafts, draftKey);
     const displayedValue = hasDraft ? weeklyDrafts[draftKey] : formatWeeklyAmount(value);
-    if (weeklyEditKey !== draftKey || !isEditorHost) return <button type="button" className="driver-mobile-week-table__amount-trigger" aria-label={`Editar ${row.label} del ${dateKey}`} title="Mantén pulsado dos segundos para editar" onPointerDown={(event) => startWeeklyLongPress(draftKey, value, event)} onPointerUp={clearWeeklyLongPress} onPointerCancel={clearWeeklyLongPress} onPointerLeave={clearWeeklyLongPress} onContextMenu={(event) => event.preventDefault()} onKeyDown={(event) => { if (event.key !== "Enter" && event.key !== " ") return; event.preventDefault(); openWeeklyEditor(draftKey, value); }}>{displayedValue}</button>;
-    return <span className="driver-mobile-week-table__amount-editor"><input autoFocus className="driver-mobile-week-table__amount-input" type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" value={displayedValue} aria-label={`${row.label} del ${dateKey}`} placeholder="0,00" onFocus={(event) => event.currentTarget.select()} onPointerUp={(event) => event.preventDefault()} onChange={(event) => setWeeklyDrafts((current) => ({ ...current, [draftKey]: event.target.value }))} onBlur={async () => { const nextValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : displayedValue; await saveWeeklyAmount(dateKey, row.key, nextValue); setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); setWeeklyEditKey((current) => current === draftKey ? "" : current); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); setWeeklyEditKey(""); event.currentTarget.blur(); } }} /><b aria-hidden="true">€</b></span>;
+    if (weeklyEditKey !== draftKey || !isEditorHost) return <button type="button" className="driver-mobile-week-table__amount-trigger" aria-label={`Editar ${row.label} del ${dateKey}`} title="Mantén pulsado dos segundos para editar" onPointerDown={(event) => { event.stopPropagation(); startWeeklyLongPress(draftKey, value, row.key, event); }} onPointerUp={(event) => { event.stopPropagation(); clearWeeklyLongPress(); }} onPointerCancel={clearWeeklyLongPress} onPointerLeave={clearWeeklyLongPress} onContextMenu={(event) => event.preventDefault()} onKeyDown={(event) => { if (event.key !== "Enter" && event.key !== " ") return; event.preventDefault(); openWeeklyEditor(draftKey, value, row.key); }}>{displayedValue}</button>;
+    return <span className="driver-mobile-week-table__amount-editor"><input autoFocus className="driver-mobile-week-table__amount-input" type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" value={displayedValue} aria-label={`${row.label} del ${dateKey}`} placeholder="0,00" onFocus={(event) => event.currentTarget.select()} onPointerDown={(event) => event.stopPropagation()} onPointerMove={(event) => event.stopPropagation()} onPointerUp={(event) => { event.stopPropagation(); event.preventDefault(); }} onChange={(event) => setWeeklyDrafts((current) => ({ ...current, [draftKey]: event.target.value }))} onBlur={async () => { const nextValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : displayedValue; await saveWeeklyAmount(dateKey, row.key, nextValue); setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); setWeeklyEditKey((current) => current === draftKey ? "" : current); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); setWeeklyEditKey(""); event.currentTarget.blur(); } }} /><b aria-hidden="true">€</b></span>;
   };
   const completeWeekSwipe = () => {
     const direction = weekSwipeDirectionRef.current;
@@ -4639,7 +4645,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
           </div>
           <header className="driver-mobile-section__heading driver-mobile-section__heading--week"><div><h2 id="driver-mobile-week-title">SEMANA DEL {weekLabel}</h2><small>Selecciona un día para revisar sus registros</small></div><div className="driver-mobile-week-actions"><button type="button" aria-label="Semana anterior" onClick={() => shiftDriverWeek(-1)}><IconChevronLeft size={16} /></button><button type="button" aria-label="Semana siguiente" onClick={() => shiftDriverWeek(1)}><IconChevronRight size={16} /></button></div></header>
           <div className="driver-mobile-period-control" ref={periodPickerRef}><button type="button" className="driver-mobile-period-trigger" aria-label="Seleccionar mes" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "month"} onClick={() => setPeriodPickerOpen((current) => current === "month" ? "" : "month")}><span>{reportMonths[driverPeriodMonth]}</span><IconChevronDown size={14} /></button><button type="button" className="driver-mobile-period-year" aria-label="Seleccionar año" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "year"} onClick={() => setPeriodPickerOpen((current) => current === "year" ? "" : "year")}>{driverPeriodYear}</button>{periodPickerOpen === "month" && <div className="driver-period-picker__menu driver-mobile-period-menu" role="listbox" aria-label="Meses disponibles">{reportMonths.map((monthLabel, monthIndex) => <button type="button" role="option" aria-selected={driverPeriodMonth === monthIndex} ref={driverPeriodMonth === monthIndex ? periodPickerOptionRef : undefined} className={driverPeriodMonth === monthIndex ? "is-selected" : ""} onClick={() => selectDriverPeriod(driverPeriodYear, monthIndex)} key={monthLabel}>{monthLabel}</button>)}</div>}{periodPickerOpen === "year" && <div className="driver-period-picker__menu driver-period-picker__menu--years driver-mobile-period-menu" role="listbox" aria-label="Años disponibles">{driverPeriodYears.map((yearOption) => <button type="button" role="option" aria-selected={driverPeriodYear === yearOption} ref={driverPeriodYear === yearOption ? periodPickerOptionRef : undefined} className={driverPeriodYear === yearOption ? "is-selected" : ""} onClick={() => selectDriverPeriod(yearOption, driverPeriodMonth)} key={yearOption}>{yearOption}</button>)}</div>}</div>
-          <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={row.key}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{weeklyCell(row, value, driverWeekDays[index].key)}</td>)}</tr>)}</tbody></table></div>
+          <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={row.key === "total" ? "is-total" : ""} key={row.key}><th scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{weeklyCell(row, value, driverWeekDays[index].key, true)}</td>)}</tr>)}</tbody></table></div>
         </section>
         {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Precio neto<input type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Reembolsos<input type="number" min="0" step="0.01" value={entry.refunds} onChange={(event) => updateEntry("refunds", event.target.value)} /><i>€</i></label><label>Otros gastos<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, reembolso u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
         {expandedPreviewMetric && (
