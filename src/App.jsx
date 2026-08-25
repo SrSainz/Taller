@@ -3043,6 +3043,17 @@ function PasswordRecoveryScreen({ onComplete }) {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const recoveryUpdateErrorMessage = (error) => {
+    const code = String(error?.code ?? "").toLowerCase();
+    const message = String(error?.message ?? "").toLowerCase();
+    if (code.includes("session") || message.includes("session") || message.includes("jwt") || message.includes("token")) {
+      return "Este enlace de recuperación ya se ha utilizado o ha caducado. Solicita un correo nuevo y pulsa el enlace una sola vez desde un único dispositivo.";
+    }
+    if (message.includes("password") && (message.includes("weak") || message.includes("short") || message.includes("characters"))) {
+      return "La contraseña no cumple la política de seguridad de Supabase. Usa una contraseña más larga y combina mayúsculas, minúsculas, números y símbolos.";
+    }
+    return "No se ha podido actualizar la contraseña. Solicita un enlace nuevo e inténtalo otra vez.";
+  };
   const submit = async (event) => {
     event.preventDefault();
     setFormError("");
@@ -3050,10 +3061,16 @@ function PasswordRecoveryScreen({ onComplete }) {
     if (password !== confirmation) return setFormError("Las contraseñas no coinciden.");
     if (!supabase) return setFormError("La conexión con Supabase todavía no está configurada.");
     setSubmitting(true);
+    const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshedSession?.session) {
+      setSubmitting(false);
+      setFormError(recoveryUpdateErrorMessage(refreshError ?? new Error("Sesión de recuperación no disponible.")));
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ password });
     setSubmitting(false);
     if (error) {
-      setFormError("No se ha podido actualizar la contraseña. Solicita un enlace nuevo e inténtalo otra vez.");
+      setFormError(recoveryUpdateErrorMessage(error));
       return;
     }
     // Deja el navegador en un estado limpio para que el usuario vuelva a
