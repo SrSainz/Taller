@@ -7835,8 +7835,8 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   const isDriverMileageReview = isDriverDailyKmReview || isDriverTotalKmReview;
   const isDriverConsumptionReview = category === "consumption" && ["consumption", "consumption rate", "consumption_rate", "consumo"].includes(normalizedRecordType);
   const isDriverBillingReview = category === "billing" && ["billing", "billing_daily"].includes(normalizedRecordType);
-  const driverBillingReviewLabels = { date: "Día", connection: "Conexión", trips: "Viajes", points: "Puntos", netAmount: "Precio neto", promotions: "Promociones", tips: "Propina", total: "Ganancias totales", refunds: "Reembolsos", cashCollected: "Efectivo cobrado" };
-  const driverBillingReviewKeys = ["date", "connection", "trips", "points", "netAmount", "promotions", "tips", "total", "refunds", "cashCollected"];
+  const driverBillingReviewLabels = { date: "Día", connection: "Conexión", trips: "Viajes", points: "Puntos", netAmount: "Precio neto", promotions: "Promociones", tips: "Propina", refunds: "Reembolsos", cashCollected: "Efectivo cobrado" };
+  const driverBillingReviewKeys = ["date", "connection", "trips", "points", "netAmount", "promotions", "tips", "refunds", "cashCollected"];
   const driverMileageReviewKeys = isDriverDailyKmReview ? ["dailyKm", "vehicle"] : ["odometerKm", "vehicle"];
   const driverMileageReviewLabels = { dailyKm: "Kilometraje diario", odometerKm: "Kilómetros acumulados", vehicle: "Vehículo" };
   const driverConsumptionReviewKeys = ["consumption", "vehicle", "consumptionCount"];
