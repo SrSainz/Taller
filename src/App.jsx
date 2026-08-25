@@ -1638,7 +1638,7 @@ const navFromHash = () => {
 };
 
 const passwordRecoveryPath = "/reset-password";
-const passwordRecoveryRedirectUrl = () => "https://talleria-flota.vercel.app/";
+const passwordRecoveryRedirectUrl = () => "https://talleria-flota.vercel.app/reset-password";
 const passwordRecoveryCode = () => new URLSearchParams(window.location.search ?? "").get("code");
 const futureJwtErrorMessage = "La sesión guardada en este dispositivo tenía una fecha futura y se ha eliminado. Comprueba que la fecha y hora estén configuradas automáticamente y vuelve a entrar.";
 const isFutureJwtError = (error) => {
