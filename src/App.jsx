@@ -90,6 +90,8 @@ const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
 const SUMMARY_CHART_COLOR = "#1976c9";
 const INTRACOMMUNITY_VAT_RATE = 0.08;
+const DRIVER_EDITABLE_WEEKLY_ROWS = new Set(["wash", "other"]);
+const ADMIN_EDITABLE_WEEKLY_ROWS = new Set(["cash", "fuel", "refunds", "wash", "other"]);
 const calculateNetDriverCommission = (driverName, billing) => calculateDriverCommission({ driverName, billing }).totalToCollect;
 const chartMetricOptions = [
   { value: "summary", label: "Resumen" },
@@ -3982,6 +3984,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     }
   };
   const saveWeeklyAmount = async (dateKey, rowKey, rawValue) => {
+    const editableWeeklyRows = preview ? ADMIN_EDITABLE_WEEKLY_ROWS : DRIVER_EDITABLE_WEEKLY_ROWS;
+    if (!editableWeeklyRows.has(rowKey)) return;
     const amount = Math.max(0, Number(String(rawValue ?? "").replace(",", ".")) || 0);
     const entryFieldByRow = { cash: "cash_collected", fuel: "fuel_cost", refunds: "refunds", wash: "wash_expenses", other: "other_expenses" };
     const rowLabelByKey = { cash: "Efectivo", fuel: "Repostaje", refunds: "Reembolsos", wash: "Lavados", other: "Varios" };
@@ -4397,7 +4401,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   };
   const currentWeekPage = driverWeekPages.find((page) => page.offset === 0) ?? driverWeekPages[1];
   const weekLabel = currentWeekPage?.days?.[0]?.date ? new Intl.DateTimeFormat("es-ES", { day: "numeric" }).format(currentWeekPage.days[0].date) : "";
-  const editableWeeklyRows = new Set(["cash", "fuel", "refunds", "wash", "other"]);
+  const editableWeeklyRows = preview ? ADMIN_EDITABLE_WEEKLY_ROWS : DRIVER_EDITABLE_WEEKLY_ROWS;
   const formatWeeklyAmount = (value) => {
     const numericValue = Number(value) || 0;
     return numericValue === 0
