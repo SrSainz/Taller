@@ -22,7 +22,16 @@ export const initialPasswordRecoveryIntent = hasInitialPasswordRecoveryIntent();
 // funciones, documentos o transacciones que ya han cambiado en Supabase.
 const noStoreFetch = (input, init = {}) => fetch(input, { ...init, cache: "no-store" });
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
+const hasValidSupabaseUrl = (() => {
+  try {
+    const parsedUrl = new URL(supabaseUrl);
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
+  } catch {
+    return false;
+  }
+})();
+
+export const isSupabaseConfigured = Boolean(hasValidSupabaseUrl && supabasePublishableKey);
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabasePublishableKey, {

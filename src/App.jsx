@@ -1921,7 +1921,35 @@ function QuickActionMenu({ step, category, onCategory, onDocumentAction, onNotic
 export function App() {
   const [authState, setAuthState] = useState({ loading: true, session: null, profile: null, error: null });
   const [passwordRecovery, setPasswordRecovery] = useState(() => initialPasswordRecoveryIntent || isPasswordRecoveryLink());
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isStandalone, setIsStandalone] = useState(isStandaloneApp);
   const futureJwtResetRef = useRef(false);
+
+  useEffect(() => {
+    const displayMode = window.matchMedia("(display-mode: standalone)");
+    const onInstallAvailable = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    const onInstalled = () => {
+      setInstallPrompt(null);
+      setIsStandalone(true);
+    };
+    const syncDisplayMode = () => setIsStandalone(isStandaloneApp());
+    const addDisplayModeListener = displayMode.addEventListener ? "addEventListener" : "addListener";
+    const removeDisplayModeListener = displayMode.removeEventListener ? "removeEventListener" : "removeListener";
+
+    window.addEventListener("beforeinstallprompt", onInstallAvailable);
+    window.addEventListener("appinstalled", onInstalled);
+    displayMode[addDisplayModeListener]("change", syncDisplayMode);
+    window.addEventListener("pageshow", syncDisplayMode);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onInstallAvailable);
+      window.removeEventListener("appinstalled", onInstalled);
+      displayMode[removeDisplayModeListener]("change", syncDisplayMode);
+      window.removeEventListener("pageshow", syncDisplayMode);
+    };
+  }, []);
 
   const handleFutureJwt = useCallback(async () => {
     if (!futureJwtResetRef.current) {
@@ -2032,22 +2060,47 @@ export function App() {
     return supabase?.auth.signOut();
   };
 
+  const installApplication = useCallback(async (onNotice) => {
+    const notice = (message) => onNotice?.(message);
+    if (isStandalone || isStandaloneApp()) {
+      setIsStandalone(true);
+      notice("SOBRE RUEDAS ya está instalada y abierta como aplicación en este dispositivo.");
+      return;
+    }
+    if (!installPrompt) {
+      notice("Abre el menú del navegador y elige «Instalar aplicación» o «Añadir a pantalla de inicio».");
+      return;
+    }
+    try {
+      const promptEvent = installPrompt;
+      await promptEvent.prompt();
+      const choice = await promptEvent.userChoice;
+      setInstallPrompt(null);
+      notice(choice?.outcome === "accepted"
+        ? "Instalación iniciada. Encontrarás SOBRE RUEDAS en la pantalla de inicio."
+        : "Instalación cancelada.");
+    } catch {
+      setInstallPrompt(null);
+      notice("No se ha podido abrir la instalación. Usa el menú del navegador para añadirla a la pantalla de inicio.");
+    }
+  }, [installPrompt, isStandalone]);
+
   if (authState.loading) return <AuthLoadingScreen />;
-  if (!isSupabaseConfigured) return <AuthScreen configurationError />;
+  if (!isSupabaseConfigured) return <AuthScreen configurationError onInstall={installApplication} isStandalone={isStandalone} />;
   if (passwordRecovery) {
-    if (!authState.session) return <AuthScreen error={authState.error ?? new Error("El enlace de recuperación ha caducado. Solicita uno nuevo para continuar.")} />;
+    if (!authState.session) return <AuthScreen error={authState.error ?? new Error("El enlace de recuperación ha caducado. Solicita uno nuevo para continuar.")} onInstall={installApplication} isStandalone={isStandalone} />;
     return <PasswordRecoveryScreen onComplete={() => setPasswordRecovery(false)} />;
   }
-  if (!authState.session) return <AuthScreen error={authState.error} />;
-  if (!authState.profile) return <AuthScreen error={authState.error ?? new Error("No se ha encontrado el perfil de esta cuenta.")} />;
+  if (!authState.session) return <AuthScreen error={authState.error} onInstall={installApplication} isStandalone={isStandalone} />;
+  if (!authState.profile) return <AuthScreen error={authState.error ?? new Error("No se ha encontrado el perfil de esta cuenta.")} onInstall={installApplication} isStandalone={isStandalone} />;
   if (!authState.profile.active) return <AccessBlockedScreen onSignOut={signOut} />;
   if (roleFromUser(authState.session.user, authState.profile) === "driver") {
-    return <DriverApp session={authState.session} profile={authState.profile} onSignOut={signOut} />;
+    return <DriverApp session={authState.session} profile={authState.profile} onSignOut={signOut} onInstall={installApplication} isStandalone={isStandalone} />;
   }
-  return <AuthenticatedApp session={authState.session} profile={authState.profile} onSignOut={signOut} onProfileChange={updateProfile} />;
+  return <AuthenticatedApp session={authState.session} profile={authState.profile} onSignOut={signOut} onProfileChange={updateProfile} onInstall={installApplication} isStandalone={isStandalone} />;
 }
 
-function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
+function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInstall, isStandalone }) {
   const isAdmin = roleFromUser(session.user, profile) === "admin";
   const profileName = profile.full_name || (isAdmin ? "David Diaz" : session.user.email);
   const profileInitials = profileName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U";
@@ -2093,8 +2146,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
   const [settings, setSettings] = useState({ company: "SOBRE RUEDAS", email: "flota@sobreruedas.es", serviceWarning: "5000", lowConfidence: "94" });
-  const [installPrompt, setInstallPrompt] = useState(null);
-  const [isStandalone, setIsStandalone] = useState(isStandaloneApp);
   const [homeReportTab, setHomeReportTab] = useState("General");
   const [homeChartMetric, setHomeChartMetric] = useState("summary");
   const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
@@ -2505,29 +2556,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [adminHeaderOpen, topbarMenuOpen]);
 
-
-  useEffect(() => {
-    const displayMode = window.matchMedia("(display-mode: standalone)");
-    const onInstallAvailable = (event) => {
-      event.preventDefault();
-      setInstallPrompt(event);
-    };
-    const onInstalled = () => {
-      setInstallPrompt(null);
-      setIsStandalone(true);
-    };
-    const onDisplayModeChange = (event) => setIsStandalone(event.matches || Boolean(window.navigator.standalone));
-
-    window.addEventListener("beforeinstallprompt", onInstallAvailable);
-    window.addEventListener("appinstalled", onInstalled);
-    displayMode.addEventListener("change", onDisplayModeChange);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onInstallAvailable);
-      window.removeEventListener("appinstalled", onInstalled);
-      displayMode.removeEventListener("change", onDisplayModeChange);
-    };
-  }, []);
-
   const centralMaintenanceInvoices = useMemo(() => transactions
     .filter((transaction) => transaction.type === "maintenance" && transaction.vehicle_plate)
     .map((transaction) => {
@@ -2897,20 +2925,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     return { ok: true };
   };
 
-  const installApplication = async () => {
-    if (isStandalone) {
-      notify("SOBRE RUEDAS ya está abierta como aplicación");
-      return;
-    }
-    if (!installPrompt) {
-      notify("Chrome habilitará la instalación cuando termine de comprobar la aplicación");
-      return;
-    }
-    await installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    setInstallPrompt(null);
-    notify(choice.outcome === "accepted" ? "Instalación iniciada" : "Instalación cancelada");
-  };
+  const installApplication = () => onInstall?.(notify);
 
   const navigate = (item) => {
     setActiveNav(item.label);
@@ -2979,7 +2994,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   };
 
   if (previewDriver) {
-    return <DriverApp session={session} profile={previewDriver} preview onExitPreview={() => setPreviewDriver(null)} onSignOut={onSignOut} />;
+    return <DriverApp session={session} profile={previewDriver} preview onExitPreview={() => setPreviewDriver(null)} onSignOut={onSignOut} onInstall={onInstall} isStandalone={isStandalone} />;
   }
 
   return (
@@ -3087,7 +3102,7 @@ function AuthLoadingScreen() {
   return <main className="auth-screen"><section className="auth-panel auth-panel--loading"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><IconSparkles size={24} /><strong>Preparando tu espacio seguro</strong><small>Conectando con SOBRE RUEDAS…</small></section></main>;
 }
 
-function AuthScreen({ error, configurationError = false }) {
+function AuthScreen({ error, configurationError = false, onInstall, isStandalone = false }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("davidydiaz@gmail.com");
   const [password, setPassword] = useState("");
@@ -3102,6 +3117,7 @@ function AuthScreen({ error, configurationError = false }) {
   const [formError, setFormError] = useState("");
   const [recoverySent, setRecoverySent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [installMessage, setInstallMessage] = useState("");
   const submit = async (event) => {
     event.preventDefault();
     setFormError("");
@@ -3154,11 +3170,13 @@ function AuthScreen({ error, configurationError = false }) {
   };
   const openRecovery = () => {
     setFormError("");
+    setInstallMessage("");
     setRecoverySent(false);
     setMode("recovery");
   };
   const backToLogin = () => {
     setFormError("");
+    setInstallMessage("");
     setRecoverySent(false);
     setPassword("");
     setMode("login");
@@ -3176,6 +3194,10 @@ function AuthScreen({ error, configurationError = false }) {
         <button className="primary-button auth-form__submit" type="submit" disabled={submitting || configurationError}>{submitting ? "Comprobando…" : "Entrar"}<IconChevronRight size={17} /></button>
       </form>
       <button className="auth-panel__link" type="button" onClick={openRecovery} disabled={configurationError}>¿Has olvidado tu contraseña?</button>
+      {!isStandalone && <>
+        <button className="auth-install-link" type="button" onClick={() => { setInstallMessage(""); void onInstall?.(setInstallMessage); }} disabled={!onInstall}><IconDownload size={16} />Instalar SOBRE RUEDAS en este dispositivo</button>
+        {installMessage && <p className="auth-install-message" role="status">{installMessage}</p>}
+      </>}
       <p className="auth-panel__help">El administrador puede gestionar los accesos de los conductores. Nunca compartas tu contraseña.</p>
     </> : <>
       {recoverySent ? <div className="auth-recovery-success" role="status"><IconMail size={22} /><strong>Revisa tu correo</strong><span>Si existe una cuenta con ese correo, recibirás un enlace para actualizar la contraseña.</span></div> : <form className="auth-form" onSubmit={requestRecovery}>
@@ -3249,7 +3271,7 @@ function AccessBlockedScreen({ onSignOut }) {
   return <main className="auth-screen"><section className="auth-panel auth-panel--blocked"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><IconShieldCheck size={29} /><h1>Acceso pendiente</h1><p>Esta cuenta está desactivada. Contacta con David Diaz para recuperar el acceso.</p><button className="secondary-button" type="button" onClick={onSignOut}><IconLogout size={17} />Cerrar sesión</button></section></main>;
 }
 
-function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview }) {
+function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = false, preview = false, onExitPreview }) {
   const activeProfileId = profile.id ?? session.user.id;
   const [selectedDate, setSelectedDate] = useState(getDriverDateKey());
   const [entry, setEntry] = useState(() => getDriverEntryForm(getDriverDateKey()));
@@ -4065,6 +4087,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     preview={preview}
     onExitPreview={onExitPreview}
     onSignOut={onSignOut}
+    onInstall={onInstall}
+    isStandalone={isStandalone}
     profile={profile}
     vehicle={vehicle}
     periodSummary={periodSummary}
@@ -4276,7 +4300,7 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 520;
   const homeRef = useRef(null);
   const statsRef = useRef(null);
@@ -4405,6 +4429,19 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     setDriverNavSection("home");
     window.requestAnimationFrame(() => entryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
+  useEffect(() => {
+    if (!driverMenuOpen) return undefined;
+    const closeOnOutsidePointer = (event) => {
+      if (!(event.target instanceof Element) || !event.target.closest(".driver-mobile-topbar")) setDriverMenuOpen(false);
+    };
+    const closeOnEscape = (event) => { if (event.key === "Escape") setDriverMenuOpen(false); };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [driverMenuOpen, setDriverMenuOpen]);
   const currentWeekPage = driverWeekPages.find((page) => page.offset === 0) ?? driverWeekPages[1];
   const weekLabel = currentWeekPage?.days?.[0]?.date ? new Intl.DateTimeFormat("es-ES", { day: "numeric" }).format(currentWeekPage.days[0].date) : "";
   const editableWeeklyRows = preview ? ADMIN_EDITABLE_WEEKLY_ROWS : DRIVER_EDITABLE_WEEKLY_ROWS;
@@ -4581,12 +4618,13 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     <main className={`driver-app driver-mobile-app driver-mobile-app--updated ${preview ? "driver-app--preview" : "driver-app--live"}`}>
       <header className="driver-mobile-topbar">
         {preview && <button type="button" className="driver-mobile-topbar__back" onClick={onExitPreview} aria-label="Volver a administración" title="Volver a administración"><IconChevronLeft size={24} /></button>}
-        <div className="driver-mobile-topbar__title"><span className="driver-mobile-topbar__avatar" aria-hidden="true">{driverAvatarPath ? <img src={driverAvatarPath} alt="" /> : <span>{driverAvatarInitials}</span>}</span><span className="driver-mobile-topbar__identity"><strong>{profile.full_name.toUpperCase()}</strong><span className="driver-mobile-topbar__vehicle"><VehiclePlateLabel vehicleOrPlate={vehicle?.plate ?? profileVehiclePlate} className="driver-mobile-topbar__plate" />{vehicle?.owner?.dni && <small>{String(vehicle.owner.dni).replaceAll("-", "")}</small>}</span></span></div>
-        {driverMenuOpen && <aside className="driver-mobile-topbar__popover driver-mobile-topbar__popover--menu" aria-label="Menú del conductor">
-          <button type="button" onClick={() => scrollTo("home", homeRef)}><IconHome size={16} />Inicio</button>
-          <button type="button" onClick={() => scrollTo("history", historyRef)}><IconHistory size={16} />Historial semanal</button>
-          <button type="button" onClick={openEntry}><IconPlus size={16} />Añadir registro</button>
-          <button type="button" onClick={preview ? onExitPreview : onSignOut}><IconLogout size={16} />{preview ? "Volver a administración" : "Cerrar sesión"}</button>
+        <button type="button" className="driver-mobile-topbar__title" onClick={() => { setDriverMenuOpen((current) => !current); setDriverNoticeOpen(false); }} aria-label={`Abrir opciones de ${profile.full_name}`} aria-haspopup="menu" aria-expanded={driverMenuOpen} aria-controls="driver-mobile-options"><span className="driver-mobile-topbar__avatar" aria-hidden="true">{driverAvatarPath ? <img src={driverAvatarPath} alt="" /> : <span>{driverAvatarInitials}</span>}</span><span className="driver-mobile-topbar__identity"><strong>{profile.full_name.toUpperCase()}</strong><span className="driver-mobile-topbar__vehicle"><VehiclePlateLabel vehicleOrPlate={vehicle?.plate ?? profileVehiclePlate} className="driver-mobile-topbar__plate" />{vehicle?.owner?.dni && <small>{String(vehicle.owner.dni).replaceAll("-", "")}</small>}</span></span></button>
+        {driverMenuOpen && <aside id="driver-mobile-options" className="driver-mobile-topbar__popover driver-mobile-topbar__popover--menu" aria-label="Menú del conductor" role="menu">
+          <button type="button" role="menuitem" onClick={() => scrollTo("home", homeRef)}><IconHome size={16} />Inicio</button>
+          <button type="button" role="menuitem" onClick={() => scrollTo("history", historyRef)}><IconHistory size={16} />Historial semanal</button>
+          <button type="button" role="menuitem" onClick={openEntry}><IconPlus size={16} />Añadir registro</button>
+          {!isStandalone && <button type="button" role="menuitem" onClick={() => { setDriverMenuOpen(false); void onInstall?.(setMessage); }}><IconDownload size={16} />Instalar SOBRE RUEDAS</button>}
+          <button type="button" role="menuitem" onClick={preview ? onExitPreview : onSignOut}><IconLogout size={16} />{preview ? "Volver a administración" : "Cerrar sesión"}</button>
         </aside>}
         {driverNoticeOpen && <aside className="driver-mobile-topbar__popover driver-mobile-topbar__popover--notice" role="status"><IconBell size={16} /><span><strong>Notificaciones</strong><small>No hay avisos nuevos.</small></span></aside>}
       </header>
@@ -4814,9 +4852,10 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [], ad
     }
   };
   const driverActionKey = (driver) => `${canonicalizeVehiclePlate(driver.vehicle_plate)}:${driver.id ?? normalizeDriverAvatarKey(driver.full_name)}`;
+  const driverInstallInstructions = "Instalación: abre el enlace en el móvil y pulsa «Instalar SOBRE RUEDAS» o el menú del navegador → «Añadir a pantalla de inicio».";
   const copyDriverApplicationLink = async (driver) => {
     try {
-      const accessMessage = `SOBRE RUEDAS\nEnlace: ${driverApplicationLink}\nUsuario: ${driver.email || "pendiente de crear"}`;
+      const accessMessage = `SOBRE RUEDAS\nEnlace: ${driverApplicationLink}\nUsuario: ${driver.email || "pendiente de crear"}\n${driverInstallInstructions}`;
       await copyTextToClipboard(accessMessage);
       setCopiedDriverKey(driverActionKey(driver));
       notify(`Acceso copiado para ${driver.full_name}`);
@@ -4827,7 +4866,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [], ad
   const shareDriverApplicationLink = async (driver) => {
     if (typeof navigator.share === "function") {
       try {
-        await navigator.share({ title: "SOBRE RUEDAS", text: `Acceso de ${driver.full_name}\nUsuario: ${driver.email || "pendiente"}`, url: driverApplicationLink });
+        await navigator.share({ title: "SOBRE RUEDAS", text: `Acceso de ${driver.full_name}\nUsuario: ${driver.email || "pendiente"}\n${driverInstallInstructions}`, url: driverApplicationLink });
         notify(`Enlace de aplicación preparado para ${driver.full_name}`);
         return;
       } catch (error) {

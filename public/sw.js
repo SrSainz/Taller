@@ -1,4 +1,4 @@
-const cacheName = "sobre-ruedas-shell-v15";
+const cacheName = "sobre-ruedas-shell-v16";
 const appShell = [
   "/",
   "/index.html",
