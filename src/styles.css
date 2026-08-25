@@ -3618,7 +3618,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-topbar__vehicle { min-width: 0; display: grid; justify-items: end; gap: 2px; text-align: right; }
 .driver-mobile-topbar__plate { min-width: 0; max-width: 100%; overflow: hidden; color: #fff; font-size: clamp(13px, 3.9vw, 17px); font-weight: 900; letter-spacing: .045em; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
 .driver-mobile-topbar__plate > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.driver-mobile-topbar__vehicle > small { max-width: 100%; overflow: hidden; color: rgba(255,255,255,.82); font-size: clamp(9px, 2.6vw, 11px); font-weight: 800; letter-spacing: .055em; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-topbar__vehicle > small { max-width: 100%; overflow: hidden; color: rgba(255,255,255,.82); font-size: clamp(13px, 3.9vw, 17px); font-weight: 900; letter-spacing: .045em; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
 .driver-mobile-topbar__popover { position: absolute; z-index: 45; top: calc(100% - 1px); border: 1px solid rgba(14,53,112,.13); border-radius: 0 0 12px 12px; background: #fff; color: #15233d; box-shadow: 0 14px 25px rgba(11,35,74,.2); }
 .driver-mobile-topbar__popover--menu { left: 10px; width: min(230px, calc(100% - 20px)); padding: 7px; }
 .driver-mobile-topbar__popover--menu button { width: 100%; min-height: 38px; display: flex; align-items: center; gap: 9px; padding: 7px 9px; border: 0; border-radius: 8px; background: transparent; color: inherit; font-size: 11px; font-weight: 750; text-align: left; cursor: pointer; }
