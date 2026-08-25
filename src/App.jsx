@@ -7051,7 +7051,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
           const vehicleReports = maintenanceReports.filter((report) => report.vehiclePlate === vehicle.plate);
           const pendingReports = vehicleReports.filter((report) => report.status === "pending").length;
           return (
-            <div className="maintenance-vehicle-banner-row" key={vehicle.plate}>
+            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}`} key={vehicle.plate}>
               <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
                 <span className="maintenance-vehicle-number">{index + 1}</span>
                 <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>

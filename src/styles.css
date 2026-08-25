@@ -4365,11 +4365,15 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-mobile-maintenance-note__trigger { padding-inline: 7px; font-size: 8px; }
 }
 
-/* Avisos de mantenimiento: el botón naranja permanece asociado a cada matrícula. */
-.maintenance-vehicle-banner-row { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 154px; gap: 10px; align-items: stretch; }
-.maintenance-vehicle-banner-row .maintenance-vehicle-banner { min-width: 0; }
-.maintenance-pending-review-button { min-width: 0; min-height: 88px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 9px 8px; border: 1px solid #e8b44f; border-radius: 13px; background: #fff3d9; color: #955b09; box-shadow: 0 4px 13px rgba(160, 99, 8, .08); font: inherit; cursor: pointer; transition: background .18s, border-color .18s, transform .18s, box-shadow .18s; }
-.maintenance-pending-review-button:hover, .maintenance-pending-review-button:focus-visible { border-color: #c98713; background: #ffedbd; box-shadow: 0 8px 20px rgba(160, 99, 8, .15); outline: 0; transform: translateY(-1px); }
+/* Avisos de mantenimiento: el aviso naranja forma parte de la tarjeta de cada matrícula. */
+.maintenance-vehicle-banner-row { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 154px; gap: 0; align-items: stretch; overflow: hidden; border: 1px solid #111; border-radius: 13px; background: #fff; box-shadow: 0 5px 16px rgba(12, 18, 16, .08); }
+.maintenance-vehicle-banner-row.active { box-shadow: 0 0 0 2px rgba(17, 17, 17, .11), 0 10px 25px rgba(12, 18, 16, .12); }
+.maintenance-vehicle-banner-row .maintenance-vehicle-banner { min-width: 0; min-height: 88px; border: 0; border-right: 1px solid #e3e9e5; border-radius: 0; box-shadow: none; }
+.maintenance-vehicle-banner-row .maintenance-vehicle-banner:hover,
+.maintenance-vehicle-banner-row .maintenance-vehicle-banner:focus-visible,
+.maintenance-vehicle-banner-row .maintenance-vehicle-banner.active { border-color: transparent; background: #fafafa; box-shadow: none; outline: 0; transform: none; }
+.maintenance-pending-review-button { min-width: 0; min-height: 88px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 9px 8px; border: 0; border-left: 1px solid #e8b44f; border-radius: 0; background: #fff3d9; color: #955b09; box-shadow: none; font: inherit; cursor: pointer; transition: background .18s, border-color .18s; }
+.maintenance-pending-review-button:hover, .maintenance-pending-review-button:focus-visible { border-color: #c98713; background: #ffedbd; box-shadow: none; outline: 0; }
 .maintenance-pending-review-button > svg { width: 24px; height: 24px; padding: 4px; border-radius: 7px; background: #edaa2e; color: #fff; }
 .maintenance-pending-review-button > span { max-width: 116px; color: inherit; font-size: 8px; font-weight: 900; line-height: 1.18; letter-spacing: .055em; text-align: center; }
 .maintenance-pending-review-button > b { min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 5px; border-radius: 999px; background: #d88513; color: #fff; font-size: 9px; line-height: 1; }
@@ -4415,8 +4419,8 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .maintenance-report-camera-button:hover, .maintenance-report-camera-button:focus-visible { border-color: #bd8114; background: #ffebba; outline: 0; }
 
 @media (max-width: 560px) {
-  .maintenance-vehicle-banner-row { grid-template-columns: minmax(0, 1fr) 96px; gap: 6px; }
-  .maintenance-pending-review-button { min-height: 82px; padding: 7px 5px; gap: 5px; border-radius: 11px; }
+  .maintenance-vehicle-banner-row { grid-template-columns: minmax(0, 1fr) 96px; gap: 0; }
+  .maintenance-pending-review-button { min-height: 82px; padding: 7px 5px; gap: 5px; border-radius: 0; }
   .maintenance-pending-review-button > svg { width: 20px; height: 20px; }
   .maintenance-pending-review-button > span { font-size: 7px; letter-spacing: .035em; }
   .maintenance-reports-dialog-backdrop { align-items: end; padding: 8px; }
