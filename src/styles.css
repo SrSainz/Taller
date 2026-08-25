@@ -5504,3 +5504,51 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-day-panel__editable-metric strong { font-size: 10px; }
   .driver-day-panel__editable-metric > span { font-size: 5.5px; }
 }
+
+/* Conductores: el calendario ocupa el espacio liberado por el detalle diario. */
+.driver-day-panel__heading-button {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.driver-day-panel__heading-button strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.driver-day-panel__heading-button:hover { opacity: .78; }
+.driver-day-panel__heading-button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 4px; }
+.drivers-page--calendar-open .drivers-calendar-grid { gap: 6px; padding: 10px 10px 12px; }
+.drivers-page--calendar-open .drivers-calendar-day { height: clamp(54px, 6vw, 78px); }
+.drivers-page--calendar-open .driver-day-detail__columns { gap: 5px; padding: 5px; }
+.drivers-page--calendar-open .driver-day-panel > header { min-height: 32px; padding: 4px 8px; }
+.drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 4px 6px; }
+.drivers-page--calendar-open .driver-day-panel__metrics strong { font-size: clamp(17px, 1.95vw, 25px); line-height: 1; letter-spacing: -.04em; }
+.drivers-page--calendar-open .driver-day-panel--fuel .driver-day-panel__metrics strong,
+.drivers-page--calendar-open .driver-day-panel--mileage .driver-day-panel__metrics strong { font-size: clamp(19px, 2.15vw, 28px); }
+
+@media (max-width: 820px) {
+  .drivers-page--calendar-open .drivers-calendar-grid { gap: 3px; padding: 7px 6px 8px; }
+  .drivers-page--calendar-open .drivers-calendar-day { height: clamp(42px, 12vw, 56px); min-height: 0; }
+  .drivers-page--calendar-open .driver-day-panel > header { min-height: 30px; padding: 4px 6px; }
+  .drivers-page--calendar-open .driver-day-panel__heading-button { gap: 5px; }
+  .drivers-page--calendar-open .driver-day-panel__heading-button svg { width: 18px; height: 18px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 4px 5px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics strong { font-size: clamp(15px, 4.2vw, 21px); }
+  .drivers-page--calendar-open .driver-day-panel--fuel .driver-day-panel__metrics strong,
+  .drivers-page--calendar-open .driver-day-panel--mileage .driver-day-panel__metrics strong { font-size: clamp(17px, 4.8vw, 23px); }
+}
+
+@media (max-width: 520px) {
+  .drivers-page--calendar-open .drivers-calendar-day { height: clamp(38px, 11vw, 48px); }
+  .drivers-page--calendar-open .driver-day-panel__heading-button { gap: 4px; }
+  .drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 3px 4px; }
+}

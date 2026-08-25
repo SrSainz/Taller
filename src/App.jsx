@@ -6320,15 +6320,14 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         <div className="driver-day-detail__columns">
           <article className="driver-day-panel driver-day-panel--billing">
             <header>
-              <span className="driver-day-panel__heading"><IconFileInvoice size={17} /><strong>Facturación</strong></span>
+              <button type="button" className="driver-day-panel__heading-button" onClick={() => openDayEditor("billing")} aria-label="Editar Facturación del día"><IconFileInvoice size={17} /><strong>Facturación</strong></button>
               <DriverDayDocumentButtons compact documents={selectedDayBillingDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("billing")} />
             </header>
             <div className="driver-day-panel__metrics driver-day-panel__metrics--billing">
-              <span><small>Día</small><strong>{selectedDateKey ? formatDocumentDisplayDate(selectedDateKey) : "—"}</strong></span>
               <span><small>Conexión</small><strong>{selectedBillingStats.connection || "—"}</strong></span>
               <span><small>Viajes</small><strong>{selectedBillingStats.trips}</strong></span>
               <span><small>Puntos</small><strong>{selectedBillingStats.points}</strong></span>
-              <button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("billing")}><small>Precio neto</small><strong>{formatCurrency(selectedBillingStats.netAmount)}</strong><span>Editar importe</span></button>
+              <span><small>Precio neto</small><strong>{formatCurrency(selectedBillingStats.netAmount)}</strong></span>
               <span><small>Propina</small><strong>{formatCurrency(selectedBillingStats.tips)}</strong></span>
               <span><small>Ganancias totales</small><strong>{formatCurrency(selectedBillingStats.total)}</strong></span>
               <span><small>Reembolsos</small><strong>{formatCurrency(selectedBillingStats.refunds)}</strong></span>
@@ -6337,18 +6336,18 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           </article>
           <article className="driver-day-panel driver-day-panel--fuel">
             <header>
-              <span className="driver-day-panel__heading"><IconGasStation size={17} /><strong>Repostaje</strong></span>
+              <button type="button" className="driver-day-panel__heading-button" onClick={() => openDayEditor("fuel")} aria-label="Editar Repostaje del día"><IconGasStation size={17} /><strong>Repostaje</strong></button>
               <DriverDayDocumentButtons compact documents={selectedDayFuelDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("fuel")} />
             </header>
-            <div className="driver-day-panel__metrics"><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("fuel")}><small>Importe total</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong><span>Editar importe</span></button><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div>
+            <div className="driver-day-panel__metrics"><span><small>Importe total</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div>
             {selectedDayDetail.fuelEntries.length > 0 && <div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}-${index}`}><span><strong>{entry.time || "Repostaje"}</strong><small>{formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>)}</div>}
           </article>
           <article className="driver-day-panel driver-day-panel--mileage">
             <header>
-              <span className="driver-day-panel__heading"><IconGauge size={17} /><strong>Kilómetros</strong></span>
+              <button type="button" className="driver-day-panel__heading-button" onClick={() => openDayEditor("mileage")} aria-label="Editar Kilómetros del día"><IconGauge size={17} /><strong>Kilómetros</strong></button>
               <DriverDayDocumentButtons compact documents={selectedDayMileageDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("mileage")} />
             </header>
-            <div className="driver-day-panel__metrics"><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("mileage")}><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong><span>Editar kilometraje</span></button><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><button type="button" className="driver-day-panel__editable-metric" onClick={() => openDayEditor("mileage")}><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong><span>Editar kilometraje</span></button></div>
+            <div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><span><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div>
           </article>
         </div>
       </section>}
@@ -6428,7 +6427,7 @@ function DriverDayEditWorkflow({ item, onCancel }) {
         {documents.length > 0 ? <div className="driver-day-edit-document-list">{documents.map((document) => <div className="driver-day-edit-document" key={document.id}><span><IconCamera size={16} /><strong>{getDriverDocumentKindLabel(document)}</strong><small>{document.file_name || "Documento original"}</small></span><div><button type="button" className="table-action" onClick={() => item.onOpenDocument?.(document)}>Ver</button><button type="button" className="table-action driver-day-edit-document__delete" onClick={() => removeDocument(document)}><IconTrash size={14} />Borrar</button></div></div>)}</div> : <p className="driver-day-edit-documents__empty"><IconCamera size={17} />No hay foto o documento archivado para este día.</p>}
       </section>
       {error && <p className="driver-day-edit-error" role="alert"><IconAlertTriangle size={16} />{error}</p>}
-      <footer><button type="button" className="secondary-button" onClick={onCancel} disabled={saving}>Cancelar</button><button type="button" className="primary-button" onClick={save} disabled={saving}>{saving ? <IconRefresh className="document-processing-actions__spinner" size={17} /> : <IconCheck size={17} />}{saving ? "Guardando…" : "Guardar cambios"}</button></footer>
+      <footer><button type="button" className="secondary-button" onClick={onCancel} disabled={saving}>Cancelar</button><button type="button" className="primary-button" onClick={save} disabled={saving}>{saving ? <IconRefresh className="document-processing-actions__spinner" size={17} /> : <IconCheck size={17} />}{saving ? "Guardando…" : "Aceptar"}</button></footer>
     </div>
   );
 }
