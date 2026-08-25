@@ -2966,7 +2966,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
-          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} />}
+          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} />}
           {activeNav === "Administración" && isAdmin && <AdminView notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} invoices={invoices} adminFunctionWindow={adminFunctionWindow} onAdminFunctionWindowChange={setAdminFunctionWindow} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
@@ -6943,11 +6943,10 @@ function formatMaintenanceReportDate(value) {
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date).replace(".", "");
 }
 
-function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed, reportMonth = new Date().getMonth(), reportYear = new Date().getFullYear(), onReportMonthChange, onReportYearChange }) {
+function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
-  const [periodMenu, setPeriodMenu] = useState("");
   const [reportsPlate, setReportsPlate] = useState("");
   const longPressRef = useRef({ timer: null, triggered: false, startX: 0, startY: 0 });
   const pendingMaintenanceKeyRef = useRef("");
@@ -6963,20 +6962,6 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
   useEffect(() => {
     setWorkshopPlate(initialPlate);
   }, [initialPlate]);
-
-  useEffect(() => {
-    if (!periodMenu) return undefined;
-    const closeOnEscape = (event) => { if (event.key === "Escape") setPeriodMenu(""); };
-    const closeOnPointerDown = (event) => {
-      if (!event.target.closest?.(".maintenance-period-dropdown")) setPeriodMenu("");
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    document.addEventListener("pointerdown", closeOnPointerDown);
-    return () => {
-      document.removeEventListener("keydown", closeOnEscape);
-      document.removeEventListener("pointerdown", closeOnPointerDown);
-    };
-  }, [periodMenu]);
 
   useEffect(() => {
     const pendingKey = pendingMaintenanceKeyRef.current;
@@ -7085,19 +7070,6 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
           <div className="maintenance-history-vehicle">
             <span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt="" /></span>
             <span><h2><VehiclePlateLabel vehicleOrPlate={workshopVehicle} className="maintenance-history-plate" /></h2></span>
-          </div>
-          <div className="maintenance-history-period" role="group" aria-label="Periodo de Mantenimiento">
-            <span>PERIODO</span>
-            <div className="maintenance-period-controls">
-              <div className="report-period-dropdown maintenance-period-dropdown">
-                <button type="button" className="report-period-trigger maintenance-period-trigger" aria-label="Seleccionar mes de Mantenimiento" title="Mes de Mantenimiento" aria-haspopup="listbox" aria-expanded={periodMenu === "month"} onClick={() => setPeriodMenu((current) => current === "month" ? "" : "month")}><span>{reportMonths[reportMonth]}</span><IconChevronDown size={13} /></button>
-                {periodMenu === "month" && <WheelPickerMenu options={reportMonths.map((label, index) => ({ value: index, label }))} value={reportMonth} onChange={(month) => { onReportMonthChange?.(month); setPeriodMenu(""); }} ariaLabel="Seleccionar mes de Mantenimiento" className="maintenance-period-menu maintenance-period-menu--months" />}
-              </div>
-              <div className="report-period-dropdown maintenance-period-dropdown">
-                <button type="button" className="report-period-trigger report-period-trigger--year maintenance-period-trigger" aria-label="Seleccionar año de Mantenimiento" title="Año de Mantenimiento" aria-haspopup="listbox" aria-expanded={periodMenu === "year"} onClick={() => setPeriodMenu((current) => current === "year" ? "" : "year")}><span>{reportYear}</span><IconChevronDown size={13} /></button>
-                {periodMenu === "year" && <WheelPickerMenu options={reportYears.map((year) => ({ value: year, label: String(year) }))} value={reportYear} onChange={(year) => { onReportYearChange?.(year); setPeriodMenu(""); }} ariaLabel="Seleccionar año de Mantenimiento" className="maintenance-period-menu maintenance-period-menu--years" />}
-              </div>
-            </div>
           </div>
         </header>
         <div className="maintenance-history-scroll">
