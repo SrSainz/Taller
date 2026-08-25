@@ -192,3 +192,40 @@ No quedan diferencias accionables P0, P1 o P2 en la región implementada. La com
 La fuente contiene elementos decorativos adicionales que no forman parte de esta barra; no se incorporan para preservar el espacio compacto solicitado.
 
 final result: passed
+
+## Iteración actual: ficha diaria de Conductores
+
+### Evidencia
+
+- Fuente visual: `C:/Users/aiday/AppData/Local/Temp/codex-clipboard-6ef88cfc-638f-4c43-bdad-7bf49b76df85.png` (1537 × 800 px, densidad 1x).
+- Implementación publicada: `https://talleria-flota.vercel.app/?release=driver-day-edit-d966d28#/conductores`.
+- Capturas browser-rendered verificadas en 1280 × 720 px (escritorio) y 560 × 700 px (móvil), ambas con el conductor Alex y agosto de 2026 seleccionado.
+
+### Comparación
+
+- La fecha desaparece del bloque de Facturación porque ya está representada por el día seleccionado del calendario.
+- El calendario gana altura y los tres paneles inferiores se compactan; Repostaje y Kilómetros conservan el espacio horizontal y muestran sus cifras con mayor tamaño.
+- Los títulos Facturación, Repostaje y Kilómetros son ahora controles de edición accesibles. El editor muestra `Aceptar` y `Cancelar` y Cancelar devuelve a la misma vista sin cambios.
+- Las etiquetas `Editar importe` y `Editar kilometraje` ya no aparecen en los paneles.
+
+### Superficies de fidelidad
+
+- Tipografía: se conserva la familia y jerarquía del módulo; los importes de Repostaje y Kilómetros suben ligeramente de tamaño sin recortar unidades.
+- Espaciado y layout: se reduce el alto del detalle diario y se reasigna al calendario, manteniendo las tres tarjetas alineadas en escritorio y apiladas correctamente en móvil.
+- Colores: se mantienen los tratamientos azul, rojo y ámbar de Facturación, Repostaje y Kilómetros.
+- Imágenes y assets: no se añaden assets; se mantienen los iconos existentes y las fotos/documentos continúan en sus controles de cámara.
+- Copy: se eliminan Día, Editar importe y Editar kilometraje de la vista; Aceptar y Cancelar quedan en el editor.
+
+### Interacciones verificadas
+
+- Selección de conductor y día desde el calendario.
+- Pulsar Facturación abre el editor; Aceptar y Cancelar aparecen.
+- Cancelar cierra el editor y devuelve la ficha diaria.
+- Repostaje y Kilómetros exponen sus controles de edición por título.
+- Consola del navegador: 0 errores.
+
+### Findings
+
+No quedan diferencias accionables P0, P1 o P2 en la ficha diaria. La diferencia de resolución de las capturas se debe al viewport disponible del navegador de validación; la composición se comprobó en escritorio y móvil.
+
+final result: passed
