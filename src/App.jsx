@@ -65,7 +65,7 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, createCommissionReportDownloadUrl, deleteDocumentRecord, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, roleFromUser, supabase, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
+import { confirmDocumentTransactions, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, listMaintenanceReports, roleFromUser, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
@@ -1118,6 +1118,17 @@ const normalizeDriverProfileRecord = (driver = {}) => ({
   ...driver,
   vehicle_plate: canonicalizeVehiclePlate(driver.vehicle_plate),
 });
+const normalizeMaintenanceReportRecord = (report = {}) => ({
+  ...report,
+  reporterId: report.reporterId ?? report.reporter_id ?? "",
+  vehiclePlate: canonicalizeVehiclePlate(report.vehiclePlate ?? report.vehicle_plate),
+  photoPath: report.photoPath ?? report.photo_path ?? "",
+  photoName: report.photoName ?? report.photo_name ?? "",
+  photoMimeType: report.photoMimeType ?? report.photo_mime_type ?? "",
+  photoSize: Number(report.photoSize ?? report.photo_size) || 0,
+  createdAt: report.createdAt ?? report.created_at ?? "",
+  updatedAt: report.updatedAt ?? report.updated_at ?? "",
+});
 const normalizeDocumentRecord = (document = {}) => {
   const extracted = getExtractedDocumentFields(document);
   const vehiclePlate = canonicalizeVehiclePlate(document.vehicle_plate || extracted.vehicle);
@@ -1984,6 +1995,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
   const [photoInvoices, setPhotoInvoices] = useState(loadPhotoInvoices);
   const [maintenanceEdits, setMaintenanceEdits] = useState(loadMaintenanceEdits);
   const [documentRecords, setDocumentRecords] = useState([]);
+  const [maintenanceReports, setMaintenanceReports] = useState([]);
   const [processedDocuments, setProcessedDocuments] = useState(loadProcessedDocuments);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminNotifications, setAdminNotifications] = useState([]);
@@ -2194,6 +2206,33 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
     announceAdminDataChanges({ source: "documents", nextDocuments });
   }, [announceAdminDataChanges, isAdmin]);
 
+  const refreshMaintenanceReports = useCallback(async () => {
+    if (!isAdmin || !supabase) return;
+    const { data, error } = await listMaintenanceReports({ limit: 500 });
+    if (error) throw error;
+    setMaintenanceReports((data ?? []).map(normalizeMaintenanceReportRecord));
+  }, [isAdmin]);
+
+  const saveAdminMaintenanceReport = useCallback(async ({ vehiclePlate, note = "", photoFile = null } = {}) => {
+    if (!isAdmin || !session.user.id) throw new Error("Solo el administrador puede crear este aviso.");
+    if (photoFile && (!String(photoFile.type ?? "").startsWith("image/") || photoFile.size > 8 * 1024 * 1024)) {
+      throw new Error("La foto debe ser una imagen de hasta 8 MB.");
+    }
+    const saved = await createMaintenanceReport({ reporterId: session.user.id, vehiclePlate, note, photoFile });
+    const normalizedReport = normalizeMaintenanceReportRecord(saved);
+    setMaintenanceReports((current) => [normalizedReport, ...current.filter((report) => report.id !== normalizedReport.id)]);
+    notify(`Aviso de mantenimiento guardado para ${vehiclePlate}.`);
+    return normalizedReport;
+  }, [isAdmin, notify, session.user.id]);
+
+  const markMaintenanceReportReviewed = useCallback(async (reportId, status = "reviewed") => {
+    const updated = await updateMaintenanceReportStatus(reportId, status);
+    const normalizedReport = normalizeMaintenanceReportRecord(updated);
+    setMaintenanceReports((current) => current.map((report) => report.id === normalizedReport.id ? normalizedReport : report));
+    notify(status === "resolved" ? "Aviso marcado como resuelto." : "Aviso marcado como revisado.");
+    return normalizedReport;
+  }, [notify]);
+
   const saveAdminDriverDay = useCallback(async ({ driverId, vehiclePlate, dateKey, mode, amount, liters, dailyKm, odometerKm, dailyKmChanged = false, odometerChanged = false, notes = "" }) => {
     if (!driverId || !vehiclePlate || !dateKey) throw new Error("Falta la asociación del conductor, coche o día.");
     const existing = driverEntries.find((entry) => entry.driver_id === driverId && String(entry.entry_date) === dateKey) ?? {};
@@ -2281,6 +2320,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       setDriverEntries([]);
       setTransactions([]);
       setDocumentRecords([]);
+      setMaintenanceReports([]);
       setAdminNotifications([]);
       adminDataSnapshotRef.current = {
         transactionsReady: false,
@@ -2292,7 +2332,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       };
       return undefined;
     }
-    const refreshAll = () => Promise.allSettled([refreshTransactions(), refreshDocuments()]);
+    const refreshAll = () => Promise.allSettled([refreshTransactions(), refreshDocuments(), refreshMaintenanceReports()]);
     void refreshAll();
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") void refreshAll();
@@ -2318,6 +2358,12 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
         refreshDocuments().catch(() => undefined);
       })
       .subscribe();
+    const maintenanceReportChannel = supabase
+      .channel(`admin-maintenance-reports-${session.user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "maintenance_reports" }, () => {
+        refreshMaintenanceReports().catch(() => undefined);
+      })
+      .subscribe();
     return () => {
       window.clearInterval(refreshTimer);
       window.removeEventListener("focus", refreshWhenVisible);
@@ -2325,8 +2371,9 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
       supabase.removeChannel(entryChannel);
       supabase.removeChannel(transactionChannel);
       supabase.removeChannel(documentChannel);
+      supabase.removeChannel(maintenanceReportChannel);
     };
-  }, [isAdmin, refreshDocuments, refreshTransactions, session.user.id]);
+  }, [isAdmin, refreshDocuments, refreshMaintenanceReports, refreshTransactions, session.user.id]);
 
   useEffect(() => {
     const onBottomNavigationClick = (event) => {
@@ -2916,7 +2963,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange }) {
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
-          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} />}
+          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} />}
           {activeNav === "Administración" && isAdmin && <AdminView notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} invoices={invoices} adminFunctionWindow={adminFunctionWindow} onAdminFunctionWindowChange={setAdminFunctionWindow} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
@@ -3152,6 +3199,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
   const [weeklyManualValues, setWeeklyManualValues] = useState(() => loadDriverWeeklyManualValues(activeProfileId));
   const profileVehiclePlate = canonicalizeVehiclePlate(profile.vehicle_plate);
   const [maintenanceNote, setMaintenanceNote] = useState(() => loadDriverMaintenanceNote(profileVehiclePlate || activeProfileId));
+  const [maintenanceReports, setMaintenanceReports] = useState([]);
+  const [maintenanceReportSaving, setMaintenanceReportSaving] = useState(false);
   const circleFileInputRef = useRef(null);
   const circleUploadKeyRef = useRef("");
   const circlePreviewUrlsRef = useRef({});
@@ -3167,6 +3216,28 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
 
   useEffect(() => {
     setMaintenanceNote(loadDriverMaintenanceNote(profileVehiclePlate || activeProfileId));
+  }, [activeProfileId, profileVehiclePlate]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!supabase || !activeProfileId || !profileVehiclePlate) {
+      setMaintenanceReports([]);
+      return undefined;
+    }
+    listMaintenanceReports({ vehiclePlate: profileVehiclePlate, reporterId: activeProfileId, limit: 100 })
+      .then(({ data, error }) => {
+        if (!mounted) return;
+        if (error) {
+          setMessage(error.message);
+          return;
+        }
+        const nextReports = (data ?? []).map(normalizeMaintenanceReportRecord);
+        setMaintenanceReports(nextReports);
+        const latestNote = nextReports.find((report) => report.note)?.note ?? "";
+        if (latestNote) setMaintenanceNote(latestNote);
+      })
+      .catch((error) => { if (mounted) setMessage(`No se han podido cargar los avisos de mantenimiento: ${error.message}`); });
+    return () => { mounted = false; };
   }, [activeProfileId, profileVehiclePlate]);
 
   useEffect(() => {
@@ -3845,12 +3916,38 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       setMessage(`No se ha podido guardar ${rowLabelByKey[rowKey].toLowerCase()}: ${error.message}`);
     }
   };
-  const handleMaintenanceNoteSave = (value) => {
-    const nextNote = String(value ?? "").trim();
-    setMaintenanceNote(nextNote);
-    saveDriverMaintenanceNote(profileVehiclePlate || activeProfileId, nextNote);
-    setMessage(nextNote ? "Pendiente de mantenimiento guardado." : "Pendiente de mantenimiento vacío.");
+  const handleMaintenanceReportSave = async ({ note = "", photoFile = null } = {}) => {
+    const nextNote = String(note ?? "").trim();
+    if (!nextNote && !photoFile) throw new Error("Escribe una incidencia o añade una fotografía.");
+    if (photoFile && (!String(photoFile.type ?? "").startsWith("image/") || photoFile.size > 8 * 1024 * 1024)) {
+      throw new Error("La foto debe ser una imagen de hasta 8 MB.");
+    }
+    setMaintenanceReportSaving(true);
+    try {
+      if (!supabase) {
+        if (photoFile) throw new Error("La foto necesita una conexión segura con Supabase.");
+        setMaintenanceNote(nextNote);
+        saveDriverMaintenanceNote(profileVehiclePlate || activeProfileId, nextNote);
+        setMessage("Pendiente de mantenimiento guardado en este dispositivo.");
+        return null;
+      }
+      const saved = await createMaintenanceReport({ reporterId: activeProfileId, vehiclePlate: profileVehiclePlate, note: nextNote, photoFile });
+      const normalizedReport = normalizeMaintenanceReportRecord(saved);
+      setMaintenanceReports((current) => [normalizedReport, ...current.filter((report) => report.id !== normalizedReport.id)]);
+      if (nextNote) {
+        setMaintenanceNote(nextNote);
+        saveDriverMaintenanceNote(profileVehiclePlate || activeProfileId, nextNote);
+      }
+      setMessage("Pendiente de mantenimiento guardado y enviado a Administración.");
+      return normalizedReport;
+    } catch (error) {
+      setMessage(`No se ha podido guardar el aviso de mantenimiento: ${error.message}`);
+      throw error;
+    } finally {
+      setMaintenanceReportSaving(false);
+    }
   };
+  const handleMaintenanceNoteSave = (value) => handleMaintenanceReportSave({ note: value });
   const weeklyCumulativeTotals = accumulateDriverWeekTotals(driverWeekDays.map(({ key }, index) => getDriverDailyNetAmount(driverWeekEntries[index], key, weeklyManualValues)));
   const weeklyRows = [
     { key: "net", label: "Precio\nneto", values: driverWeekEntries.map((item, index) => getDriverWeeklyAmount(item, "net", driverWeekDays[index].key, weeklyManualValues)) },
@@ -3931,7 +4028,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     saveCircleReview={saveCircleReview}
     saveWeeklyAmount={saveWeeklyAmount}
     maintenanceNote={maintenanceNote}
+    maintenanceReports={maintenanceReports}
+    maintenanceReportSaving={maintenanceReportSaving}
     saveMaintenanceNote={handleMaintenanceNoteSave}
+    saveMaintenanceReport={handleMaintenanceReportSave}
   />;
 
   return (
@@ -4085,7 +4185,7 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, saveMaintenanceNote }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 520;
   const homeRef = useRef(null);
   const statsRef = useRef(null);
@@ -4109,8 +4209,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const weeklyLongPressTimerRef = useRef(null);
   const [maintenanceNoteOpen, setMaintenanceNoteOpen] = useState(false);
   const [maintenanceNoteDraft, setMaintenanceNoteDraft] = useState(maintenanceNote ?? "");
+  const [maintenanceNotePhoto, setMaintenanceNotePhoto] = useState(null);
   const [tipsBreakdownOpen, setTipsBreakdownOpen] = useState(false);
   const maintenanceNoteInputRef = useRef(null);
+  const maintenanceNotePhotoInputRef = useRef(null);
   const driverAvatarPath = getDriverAvatarPath(profile.full_name);
   const driverAvatarInitials = String(profile.full_name ?? "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
   const referenceLabels = {
@@ -4319,8 +4421,48 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   useEffect(() => () => window.clearTimeout(weekSwipeTimerRef.current), []);
 
   useEffect(() => {
-    if (!maintenanceNoteOpen) setMaintenanceNoteDraft(maintenanceNote ?? "");
+    if (!maintenanceNoteOpen) {
+      setMaintenanceNoteDraft(maintenanceNote ?? "");
+      setMaintenanceNotePhoto(null);
+    }
   }, [maintenanceNote, maintenanceNoteOpen]);
+
+  const chooseMaintenanceNotePhoto = () => {
+    const input = maintenanceNotePhotoInputRef.current;
+    if (!input) return;
+    input.value = "";
+    try {
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+        return;
+      }
+    } catch {
+      // Algunos navegadores móviles solo permiten abrir el selector con click().
+    }
+    input.click();
+  };
+
+  const handleMaintenanceNotePhoto = (event) => {
+    const nextFile = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!nextFile) return;
+    if (!String(nextFile.type ?? "").startsWith("image/")) return;
+    if (nextFile.size > 8 * 1024 * 1024) return;
+    setMaintenanceNotePhoto(nextFile);
+  };
+
+  const submitMaintenanceReport = async (event) => {
+    event.preventDefault();
+    try {
+      await saveMaintenanceReport({ note: maintenanceNoteDraft, photoFile: maintenanceNotePhoto });
+      setMaintenanceNoteOpen(false);
+    } catch (error) {
+      // El mensaje visible lo gestiona DriverApp; mantener el formulario abierto
+      // permite corregir el texto o elegir otra imagen sin perder lo escrito.
+      return error;
+    }
+    return undefined;
+  };
 
   useEffect(() => {
     if (!maintenanceNoteOpen) return undefined;
@@ -4366,14 +4508,14 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
                       <strong>{formatCurrency(periodSummary.monthlyTips)}</strong>
                     </button>
                   </div>
-                  <button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span></button>
+                  <button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNotePhoto(null); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span>{maintenanceReports.length > 0 && <b className="driver-mobile-maintenance-note__count">{maintenanceReports.length}</b>}</button>
                 </div>
                 {tipsBreakdownOpen && <section id="driver-monthly-tips-breakdown" className="driver-mobile-tips-breakdown" aria-label={`Desglose diario de propinas de ${periodSummary.monthLabel}`}>
                   <header><strong>DESGLOSE DIARIO</strong><button type="button" aria-label="Cerrar desglose de propinas" onClick={() => setTipsBreakdownOpen(false)}><IconX size={14} /></button></header>
                   {(periodSummary.monthlyTipsByDay ?? []).length > 0 ? <div className="driver-mobile-tips-breakdown__rows">{periodSummary.monthlyTipsByDay.map(({ dateKey, amount }) => <div key={dateKey}><span>{formatDriverTipDate(dateKey)}</span><strong>{formatCurrency(amount)}</strong></div>)}</div> : <p>{periodSummary.monthlyTipsDailySource === "imported" ? "El total importado no incluye el detalle de cada día." : "Aún no hay propinas registradas por día."}</p>}
                   <footer><span>Total del mes</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></footer>
                 </section>}
-                {maintenanceNoteOpen && <form id="driver-maintenance-note" className="driver-mobile-maintenance-note" onSubmit={(event) => { event.preventDefault(); saveMaintenanceNote(maintenanceNoteDraft); setMaintenanceNoteOpen(false); }}><label htmlFor="driver-maintenance-note-input">Qué conviene hacer en la próxima revisión</label><textarea ref={maintenanceNoteInputRef} id="driver-maintenance-note-input" rows="3" value={maintenanceNoteDraft} onChange={(event) => setMaintenanceNoteDraft(event.target.value)} placeholder="Escribe aquí lo que debería revisarse o cambiarse en el coche…" /><div className="driver-mobile-maintenance-note__actions"><button type="button" className="secondary-button" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen(false); }}>Cancelar</button><button type="submit" className="primary-button"><IconCheck size={15} />Guardar</button></div></form>}
+                {maintenanceNoteOpen && <form id="driver-maintenance-note" className="driver-mobile-maintenance-note" onSubmit={submitMaintenanceReport}><label htmlFor="driver-maintenance-note-input">Qué conviene hacer en la próxima revisión</label><textarea ref={maintenanceNoteInputRef} id="driver-maintenance-note-input" rows="3" value={maintenanceNoteDraft} onChange={(event) => setMaintenanceNoteDraft(event.target.value)} placeholder="Escribe aquí lo que debería revisarse o cambiarse en el coche…" /><input ref={maintenanceNotePhotoInputRef} className="sr-only" type="file" accept="image/*" capture="environment" aria-label="Fotografiar incidencia de mantenimiento" onChange={handleMaintenanceNotePhoto} /><div className="driver-mobile-maintenance-note__photo-status">{maintenanceNotePhoto ? <><IconCamera size={14} /><span>{maintenanceNotePhoto.name}</span><button type="button" aria-label="Quitar fotografía de la incidencia" onClick={() => setMaintenanceNotePhoto(null)}><IconX size={13} /></button></> : <span>Añade una foto si la incidencia necesita prueba visual.</span>}</div><div className="driver-mobile-maintenance-note__actions"><button type="button" className="secondary-button" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNotePhoto(null); setMaintenanceNoteOpen(false); }}>Cancelar</button><button type="button" className="driver-mobile-maintenance-note__camera" onClick={chooseMaintenanceNotePhoto} disabled={maintenanceReportSaving}><IconCamera size={15} />Foto</button><button type="submit" className="primary-button" disabled={maintenanceReportSaving}><IconCheck size={15} />{maintenanceReportSaving ? "Guardando…" : "Guardar"}</button></div></form>}
               </div>
             </div>
           </article>
@@ -6679,11 +6821,140 @@ function MaintenanceSearch({ query, open, suggestions, onQueryChange, onOpenChan
   );
 }
 
-function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenanceSearchSelection, reportMonth = new Date().getMonth(), reportYear = new Date().getFullYear(), onReportMonthChange, onReportYearChange }) {
+function MaintenanceReportPhoto({ report }) {
+  const [state, setState] = useState({ status: "loading", url: "", message: "" });
+
+  useEffect(() => {
+    let active = true;
+    if (!report?.photoPath) {
+      setState({ status: "empty", url: "", message: "" });
+      return undefined;
+    }
+    setState({ status: "loading", url: "", message: "" });
+    createMaintenanceReportPhotoUrl(report.photoPath, 15 * 60)
+      .then((url) => { if (active) setState(url ? { status: "ready", url, message: "" } : { status: "error", url: "", message: "Foto no disponible." }); })
+      .catch((error) => { if (active) setState({ status: "error", url: "", message: error.message || "No se ha podido abrir la foto." }); });
+    return () => { active = false; };
+  }, [report?.photoPath]);
+
+  if (state.status === "loading") return <span className="maintenance-report-photo maintenance-report-photo--loading">Cargando foto…</span>;
+  if (state.status !== "ready") return <span className="maintenance-report-photo maintenance-report-photo--error">{state.message || "Sin foto"}</span>;
+  return <a className="maintenance-report-photo" href={state.url} target="_blank" rel="noreferrer" aria-label={`Abrir foto de la incidencia ${report.photoName || ""}`}><img src={state.url} alt={`Foto de incidencia de ${report.vehiclePlate}`} loading="lazy" /><span><IconCamera size={14} />Abrir foto</span></a>;
+}
+
+function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], onClose, onSave, onMarkReviewed }) {
+  const [note, setNote] = useState("");
+  const [photo, setPhoto] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const photoInputRef = useRef(null);
+  const driverNames = useMemo(() => new Map(driverProfiles.map((driver) => [driver.id, driver.full_name])), [driverProfiles]);
+  const sortedReports = [...reports].sort((left, right) => String(right.createdAt ?? "").localeCompare(String(left.createdAt ?? "")));
+  const pendingCount = sortedReports.filter((report) => report.status === "pending").length;
+
+  useEffect(() => {
+    const closeOnEscape = (event) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const choosePhoto = () => {
+    const input = photoInputRef.current;
+    if (!input) return;
+    input.value = "";
+    try {
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+        return;
+      }
+    } catch {
+      // Algunos navegadores móviles solo permiten abrir el selector con click().
+    }
+    input.click();
+  };
+
+  const handlePhoto = (event) => {
+    const nextFile = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!nextFile) return;
+    if (!String(nextFile.type ?? "").startsWith("image/")) {
+      setMessage("La incidencia solo admite fotografías.");
+      return;
+    }
+    if (nextFile.size > 8 * 1024 * 1024) {
+      setMessage("La foto debe ocupar como máximo 8 MB.");
+      return;
+    }
+    setMessage("");
+    setPhoto(nextFile);
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    setMessage("");
+    if (!note.trim() && !photo) {
+      setMessage("Escribe la incidencia o añade una foto antes de guardar.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave({ vehiclePlate: vehicle.plate, note, photoFile: photo });
+      setNote("");
+      setPhoto(null);
+    } catch (error) {
+      setMessage(error.message || "No se ha podido guardar el aviso.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const markReviewed = async (report) => {
+    try {
+      await onMarkReviewed?.(report.id, "reviewed");
+    } catch (error) {
+      setMessage(error.message || "No se ha podido actualizar el aviso.");
+    }
+  };
+
+  return <div className="maintenance-reports-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title">
+      <header className="maintenance-reports-dialog__header">
+        <div><span className="eyebrow">Avisos asociados a la matrícula</span><h2 id="maintenance-reports-dialog-title">Pendiente de revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></h2><p>{pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Se conservan también los avisos revisados.</p></div>
+        <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar avisos de mantenimiento"><IconX size={18} /></button>
+      </header>
+      <div className="maintenance-reports-dialog__list" aria-live="polite">
+        {sortedReports.length === 0 && <div className="empty-state"><IconTool size={23} /><strong>Sin incidencias archivadas</strong><span>Los avisos de los conductores aparecerán aquí.</span></div>}
+        {sortedReports.map((report) => <article className={`maintenance-report-card maintenance-report-card--${report.status}`} key={report.id}>
+          <header><div><strong>{driverNames.get(report.reporterId) || "Administrador"}</strong><time dateTime={report.createdAt}>{formatMaintenanceReportDate(report.createdAt)}</time></div><StatusBadge status={report.status === "pending" ? "Pendiente" : report.status === "resolved" ? "Resuelto" : "Revisado"} /></header>
+          {report.note && <p>{report.note}</p>}
+          {report.photoPath && <MaintenanceReportPhoto report={report} />}
+          {report.status === "pending" && <button type="button" className="maintenance-report-card__review" onClick={() => markReviewed(report)}><IconCheck size={14} />Marcar revisado</button>}
+        </article>)}
+      </div>
+      <form className="maintenance-reports-dialog__form" onSubmit={save}>
+        <div><strong>Añadir incidencia desde Administración</strong><small>Disponible para este coche, incluidos Lexus y Peugeot.</small></div>
+        <textarea value={note} onChange={(event) => setNote(event.target.value)} rows="3" placeholder="Describe qué debe revisarse, repararse o cambiarse…" aria-label="Nueva incidencia de mantenimiento" />
+        <input ref={photoInputRef} className="sr-only" type="file" accept="image/*" capture="environment" aria-label="Fotografiar incidencia desde Administración" onChange={handlePhoto} />
+        {photo && <div className="maintenance-reports-dialog__selected-file"><IconCamera size={14} /><span>{photo.name}</span><button type="button" onClick={() => setPhoto(null)} aria-label="Quitar foto seleccionada"><IconX size={13} /></button></div>}
+        {message && <p className="maintenance-reports-dialog__message" role="alert">{message}</p>}
+        <footer><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="maintenance-report-camera-button" onClick={choosePhoto} disabled={saving}><IconCamera size={16} />Foto</button><button type="submit" className="primary-button" disabled={saving}><IconCheck size={16} />{saving ? "Guardando…" : "Guardar aviso"}</button></footer>
+      </form>
+    </section>
+  </div>;
+}
+
+function formatMaintenanceReportDate(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return "Fecha pendiente";
+  return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date).replace(".", "");
+}
+
+function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed, reportMonth = new Date().getMonth(), reportYear = new Date().getFullYear(), onReportMonthChange, onReportYearChange }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
   const [periodMenu, setPeriodMenu] = useState("");
+  const [reportsPlate, setReportsPlate] = useState("");
   const longPressRef = useRef({ timer: null, triggered: false, startX: 0, startY: 0 });
   const pendingMaintenanceKeyRef = useRef("");
   const handledMaintenanceSearchRef = useRef("");
@@ -6803,14 +7074,19 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
           const brand = getVehicleBrand(vehicle);
           const latest = [...vehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a))[0];
           const isActive = vehicle.plate === workshopVehicle.plate;
+          const vehicleReports = maintenanceReports.filter((report) => report.vehiclePlate === vehicle.plate);
+          const pendingReports = vehicleReports.filter((report) => report.status === "pending").length;
           return (
-            <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} key={vehicle.plate} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
-              <span className="maintenance-vehicle-number">{index + 1}</span>
-              <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
-              <span className="maintenance-vehicle-identity"><small>{brand}</small><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" /><span>{vehicle.model}</span></span>
-              <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
-              <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
-            </button>
+            <div className="maintenance-vehicle-banner-row" key={vehicle.plate}>
+              <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
+                <span className="maintenance-vehicle-number">{index + 1}</span>
+                <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
+                <span className="maintenance-vehicle-identity"><small>{brand}</small><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" /><span>{vehicle.model}</span></span>
+                <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
+                <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
+              </button>
+              <button type="button" className={`maintenance-pending-review-button${pendingReports ? " has-pending" : ""}`} onClick={() => setReportsPlate(vehicle.plate)} aria-label={`Abrir pendientes de revisión de ${vehicle.plate}`}><IconAlertTriangle size={16} /><span>PENDIENTE DE REVISIÓN</span>{pendingReports > 0 && <b>{pendingReports}</b>}</button>
+            </div>
           );
         })}
       </nav>
@@ -6902,6 +7178,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
         </div>
         </div>
       </section>
+      {reportsPlate && <MaintenanceReportsDialog vehicle={vehicles.find((vehicle) => vehicle.plate === reportsPlate) ?? vehicles[0]} reports={maintenanceReports.filter((report) => report.vehiclePlate === reportsPlate)} driverProfiles={driverProfiles} onClose={() => setReportsPlate("")} onSave={onSaveMaintenanceReport} onMarkReviewed={onMarkMaintenanceReportReviewed} />}
     </section>
   );
 }

@@ -56,6 +56,7 @@ const safeFileName = (value = "documento") => String(value)
   .slice(0, 100) || "documento";
 
 const documentRecordColumns = "id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at";
+const maintenanceReportColumns = "id, reporter_id, vehicle_plate, note, photo_path, photo_name, photo_mime_type, photo_size, status, created_at, updated_at";
 
 const findDocumentByHash = async (ownerId, fileHash) => {
   if (!fileHash) return null;
@@ -143,6 +144,75 @@ export const deleteDocumentRecord = async (document) => {
     storageError = result.error ?? null;
   }
   return { deleted: true, storageError: storageError?.message || "" };
+};
+
+export const listMaintenanceReports = async ({ vehiclePlate = "", reporterId = "", limit = 500 } = {}) => {
+  if (!supabase) return { data: [], error: null };
+  let query = supabase
+    .from("maintenance_reports")
+    .select(maintenanceReportColumns)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (vehiclePlate) query = query.eq("vehicle_plate", vehiclePlate);
+  if (reporterId) query = query.eq("reporter_id", reporterId);
+  return query;
+};
+
+export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note = "", photoFile = null } = {}) => {
+  if (!supabase || !reporterId || !vehiclePlate) throw new Error("Falta la asociación del conductor o la matrícula.");
+  const trimmedNote = String(note ?? "").trim();
+  if (!trimmedNote && !photoFile) throw new Error("Escribe una incidencia o añade una fotografía.");
+
+  let photoPath = null;
+  if (photoFile) {
+    const pathPlate = safeFileName(vehiclePlate).toLowerCase() || "vehiculo";
+    photoPath = `${reporterId}/${pathPlate}/${Date.now()}-${safeFileName(photoFile.name || "incidencia.jpg")}`;
+    const { error: uploadError } = await supabase.storage
+      .from("maintenance-reports")
+      .upload(photoPath, photoFile, { contentType: photoFile.type || "image/jpeg", upsert: false });
+    if (uploadError) throw uploadError;
+  }
+
+  const { data, error } = await supabase
+    .from("maintenance_reports")
+    .insert({
+      reporter_id: reporterId,
+      vehicle_plate: vehiclePlate,
+      note: trimmedNote,
+      photo_path: photoPath,
+      photo_name: photoFile?.name || null,
+      photo_mime_type: photoFile?.type || null,
+      photo_size: photoFile?.size || 0,
+      status: "pending",
+      updated_at: new Date().toISOString(),
+    })
+    .select(maintenanceReportColumns)
+    .single();
+
+  if (error) {
+    if (photoPath) await supabase.storage.from("maintenance-reports").remove([photoPath]);
+    throw error;
+  }
+  return data;
+};
+
+export const createMaintenanceReportPhotoUrl = async (photoPath, expiresIn = 600) => {
+  if (!supabase || !photoPath) return "";
+  const { data, error } = await supabase.storage.from("maintenance-reports").createSignedUrl(photoPath, expiresIn);
+  if (error) throw error;
+  return data?.signedUrl ?? "";
+};
+
+export const updateMaintenanceReportStatus = async (reportId, status = "reviewed") => {
+  if (!supabase || !reportId) throw new Error("Aviso de mantenimiento no disponible.");
+  const { data, error } = await supabase
+    .from("maintenance_reports")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", reportId)
+    .select(maintenanceReportColumns)
+    .single();
+  if (error) throw error;
+  return data;
 };
 
 export const invokeAdminUsers = async (body) => {
