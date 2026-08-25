@@ -4382,7 +4382,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .maintenance-pending-review-button > b { min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 5px; border-radius: 999px; background: #d88513; color: #fff; font-size: 9px; line-height: 1; }
 .maintenance-pending-review-button:not(.has-pending) { background: #fffaf0; border-color: #f0d59a; }
 
-.maintenance-reports-dialog-backdrop { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10, 18, 15, .48); }
+.maintenance-reports-dialog-backdrop { position: fixed; z-index: 340; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10, 18, 15, .48); }
 .maintenance-reports-dialog { width: min(100%, 680px); max-height: min(90dvh, 760px); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; border: 1px solid #e1b353; border-radius: 18px; background: #fffdf8; box-shadow: 0 25px 80px rgba(10, 20, 14, .25); }
 .maintenance-reports-dialog__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 18px 20px 15px; border-bottom: 1px solid #f0dfb4; background: #fff7e5; }
 .maintenance-reports-dialog__header > div { min-width: 0; }
