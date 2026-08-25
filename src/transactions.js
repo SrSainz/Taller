@@ -84,6 +84,7 @@ export const operationsFromDocument = ({ category, fields = {}, recordType = "",
     operation("cash", values.cashCollected, { category: "cash" }),
     operation("tip", values.tips, { category: "tip" }),
     operation("toll", values.tolls, { category: "toll" }),
+    operation("refund", values.refunds || values.reimbursements, { category: "refund" }),
     operation("wash", values.washExpenses, { category: "wash" }),
     operation("miscellaneous", values.otherExpenses, { category: "miscellaneous" }),
   ].filter(Boolean);
@@ -94,13 +95,14 @@ export const transactionsToDriverEntries = (transactions = []) => {
   transactions.forEach((transaction) => {
     if (!transaction.driver_id || !transaction.occurred_on) return;
     const key = `${transaction.driver_id}:${transaction.occurred_on}`;
-    const row = rows.get(key) ?? { id: key, driver_id: transaction.driver_id, vehicle_plate: canonicalizeVehiclePlate(transaction.vehicle_plate), entry_date: transaction.occurred_on, billing: 0, cash_collected: 0, tips: 0, fuel_cost: 0, fuel_liters: 0, odometer_km: 0, tolls: 0, wash_expenses: 0, other_expenses: 0 };
+    const row = rows.get(key) ?? { id: key, driver_id: transaction.driver_id, vehicle_plate: canonicalizeVehiclePlate(transaction.vehicle_plate), entry_date: transaction.occurred_on, billing: 0, cash_collected: 0, tips: 0, fuel_cost: 0, fuel_liters: 0, odometer_km: 0, tolls: 0, refunds: 0, wash_expenses: 0, other_expenses: 0 };
     const amount = money(transaction.amount);
     if (transaction.type === "billing") row.billing += amount;
     if (transaction.type === "cash") row.cash_collected += amount;
     if (transaction.type === "tip") row.tips += amount;
     if (transaction.type === "fuel") { row.fuel_cost += amount; row.fuel_liters += money(transaction.metadata?.liters); }
     if (transaction.type === "toll") row.tolls += amount;
+    if (transaction.type === "refund") row.refunds += amount;
     if (transaction.type === "wash") row.wash_expenses += amount;
     if (transaction.type === "miscellaneous") row.other_expenses += amount;
     row.odometer_km = Math.max(row.odometer_km, money(transaction.metadata?.odometerKm));
@@ -109,7 +111,7 @@ export const transactionsToDriverEntries = (transactions = []) => {
   return [...rows.values()].sort((a, b) => b.entry_date.localeCompare(a.entry_date));
 };
 
-const driverEntryAmountKeys = ["billing", "cash_collected", "tips", "fuel_cost", "fuel_liters", "odometer_km", "tolls", "wash_expenses", "other_expenses"];
+const driverEntryAmountKeys = ["billing", "cash_collected", "tips", "fuel_cost", "fuel_liters", "odometer_km", "tolls", "refunds", "wash_expenses", "other_expenses"];
 
 export const mergeDriverEntries = (legacyEntries = [], centralEntries = []) => {
   const rows = new Map((legacyEntries ?? [])

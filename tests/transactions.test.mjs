@@ -16,6 +16,33 @@ test("facturación crea operaciones centrales para total, efectivo y propinas en
   ]);
 });
 
+test("la captura diaria conserva Precio neto y Reembolsos como conceptos independientes", () => {
+  const rows = operationsFromDocument({
+    category: "billing",
+    recordType: "billing_daily",
+    fields: { date: "2026-08-15", netAmount: 246.94, total: 247.94, tips: 1, refunds: 0.95, cashCollected: 151.3, vehicle: "5754 MJV" },
+    driverId: "driver-1",
+    fileHash: "daily-stats",
+  });
+  assert.deepEqual(rows.map(({ type, amount }) => ({ type, amount })), [
+    { type: "billing", amount: 246.94 },
+    { type: "cash", amount: 151.3 },
+    { type: "tip", amount: 1 },
+    { type: "refund", amount: 0.95 },
+  ]);
+  const entry = transactionsToDriverEntries(rows.map((operation, index) => ({
+    id: `daily-${index}`,
+    type: operation.type,
+    occurred_on: operation.date,
+    amount: operation.amount,
+    driver_id: operation.driverId,
+    vehicle_plate: operation.vehiclePlate,
+    metadata: operation.metadata,
+  })))[0];
+  assert.equal(entry.billing, 246.94);
+  assert.equal(entry.refunds, 0.95);
+});
+
 test("gasolina conserva fecha, vehículo, justificante y clave estable de duplicado", () => {
   const input = { category: "consumption", fields: { date: "2026-08-14", time: "19:42", ticketNumber: "R2602600017648", gasStation: "Plenergy Grupo, S.L.", cost: 72.4, consumption: 43.2, unit: "L" }, driverId: "driver-1", vehiclePlate: "5754 MJV", fileHash: "ticket" };
   const first = operationsFromDocument(input)[0];
