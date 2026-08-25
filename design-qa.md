@@ -74,8 +74,6 @@ passed
 - La segunda tarjeta muestra `Consumo semanal`, grafica la línea del conductor frente a la media del resto de conductores profesionales y comunica la diferencia en l/100 km.
 - Verificación final: ambas tarjetas, la tira histórica y la comparación aparecen en el DOM, no existe desbordamiento horizontal a 390 px y la consola permanece sin errores ni advertencias.
 
-final result: passed
-
 ## Iteracion actual: Administración, opción 2 — Administración Color
 
 - Source visual truth: `C:/Users/aiday/OneDrive/Escritorio/app david/.codex-remote-attachments/019fd3ce-9cc5-7010-89a4-15da8da4d73a/feb38903-db1c-4697-8280-ee073621eb9a/1-Photo-1.jpg`; selected state is the center composition, “Opción 2 — Administración Color”.
@@ -227,5 +225,42 @@ final result: passed
 ### Findings
 
 No quedan diferencias accionables P0, P1 o P2 en la ficha diaria. La diferencia de resolución de las capturas se debe al viewport disponible del navegador de validación; la composición se comprobó en escritorio y móvil.
+
+final result: passed
+
+## Iteración actual: desglose diario de Propinas
+
+### Evidencia
+
+- Fuente visual de referencia: `C:/Users/aiday/AppData/Local/Temp/codex-clipboard-9902e6dc-e0d9-466c-a6f6-35a3a1b79e63.png` (960 × 2079 px originales; la captura adjunta se muestra normalizada a 946 × 2048 px).
+- Implementación publicada: `https://talleria-flota.vercel.app/?release=driver-tips-2b9dd93#/administracion`.
+- Captura browser-rendered: `tmp/design-qa-driver-tips-daily-mobile.png` (560 × 700 px, CSS 560 × 700 px, densidad 1x), con la vista de Fernando y agosto de 2026.
+
+### Comparación
+
+- El importe acumulado de PROPINAS mantiene la tarjeta existente, pero ahora es un control pulsable y se muestra en mayúsculas, negrita y con mayor tamaño.
+- Al abrirlo aparece una superficie compacta de desglose diario dentro del mismo resumen, con fecha, importe y total mensual; se conserva Pendiente de mantenimiento a la derecha.
+- Se comprobó un registro real: `sáb, 22 ago · 2,50 €`, con total mensual de `2,50 €`.
+- Cuando el periodo solo tiene un resumen mensual importado sin fechas diarias, la interfaz lo comunica sin inventar una fecha.
+
+### Superficies de fidelidad
+
+- Tipografía: PROPINAS usa mayúsculas, peso 900 y tamaño superior; fechas e importes mantienen la jerarquía compacta de la tarjeta.
+- Espaciado y layout: el desglose se inserta debajo del importe, ocupa solo el ancho de su columna y no tapa los controles de captura ni la semana.
+- Colores y tokens: se conserva el verde de propinas y se usa un fondo verde muy claro para diferenciar el detalle sin romper la paleta azul principal.
+- Imágenes y assets: no se añadieron imágenes; se mantiene el icono existente de despliegue/cierre.
+- Copy: “PROPINAS”, “DESGLOSE DIARIO” y “Total del mes” son visibles y accesibles.
+
+### Interacciones verificadas
+
+- Pulsar el número de propinas abre el desglose.
+- Pulsar la X cierra el desglose.
+- Cambiar de mes cierra el detalle y recalcula el acumulado.
+- Un mes importado sin fechas muestra el estado informativo correspondiente.
+- Errores nuevos en producción: 0.
+
+### Findings
+
+No quedan diferencias accionables P0, P1 o P2 en la región modificada. La fuente visual corresponde al estado cerrado anterior; el panel abierto es el estado nuevo solicitado y se comprobó en móvil.
 
 final result: passed
