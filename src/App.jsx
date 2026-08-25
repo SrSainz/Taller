@@ -3833,6 +3833,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const targetDate = detectedDate ?? selectedDate;
     const cost = fieldNumber("cost", "total", "amount", "netAmount");
     const consumption = fieldNumber("consumption");
+    const consumptionCount = Math.max(1, Math.round(fieldNumber("consumptionCount") || (recordKey === "consumption" ? 1 : 0)));
     const dailyKm = fieldNumber("dailyKm");
     const odometerKm = fieldNumber("odometerKm");
     const billingAmounts = recordKey === "billing" ? getDriverBillingAmounts(fields) : null;
@@ -3859,6 +3860,7 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       warnings: reviewDocument.warnings ?? [],
       cost,
       consumption,
+      consumptionCount: recordKey === "consumption" ? consumptionCount : 0,
       dailyKm,
       odometerKm,
       billing,
@@ -7732,12 +7734,15 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
     const dateKeys = category === "billing" ? ["serviceDate", "issueDate", "date", "periodStart"] : ["date"];
     const hasDetectedDate = nextFields.some((field) => dateKeys.includes(field.key) && field.value);
     const isDriverBilling = category === "billing" && ["billing", "billing_daily"].includes(normalizeText(recordType));
+    const isDriverConsumption = category === "consumption" && ["consumption", "consumption rate", "consumption_rate", "consumo"].includes(normalizeText(recordType));
     const detectedDate = nextFields.find((field) => ["date", "serviceDate", "issueDate", "periodStart"].includes(field.key) && field.value)?.value;
     const fallbackDate = defaultDate && !hasDetectedDate ? defaultDate : "";
     const defaultDateKey = isDriverBilling || category === "consumption" ? "date" : "serviceDate";
-    if (!isDriverBilling && (!defaultDate || hasDetectedDate)) return nextFields;
+    const shouldApplyDateDefaults = isDriverBilling || Boolean(defaultDate && !hasDetectedDate);
+    if (!shouldApplyDateDefaults && !isDriverConsumption) return nextFields;
     return nextFields.map((field) => {
-      if (field.key === defaultDateKey && !field.value) return { ...field, value: detectedDate || fallbackDate };
+      if (shouldApplyDateDefaults && field.key === defaultDateKey && !field.value) return { ...field, value: detectedDate || fallbackDate };
+      if (isDriverConsumption && field.key === "consumptionCount" && (field.value === "" || field.value === null || field.value === undefined)) return { ...field, value: 1, confidence: 100 };
       return field;
     });
   }, [category, defaultDate, recordType]);
@@ -7828,19 +7833,24 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   const isDriverDailyKmReview = category === "consumption" && ["daily-km", "partial-1", "kilometraje diario", "km diarios"].includes(normalizedRecordType);
   const isDriverTotalKmReview = category === "consumption" && ["total-km", "total", "odometer", "odometro", "kilometraje total", "km acumulados"].includes(normalizedRecordType);
   const isDriverMileageReview = isDriverDailyKmReview || isDriverTotalKmReview;
+  const isDriverConsumptionReview = category === "consumption" && ["consumption", "consumption rate", "consumption_rate", "consumo"].includes(normalizedRecordType);
   const isDriverBillingReview = category === "billing" && ["billing", "billing_daily"].includes(normalizedRecordType);
   const driverBillingReviewLabels = { date: "Día", connection: "Conexión", trips: "Viajes", points: "Puntos", netAmount: "Precio neto", promotions: "Promociones", tips: "Propina", total: "Ganancias totales", refunds: "Reembolsos", cashCollected: "Efectivo cobrado" };
   const driverBillingReviewKeys = ["date", "connection", "trips", "points", "netAmount", "promotions", "tips", "total", "refunds", "cashCollected"];
   const driverMileageReviewKeys = isDriverDailyKmReview ? ["dailyKm", "vehicle"] : ["odometerKm", "vehicle"];
   const driverMileageReviewLabels = { dailyKm: "Kilometraje diario", odometerKm: "Kilómetros acumulados", vehicle: "Vehículo" };
+  const driverConsumptionReviewKeys = ["consumption", "vehicle", "consumptionCount"];
+  const driverConsumptionReviewLabels = { consumption: "Consumo registrado", vehicle: "Vehículo", consumptionCount: "Cantidad de consumos registrados en este día" };
   const reviewFields = isDriverFuelReview
     ? fields.filter((field) => field.key === "date" || field.key === "cost").map((field) => field.key === "cost" ? { ...field, label: "Importe total" } : field)
     : isDriverMileageReview
       ? driverMileageReviewKeys.map((key) => fields.find((field) => field.key === key)).filter(Boolean).map((field) => ({ ...field, label: driverMileageReviewLabels[field.key] ?? field.label }))
+    : isDriverConsumptionReview
+      ? driverConsumptionReviewKeys.map((key) => fields.find((field) => field.key === key)).filter(Boolean).map((field) => ({ ...field, label: driverConsumptionReviewLabels[field.key] ?? field.label }))
     : isDriverBillingReview
       ? driverBillingReviewKeys.map((key) => fields.find((field) => field.key === key)).filter(Boolean).map((field) => ({ ...field, label: driverBillingReviewLabels[field.key] ?? field.label }))
-      : fields.filter((field) => !["baseNetAmount", "promotions"].includes(field.key));
-  const workflowLabel = isDriverFuelReview ? "Repostaje" : isDriverDailyKmReview ? "Kilómetros diarios" : isDriverTotalKmReview ? "Kilómetros acumulados" : documentCategoryLabels[category];
+      : fields.filter((field) => !["baseNetAmount", "promotions", "consumptionCount"].includes(field.key));
+  const workflowLabel = isDriverFuelReview ? "Repostaje" : isDriverDailyKmReview ? "Kilómetros diarios" : isDriverTotalKmReview ? "Kilómetros acumulados" : isDriverConsumptionReview ? "Consumo registrado" : documentCategoryLabels[category];
   const lowConfidenceFields = reviewFields.filter((field) => field.confidence < 80);
   const overallConfidence = Math.round(Number(analysis?.overallConfidence) || (reviewFields.length ? reviewFields.reduce((total, field) => total + field.confidence, 0) / reviewFields.length : 0));
   const updateField = (key, value) => setFields((current) => {
@@ -7903,7 +7913,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   return (
     <div className="document-processing-workflow">
       <header className="document-processing-file">
-        <span className="document-processing-file__icon">{category === "billing" ? <IconFileInvoice size={20} /> : isDriverMileageReview ? <IconGauge size={20} /> : <IconGasStation size={20} />}</span>
+        <span className="document-processing-file__icon">{category === "billing" ? <IconFileInvoice size={20} /> : isDriverMileageReview ? <IconGauge size={20} /> : isDriverConsumptionReview ? <IconChartBar size={20} /> : <IconGasStation size={20} />}</span>
         <span><strong>{file.name}</strong><small>{workflowLabel} · {formatFileSize(file.size)} · {source === "camera" ? "Cámara" : "Selector del dispositivo"}</small></span>
       </header>
 
@@ -7938,7 +7948,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         </aside>
         <div className="document-review-fields">
           {lowConfidenceFields.length > 0 && <div className="document-review-warning" role="status"><IconAlertTriangle size={17} /><span><strong>Revisión necesaria</strong><small>Los campos marcados en ámbar tienen una confianza inferior al 80%.</small></span></div>}
-          <div className="document-review-heading"><div><h3>{isDriverFuelReview ? "Importe del repostaje" : isDriverDailyKmReview ? "Kilometraje diario" : isDriverTotalKmReview ? "Kilómetros acumulados" : isDriverBillingReview ? "Estadísticas del día" : "Datos clasificados"}</h3><p>{isDriverFuelReview ? "Comprueba la fecha y el importe total antes de archivarlo." : isDriverMileageReview ? "Comprueba el kilometraje y el vehículo antes de archivarlo." : isDriverBillingReview ? "Comprueba estos datos de la captura antes de archivarlos." : "Revisa y corrige antes de guardarlos en la aplicación."}</p></div><span className="document-review-confidence">{overallConfidence}% IA</span></div>
+          <div className="document-review-heading"><div><h3>{isDriverFuelReview ? "Importe del repostaje" : isDriverDailyKmReview ? "Kilometraje diario" : isDriverTotalKmReview ? "Kilómetros acumulados" : isDriverConsumptionReview ? "Consumo registrado" : isDriverBillingReview ? "Estadísticas del día" : "Datos clasificados"}</h3><p>{isDriverFuelReview ? "Comprueba la fecha y el importe total antes de archivarlo." : isDriverMileageReview ? "Comprueba el kilometraje y el vehículo antes de archivarlo." : isDriverConsumptionReview ? "Comprueba el consumo, el vehículo y la cantidad registrada para este día." : isDriverBillingReview ? "Comprueba estos datos de la captura antes de archivarlos." : "Revisa y corrige antes de guardarlos en la aplicación."}</p></div><span className="document-review-confidence">{overallConfidence}% IA</span></div>
           <div className="document-fields-grid">
             {reviewFields.map((field) => {
               const low = field.confidence < 80;

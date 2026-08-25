@@ -39,6 +39,7 @@ export const documentFieldDefinitions = {
     { key: "provider", label: "Gasolinera", type: "text", placeholder: "Estación de servicio" },
     { key: "invoiceNumber", label: "Número de ticket", type: "text", placeholder: "Número o referencia" },
     { key: "consumption", label: "Consumo registrado", type: "number", step: "0.01" },
+    { key: "consumptionCount", label: "Cantidad de consumos registrados en este día", type: "number", min: "1", step: "1" },
     { key: "dailyKm", label: "Kilómetros diarios", type: "number", step: "0.01" },
     { key: "odometerKm", label: "Kilometraje acumulado", type: "number", step: "1" },
     { key: "unit", label: "Unidad", type: "text", placeholder: "L, kWh..." },
