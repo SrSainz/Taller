@@ -1820,7 +1820,7 @@ export function App() {
     }, 0);
   }, []);
 
-  const applySession = useCallback(async (session) => {
+  const applySession = useCallback(async (session, { skipProfile = false } = {}) => {
     if (!session?.user) {
       setAuthState({
         loading: false,
@@ -1828,6 +1828,14 @@ export function App() {
         profile: null,
         error: null,
       });
+      return;
+    }
+    if (skipProfile) {
+      // Durante la recuperación solo necesitamos la sesión de Auth para
+      // actualizar la contraseña. Cargar profiles aquí puede fallar con un
+      // JWT de recuperación todavía no aceptado por PostgREST y provocar un
+      // cierre de sesión antes de mostrar el formulario.
+      setAuthState({ loading: false, session, profile: null, error: null });
       return;
     }
     const { data: profile, error } = await getProfile(session.user);
@@ -1846,9 +1854,12 @@ export function App() {
     }
     let mounted = true;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
+      const recoveryEvent = event === "PASSWORD_RECOVERY" || initialPasswordRecoveryIntent || isPasswordRecoveryLink();
+      if (recoveryEvent) setPasswordRecovery(true);
       if (event === "SIGNED_OUT") setPasswordRecovery(false);
-      window.setTimeout(() => { if (mounted) applySession(session); }, 0);
+      window.setTimeout(() => {
+        if (mounted) applySession(session, { skipProfile: recoveryEvent && Boolean(session) });
+      }, 0);
     });
     const loadSession = async () => {
       // El cliente de Supabase puede haber retirado ya el hash de la URL al
@@ -1884,6 +1895,8 @@ export function App() {
       }
       if (recoveryLink && session) {
         window.history.replaceState(null, "", passwordRecoveryPath);
+        await applySession(session, { skipProfile: true });
+        return;
       }
       const keepSignedIn = window.localStorage.getItem("sobre-ruedas:keep-signed-in") !== "false";
       const temporarySessionActive = window.sessionStorage.getItem("sobre-ruedas:temporary-session") === "active";
@@ -3043,6 +3056,11 @@ function PasswordRecoveryScreen({ onComplete }) {
       setFormError("No se ha podido actualizar la contraseña. Solicita un enlace nuevo e inténtalo otra vez.");
       return;
     }
+    // Deja el navegador en un estado limpio para que el usuario vuelva a
+    // entrar con la contraseña recién actualizada, sin reutilizar la sesión
+    // temporal del enlace de recuperación.
+    await clearLocalSupabaseSession();
+    window.history.replaceState(null, "", "/");
     onComplete();
   };
   return <main className="auth-screen"><section className="auth-panel auth-panel--password">
