@@ -4323,8 +4323,27 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-app--preview .driver-mobile-billing-target__labels span.is-end { transform: translateX(-100%); }
 .driver-mobile-month-summary__tips-layout { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
 .driver-mobile-month-summary__tips-value { min-width: 0; display: grid; gap: 3px; }
-.driver-mobile-month-summary__tips-value > span { color: #4b5870; font-size: 10px; font-weight: 750; }
-.driver-mobile-month-summary__tips-value > strong { color: #159b79; font-size: clamp(22px, 6vw, 30px); font-weight: 900; letter-spacing: -.04em; line-height: 1; white-space: nowrap; }
+.driver-mobile-month-summary__tips-trigger { min-width: 0; display: grid; justify-items: start; gap: 3px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.driver-mobile-month-summary__tips-trigger > span { display: inline-flex; align-items: center; gap: 4px; color: #4b5870; font-size: clamp(11px, 3.1vw, 14px); font-weight: 900; letter-spacing: .06em; line-height: 1; text-transform: uppercase; }
+.driver-mobile-month-summary__tips-trigger > span svg { flex: 0 0 auto; transition: transform .18s ease; }
+.driver-mobile-month-summary__tips-trigger[aria-expanded="true"] > span svg { transform: rotate(180deg); }
+.driver-mobile-month-summary__tips-trigger > strong { color: #159b79; font-size: clamp(24px, 6.5vw, 33px); font-weight: 900; letter-spacing: -.04em; line-height: 1; white-space: nowrap; }
+.driver-mobile-month-summary__tips-trigger:hover > span, .driver-mobile-month-summary__tips-trigger:focus-visible > span { color: #0f8064; }
+.driver-mobile-month-summary__tips-trigger:focus-visible { outline: 2px solid rgba(21,155,121,.28); outline-offset: 4px; border-radius: 5px; }
+.driver-mobile-tips-breakdown { display: grid; gap: 6px; margin-top: 8px; padding: 8px; border: 1px solid #b9ded2; border-radius: 9px; background: #f4fcf9; }
+.driver-mobile-tips-breakdown > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.driver-mobile-tips-breakdown > header strong { color: #14765f; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
+.driver-mobile-tips-breakdown > header button { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 1px solid #b9ded2; border-radius: 6px; background: #fff; color: #14765f; cursor: pointer; }
+.driver-mobile-tips-breakdown > header button:hover, .driver-mobile-tips-breakdown > header button:focus-visible { border-color: #159b79; background: #e9f8f2; outline: 0; }
+.driver-mobile-tips-breakdown__rows { display: grid; gap: 3px; max-height: 170px; overflow-y: auto; padding-right: 2px; scrollbar-width: thin; }
+.driver-mobile-tips-breakdown__rows > div, .driver-mobile-tips-breakdown > footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding: 5px 6px; border-radius: 6px; background: #fff; }
+.driver-mobile-tips-breakdown__rows > div { border: 1px solid #dcefe8; }
+.driver-mobile-tips-breakdown__rows span, .driver-mobile-tips-breakdown > footer span { min-width: 0; overflow: hidden; color: #4b6d63; font-size: 9px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-tips-breakdown__rows strong, .driver-mobile-tips-breakdown > footer strong { flex: 0 0 auto; color: #14765f; font-size: 10px; font-weight: 900; white-space: nowrap; }
+.driver-mobile-tips-breakdown > p { margin: 0; color: #5a776e; font-size: 9px; line-height: 1.35; }
+.driver-mobile-tips-breakdown > footer { padding: 6px; border-top: 1px solid #b9ded2; border-radius: 0; background: transparent; }
+.driver-mobile-tips-breakdown > footer span { color: #315b50; font-weight: 900; }
+.driver-mobile-tips-breakdown > footer strong { font-size: 11px; }
 .driver-mobile-maintenance-note__trigger { min-width: 0; display: inline-flex; flex: 0 1 auto; align-items: center; justify-content: center; gap: 5px; min-height: 32px; padding: 6px 9px; border: 1px solid #efc267; border-radius: 8px; background: #fff8e8; color: #9a5d04; font: inherit; font-size: 9px; font-weight: 850; line-height: 1.1; text-align: center; cursor: pointer; }
 .driver-mobile-maintenance-note__trigger:hover, .driver-mobile-maintenance-note__trigger:focus-visible { border-color: #d99518; background: #fff1c9; outline: 0; box-shadow: 0 0 0 3px rgba(242,166,42,.16); }
 .driver-mobile-maintenance-note__trigger span { min-width: 0; color: inherit; font-size: inherit; font-weight: inherit; line-height: inherit; }
@@ -4336,11 +4355,13 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-maintenance-note__actions button { min-height: 28px; display: inline-flex; align-items: center; gap: 4px; padding: 0 9px; font-size: 9px; }
 .driver-mobile-maintenance-note__actions .primary-button { background: #9a5d04; }
 .driver-app--preview .driver-mobile-month-summary__tips-layout { align-items: center; }
-.driver-app--preview .driver-mobile-month-summary__tips-value > span { font-size: 8px; }
-.driver-app--preview .driver-mobile-month-summary__tips-value > strong { font-size: clamp(18px, 5vw, 24px); }
+.driver-app--preview .driver-mobile-month-summary__tips-trigger > span { font-size: 8px; }
+.driver-app--preview .driver-mobile-month-summary__tips-trigger > strong { font-size: clamp(18px, 5vw, 24px); }
 .driver-app--preview .driver-mobile-maintenance-note__trigger { min-height: 30px; padding: 5px 8px; font-size: 8px; }
 @media (max-width: 380px) {
   .driver-mobile-month-summary__tips-layout { gap: 7px; }
+  .driver-mobile-month-summary__tips-trigger > span { font-size: 9px; }
+  .driver-mobile-month-summary__tips-trigger > strong { font-size: 23px; }
   .driver-mobile-maintenance-note__trigger { padding-inline: 7px; font-size: 8px; }
 }
 

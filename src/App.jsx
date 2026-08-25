@@ -977,6 +977,12 @@ const formatDriverDateLong = (value) => {
   const parts = getDriverDayParts(value);
   return `${parts.weekday} ${parts.day} de ${parts.month}`;
 };
+const formatDriverTipDate = (value) => {
+  if (value === "undated") return "Fecha pendiente";
+  const date = parseDriverDateKey(value);
+  if (!date) return "Fecha pendiente";
+  return new Intl.DateTimeFormat("es-ES", { weekday: "short", day: "numeric", month: "short" }).format(date).replace(/\./g, "");
+};
 const formatDriverMonthLong = (value) => {
   const date = parseDriverDateKey(value) ?? new Date();
   return new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(date).replace(/\./g, "");
@@ -996,6 +1002,22 @@ const getDriverDocumentDateKey = (document) => {
   return [extracted.date, extracted.entryDate, extracted.invoiceDate, extracted.serviceDate, extracted.documentDate, extracted.fecha, document?.document_date, document?.created_at]
     .map(normalizeDriverDocumentDate)
     .find(Boolean) ?? null;
+};
+const buildDriverTipDayRows = (records = []) => {
+  const totals = new Map();
+  records.forEach(({ dateKey, amount }) => {
+    const numericAmount = getDriverDocumentNumber(amount);
+    if (numericAmount <= 0) return;
+    const normalizedDate = normalizeDriverDocumentDate(dateKey) ?? "undated";
+    totals.set(normalizedDate, (totals.get(normalizedDate) ?? 0) + numericAmount);
+  });
+  return [...totals.entries()]
+    .map(([dateKey, amount]) => ({ dateKey, amount: Number(amount.toFixed(2)) }))
+    .sort((left, right) => {
+      if (left.dateKey === "undated") return 1;
+      if (right.dateKey === "undated") return -1;
+      return right.dateKey.localeCompare(left.dateKey);
+    });
 };
 const getDriverFormValue = (value) => value === null || value === undefined ? "" : String(value);
 const getDriverEntryForm = (date, item) => ({
@@ -3355,6 +3377,10 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const importedMonthlyTips = importedTipsByPeriod?.[monthKey] ?? 0;
     const monthlyBilling = hasDocumentedMonthlyBilling ? documentedMonthlyBilling : recordedMonthlyBilling > 0 ? recordedMonthlyBilling : importedMonthlyBilling;
     const monthlyTips = hasDocumentedMonthlyBilling ? documentedMonthlyTips : recordedMonthlyTips > 0 ? recordedMonthlyTips : importedMonthlyTips;
+    const documentedTipDays = buildDriverTipDayRows(billingDocuments.map((stats) => ({ dateKey: stats.dateKey, amount: stats.tips })));
+    const recordedTipDays = buildDriverTipDayRows(monthEntries.map((item) => ({ dateKey: item.entry_date, amount: getDriverEntryAmount(item, "tips") })));
+    const monthlyTipsByDay = hasDocumentedMonthlyBilling ? documentedTipDays : recordedMonthlyTips > 0 ? recordedTipDays : [];
+    const monthlyTipsDailySource = hasDocumentedMonthlyBilling ? "document" : recordedMonthlyTips > 0 ? "entry" : importedMonthlyTips > 0 ? "imported" : "none";
     const billingGoal = getDriverBillingGoal(profile.full_name);
     const billingScaleMax = 9000;
     const billingMilestones = [5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000];
@@ -3374,6 +3400,8 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       weekLabel: `${periodFormatter.format(weekStart)} · ${periodFormatter.format(weekEndLabel)}`.replace(/\./g, ""),
       monthlyBilling,
       monthlyTips,
+      monthlyTipsByDay,
+      monthlyTipsDailySource,
       monthlyRefunds: total(monthEntries, "refunds"),
       monthlyOther: total(monthEntries, "other_expenses") + monthlyWash,
       tipsProgress: monthlyBilling > 0 ? Math.min(100, (monthlyTips / monthlyBilling) * 100) : 0,
@@ -4081,6 +4109,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const weeklyLongPressTimerRef = useRef(null);
   const [maintenanceNoteOpen, setMaintenanceNoteOpen] = useState(false);
   const [maintenanceNoteDraft, setMaintenanceNoteDraft] = useState(maintenanceNote ?? "");
+  const [tipsBreakdownOpen, setTipsBreakdownOpen] = useState(false);
   const maintenanceNoteInputRef = useRef(null);
   const driverAvatarPath = getDriverAvatarPath(profile.full_name);
   const driverAvatarInitials = String(profile.full_name ?? "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
@@ -4304,6 +4333,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
     };
   }, [maintenanceNoteOpen]);
 
+  useEffect(() => {
+    setTipsBreakdownOpen(false);
+  }, [driverPeriodMonth, driverPeriodYear]);
+
   return (
     <main className={`driver-app driver-mobile-app driver-mobile-app--updated ${preview ? "driver-app--preview" : "driver-app--live"}`}>
       <header className="driver-mobile-topbar">
@@ -4325,7 +4358,23 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
             <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{(vehicle?.owner?.dni ?? "").replaceAll("-", "")}</b></span></div>
             <div className="driver-mobile-month-summary__columns">
               <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--billing"><DriverBillingTarget periodSummary={periodSummary} /></div>
-              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--tips"><div className="driver-mobile-month-summary__tips-layout"><div className="driver-mobile-month-summary__tips-value"><span>Propinas</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></div><button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span></button></div>{maintenanceNoteOpen && <form id="driver-maintenance-note" className="driver-mobile-maintenance-note" onSubmit={(event) => { event.preventDefault(); saveMaintenanceNote(maintenanceNoteDraft); setMaintenanceNoteOpen(false); }}><label htmlFor="driver-maintenance-note-input">Qué conviene hacer en la próxima revisión</label><textarea ref={maintenanceNoteInputRef} id="driver-maintenance-note-input" rows="3" value={maintenanceNoteDraft} onChange={(event) => setMaintenanceNoteDraft(event.target.value)} placeholder="Escribe aquí lo que debería revisarse o cambiarse en el coche…" /><div className="driver-mobile-maintenance-note__actions"><button type="button" className="secondary-button" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen(false); }}>Cancelar</button><button type="submit" className="primary-button"><IconCheck size={15} />Guardar</button></div></form>}</div>
+              <div className="driver-mobile-month-summary__metric driver-mobile-month-summary__metric--tips">
+                <div className="driver-mobile-month-summary__tips-layout">
+                  <div className="driver-mobile-month-summary__tips-value">
+                    <button type="button" className="driver-mobile-month-summary__tips-trigger" aria-expanded={tipsBreakdownOpen} aria-controls="driver-monthly-tips-breakdown" aria-label={`Ver días de propinas de ${periodSummary.monthLabel}`} onClick={() => setTipsBreakdownOpen((current) => !current)}>
+                      <span>PROPINAS <IconChevronDown size={13} aria-hidden="true" /></span>
+                      <strong>{formatCurrency(periodSummary.monthlyTips)}</strong>
+                    </button>
+                  </div>
+                  <button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span></button>
+                </div>
+                {tipsBreakdownOpen && <section id="driver-monthly-tips-breakdown" className="driver-mobile-tips-breakdown" aria-label={`Desglose diario de propinas de ${periodSummary.monthLabel}`}>
+                  <header><strong>DESGLOSE DIARIO</strong><button type="button" aria-label="Cerrar desglose de propinas" onClick={() => setTipsBreakdownOpen(false)}><IconX size={14} /></button></header>
+                  {(periodSummary.monthlyTipsByDay ?? []).length > 0 ? <div className="driver-mobile-tips-breakdown__rows">{periodSummary.monthlyTipsByDay.map(({ dateKey, amount }) => <div key={dateKey}><span>{formatDriverTipDate(dateKey)}</span><strong>{formatCurrency(amount)}</strong></div>)}</div> : <p>{periodSummary.monthlyTipsDailySource === "imported" ? "El total importado no incluye el detalle de cada día." : "Aún no hay propinas registradas por día."}</p>}
+                  <footer><span>Total del mes</span><strong>{formatCurrency(periodSummary.monthlyTips)}</strong></footer>
+                </section>}
+                {maintenanceNoteOpen && <form id="driver-maintenance-note" className="driver-mobile-maintenance-note" onSubmit={(event) => { event.preventDefault(); saveMaintenanceNote(maintenanceNoteDraft); setMaintenanceNoteOpen(false); }}><label htmlFor="driver-maintenance-note-input">Qué conviene hacer en la próxima revisión</label><textarea ref={maintenanceNoteInputRef} id="driver-maintenance-note-input" rows="3" value={maintenanceNoteDraft} onChange={(event) => setMaintenanceNoteDraft(event.target.value)} placeholder="Escribe aquí lo que debería revisarse o cambiarse en el coche…" /><div className="driver-mobile-maintenance-note__actions"><button type="button" className="secondary-button" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNoteOpen(false); }}>Cancelar</button><button type="submit" className="primary-button"><IconCheck size={15} />Guardar</button></div></form>}
+              </div>
             </div>
           </article>
         </section>
