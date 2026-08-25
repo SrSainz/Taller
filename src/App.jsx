@@ -7955,7 +7955,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
               const value = field.value ?? "";
               return <label className={`document-field${low ? " document-field--low-confidence" : ""}`} key={field.key}>
                 <span><strong>{field.label}</strong><small>{field.confidence}%{low ? " · Revisar" : ""}</small></span>
-                {field.suffix ? <div className="document-field__input"><input type={field.type} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => updateField(field.key, event.target.value)} /><i>{field.suffix}</i></div> : <input type={field.type} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => updateField(field.key, event.target.value)} />}
+                {field.suffix ? <div className="document-field__input"><input type={field.type} min={field.min} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => updateField(field.key, event.target.value)} /><i>{field.suffix}</i></div> : <input type={field.type} min={field.min} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => updateField(field.key, event.target.value)} />}
               </label>;
             })}
           </div>
