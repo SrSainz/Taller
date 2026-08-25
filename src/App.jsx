@@ -1088,7 +1088,7 @@ const getDriverBillingDocumentStats = (document) => {
     total,
     refunds: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["refunds", "reimbursements", "reembolsos"])),
     cashCollected: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["cashCollected", "cash_collected", "cash", "efectivo"])),
-    hasBillingAmount: netValue !== "" || totalValue !== "" || getDriverDocumentFieldValue(fields, ["billing", "amount"]) !== "",
+    hasBillingAmount: billingAmounts.hasNetAmount || hasComputedNetAmount || totalValue !== "" || getDriverDocumentFieldValue(fields, ["billing", "amount"]) !== "",
   };
 };
 const isDriverBillingDocument = (document) => {
