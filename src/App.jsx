@@ -4317,7 +4317,12 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   const currentWeekPage = driverWeekPages.find((page) => page.offset === 0) ?? driverWeekPages[1];
   const weekLabel = currentWeekPage?.days?.[0]?.date ? new Intl.DateTimeFormat("es-ES", { day: "numeric" }).format(currentWeekPage.days[0].date) : "";
   const editableWeeklyRows = new Set(["cash", "fuel", "refunds", "wash", "other"]);
-  const formatWeeklyAmount = (value) => (Number(value) || 0).toLocaleString("es-ES", { maximumFractionDigits: 0 });
+  const formatWeeklyAmount = (value) => {
+    const numericValue = Number(value) || 0;
+    return numericValue === 0
+      ? "0"
+      : numericValue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
   const clearWeeklyLongPress = () => {
     if (weeklyLongPressTimerRef.current === null) return;
     window.clearTimeout(weeklyLongPressTimerRef.current);
