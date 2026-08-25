@@ -3273,6 +3273,7 @@ function AccessBlockedScreen({ onSignOut }) {
 
 function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = false, preview = false, onExitPreview }) {
   const activeProfileId = profile.id ?? session.user.id;
+  const canQueryDriverData = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(activeProfileId));
   const [selectedDate, setSelectedDate] = useState(getDriverDateKey());
   const [entry, setEntry] = useState(() => getDriverEntryForm(getDriverDateKey()));
   const [entries, setEntries] = useState([]);
@@ -3322,7 +3323,7 @@ function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = fals
 
   useEffect(() => {
     let mounted = true;
-    if (!supabase || !activeProfileId || !profileVehiclePlate) {
+    if (!supabase || !activeProfileId || !profileVehiclePlate || !canQueryDriverData) {
       setMaintenanceReports([]);
       return undefined;
     }
@@ -3340,7 +3341,7 @@ function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = fals
       })
       .catch((error) => { if (mounted) setMessage(`No se han podido cargar los avisos de mantenimiento: ${error.message}`); });
     return () => { mounted = false; };
-  }, [activeProfileId, profileVehiclePlate]);
+  }, [activeProfileId, profileVehiclePlate, canQueryDriverData]);
 
   useEffect(() => {
     if (!activeProfileId || typeof window === "undefined") return;
@@ -3358,7 +3359,12 @@ function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = fals
 
   useEffect(() => {
     let mounted = true;
-    if (!supabase) return undefined;
+    if (!supabase || !canQueryDriverData) {
+      setEntries([]);
+      setDocuments([]);
+      setDocumentsLoading(false);
+      return undefined;
+    }
     Promise.all([
       supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
       supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, document_date, extracted_data, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(180),
@@ -3371,7 +3377,7 @@ function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = fals
       setDocumentsLoading(false);
     }).catch((error) => { if (mounted) { setMessage(error.message); setDocumentsLoading(false); } });
     return () => { mounted = false; };
-  }, [activeProfileId]);
+  }, [activeProfileId, canQueryDriverData]);
 
   useEffect(() => {
     const selectedEntry = entries.find((item) => String(item.entry_date) === selectedDate);
