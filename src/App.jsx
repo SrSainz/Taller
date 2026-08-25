@@ -4635,6 +4635,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
         {driverNoticeOpen && <aside className="driver-mobile-topbar__popover driver-mobile-topbar__popover--notice" role="status"><IconBell size={16} /><span><strong>Notificaciones</strong><small>No hay avisos nuevos.</small></span></aside>}
       </header>
       <div className="driver-mobile-body">
+        {!preview && !isStandalone && <div className="driver-mobile-install-card"><div className="driver-mobile-install-card__copy"><IconDownload size={17} /><span><strong>Instala SOBRE RUEDAS</strong><small>Ábrela desde el icono de la rueda sin buscar el enlace.</small></span></div><button type="button" onClick={() => void onInstall?.(setMessage)}>Instalar aplicación</button></div>}
         {message && <div className="driver-mobile-message" role="status">{message}</div>}
         <input ref={circleFileInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Elegir cámara o archivo para el registro" onChange={handleCircleFile} />
         <section ref={homeRef} className="driver-mobile-section driver-mobile-section--home" aria-label="Resumen del conductor">

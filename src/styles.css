@@ -3645,6 +3645,14 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-app--preview .driver-mobile-topbar__plate { font-size: clamp(13px, 3.9vw, 17px); letter-spacing: .045em; }
 .driver-mobile-body { display: grid; gap: 14px; min-height: calc(100dvh - 56px); padding: 14px 12px 92px; }
 .driver-app--preview .driver-mobile-body { min-height: calc(100dvh - 42px); padding-bottom: 24px; }
+.driver-mobile-install-card { display: flex; align-items: center; justify-content: space-between; gap: 9px; padding: 8px 10px; border: 1px solid #c9dcf2; border-radius: 11px; background: #eef6ff; color: #174888; }
+.driver-mobile-install-card__copy { min-width: 0; display: flex; align-items: center; gap: 8px; }
+.driver-mobile-install-card__copy > svg { flex: 0 0 auto; color: #286ee7; }
+.driver-mobile-install-card__copy span { min-width: 0; display: grid; gap: 2px; }
+.driver-mobile-install-card__copy strong { font-size: 10px; line-height: 1.1; }
+.driver-mobile-install-card__copy small { color: #5b7294; font-size: 8px; line-height: 1.25; }
+.driver-mobile-install-card > button { flex: 0 0 auto; min-height: 31px; padding: 6px 9px; border: 1px solid #286ee7; border-radius: 8px; background: #286ee7; color: #fff; font: inherit; font-size: 9px; font-weight: 850; cursor: pointer; }
+.driver-mobile-install-card > button:hover, .driver-mobile-install-card > button:focus-visible { background: #1d55ad; outline: 0; }
 .driver-mobile-message { padding: 8px 10px; border: 1px solid #b8d0ee; border-radius: 9px; background: #eff6ff; color: #164888; font-size: 9px; font-weight: 650; }
 .driver-mobile-section { min-width: 0; scroll-margin-top: 64px; }
 .driver-mobile-month-summary { overflow: hidden; padding: 10px 9px 12px; border-radius: 0 0 15px 15px; background: #092e68; box-shadow: 0 8px 17px rgba(18, 43, 83, .14); }
