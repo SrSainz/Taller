@@ -6966,11 +6966,6 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
     const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
     return { item, invoice, details, key: getMaintenanceRecordKey(item, index) };
   });
-  const periodMaintenanceRecords = maintenanceRecords.filter((record) => {
-    const date = new Date(getMaintenanceDateValue(record.item));
-    return date.getUTCFullYear() === reportYear && date.getUTCMonth() === reportMonth;
-  });
-  const maintenanceTotal = periodMaintenanceRecords.reduce((total, record) => total + (Number(record.invoice?.amount ?? record.item.amount) || 0), 0);
   useEffect(() => {
     setWorkshopPlate(initialPlate);
   }, [initialPlate]);
@@ -7097,7 +7092,6 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
             <span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt="" /></span>
             <span><h2><VehiclePlateLabel vehicleOrPlate={workshopVehicle} className="maintenance-history-plate" /></h2></span>
           </div>
-          <div className="maintenance-history-total" aria-label={`Gasto de mantenimiento de ${workshopVehicle.plate} en ${reportMonths[reportMonth]} de ${reportYear}`}><small>Gasto del periodo</small><strong>{formatCurrency(maintenanceTotal)}</strong><small>{periodMaintenanceRecords.length ? `${periodMaintenanceRecords.length} intervenciones · ${reportMonths[reportMonth]} ${reportYear}` : `Sin intervenciones en ${reportMonths[reportMonth]} ${reportYear}`}</small></div>
           <div className="maintenance-history-period" role="group" aria-label="Periodo de Mantenimiento">
             <span>PERIODO</span>
             <div className="maintenance-period-controls">
