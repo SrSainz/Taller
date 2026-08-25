@@ -4572,7 +4572,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, profile, ve
   return (
     <main className={`driver-app driver-mobile-app driver-mobile-app--updated ${preview ? "driver-app--preview" : "driver-app--live"}`}>
       <header className="driver-mobile-topbar">
-        <button type="button" className="driver-mobile-topbar__back" onClick={preview ? onExitPreview : onSignOut} aria-label={preview ? "Volver a administración" : "Cerrar sesión"} title={preview ? "Volver a administración" : "Cerrar sesión"}><IconChevronLeft size={24} /></button>
+        {preview && <button type="button" className="driver-mobile-topbar__back" onClick={onExitPreview} aria-label="Volver a administración" title="Volver a administración"><IconChevronLeft size={24} /></button>}
         <div className="driver-mobile-topbar__title"><span className="driver-mobile-topbar__avatar" aria-hidden="true">{driverAvatarPath ? <img src={driverAvatarPath} alt="" /> : <span>{driverAvatarInitials}</span>}</span><span className="driver-mobile-topbar__identity"><strong>{profile.full_name.toUpperCase()}</strong><span className="driver-mobile-topbar__vehicle"><VehiclePlateLabel vehicleOrPlate={vehicle?.plate ?? profileVehiclePlate} className="driver-mobile-topbar__plate" />{vehicle?.owner?.dni && <small>{String(vehicle.owner.dni).replaceAll("-", "")}</small>}</span></span></div>
         {driverMenuOpen && <aside className="driver-mobile-topbar__popover driver-mobile-topbar__popover--menu" aria-label="Menú del conductor">
           <button type="button" onClick={() => scrollTo("home", homeRef)}><IconHome size={16} />Inicio</button>
