@@ -15,7 +15,9 @@ export const documentFieldDefinitions = {
     { key: "taxBase", label: "Base imponible", type: "number", suffix: "€", step: "0.01" },
     { key: "vat", label: "IVA", type: "number", suffix: "€", step: "0.01" },
     { key: "total", label: "Total", type: "number", suffix: "€", step: "0.01" },
+    { key: "baseNetAmount", label: "Precio neto antes de promociones", type: "number", suffix: "€", step: "0.01" },
     { key: "netAmount", label: "Importe neto", type: "number", suffix: "€", step: "0.01" },
+    { key: "promotions", label: "Promociones", type: "number", suffix: "€", step: "0.01" },
     { key: "cashCollected", label: "Efectivo cobrado", type: "number", suffix: "€", step: "0.01" },
     { key: "tips", label: "Propinas", type: "number", suffix: "€", step: "0.01" },
     { key: "connection", label: "Conexión", type: "text", placeholder: "9 h 21 m" },
@@ -111,6 +113,55 @@ export const normalizeDocumentAnalysis = (category, analysis, defaultVehicle = "
       value: rawValue === null || rawValue === undefined || rawValue === "" ? fallbackValue : rawValue,
       confidence: clampConfidence(extracted?.confidence ?? analysis?.confidence?.[definition.key]),
     };
+  });
+};
+
+const parseAmount = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const raw = String(value ?? "").replace(/[^\d,.-]/g, "").trim();
+  if (!raw) return 0;
+  const normalized = raw.includes(",") && raw.includes(".") ? raw.replace(/\./g, "").replace(",", ".") : raw.replace(",", ".");
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : 0;
+};
+
+const roundedAmount = (value) => Number(parseAmount(value).toFixed(2));
+
+const getFieldMap = (fields = {}) => Array.isArray(fields)
+  ? Object.fromEntries(fields.map((field) => [field.key, field.value]))
+  : fields;
+
+const getField = (fields, keys = []) => {
+  const map = getFieldMap(fields);
+  for (const key of keys) {
+    const value = map?.[key] && typeof map[key] === "object" && "value" in map[key] ? map[key].value : map?.[key];
+    if (value !== null && value !== undefined && String(value).trim() !== "") return value;
+  }
+  return "";
+};
+
+export const getDriverBillingAmounts = (fields = {}) => {
+  const rawNetAmount = getField(fields, ["netAmount"]);
+  const rawBaseNetAmount = getField(fields, ["baseNetAmount"]);
+  const rawPromotions = getField(fields, ["promotions", "promotion", "bonuses", "bonus"]);
+  const hasNetAmount = rawNetAmount !== "";
+  const hasBaseNetAmount = rawBaseNetAmount !== "";
+  const hasPromotions = rawPromotions !== "";
+  const baseNetAmount = roundedAmount(hasBaseNetAmount ? rawBaseNetAmount : rawNetAmount);
+  const promotions = roundedAmount(rawPromotions);
+  const netAmount = Number((baseNetAmount + (hasBaseNetAmount || hasPromotions ? promotions : 0)).toFixed(2));
+  return { baseNetAmount, promotions, netAmount, hasNetAmount, hasBaseNetAmount, hasPromotions };
+};
+
+export const normalizeDriverBillingAnalysisFields = (fields = []) => {
+  const amounts = getDriverBillingAmounts(fields);
+  if (!amounts.hasBaseNetAmount && !amounts.hasPromotions) return fields;
+  const tips = roundedAmount(getField(fields, ["tips", "tip"]));
+  return fields.map((field) => {
+    if (field.key === "baseNetAmount") return { ...field, value: amounts.baseNetAmount };
+    if (field.key === "netAmount") return { ...field, value: amounts.netAmount };
+    if (field.key === "total") return { ...field, value: Number((amounts.netAmount + tips).toFixed(2)) };
+    return field;
   });
 };
 

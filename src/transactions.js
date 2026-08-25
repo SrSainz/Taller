@@ -1,4 +1,5 @@
 import { canonicalizeVehiclePlate } from "./data/vehicleRegistry.js";
+import { getDriverBillingAmounts } from "./documentAnalysis.js";
 
 const parseNumeric = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -65,16 +66,19 @@ export const operationsFromDocument = ({ category, fields = {}, recordType = "",
     })].filter(Boolean);
   }
   const primaryType = isMaintenanceDocument ? "maintenance" : "billing";
+  const driverBillingAmounts = isDriverBilling ? getDriverBillingAmounts(values) : null;
   const primaryAmount = isDriverBilling
-    ? firstPresent("netAmount", "total", "amount")
+    ? driverBillingAmounts.netAmount || firstPresent("total", "amount")
     : firstPresent("total", "netAmount", "amount");
   const driverBillingMetadata = isDriverBilling ? {
     recordType: normalizedRecordType,
     connection: values.connection || "",
     trips: money(values.trips),
     points: money(values.points),
-    netAmount: money(values.netAmount),
-    earningsTotal: money(values.total || values.earningsTotal),
+    baseNetAmount: driverBillingAmounts.baseNetAmount,
+    netAmount: driverBillingAmounts.netAmount,
+    promotions: driverBillingAmounts.promotions,
+    earningsTotal: money(values.total || values.earningsTotal) || Number((driverBillingAmounts.netAmount + money(values.tips)).toFixed(2)),
     refunds: money(values.refunds || values.reimbursements),
     tips: money(values.tips),
     cashCollected: parseNumeric(values.cashCollected),

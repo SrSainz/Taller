@@ -60,6 +60,8 @@ import {
   documentMaxRequestSize,
   fieldsToRecord,
   formatFileSize,
+  getDriverBillingAmounts,
+  normalizeDriverBillingAnalysisFields,
   normalizeDocumentAnalysis,
   prepareDocumentFile,
   readFileAsDataUrl,
@@ -1064,21 +1066,24 @@ const getDriverDocumentFieldValue = (fields = {}, keys = []) => {
 };
 const getDriverBillingDocumentStats = (document) => {
   const fields = getExtractedDocumentFields(document);
-  const netValue = getDriverDocumentFieldValue(fields, ["netAmount", "priceNet", "net"]);
+  const billingAmounts = getDriverBillingAmounts(fields);
   const totalValue = getDriverDocumentFieldValue(fields, ["total", "earningsTotal", "grossTotal"]);
   const tips = getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["tips", "tip"]));
-  const netAmount = netValue !== ""
-    ? getDriverDocumentNumber(netValue)
+  const hasComputedNetAmount = billingAmounts.hasBaseNetAmount || billingAmounts.hasPromotions;
+  const netAmount = billingAmounts.hasNetAmount || hasComputedNetAmount
+    ? billingAmounts.netAmount
     : totalValue !== ""
       ? Math.max(0, getDriverDocumentNumber(totalValue) - tips)
       : getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["billing", "amount"]));
-  const total = totalValue !== "" ? getDriverDocumentNumber(totalValue) : netAmount + tips;
+  const total = hasComputedNetAmount ? Number((netAmount + tips).toFixed(2)) : totalValue !== "" ? getDriverDocumentNumber(totalValue) : netAmount + tips;
   return {
     dateKey: getDriverDocumentDateKey(document),
     connection: String(getDriverDocumentFieldValue(fields, ["connection", "connectionTime", "duration"]) || "").trim(),
     trips: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["trips", "journeys", "viajes"])),
     points: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["points", "puntos"])),
+    baseNetAmount: billingAmounts.baseNetAmount,
     netAmount,
+    promotions: billingAmounts.promotions,
     tips,
     total,
     refunds: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["refunds", "reimbursements", "reembolsos"])),
@@ -1520,13 +1525,15 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
   ownedDriverDocuments.filter(isDriverBillingDocument).forEach((document) => {
     const stats = getDriverBillingDocumentStats(document);
     if (!stats.dateKey || !stats.hasBillingAmount || !stats.dateKey.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-`)) return;
-    const current = billingStatsByDate.get(stats.dateKey) ?? { connection: "", trips: 0, points: 0, netAmount: 0, tips: 0, total: 0, refunds: 0, cashCollected: 0, hasBillingAmount: true };
+    const current = billingStatsByDate.get(stats.dateKey) ?? { connection: "", trips: 0, points: 0, baseNetAmount: 0, netAmount: 0, promotions: 0, tips: 0, total: 0, refunds: 0, cashCollected: 0, hasBillingAmount: true };
     billingStatsByDate.set(stats.dateKey, {
       ...current,
       connection: stats.connection || current.connection,
       trips: current.trips + stats.trips,
       points: current.points + stats.points,
+      baseNetAmount: current.baseNetAmount + stats.baseNetAmount,
       netAmount: current.netAmount + stats.netAmount,
+      promotions: current.promotions + stats.promotions,
       tips: current.tips + stats.tips,
       total: current.total + stats.total,
       refunds: current.refunds + stats.refunds,
@@ -1641,7 +1648,9 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
       connection: "",
       trips: tripsByDay.get(day) ?? 0,
       points: 0,
+      baseNetAmount: billing,
       netAmount: billing,
+      promotions: 0,
       tips: Number(entryForDate?.tips) || 0,
       total: billing + (Number(entryForDate?.tips) || 0),
       refunds: Number(entryForDate?.refunds) || 0,
@@ -3759,10 +3768,12 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
     const consumption = fieldNumber("consumption");
     const dailyKm = fieldNumber("dailyKm");
     const odometerKm = fieldNumber("odometerKm");
-    const billing = recordKey === "billing" ? fieldNumber("netAmount", "total", "amount") : fieldNumber("total", "netAmount", "amount");
-    const grossTotal = recordKey === "billing" ? fieldNumber("total", "earningsTotal", "amount", "netAmount") : 0;
+    const billingAmounts = recordKey === "billing" ? getDriverBillingAmounts(fields) : null;
+    const hasDriverNetAmount = Boolean(billingAmounts?.hasNetAmount || billingAmounts?.hasBaseNetAmount || billingAmounts?.hasPromotions);
+    const billing = recordKey === "billing" ? (hasDriverNetAmount ? billingAmounts.netAmount : fieldNumber("total", "amount")) : fieldNumber("total", "netAmount", "amount");
     const cashCollected = fieldNumber("cashCollected");
     const tips = fieldNumber("tips");
+    const grossTotal = recordKey === "billing" ? (billingAmounts?.hasBaseNetAmount || billingAmounts?.hasPromotions ? Number((billing + tips).toFixed(2)) : fieldNumber("total", "earningsTotal", "amount", "netAmount")) : 0;
     const refunds = fieldNumber("refunds", "reimbursements");
     const connection = String(fields.connection ?? "").trim();
     const points = fieldNumber("points");
@@ -3784,7 +3795,9 @@ function DriverApp({ session, profile, onSignOut, preview = false, onExitPreview
       dailyKm,
       odometerKm,
       billing,
+      baseNetAmount: recordKey === "billing" ? billingAmounts.baseNetAmount : 0,
       netAmount: recordKey === "billing" ? billing : 0,
+      promotions: recordKey === "billing" ? billingAmounts.promotions : 0,
       earningsTotal: recordKey === "billing" ? grossTotal : 0,
       cashCollected,
       tips,
@@ -6433,7 +6446,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const selectedDayFuelDocuments = selectedDayDocuments.filter((document) => ["fuel", "consumption"].includes(getDriverDocumentKind(document)));
   const selectedDayMileageDocuments = selectedDayDocuments.filter((document) => getDriverDocumentKind(document) === "mileage");
   const selectedDateKey = selectedDay ? `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}` : "";
-  const selectedBillingStats = selectedDayDetail?.billingStats ?? { connection: "", trips: 0, points: 0, netAmount: 0, tips: 0, total: 0, refunds: 0, cashCollected: 0 };
+  const selectedBillingStats = selectedDayDetail?.billingStats ?? { connection: "", trips: 0, points: 0, baseNetAmount: 0, netAmount: 0, promotions: 0, tips: 0, total: 0, refunds: 0, cashCollected: 0 };
   const openDayEditor = (mode) => {
     if (!selectedDriver || !selectedDayDetail || !selectedDateKey) return;
     const modeDocuments = mode === "billing" ? selectedDayBillingDocuments : mode === "fuel" ? selectedDayFuelDocuments : selectedDayMileageDocuments;
@@ -7051,7 +7064,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
           const vehicleReports = maintenanceReports.filter((report) => report.vehiclePlate === vehicle.plate);
           const pendingReports = vehicleReports.filter((report) => report.status === "pending").length;
           return (
-            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}`} key={vehicle.plate}>
+            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
               <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
                 <span className="maintenance-vehicle-number">{index + 1}</span>
                 <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
@@ -7719,7 +7732,10 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
       if (controller.signal.aborted) return;
       setProgress(82);
       setAnalysis(responseBody);
-      setFields(applyContextDefaults(normalizeDocumentAnalysis(category, responseBody, defaultVehicle)));
+      const normalizedFields = applyContextDefaults(normalizeDocumentAnalysis(category, responseBody, defaultVehicle));
+      setFields(category === "billing" && ["billing", "billing_daily"].includes(normalizeText(recordType))
+        ? normalizeDriverBillingAnalysisFields(normalizedFields)
+        : normalizedFields);
       setProgress(100);
       setStage("review");
     } catch (caughtError) {
@@ -7731,7 +7747,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         setError({ code: caughtError?.code || "PROCESSING_ERROR", message: caughtError?.message || "No se ha podido procesar el documento." });
       }
     }
-  }, [applyContextDefaults, category, defaultVehicle, file, source]);
+  }, [applyContextDefaults, category, defaultVehicle, file, recordType, source]);
 
   useEffect(() => {
     runAnalysis();
@@ -7740,17 +7756,37 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
 
   const isDriverFuelReview = category === "consumption" && recordType === "fuel";
   const isDriverBillingReview = category === "billing" && ["billing", "billing_daily"].includes(normalizeText(recordType));
-  const driverBillingReviewLabels = { date: "Día", connection: "Conexión", trips: "Viajes", points: "Puntos", netAmount: "Precio neto", tips: "Propina", total: "Ganancias totales", refunds: "Reembolsos", cashCollected: "Efectivo cobrado" };
-  const driverBillingReviewKeys = ["date", "connection", "trips", "points", "netAmount", "tips", "total", "refunds", "cashCollected"];
+  const driverBillingReviewLabels = { date: "Día", connection: "Conexión", trips: "Viajes", points: "Puntos", netAmount: "Precio neto", promotions: "Promociones", tips: "Propina", total: "Ganancias totales", refunds: "Reembolsos", cashCollected: "Efectivo cobrado" };
+  const driverBillingReviewKeys = ["date", "connection", "trips", "points", "netAmount", "promotions", "tips", "total", "refunds", "cashCollected"];
   const reviewFields = isDriverFuelReview
     ? fields.filter((field) => field.key === "date" || field.key === "cost").map((field) => field.key === "cost" ? { ...field, label: "Importe total" } : field)
     : isDriverBillingReview
       ? driverBillingReviewKeys.map((key) => fields.find((field) => field.key === key)).filter(Boolean).map((field) => ({ ...field, label: driverBillingReviewLabels[field.key] ?? field.label }))
-      : fields;
+      : fields.filter((field) => !["baseNetAmount", "promotions"].includes(field.key));
   const workflowLabel = isDriverFuelReview ? "Repostaje" : documentCategoryLabels[category];
   const lowConfidenceFields = reviewFields.filter((field) => field.confidence < 80);
   const overallConfidence = Math.round(Number(analysis?.overallConfidence) || (reviewFields.length ? reviewFields.reduce((total, field) => total + field.confidence, 0) / reviewFields.length : 0));
-  const updateField = (key, value) => setFields((current) => current.map((field) => field.key === key ? { ...field, value } : field));
+  const updateField = (key, value) => setFields((current) => {
+    let next = current.map((field) => field.key === key ? { ...field, value } : field);
+    if (!isDriverBillingReview) return next;
+    const fieldAmount = (fieldKey) => getDriverDocumentNumber(next.find((field) => field.key === fieldKey)?.value);
+    if (key === "netAmount") {
+      const finalNetAmount = Math.max(0, fieldAmount("netAmount"));
+      const promotions = fieldAmount("promotions");
+      next = next.map((field) => field.key === "baseNetAmount" ? { ...field, value: Number(Math.max(0, finalNetAmount - promotions).toFixed(2)) } : field);
+      next = next.map((field) => field.key === "total" ? { ...field, value: Number((finalNetAmount + fieldAmount("tips")).toFixed(2)) } : field);
+    } else if (key === "promotions") {
+      const baseNetField = next.find((field) => field.key === "baseNetAmount");
+      const baseNetAmount = baseNetField?.value === "" || baseNetField?.value === null || baseNetField?.value === undefined ? fieldAmount("netAmount") : fieldAmount("baseNetAmount");
+      const finalNetAmount = Number((baseNetAmount + fieldAmount("promotions")).toFixed(2));
+      next = next.map((field) => field.key === "baseNetAmount" ? { ...field, value: baseNetAmount } : field);
+      next = next.map((field) => field.key === "netAmount" ? { ...field, value: finalNetAmount } : field);
+      next = next.map((field) => field.key === "total" ? { ...field, value: Number((finalNetAmount + fieldAmount("tips")).toFixed(2)) } : field);
+    } else if (key === "tips") {
+      next = next.map((field) => field.key === "total" ? { ...field, value: Number((fieldAmount("netAmount") + fieldAmount("tips")).toFixed(2)) } : field);
+    }
+    return next;
+  });
   const stopAnalysis = () => {
     controllerRef.current?.abort();
     setError({ code: "CANCELLED", message: "Has cancelado el análisis. No se ha guardado ningún dato." });

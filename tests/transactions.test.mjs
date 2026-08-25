@@ -43,6 +43,22 @@ test("la captura diaria conserva Precio neto y Reembolsos como conceptos indepen
   assert.equal(entry.refunds, 0.95);
 });
 
+test("la promoción se suma al Precio neto de la captura diaria sin sumarse a la propina", () => {
+  const rows = operationsFromDocument({
+    category: "billing",
+    recordType: "billing_daily",
+    fields: { date: "2026-08-15", baseNetAmount: 246.94, netAmount: 246.94, promotions: 12.5, total: 260.44, tips: 1, vehicle: "5754 MJV" },
+    driverId: "driver-1",
+    fileHash: "daily-promotion",
+  });
+  const billing = rows.find(({ type }) => type === "billing");
+  assert.equal(billing.amount, 259.44);
+  assert.equal(billing.metadata.baseNetAmount, 246.94);
+  assert.equal(billing.metadata.promotions, 12.5);
+  assert.equal(billing.metadata.netAmount, 259.44);
+  assert.equal(rows.find(({ type }) => type === "tip")?.amount, 1);
+});
+
 test("gasolina conserva fecha, vehículo, justificante y clave estable de duplicado", () => {
   const input = { category: "consumption", fields: { date: "2026-08-14", time: "19:42", ticketNumber: "R2602600017648", gasStation: "Plenergy Grupo, S.L.", cost: 72.4, consumption: 43.2, unit: "L" }, driverId: "driver-1", vehiclePlate: "5754 MJV", fileHash: "ticket" };
   const first = operationsFromDocument(input)[0];

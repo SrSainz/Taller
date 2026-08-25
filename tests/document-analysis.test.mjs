@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import handler, { buildPrompt, buildSchema } from "../api/analyze-document.js";
+import { normalizeDocumentAnalysis, normalizeDriverBillingAnalysisFields } from "../src/documentAnalysis.js";
 
 const invoke = async (request) => {
   const response = {
@@ -40,6 +41,8 @@ test("requires every nullable extraction field for strict structured output", ()
   const consumptionFields = buildSchema("consumption").properties.fields;
   assert.deepEqual(new Set(billingFields.required), new Set(Object.keys(billingFields.properties)));
   assert.deepEqual(new Set(consumptionFields.required), new Set(Object.keys(consumptionFields.properties)));
+  assert.ok(Object.hasOwn(billingFields.properties, "baseNetAmount"));
+  assert.ok(Object.hasOwn(billingFields.properties, "promotions"));
 });
 
 test("anchors fuel totals and collected cash to the printed document date", () => {
@@ -51,6 +54,17 @@ test("anchors fuel totals and collected cash to the printed document date", () =
   assert.match(billingPrompt, /no uses el total facturado como sustituto/i);
   assert.match(billingPrompt, /Propina/i);
   assert.match(billingPrompt, /no la sumes a cashCollected/i);
+  assert.match(billingPrompt, /baseNetAmount \+ promotions/i);
+});
+
+test("normaliza el Precio neto de una captura con promociones", () => {
+  const fields = normalizeDocumentAnalysis("billing", { fields: { baseNetAmount: 100, netAmount: 100, promotions: 7.5, tips: 2, total: 102 } });
+  const normalized = normalizeDriverBillingAnalysisFields(fields);
+  const values = Object.fromEntries(normalized.map(({ key, value }) => [key, value]));
+  assert.equal(values.baseNetAmount, 100);
+  assert.equal(values.promotions, 7.5);
+  assert.equal(values.netAmount, 107.5);
+  assert.equal(values.total, 109.5);
 });
 
 test("rejects invalid document payloads before calling the AI provider", async () => {
