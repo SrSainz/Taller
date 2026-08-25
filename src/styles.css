@@ -3771,14 +3771,14 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-week-table th, .driver-mobile-week-table td { border-right: 1px solid #edf0f5; border-bottom: 1px solid #edf0f5; text-align: center; }
 .driver-mobile-week-table tr > :last-child { border-right: 0; }
 .driver-mobile-week-table tbody tr:last-child > * { border-bottom: 0; }
-.driver-mobile-week-table thead th:first-child, .driver-mobile-week-table tbody th { width: 78px; }
+.driver-mobile-week-table thead th:first-child, .driver-mobile-week-table tbody th { width: 58px; }
 .driver-mobile-week-table thead th { height: 42px; padding: 4px 2px; background: #f7f9fc; }
 .driver-mobile-week-table thead th:first-child { background: #fff; }
 .driver-mobile-week-table thead button { width: 100%; height: 33px; display: grid; place-items: center; gap: 1px; padding: 3px 1px; border: 0; border-radius: 7px; background: transparent; color: #233858; cursor: pointer; }
 .driver-mobile-week-table thead button span { font-size: 8px; font-weight: 700; text-transform: capitalize; }
 .driver-mobile-week-table thead button strong { font-size: 12px; line-height: 1; }
 .driver-mobile-week-table thead button.is-selected { background: #092e68; color: #fff; box-shadow: 0 3px 7px rgba(9,46,104,.22); }
-.driver-mobile-week-table tbody th { padding: 7px 5px; color: #203455; font-size: 10px; font-weight: 900; letter-spacing: -.01em; text-align: left; white-space: pre-line; line-height: 1.05; }
+.driver-mobile-week-table tbody th { padding: 7px 3px; color: #203455; font-size: 9px; font-weight: 900; letter-spacing: -.025em; text-align: left; white-space: pre-line; line-height: 1.05; }
 .driver-mobile-week-table tbody td { padding: 7px 2px; color: #4e5e76; font-size: 8px; font-weight: 650; white-space: nowrap; }
 .driver-mobile-week-table tbody tr.is-total th, .driver-mobile-week-table tbody tr.is-total td { color: #122d5b; font-weight: 900; background: #f2f6fc; }
 .driver-mobile-section--history { display: flex; flex-direction: column; }
@@ -3895,10 +3895,12 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-preview-consumption .driver-mobile-consumption-compare span { font-size: 6px; }
 .driver-mobile-preview-consumption .driver-mobile-consumption-compare strong { font-size: 8px; }
 .driver-mobile-preview-consumption .driver-mobile-consumption-compare em { font-size: 7px; }
-.driver-mobile-week-table { min-width: 355px; }
-.driver-mobile-week-table thead th:first-child, .driver-mobile-week-table tbody th { width: 74px; }
-.driver-mobile-week-table tbody th { padding: 6px 3px; font-size: 10px; }
+.driver-mobile-week-table { min-width: 365px; }
+.driver-mobile-week-table thead th:first-child, .driver-mobile-week-table tbody th { width: 58px; }
+.driver-mobile-week-table tbody th { padding: 6px 3px; font-size: 9px; }
 .driver-mobile-week-table tbody td { padding: 6px 2px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.driver-mobile-week-table__label--fuel, .driver-mobile-week-table__label--refunds { font-size: 8px !important; letter-spacing: -.045em !important; }
+.driver-mobile-week-table tr.is-total td { font-size: 9px; letter-spacing: -.045em; }
 .driver-mobile-week-table__amount-editor { min-height: 28px; }
 .driver-mobile-week-table__amount-editor b { display: none; }
 .driver-mobile-week-table__amount-trigger { min-height: 28px; padding-inline: 0; font-size: 11px; }
