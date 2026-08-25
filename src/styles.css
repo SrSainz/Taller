@@ -5639,3 +5639,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .drivers-page--calendar-open .driver-day-panel__heading-button { gap: 4px; }
   .drivers-page--calendar-open .driver-day-panel__metrics > span { padding: 3px 4px; }
 }
+
+/* Cada botón ocupa exactamente la fila que le asigna el mes; así los meses de
+   seis semanas no dejan celdas superpuestas ni desvían la pulsación a otro día. */
+.drivers-page--calendar-open .drivers-calendar-day { height: 100%; min-height: 0; }
