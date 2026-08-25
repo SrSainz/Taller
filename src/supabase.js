@@ -3,6 +3,21 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
 
+// Supabase puede consumir el hash de recuperación durante la inicialización
+// del cliente antes de que React monte la aplicación. Conservamos esta
+// intención al principio para que el primer acceso abra el formulario de
+// cambio de contraseña y no se trate como un inicio de sesión normal.
+const hasInitialPasswordRecoveryIntent = () => {
+  if (typeof window === "undefined") return false;
+  const searchParams = new URLSearchParams(window.location.search ?? "");
+  const hashParams = new URLSearchParams((window.location.hash ?? "").replace(/^#/, ""));
+  return searchParams.get("type") === "recovery"
+    || hashParams.get("type") === "recovery"
+    || searchParams.has("code");
+};
+
+export const initialPasswordRecoveryIntent = hasInitialPasswordRecoveryIntent();
+
 // Evita que el navegador o una capa intermedia reutilice respuestas de perfil,
 // funciones, documentos o transacciones que ya han cambiado en Supabase.
 const noStoreFetch = (input, init = {}) => fetch(input, { ...init, cache: "no-store" });

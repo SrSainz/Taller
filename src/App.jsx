@@ -65,7 +65,7 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, createCommissionReportDownloadUrl, deleteDocumentRecord, getProfile, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, roleFromUser, supabase, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
+import { confirmDocumentTransactions, createCommissionReportDownloadUrl, deleteDocumentRecord, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, roleFromUser, supabase, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
@@ -1805,7 +1805,7 @@ function QuickActionMenu({ step, category, onCategory, onDocumentAction, onNotic
 
 export function App() {
   const [authState, setAuthState] = useState({ loading: true, session: null, profile: null, error: null });
-  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(() => initialPasswordRecoveryIntent || isPasswordRecoveryLink());
   const futureJwtResetRef = useRef(false);
 
   const handleFutureJwt = useCallback(async () => {
@@ -1851,7 +1851,10 @@ export function App() {
       window.setTimeout(() => { if (mounted) applySession(session); }, 0);
     });
     const loadSession = async () => {
-      const recoveryLink = isPasswordRecoveryLink();
+      // El cliente de Supabase puede haber retirado ya el hash de la URL al
+      // detectar la sesión. La marca capturada durante la importación evita
+      // que el enlace se confunda con un login normal y se cierre la sesión.
+      const recoveryLink = isPasswordRecoveryLink() || initialPasswordRecoveryIntent;
       const recoveryCode = passwordRecoveryCode();
       if (recoveryLink) setPasswordRecovery(true);
 
