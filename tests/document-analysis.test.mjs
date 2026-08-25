@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import handler, { buildPrompt, buildSchema } from "../api/analyze-document.js";
-import { normalizeDocumentAnalysis, normalizeDriverBillingAnalysisFields } from "../src/documentAnalysis.js";
+import { hasDriverBillingAmount, normalizeDocumentAnalysis, normalizeDriverBillingAnalysisFields } from "../src/documentAnalysis.js";
 
 const invoke = async (request) => {
   const response = {
@@ -65,6 +65,13 @@ test("normaliza el Precio neto de una captura con promociones", () => {
   assert.equal(values.promotions, 7.5);
   assert.equal(values.netAmount, 107.5);
   assert.equal(values.total, 109.5);
+});
+
+test("detecta importes de facturación sin depender de variables de renderizado", () => {
+  assert.equal(hasDriverBillingAmount({ netAmount: 0 }), true);
+  assert.equal(hasDriverBillingAmount({ baseNetAmount: 246.94, promotions: 12.5 }), true);
+  assert.equal(hasDriverBillingAmount({ total: 247.94 }), true);
+  assert.equal(hasDriverBillingAmount({}), false);
 });
 
 test("rejects invalid document payloads before calling the AI provider", async () => {

@@ -153,6 +153,14 @@ export const getDriverBillingAmounts = (fields = {}) => {
   return { baseNetAmount, promotions, netAmount, hasNetAmount, hasBaseNetAmount, hasPromotions };
 };
 
+export const hasDriverBillingAmount = (fields = {}) => {
+  const amounts = getDriverBillingAmounts(fields);
+  return amounts.hasNetAmount
+    || amounts.hasBaseNetAmount
+    || amounts.hasPromotions
+    || getField(fields, ["total", "earningsTotal", "grossTotal", "billing", "amount"]) !== "";
+};
+
 export const normalizeDriverBillingAnalysisFields = (fields = []) => {
   const amounts = getDriverBillingAmounts(fields);
   if (!amounts.hasBaseNetAmount && !amounts.hasPromotions) return fields;

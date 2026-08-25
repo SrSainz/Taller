@@ -2296,6 +2296,16 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .auth-recovery-success span { color: var(--muted); font-size: 12px; line-height: 1.5; }
 .auth-panel__help { margin: 18px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
 .auth-signout { margin: 4px auto 0; }
+.app-error-screen { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 15% 0%, #dff1eb 0, #eef5f2 42%, #dfe9e5 100%); }
+.app-error-panel { width: min(100%, 520px); display: grid; justify-items: center; gap: 13px; padding: 34px; border: 1px solid rgba(7, 90, 76, .15); border-radius: 24px; background: rgba(255, 255, 255, .97); box-shadow: 0 24px 70px rgba(18, 51, 42, .16); text-align: center; }
+.app-error-panel__logo { display: grid; width: 64px; height: 64px; place-items: center; border-radius: 18px; background: #171a19; overflow: hidden; }
+.app-error-panel__logo img { display: block; width: 84%; height: 84%; object-fit: contain; }
+.app-error-panel__eyebrow { color: var(--green-700); font-size: 10px; font-weight: 850; letter-spacing: .14em; }
+.app-error-panel h1 { margin: 0; color: var(--text); font-size: clamp(25px, 5vw, 34px); letter-spacing: -.04em; }
+.app-error-panel p, .app-error-panel small { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.app-error-panel__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; width: 100%; margin-top: 6px; }
+.app-error-panel__actions button { min-height: 44px; }
+@media (max-width: 640px) { .app-error-screen { padding: 14px; } .app-error-panel { padding: 28px 20px; border-radius: 20px; } .app-error-panel__actions { flex-direction: column; } .app-error-panel__actions button { width: 100%; } }
 .driver-app { min-height: 100dvh; background: var(--canvas); color: var(--text); }
 .driver-app__topbar { display: flex; align-items: center; justify-content: space-between; min-height: 68px; padding: 10px clamp(16px, 4vw, 42px); background: #272a29; color: #fff; }
 .driver-app__brand { display: flex; align-items: center; gap: 10px; }

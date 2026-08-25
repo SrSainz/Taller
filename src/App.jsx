@@ -61,6 +61,7 @@ import {
   fieldsToRecord,
   formatFileSize,
   getDriverBillingAmounts,
+  hasDriverBillingAmount,
   normalizeDriverBillingAnalysisFields,
   normalizeDocumentAnalysis,
   prepareDocumentFile,
@@ -1088,7 +1089,7 @@ const getDriverBillingDocumentStats = (document) => {
     total,
     refunds: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["refunds", "reimbursements", "reembolsos"])),
     cashCollected: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["cashCollected", "cash_collected", "cash", "efectivo"])),
-    hasBillingAmount: billingAmounts.hasNetAmount || hasComputedNetAmount || totalValue !== "" || getDriverDocumentFieldValue(fields, ["billing", "amount"]) !== "",
+    hasBillingAmount: hasDriverBillingAmount(fields),
   };
 };
 const isDriverBillingDocument = (document) => {
