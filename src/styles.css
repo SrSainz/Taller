@@ -5642,3 +5642,55 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 /* Cada botón ocupa exactamente la fila que le asigna el mes; así los meses de
    seis semanas no dejan celdas superpuestas ni desvían la pulsación a otro día. */
 .drivers-page--calendar-open .drivers-calendar-day { height: 100%; min-height: 0; }
+
+/* Administración: la gestión de cada conductor es una ficha completa y
+   desplazable. El perfil no debe quedar atrapado en una hoja inferior ni
+   depender del scroll de la página que queda detrás. */
+.admin-driver-access-backdrop {
+  position: fixed;
+  z-index: 340;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+  overflow: hidden;
+  background: #f8fbfa;
+  backdrop-filter: none;
+}
+.admin-driver-access-sheet {
+  width: 100%;
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  scroll-padding-block: 12px;
+}
+.admin-driver-access-sheet__header {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  background: #f8fbfa;
+}
+
+@media (max-width: 600px) {
+  .admin-driver-access-sheet {
+    padding-top: max(13px, env(safe-area-inset-top));
+    padding-right: max(13px, env(safe-area-inset-right));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    padding-left: max(13px, env(safe-area-inset-left));
+  }
+  .admin-driver-access-sheet__header {
+    gap: 10px;
+  }
+}
