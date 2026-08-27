@@ -5981,7 +5981,8 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-app--preview .driver-mobile-record-grid {
   align-items: start;
   gap: 6px;
-  padding-block: clamp(6px, 1.8vw, 10px);
+  column-gap: clamp(7px, 2.5vw, 12px);
+  padding-block: clamp(12px, 3.6vw, 20px);
 }
 .driver-mobile-app--updated .driver-mobile-record-card,
 .driver-app--preview .driver-mobile-record-card {
@@ -6018,7 +6019,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 @media (max-width: 380px) {
   .driver-mobile-app--updated .driver-mobile-record-grid,
   .driver-app--preview .driver-mobile-record-grid {
-    padding-block: 6px;
+    padding-block: 12px;
   }
   .driver-mobile-app--updated .driver-mobile-record-card > span,
   .driver-app--preview .driver-mobile-record-card > span {
