@@ -3917,7 +3917,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-chart-dialog__panel { width: min(640px, calc(100vw - 20px)); height: min(780px, calc(100dvh - 20px)); max-height: calc(100dvh - 20px); display: flex; flex-direction: column; overflow: hidden; padding: 14px; border: 1px solid #d7e2ef; border-radius: 18px; background: #fff; box-shadow: 0 18px 50px rgba(3,24,55,.3); }
 .driver-mobile-chart-dialog__panel > header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .driver-mobile-chart-dialog__panel > header span { color: #587398; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
-.driver-mobile-chart-dialog__panel > header h2 { margin: 3px 0 0; color: #102d58; font-size: 18px; }
+.driver-mobile-chart-dialog__panel > header h2 { margin: 3px 0 0; color: #102d58; font-size: 18px; font-weight: 900; line-height: 1.08; }
 .driver-mobile-chart-dialog__panel > header button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 1px solid #d4dfec; border-radius: 9px; background: #f7faff; color: #173661; cursor: pointer; }
 .driver-mobile-chart-dialog__chart { width: 100%; min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; overflow: hidden; margin-top: 4px; }
 .driver-mobile-chart-dialog__chart > .recharts-wrapper { width: 100% !important; min-width: 0 !important; }
@@ -3925,7 +3925,30 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-chart-dialog__chart > .recharts-responsive-container { width: 100% !important; height: 100% !important; min-height: 0 !important; flex: 1 1 auto; }
 .driver-mobile-chart-dialog__chart > .recharts-responsive-container > .recharts-wrapper { width: 100% !important; height: 100% !important; min-width: 0 !important; }
 .driver-mobile-chart-dialog__chart > .recharts-responsive-container .recharts-surface { width: 100% !important; height: 100% !important; }
-.driver-mobile-chart-dialog__hint { flex: 0 0 auto; margin: 8px 0 0; color: #74839a; font-size: 10px; text-align: center; }
+.driver-mobile-chart-dialog__hint { flex: 0 0 auto; margin: 8px 0 0; color: #74839a; font-size: 10px; font-weight: 900; text-align: center; }
+
+/* Los desplegables comparativos priorizan una lectura grande y contundente en móvil. */
+.driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--km) > header h2,
+.driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--consumption) > header h2 { font-size: 24px; }
+.driver-mobile-chart-dialog__chart--km > .recharts-responsive-container,
+.driver-mobile-chart-dialog__chart--consumption > .recharts-responsive-container { height: auto !important; }
+.driver-mobile-chart-dialog__chart--km .recharts-cartesian-axis-tick text,
+.driver-mobile-chart-dialog__chart--consumption .recharts-cartesian-axis-tick text { fill: #102d58; font-size: 18px !important; font-weight: 900 !important; }
+.driver-mobile-chart-dialog__chart--km .recharts-default-tooltip,
+.driver-mobile-chart-dialog__chart--consumption .recharts-default-tooltip { min-width: 160px; padding: 12px 14px !important; border: 1px solid #d7e2ef !important; border-radius: 10px; box-shadow: 0 8px 24px rgba(3,24,55,.16); }
+.driver-mobile-chart-dialog__chart--km .recharts-tooltip-label,
+.driver-mobile-chart-dialog__chart--km .recharts-tooltip-item,
+.driver-mobile-chart-dialog__chart--km .recharts-tooltip-item-name,
+.driver-mobile-chart-dialog__chart--km .recharts-tooltip-item-value,
+.driver-mobile-chart-dialog__chart--consumption .recharts-tooltip-label,
+.driver-mobile-chart-dialog__chart--consumption .recharts-tooltip-item,
+.driver-mobile-chart-dialog__chart--consumption .recharts-tooltip-item-name,
+.driver-mobile-chart-dialog__chart--consumption .recharts-tooltip-item-value { color: #102d58 !important; font-size: 17px !important; font-weight: 900 !important; line-height: 1.35; }
+.driver-mobile-chart-dialog__legend { flex: 0 0 auto; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 18px; padding-top: 10px; color: #173661; font-size: 16px; font-weight: 900; line-height: 1.2; }
+.driver-mobile-chart-dialog__legend span { display: inline-flex; align-items: center; gap: 7px; }
+.driver-mobile-chart-dialog__legend-swatch { width: 24px; height: 6px; display: inline-block; border-radius: 999px; }
+.driver-mobile-chart-dialog__legend-swatch--driver { background: #2c6de9; }
+.driver-mobile-chart-dialog__legend-swatch--rest { background: #9aaac0; }
 
 /* Histórico mensual del conductor: tira desplazable y lectura vertical por barra. */
 .driver-mobile-history-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; scrollbar-color: #9db7dc transparent; }
@@ -3965,6 +3988,9 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-mobile-preview-chart-card__summary span, .driver-mobile-preview-chart-card__legend, .driver-mobile-preview-history::before, .driver-mobile-preview-consumption::before, .driver-mobile-preview-chart-card__heading { font-size: 6px; }
   .driver-mobile-chart-dialog__panel { width: calc(100vw - 16px); height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); padding: 11px; }
   .driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--billing) { width: calc(100vw - 16px); }
+  .driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--km) > header h2,
+  .driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--consumption) > header h2 { font-size: 22px; }
+  .driver-mobile-chart-dialog__legend { gap: 12px; font-size: 16px; }
 }
 
 /* Matrícula canónica + titular: el distintivo pequeño mantiene la asociación visible en todas las vistas. */
