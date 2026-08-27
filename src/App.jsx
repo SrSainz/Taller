@@ -4474,6 +4474,8 @@ function DriverBillingTarget({ periodSummary }) {
 
 function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 520;
+  const kmChartMax = Math.max(500, Math.ceil(Math.max(0, ...weeklyKmData.flatMap(({ driverKm, otherKm }) => [Number(driverKm) || 0, Number(otherKm) || 0])) / 100) * 100);
+  const kmChartTicks = Array.from({ length: kmChartMax / 100 + 1 }, (_, index) => index * 100);
   const homeRef = useRef(null);
   const statsRef = useRef(null);
   const historyRef = useRef(null);
@@ -4950,10 +4952,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               {expandedPreviewMetric === "km" && (
                 <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--km" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={weeklyKmData} margin={{ top: 32, right: 22, bottom: 56, left: 64 }} onMouseMove={(state) => showDriverChartTooltip("km", state)} onTouchStart={(state) => showDriverChartTooltip("km", state)} onTouchMove={(state) => showDriverChartTooltip("km", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                    <LineChart data={weeklyKmData} margin={{ top: 32, right: 14, bottom: 62, left: 46 }} onMouseMove={(state) => showDriverChartTooltip("km", state)} onTouchStart={(state) => showDriverChartTooltip("km", state)} onTouchMove={(state) => showDriverChartTooltip("km", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickMargin={13} />
-                      <YAxis tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickMargin={10} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} />
+                      <YAxis width={56} ticks={kmChartTicks} domain={[0, kmChartMax]} allowDecimals={false} tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickMargin={6} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} />
                       <Tooltip active={activeDriverChartTooltip === "km"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} labelStyle={{ fontSize: 18, fontWeight: 900, color: "#102d58" }} itemStyle={{ fontSize: 17, fontWeight: 900, color: "#173661" }} formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} />
                       <Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={5} dot={{ r: 5 }} />
                       <Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={3} strokeDasharray="6 5" dot={{ r: 4 }} />
