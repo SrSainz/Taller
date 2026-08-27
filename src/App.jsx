@@ -7886,7 +7886,7 @@ function MaintenanceEditWorkflow({ item, onCancel, onSave }) {
 function DriverCircleReviewDialog({ review, profile, driverId, onClose, onSave }) {
   const category = review.recordKey === "billing" ? "billing" : "consumption";
   return <div className="modal-backdrop" role="presentation">
-    <section className="modal modal--document-processing" role="dialog" aria-modal="true" aria-labelledby="driver-circle-review-title">
+    <section className="modal modal--document-processing modal--driver-document-review" role="dialog" aria-modal="true" aria-labelledby="driver-circle-review-title">
       <header className="modal__header"><div><span>REGISTRO DEL CONDUCTOR</span><h2 id="driver-circle-review-title">Revisar documento</h2><p>{profile.full_name} · {canonicalizeVehiclePlate(profile.vehicle_plate)}</p></div><button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar revisión"><IconX size={19} /></button></header>
       <DocumentProcessingWorkflow category={category} source="upload" file={review.file} defaultVehicle={canonicalizeVehiclePlate(profile.vehicle_plate)} defaultDate={review.defaultDate} recordType={review.recordKey} driverId={driverId} onCancel={onClose} onSave={onSave} />
     </section>

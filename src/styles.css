@@ -5731,3 +5731,51 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
     gap: 10px;
   }
 }
+
+/* Registro del conductor: al revisar el documento, la información debe ser
+   legible de un vistazo. Se duplica la tipografía del formulario sin cambiar
+   la escala de otros modales ni eliminar el desplazamiento del contenido. */
+.modal--driver-document-review > header > div > span { font-size: 14px; }
+.modal--driver-document-review > header h2 { font-size: 34px; line-height: 1.08; }
+.modal--driver-document-review > header p { font-size: 16px; line-height: 1.25; }
+.modal--driver-document-review .document-processing-file strong { font-size: 20px; }
+.modal--driver-document-review .document-processing-file small { font-size: 14px; line-height: 1.3; }
+.modal--driver-document-review .document-processing-preview__file strong { font-size: 18px; }
+.modal--driver-document-review .document-review-preview strong { font-size: 18px; }
+.modal--driver-document-review .document-review-preview small { font-size: 14px; }
+.modal--driver-document-review .document-review-warning strong { font-size: 16px; }
+.modal--driver-document-review .document-review-warning small { font-size: 14px; line-height: 1.4; }
+.modal--driver-document-review .document-review-heading h3 { font-size: 24px; line-height: 1.15; }
+.modal--driver-document-review .document-review-heading p { font-size: 16px; line-height: 1.4; }
+.modal--driver-document-review .document-review-confidence { font-size: 16px; }
+.modal--driver-document-review .document-field { font-size: 16px; }
+.modal--driver-document-review .document-field > span small { font-size: 13px; }
+.modal--driver-document-review .document-field input { font-size: 18px; line-height: 1.25; }
+.modal--driver-document-review .document-field__input i { font-size: 16px; }
+.modal--driver-document-review .document-review-notes { font-size: 16px; }
+.modal--driver-document-review .document-review-notes li { font-size: 14px; line-height: 1.4; }
+.modal--driver-document-review .document-processing-save-error { font-size: 18px; line-height: 1.4; }
+.modal--driver-document-review .document-processing-actions button { font-size: 20px; }
+
+@media (max-width: 680px) {
+  .modal--driver-document-review > header > div > span { font-size: 14px; }
+  .modal--driver-document-review > header h2 { font-size: 34px; }
+  .modal--driver-document-review > header p { font-size: 16px; }
+  .modal--driver-document-review .document-processing-file strong { font-size: 24px; }
+  .modal--driver-document-review .document-processing-file small { font-size: 18px; }
+  .modal--driver-document-review .document-review-preview strong { font-size: 22px; }
+  .modal--driver-document-review .document-review-preview small { font-size: 18px; }
+  .modal--driver-document-review .document-review-heading h3 { font-size: 30px; }
+  .modal--driver-document-review .document-review-heading p { font-size: 20px; }
+  .modal--driver-document-review .document-review-confidence { font-size: 20px; }
+  .modal--driver-document-review .document-field { font-size: 24px; }
+  .modal--driver-document-review .document-field > span small { font-size: 20px; }
+  .modal--driver-document-review .document-field input { font-size: 32px; }
+  .modal--driver-document-review .document-field__input i { font-size: 26px; }
+  .modal--driver-document-review .document-review-warning strong { font-size: 22px; }
+  .modal--driver-document-review .document-review-warning small { font-size: 18px; }
+  .modal--driver-document-review .document-review-notes { font-size: 20px; }
+  .modal--driver-document-review .document-review-notes li { font-size: 18px; }
+  .modal--driver-document-review .document-processing-save-error { font-size: 22px; }
+  .modal--driver-document-review .document-processing-actions button { font-size: 26px; }
+}
