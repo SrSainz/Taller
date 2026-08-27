@@ -44,6 +44,49 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
+const appRealtimeTables = ({ userId, isAdmin }) => {
+  if (isAdmin) {
+    return [
+      "profiles",
+      "driver_entries",
+      "transactions",
+      "documents",
+      "maintenance_reports",
+      "driver_period_financials",
+      "commission_reports",
+    ].map((table) => ({ table }));
+  }
+  return [
+    { table: "profiles", filter: `id=eq.${userId}` },
+    { table: "driver_entries", filter: `driver_id=eq.${userId}` },
+    { table: "documents", filter: `owner_id=eq.${userId}` },
+    { table: "maintenance_reports", filter: `reporter_id=eq.${userId}` },
+  ];
+};
+
+/**
+ * Subscribe to the tables that can change a visible app screen. Postgres
+ * Changes still respects each table's RLS policies, so a driver only receives
+ * events for their own records while the administrator receives the fleet
+ * stream. The caller owns the refresh strategy and must dispose the returned
+ * channel when its screen unmounts.
+ */
+export const subscribeToAppChanges = ({ userId, isAdmin = false, onChange, onStatus } = {}) => {
+  if (!supabase || !userId) return () => {};
+  const channel = supabase.channel(`app-sync-${isAdmin ? "admin" : "driver"}-${userId}`);
+  appRealtimeTables({ userId, isAdmin }).forEach(({ table, filter }) => {
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table, ...(filter ? { filter } : {}) },
+      (payload) => onChange?.({ table, payload }),
+    );
+  });
+  channel.subscribe((status, error) => onStatus?.(status, error));
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
 export const getProfile = async (user) => {
   if (!supabase || !user?.id) return { data: null, error: new Error("Supabase no está configurado.") };
   const result = await supabase

@@ -4636,6 +4636,15 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .admin-header-sheet__functions > button > span { min-width: 0; display: grid; gap: 2px; }
 .admin-header-sheet__functions b { color: #29463f; font-size: 10px; line-height: 1.1; }
 .admin-header-sheet__functions small { color: #748680; font-size: 8px; line-height: 1.25; }
+.admin-push-settings { display: grid; gap: 8px; padding: 10px; border: 1px solid #dbece5; border-radius: 11px; background: #f0faf6; }
+.admin-push-settings > div { display: grid; grid-template-columns: 19px minmax(0, 1fr); align-items: start; gap: 8px; }
+.admin-push-settings > div > svg { margin-top: 1px; color: #138573; }
+.admin-push-settings > div > span { display: grid; gap: 3px; }
+.admin-push-settings b { color: #244b41; font-size: 9px; line-height: 1.15; }
+.admin-push-settings small { color: #71877f; font-size: 7.5px; line-height: 1.35; }
+.admin-push-settings .secondary-button { min-height: 32px; justify-self: start; padding-inline: 10px; font-size: 8px; }
+.admin-push-settings .secondary-button:disabled { border-color: #c9ded6; background: #e3f2ed; color: #5f8378; cursor: default; }
+.admin-push-settings p { margin: 0; padding-top: 1px; color: #5d776e; font-size: 7.5px; line-height: 1.35; }
 .admin-header-sheet__form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 7px; }
 .admin-header-sheet__form label { display: grid; gap: 4px; color: #5e766f; font-size: 8px; font-weight: 800; }
 .admin-header-sheet__form input { width: 100%; min-height: 34px; box-sizing: border-box; padding: 7px 9px; border: 1px solid #cedfd8; border-radius: 8px; background: #fff; color: #19332d; font: inherit; font-size: 11px; outline: 0; }
@@ -4689,6 +4698,10 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .admin-function-window__driver-row { padding-inline: 9px; }
   .admin-function-window__driver-copy strong { font-size: 10px; }
   .admin-function-window__row-action { min-height: 38px; font-size: 10px; }
+}
+
+@media (max-width: 520px) {
+  .admin-push-settings .secondary-button { width: 100%; justify-self: stretch; }
 }
 
 .app-shell--admin .admin-page {

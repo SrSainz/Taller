@@ -68,7 +68,8 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, listMaintenanceReports, roleFromUser, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
+import { confirmDocumentTransactions, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, listMaintenanceReports, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
+import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
@@ -2054,11 +2055,11 @@ export function App() {
     return () => { mounted = false; subscription.unsubscribe(); };
   }, [applySession, handleFutureJwt]);
 
-  const updateProfile = (profile) => setAuthState((current) => ({ ...current, profile: { ...current.profile, ...profile } }));
-  const signOut = () => {
+  const updateProfile = useCallback((profile) => setAuthState((current) => ({ ...current, profile: { ...current.profile, ...profile } })), []);
+  const signOut = useCallback(() => {
     window.sessionStorage.removeItem("sobre-ruedas:temporary-session");
     return supabase?.auth.signOut();
-  };
+  }, []);
 
   const installApplication = useCallback(async (onNotice) => {
     const notice = (message) => onNotice?.(message);
@@ -2095,7 +2096,7 @@ export function App() {
   if (!authState.profile) return <AuthScreen error={authState.error ?? new Error("No se ha encontrado el perfil de esta cuenta.")} onInstall={installApplication} isStandalone={isStandalone} />;
   if (!authState.profile.active) return <AccessBlockedScreen onSignOut={signOut} />;
   if (roleFromUser(authState.session.user, authState.profile) === "driver") {
-    return <DriverApp session={authState.session} profile={authState.profile} onSignOut={signOut} onInstall={installApplication} isStandalone={isStandalone} />;
+    return <DriverApp session={authState.session} profile={authState.profile} onSignOut={signOut} onProfileChange={updateProfile} onInstall={installApplication} isStandalone={isStandalone} />;
   }
   return <AuthenticatedApp session={authState.session} profile={authState.profile} onSignOut={signOut} onProfileChange={updateProfile} onInstall={installApplication} isStandalone={isStandalone} />;
 }
@@ -2130,6 +2131,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const [documentRecords, setDocumentRecords] = useState([]);
   const [maintenanceReports, setMaintenanceReports] = useState([]);
   const [processedDocuments, setProcessedDocuments] = useState(loadProcessedDocuments);
+  const [realtimeRevision, setRealtimeRevision] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const accountStorageKey = session.user?.id ?? "anonymous";
@@ -2143,6 +2145,9 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const [adminHeaderName, setAdminHeaderName] = useState(profileName);
   const [adminHeaderPassword, setAdminHeaderPassword] = useState("");
   const [adminHeaderMessage, setAdminHeaderMessage] = useState("");
+  const [pushNotificationState, setPushNotificationState] = useState("idle");
+  const [pushNotificationSaving, setPushNotificationSaving] = useState(false);
+  const [pushNotificationMessage, setPushNotificationMessage] = useState("");
   const [automationEnabled, setAutomationEnabled] = useState({ whatsapp: true, email: true, openai: true });
   const [openFaq, setOpenFaq] = useState(0);
   const [settings, setSettings] = useState({ company: "SOBRE RUEDAS", email: "flota@sobreruedas.es", serviceWarning: "5000", lowConfidence: "94" });
@@ -2207,6 +2212,36 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   }, []);
 
   useEffect(() => {
+    if (!isAdmin) {
+      setPushNotificationState("idle");
+      setPushNotificationMessage("");
+      return undefined;
+    }
+    let mounted = true;
+    getPushNotificationState().then((state) => {
+      if (mounted) setPushNotificationState(state);
+    });
+    return () => { mounted = false; };
+  }, [isAdmin]);
+
+  const enableAdminPushNotifications = useCallback(async () => {
+    if (!isAdmin || pushNotificationSaving) return;
+    setPushNotificationSaving(true);
+    setPushNotificationMessage("");
+    try {
+      await enablePushNotifications();
+      setPushNotificationState("enabled");
+      setPushNotificationMessage("Avisos activados en este dispositivo.");
+    } catch (error) {
+      const nextMessage = error?.message || "No se han podido activar los avisos.";
+      setPushNotificationState(nextMessage.includes("bloqueados") ? "denied" : "error");
+      setPushNotificationMessage(nextMessage);
+    } finally {
+      setPushNotificationSaving(false);
+    }
+  }, [isAdmin, pushNotificationSaving]);
+
+  useEffect(() => {
     setAdminHeaderName(profileName);
   }, [profileName]);
 
@@ -2256,17 +2291,21 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     setNotificationsOpen(false);
   };
 
+  const refreshDriverProfiles = useCallback(async () => {
+    if (!isAdmin) return;
+    const response = await invokeAdminUsers({ action: "list" });
+    setDriverProfiles((response.profiles ?? []).map(normalizeDriverProfileRecord));
+  }, [isAdmin]);
+
   useEffect(() => {
     if (!isAdmin) {
       setDriverProfiles([]);
       return undefined;
     }
     let mounted = true;
-    invokeAdminUsers({ action: "list" })
-      .then((response) => { if (mounted) setDriverProfiles((response.profiles ?? []).map(normalizeDriverProfileRecord)); })
-      .catch(() => { if (mounted) setDriverProfiles([]); });
+    refreshDriverProfiles().catch(() => { if (mounted) setDriverProfiles([]); });
     return () => { mounted = false; };
-  }, [isAdmin]);
+  }, [isAdmin, refreshDriverProfiles]);
 
   const announceAdminDataChanges = useCallback(({ source, nextTransactions = [], nextDocuments = [], nextDriverEntries = [] }) => {
     const snapshot = adminDataSnapshotRef.current;
@@ -2463,7 +2502,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       };
       return undefined;
     }
-    const refreshAll = () => Promise.allSettled([refreshTransactions(), refreshDocuments(), refreshMaintenanceReports()]);
+    const refreshAll = () => Promise.allSettled([refreshTransactions(), refreshDocuments(), refreshMaintenanceReports(), refreshDriverProfiles()]);
     void refreshAll();
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") void refreshAll();
@@ -2471,40 +2510,42 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     const refreshTimer = window.setInterval(refreshWhenVisible, 15000);
     window.addEventListener("focus", refreshWhenVisible);
     document.addEventListener("visibilitychange", refreshWhenVisible);
-    const entryChannel = supabase
-      .channel(`admin-driver-entries-${session.user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "driver_entries" }, () => {
-        refreshTransactions().catch(() => undefined);
-      })
-      .subscribe();
-    const transactionChannel = supabase
-      .channel(`admin-transactions-${session.user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => {
-        refreshTransactions().catch(() => undefined);
-      })
-      .subscribe();
-    const documentChannel = supabase
-      .channel(`admin-documents-${session.user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "documents" }, () => {
-        refreshDocuments().catch(() => undefined);
-      })
-      .subscribe();
-    const maintenanceReportChannel = supabase
-      .channel(`admin-maintenance-reports-${session.user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "maintenance_reports" }, () => {
-        refreshMaintenanceReports().catch(() => undefined);
-      })
-      .subscribe();
+    const unsubscribe = subscribeToAppChanges({
+      userId: session.user.id,
+      isAdmin: true,
+      onChange: ({ table }) => {
+        setRealtimeRevision((current) => current + 1);
+        if (table === "profiles") {
+          Promise.allSettled([refreshDriverProfiles(), getProfile({ id: session.user.id }).then(({ data, error }) => {
+            if (!error && data) onProfileChange(data);
+          })]);
+          return;
+        }
+        if (table === "maintenance_reports") {
+          refreshMaintenanceReports().catch(() => undefined);
+          return;
+        }
+        if (table === "documents") {
+          Promise.allSettled([refreshDocuments(), refreshTransactions()]);
+          return;
+        }
+        if (["driver_entries", "transactions"].includes(table)) {
+          refreshTransactions().catch(() => undefined);
+          return;
+        }
+        refreshAll();
+      },
+      onStatus: (status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") notify("La conexión en tiempo real se está recuperando.");
+      },
+    });
     return () => {
       window.clearInterval(refreshTimer);
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
-      supabase.removeChannel(entryChannel);
-      supabase.removeChannel(transactionChannel);
-      supabase.removeChannel(documentChannel);
-      supabase.removeChannel(maintenanceReportChannel);
+      unsubscribe();
     };
-  }, [isAdmin, refreshDocuments, refreshMaintenanceReports, refreshTransactions, session.user.id]);
+  }, [isAdmin, notify, onProfileChange, refreshDocuments, refreshDriverProfiles, refreshMaintenanceReports, refreshTransactions, session.user.id]);
 
   useEffect(() => {
     const onBottomNavigationClick = (event) => {
@@ -2994,7 +3035,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   };
 
   if (previewDriver) {
-    return <DriverApp session={session} profile={previewDriver} preview onExitPreview={() => setPreviewDriver(null)} onSignOut={onSignOut} onInstall={onInstall} isStandalone={isStandalone} />;
+    return <DriverApp session={session} profile={previewDriver} preview onExitPreview={() => setPreviewDriver(null)} onSignOut={onSignOut} onProfileChange={onProfileChange} onInstall={onInstall} isStandalone={isStandalone} />;
   }
 
   return (
@@ -3035,6 +3076,11 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
                 <button type="button" onClick={() => openAdminFunctionWindow("permissions")}><IconShieldCheck size={16} /><span><b>Controlar permisos</b><small>Pausar, activar y revisar cada cuenta</small></span><IconChevronRight size={15} /></button>
                 <button type="button" onClick={() => openAdminFunctionWindow("security")}><IconKey size={16} /><span><b>Seguridad de accesos</b><small>Restablecer contraseñas cuando sea necesario</small></span><IconChevronRight size={15} /></button>
               </div>
+              <section className="admin-push-settings" aria-label="Avisos en este dispositivo">
+                <div><IconBell size={17} /><span><b>Avisos en este dispositivo</b><small>Recibe una notificación cuando entre un documento aunque la aplicación esté cerrada.</small></span></div>
+                <button type="button" className="secondary-button" onClick={enableAdminPushNotifications} disabled={pushNotificationSaving || pushNotificationState === "enabled"}>{pushNotificationSaving ? "Activando…" : pushNotificationState === "enabled" ? "Avisos activados" : "Activar avisos"}</button>
+                {pushNotificationMessage && <p role="status">{pushNotificationMessage}</p>}
+              </section>
               <form className="admin-header-sheet__form" onSubmit={saveAdminHeaderName}><label>Nombre visible<input value={adminHeaderName} onChange={(event) => setAdminHeaderName(event.target.value)} required /></label><button className="secondary-button" type="submit">Guardar nombre</button></form>
               <form className="admin-header-sheet__form admin-header-sheet__form--password" onSubmit={saveAdminHeaderPassword}><label>Nueva contraseña<input type="password" value={adminHeaderPassword} onChange={(event) => setAdminHeaderPassword(event.target.value)} minLength={8} placeholder="Mínimo 8 caracteres" /></label><button className="secondary-button" type="submit"><IconKey size={15} />Cambiar contraseña</button></form>
               {adminHeaderMessage && <p className="admin-header-sheet__message" role="alert">{adminHeaderMessage}</p>}
@@ -3052,10 +3098,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         </header>
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
-          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
+          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" realtimeRevision={realtimeRevision} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
           {activeNav === "Conductores" && <DriversView reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} />}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" realtimeRevision={realtimeRevision} reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" realtimeRevision={realtimeRevision} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} />}
@@ -3271,7 +3317,7 @@ function AccessBlockedScreen({ onSignOut }) {
   return <main className="auth-screen"><section className="auth-panel auth-panel--blocked"><span className="auth-logo"><img src="/brand/sobre-ruedas-logo.png" alt="" /></span><IconShieldCheck size={29} /><h1>Acceso pendiente</h1><p>Esta cuenta está desactivada. Contacta con David Diaz para recuperar el acceso.</p><button className="secondary-button" type="button" onClick={onSignOut}><IconLogout size={17} />Cerrar sesión</button></section></main>;
 }
 
-function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = false, preview = false, onExitPreview }) {
+function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, isStandalone = false, preview = false, onExitPreview }) {
   // A preview is an administrator acting on behalf of a selected driver. In
   // a real driver session, always use the authenticated id for writes so a
   // stale profile object can never produce an RLS mismatch.
@@ -3381,6 +3427,63 @@ function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = fals
     }).catch((error) => { if (mounted) { setMessage(error.message); setDocumentsLoading(false); } });
     return () => { mounted = false; };
   }, [activeProfileId, canQueryDriverData]);
+
+  const refreshDriverData = useCallback(async () => {
+    if (!supabase || !canQueryDriverData) return;
+    const [entryResult, documentResult] = await Promise.all([
+      supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
+      supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, document_date, extracted_data, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(180),
+    ]);
+    if (entryResult.error) throw entryResult.error;
+    if (documentResult.error) throw documentResult.error;
+    setEntries((entryResult.data ?? []).map(normalizeDriverEntryRecord));
+    setDocuments((documentResult.data ?? []).map(normalizeDocumentRecord));
+    setDocumentsLoading(false);
+  }, [activeProfileId, canQueryDriverData]);
+
+  useEffect(() => {
+    if (!supabase || !canQueryDriverData) return undefined;
+    let mounted = true;
+    let refreshTimer = 0;
+    const queueRefresh = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        refreshDriverData().catch((error) => {
+          if (mounted) setMessage(`No se han podido actualizar los datos: ${error.message}`);
+        });
+      }, 80);
+    };
+    const unsubscribe = subscribeToAppChanges({
+      userId: activeProfileId,
+      isAdmin: preview,
+      onChange: ({ table }) => {
+        if (table === "profiles" && !preview) {
+          getProfile({ id: session.user.id }).then(({ data, error }) => {
+            if (!mounted || error || !data) return;
+            onProfileChange?.(data);
+            if (!data.active) onSignOut?.();
+          }).catch(() => undefined);
+          return;
+        }
+        if (["driver_entries", "documents"].includes(table)) queueRefresh();
+        if (table === "maintenance_reports") {
+          listMaintenanceReports({ vehiclePlate: profileVehiclePlate, reporterId: activeProfileId, limit: 100 })
+            .then(({ data, error }) => {
+              if (mounted && !error) setMaintenanceReports((data ?? []).map(normalizeMaintenanceReportRecord));
+            })
+            .catch(() => undefined);
+        }
+      },
+      onStatus: (status) => {
+        if (mounted && (status === "CHANNEL_ERROR" || status === "TIMED_OUT")) setMessage("La conexión se está recuperando; los datos se volverán a sincronizar automáticamente.");
+      },
+    });
+    return () => {
+      mounted = false;
+      window.clearTimeout(refreshTimer);
+      unsubscribe();
+    };
+  }, [activeProfileId, canQueryDriverData, onProfileChange, onSignOut, preview, profileVehiclePlate, refreshDriverData, session.user.id]);
 
   useEffect(() => {
     const selectedEntry = entries.find((item) => String(item.entry_date) === selectedDate);
@@ -5602,7 +5705,7 @@ function AlexCommissionReportPanel({ report, periodLabel, archivedReports = [], 
   </section>;
 }
 
-function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "" }) {
+function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "", realtimeRevision = 0 }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;
@@ -5689,7 +5792,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       .then(({ data, error }) => { if (mounted && !error) setPeriodFinancials(data ?? []); })
       .catch(() => { if (mounted) setPeriodFinancials([]); });
     return () => { mounted = false; };
-  }, [periodStart]);
+  }, [periodStart, realtimeRevision]);
   useEffect(() => {
     let mounted = true;
     if (!supabase) return undefined;
@@ -5697,7 +5800,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       .then(({ data, error }) => { if (mounted && !error) setCommissionReports(data ?? []); })
       .catch(() => { if (mounted) setCommissionReports([]); });
     return () => { mounted = false; };
-  }, []);
+  }, [realtimeRevision]);
   useEffect(() => {
     if (!billingDriverKey) return undefined;
     const animationFrame = window.requestAnimationFrame(() => {

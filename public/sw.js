@@ -1,4 +1,4 @@
-const cacheName = "sobre-ruedas-shell-v16";
+const cacheName = "sobre-ruedas-shell-v17";
 const appShell = [
   "/",
   "/index.html",
@@ -27,6 +27,41 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+});
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data?.json?.() ?? {};
+  } catch {
+    data = { body: event.data?.text?.() ?? "Hay una novedad en la gestión de la flota." };
+  }
+  const title = data.title || "SOBRE RUEDAS";
+  const body = data.body || "Hay una novedad en la gestión de la flota.";
+  const targetUrl = data.url || "/#/informes";
+  event.waitUntil(self.registration.showNotification(title, {
+    body,
+    icon: data.icon || "/icons/sobre-ruedas-192.png?v=20260805",
+    badge: data.badge || "/icons/sobre-ruedas-maskable-192.png?v=20260805",
+    tag: data.tag || "sobre-ruedas-app-change",
+    renotify: true,
+    data: { url: targetUrl },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/#/informes", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      const matchingClient = clientList.find((client) => "focus" in client);
+      if (matchingClient) {
+        matchingClient.navigate(targetUrl);
+        return matchingClient.focus();
+      }
+      return self.clients.openWindow(targetUrl);
+    }),
+  );
 });
 
 self.addEventListener("activate", (event) => {
