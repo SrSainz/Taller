@@ -1451,7 +1451,7 @@ const isAmin = (name = "") => String(name).trim().toLocaleLowerCase("es") === "a
 const isFernando = (name = "") => String(name).trim().toLocaleLowerCase("es") === "fernando";
 const isMauricio = (name = "") => String(name).trim().toLocaleLowerCase("es") === "mauricio";
 const isTirso = (name = "") => String(name).trim().toLocaleLowerCase("es") === "tirso";
-const driverBillingGoals = Object.freeze({ alex: 7000, amin: 8000, andres: 6500, fernando: 6500, mauricio: 6500, tirso: 6500 });
+const driverBillingGoals = Object.freeze({ alex: 7000, amin: 8000, andres: 6500, fernando: 6000, mauricio: 6500, tirso: 6500 });
 const getDriverBillingGoal = (name = "") => {
   const driverKey = String(name).trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return driverBillingGoals[driverKey] ?? 7000;
