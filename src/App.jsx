@@ -1015,6 +1015,32 @@ const getDriverDocumentDateKey = (document) => {
     .map(normalizeDriverDocumentDate)
     .find(Boolean) ?? null;
 };
+const getDriverCalendarDayNumber = (value, month, year) => {
+  const dateKey = normalizeDriverDocumentDate(value);
+  if (dateKey) {
+    const [dateYear, dateMonth, dateDay] = dateKey.split("-").map(Number);
+    return dateYear === year && dateMonth === month + 1 ? dateDay : null;
+  }
+  const day = Number(String(value ?? "").match(/^(?:\s*)(\d{1,2})(?:\s|$)/)?.[1]);
+  return Number.isInteger(day) && day >= 1 && day <= new Date(year, month + 1, 0).getDate() ? day : null;
+};
+const buildDriverDocumentModalItem = (document, { driver = "", plate = "", fallbackDate = "" } = {}) => {
+  const dateKey = getDriverDocumentDateKey(document) ?? fallbackDate;
+  return {
+    id: `driver-document-${document?.id ?? document?.file_path ?? document?.file_name ?? Date.now()}`,
+    documentNumber: document?.file_name || document?.id || "Documento original",
+    provider: "SOBRE RUEDAS",
+    date: formatDocumentDisplayDate(dateKey),
+    plate,
+    driver,
+    concept: getDriverDocumentKindLabel(document),
+    source: "Foto original de la aplicación del conductor",
+    status: document?.status === "approved" ? "Validada" : "Archivada",
+    filePath: document?.file_path || document?.filePath || "",
+    fileName: document?.file_name || document?.fileName || "Documento original",
+    mimeType: document?.mime_type || document?.mimeType || "",
+  };
+};
 const buildDriverTipDayRows = (records = []) => {
   const totals = new Map();
   records.forEach(({ dateKey, amount }) => {
@@ -1593,6 +1619,7 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
     const dateKey = getDriverDocumentDateKey(document);
     if (dateKey) documentsByDate.set(dateKey, [...(documentsByDate.get(dateKey) ?? []), document]);
   });
+  const documentsById = new Map(ownedDriverDocuments.map((document) => [document.id, document]));
   const billingStatsByDate = new Map();
   ownedDriverDocuments.filter(isDriverBillingDocument).forEach((document) => {
     const stats = getDriverBillingDocumentStats(document);
@@ -1682,6 +1709,7 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
       id: transaction.id,
       transactionId: transaction.id,
       sourceDocumentId: transaction.source_document_id,
+      sourceDocument: documentsById.get(transaction.source_document_id) ?? null,
       date: transaction.occurred_on,
       time: transaction.metadata?.time || "",
       liters: Number(transaction.metadata?.liters) || 0,
@@ -1693,6 +1721,7 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
       id: entry.id,
       date: entry.entry_date,
       time: "",
+      sourceDocument: null,
       liters: Number(entry.fuel_liters) || 0,
       cost: Number(entry.fuel_cost) || 0,
     }));
@@ -1702,7 +1731,8 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
       ? entryFuelEntries
       : getDriverFuelEntriesForPeriod(vehicle, row.driver, month, year);
   periodFuelEntries.forEach((entry) => {
-    const day = Number(entry.date.split(" ")[0]);
+    const day = getDriverCalendarDayNumber(entry.date, month, year);
+    if (!day) return;
     fuelByDay.set(day, [...(fuelByDay.get(day) ?? []), entry]);
   });
   return Array.from({ length: daysInMonth }, (_, index) => {
@@ -6112,8 +6142,20 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     : `conic-gradient(from 45deg, ${visibleChartMetrics.map((metric, index) => `${chartIconMetricColors[metric]} ${index * 100 / visibleChartMetrics.length}% ${(index + 1) * 100 / visibleChartMetrics.length}%`).join(", ")})`;
   const selectedFuelStats = vehicleStats.find(({ vehicle }) => vehicle.plate === selected.plate) ?? vehicleStats[0];
   const selectedBillingDriver = billingRows.find((row) => row.key === billingDriverKey) ?? null;
+  const selectedBillingDriverVehicle = vehicles.find((vehicle) => vehicle.plate === selectedBillingDriver?.plate) ?? null;
   const selectedBillingVehicle = vehicles.find((vehicle) => vehicle.plate === billingVehiclePlate) ?? null;
   const selectedBillingVehicleRows = billingRows.filter((row) => row.plate === billingVehiclePlate);
+  const openBillingSourceDocument = (document) => {
+    if (!document || !selectedBillingDriver) return;
+    setModal({
+      type: "driver-document",
+      item: buildDriverDocumentModalItem(document, {
+        driver: selectedBillingDriver.driver,
+        plate: selectedBillingDriver.plate,
+        fallbackDate: periodStart,
+      }),
+    });
+  };
   const hasChartData = true;
   const selectChartBar = (entry) => {
     const label = entry?.payload?.label ?? entry?.label;
@@ -6254,7 +6296,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
               onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }}
             />
             {selectedBillingVehicle ? <VehicleBillingSummary vehicle={selectedBillingVehicle} rows={selectedBillingVehicleRows} month={reportMonth} year={reportYear} /> : null}
-            {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} month={reportMonth} year={reportYear} onClose={() => setBillingDriverKey("")} /> : null}
+            {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} vehicle={selectedBillingDriverVehicle} month={reportMonth} year={reportYear} documents={documents} transactions={transactions} onOpenDocument={openBillingSourceDocument} onClose={() => setBillingDriverKey("")} /> : null}
 
           </section>
         </div>
@@ -6352,7 +6394,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
             onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }}
           />
           {selectedBillingVehicle ? <VehicleBillingSummary vehicle={selectedBillingVehicle} rows={selectedBillingVehicleRows} month={reportMonth} year={reportYear} /> : null}
-          {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} month={reportMonth} year={reportYear} onClose={() => setBillingDriverKey("")} /> : null}
+          {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} vehicle={selectedBillingDriverVehicle} month={reportMonth} year={reportYear} documents={documents} transactions={transactions} onOpenDocument={openBillingSourceDocument} onClose={() => setBillingDriverKey("")} /> : null}
           <FuelDriversReport vehicles={vehicles} selectedDriverKey={billingDriverKey} onSelectDriver={setBillingDriverKey} />
         </div>}
       </div>
@@ -6545,8 +6587,13 @@ function VehicleBillingSummary({ vehicle, rows, month, year }) {
   );
 }
 
-function DriverBillingCalendar({ row, month, year, onClose }) {
-  const billingDays = getDriverBillingDays(row.driver, row.plate, month, year, row.revenue);
+function DriverBillingCalendar({ row, vehicle, month, year, documents = [], transactions = [], onOpenDocument, onClose }) {
+  const calendarVehicle = vehicle ?? { plate: row.plate, model: row.model, drivers: [row.driver], fuelSchedule: [], monthlyFuel: [] };
+  const calendarRows = getDriverCalendarRows(calendarVehicle, row, month, year, documents, transactions);
+  const billingDays = new Map(calendarRows.filter((day) => day.billing > 0).map((day) => [day.day, day.billing]));
+  const billingDocumentsByDay = new Map(calendarRows
+    .map((day) => [day.day, day.documents.filter((document) => getDriverDocumentKind(document) === "billing")])
+    .filter(([, dayDocuments]) => dayDocuments.length > 0));
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const leadingDays = (new Date(year, month, 1).getDay() + 6) % 7;
   const calendarCells = [
@@ -6567,7 +6614,11 @@ function DriverBillingCalendar({ row, month, year, onClose }) {
       <div className="driver-billing-calendar__grid" role="grid" aria-label={`Facturación diaria de ${row.driver} en ${reportMonths[month]} de ${year}`}>
         {calendarCells.map((cell) => cell.empty
           ? <span className="driver-billing-day driver-billing-day--empty" aria-hidden="true" key={cell.key} />
-          : <div className={billingDays.has(cell.day) ? "driver-billing-day driver-billing-day--active" : "driver-billing-day"} role="gridcell" aria-label={billingDays.has(cell.day) ? `${cell.day} de ${reportMonths[month]}: ${formatCurrency(billingDays.get(cell.day))}` : `${cell.day} de ${reportMonths[month]}: sin facturación`} key={cell.key}><span>{cell.day}</span>{billingDays.has(cell.day) ? <strong>{formatCurrency(billingDays.get(cell.day))}</strong> : <small>—</small>}</div>)}
+          : (() => {
+            const dayDocuments = billingDocumentsByDay.get(cell.day) ?? [];
+            const hasBilling = billingDays.has(cell.day);
+            return <div className={`driver-billing-day${hasBilling ? " driver-billing-day--active" : ""}${dayDocuments.length ? " driver-billing-day--documented" : ""}`} role="gridcell" aria-label={`${cell.day} de ${reportMonths[month]}: ${hasBilling ? formatCurrency(billingDays.get(cell.day)) : "sin facturación"}${dayDocuments.length ? `, ${dayDocuments.length} foto${dayDocuments.length === 1 ? "" : "s"} original${dayDocuments.length === 1 ? "" : "es"}` : ""}`} key={cell.key}><span>{cell.day}</span>{hasBilling ? <strong>{formatCurrency(billingDays.get(cell.day))}</strong> : <small>—</small>}{dayDocuments.length > 0 && onOpenDocument && <div className="driver-billing-day__documents" aria-label={`Fotos originales de ${cell.day} de ${reportMonths[month]}`}>{dayDocuments.map((document, index) => <button type="button" key={document.id} onClick={(event) => { event.stopPropagation(); onOpenDocument(document); }} aria-label={`Abrir foto original de Facturación ${index + 1}`} title={`Abrir foto original · ${document.file_name || "Documento"}`}><IconCamera size={11} /><span aria-hidden="true">{dayDocuments.length > 1 ? index + 1 : "Foto"}</span></button>)}</div>}</div>;
+          })())}
       </div>
       <footer className="driver-billing-calendar__footer"><span><strong>{billingDays.size}</strong> días con facturación</span><span>Total del mes <strong>{formatCurrency(row.revenue)}</strong></span></footer>
     </section>
@@ -6763,6 +6814,10 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   };
   const scrollToDrivers = () => driverGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   const openFuelInvoice = (entry, index) => {
+    if (entry.sourceDocument) {
+      openDriverSourceDocument(entry.sourceDocument);
+      return;
+    }
     const pricePerLiter = entry.liters ? entry.cost / entry.liters : 0;
     setModal({
       type: "invoice",
@@ -6782,23 +6837,10 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     });
   };
   const openDriverSourceDocument = (document) => {
-    const dateKey = getDriverDocumentDateKey(document) ?? `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
+    const fallbackDate = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
     setModal({
       type: "driver-document",
-      item: {
-        id: `driver-document-${document.id}`,
-        documentNumber: document.file_name || document.id,
-        provider: "SOBRE RUEDAS",
-        date: formatDocumentDisplayDate(dateKey),
-        plate: selectedDriver.plate,
-        driver: selectedDriver.driver,
-        concept: getDriverDocumentKindLabel(document),
-        source: "Foto original de la aplicación del conductor",
-        status: document.status === "approved" ? "Validada" : "Archivada",
-        filePath: document.file_path || document.filePath || "",
-        fileName: document.file_name || document.fileName || "Documento original",
-        mimeType: document.mime_type || document.mimeType || "",
-      },
+      item: buildDriverDocumentModalItem(document, { driver: selectedDriver.driver, plate: selectedDriver.plate, fallbackDate }),
     });
   };
   const selectedDayDocuments = selectedDayDetail?.documents ?? [];

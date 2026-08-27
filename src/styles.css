@@ -803,6 +803,11 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .driver-billing-day > small { color: #b3bdc1; font-size: 9px; }
 .driver-billing-day--active { border-color: #b8ddbe; background: var(--billing-soft); color: #376b40; }
 .driver-billing-day--empty { border-color: transparent; background: transparent; }
+.driver-billing-day--documented { border-color: #e8c97e; }
+.driver-billing-day__documents { display: flex; flex-wrap: wrap; gap: 3px; margin-top: auto; max-width: 100%; }
+.driver-billing-day__documents button { min-width: 0; display: inline-flex; align-items: center; gap: 2px; padding: 2px 3px; border: 1px solid #e8c97e; border-radius: 4px; background: #fffaf0; color: #8a5a08; font-size: 6.5px; font-weight: 800; line-height: 1; cursor: pointer; }
+.driver-billing-day__documents button:hover, .driver-billing-day__documents button:focus-visible { border-color: #b57b14; background: #fff2d5; outline: 2px solid rgba(181,123,20,.28); outline-offset: 1px; }
+.driver-billing-day__documents button span { overflow: hidden; max-width: 25px; text-overflow: ellipsis; white-space: nowrap; }
 .driver-billing-calendar__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 18px; border-top: 1px solid #dcecdf; background: #fbfefb; color: #5c6f60; font-size: 8px; }
 .driver-billing-calendar__footer strong { color: var(--billing-strong); }
 .vehicle-billing-summary { width: min(100%, 820px); margin: 0 auto; overflow: hidden; border-color: #c5dfcf; box-shadow: 0 7px 18px rgba(34,89,60,.08); }
