@@ -3272,7 +3272,10 @@ function AccessBlockedScreen({ onSignOut }) {
 }
 
 function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = false, preview = false, onExitPreview }) {
-  const activeProfileId = profile.id ?? session.user.id;
+  // A preview is an administrator acting on behalf of a selected driver. In
+  // a real driver session, always use the authenticated id for writes so a
+  // stale profile object can never produce an RLS mismatch.
+  const activeProfileId = preview ? (profile.id ?? session.user.id) : session.user.id;
   const canQueryDriverData = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(activeProfileId));
   const [selectedDate, setSelectedDate] = useState(getDriverDateKey());
   const [entry, setEntry] = useState(() => getDriverEntryForm(getDriverDateKey()));
@@ -3858,6 +3861,11 @@ function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = fals
       return 0;
     };
     const documentCategory = recordKey === "billing" ? "billing" : "consumption";
+    // A driver upload inherits the vehicle from the active profile. The
+    // document can contain no vehicle at all (or OCR can invent one), so the
+    // extracted value must never be allowed to change the driver's owner
+    // context or trip the vehicle-bound RLS check.
+    const documentVehiclePlate = profileVehiclePlate || canonicalizeVehiclePlate(fields.vehicle);
     const printedDate = recordKey === "billing"
       ? fields.date || fields.serviceDate || fields.issueDate || fields.periodStart
       : fields.date;
@@ -3906,6 +3914,7 @@ function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = fals
       points,
       refunds,
       unit: fields.unit ?? "",
+      vehicle: documentVehiclePlate,
     };
     const centralEconomic = recordKey === "fuel" || recordKey === "billing";
     setCircleUpload({ key: recordKey, status: "uploading", fileName: file.name });
@@ -3916,7 +3925,7 @@ function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = fals
         const uploaded = await uploadDocumentRecord({
           ownerId: activeProfileId,
           category: documentCategory,
-          vehiclePlate: canonicalizeVehiclePlate(fields.vehicle || profileVehiclePlate),
+          vehiclePlate: documentVehiclePlate,
           file,
           fileHash,
           documentDate: targetDate,
@@ -3927,10 +3936,10 @@ function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = fals
         });
         const operations = operationsFromDocument({
           category: documentCategory,
-          fields: { ...fields, date: targetDate, serviceDate: targetDate, vehicle: canonicalizeVehiclePlate(fields.vehicle || profileVehiclePlate), recordType: recordKey },
+          fields: { ...fields, date: targetDate, serviceDate: targetDate, vehicle: documentVehiclePlate, recordType: recordKey },
           recordType: recordKey,
           driverId: activeProfileId,
-          vehiclePlate: profileVehiclePlate,
+          vehiclePlate: documentVehiclePlate,
           fileHash,
           fallbackDate: targetDate,
         });
@@ -3941,7 +3950,7 @@ function DriverApp({ session, profile, onSignOut, onInstall, isStandalone = fals
         const uploaded = await uploadDocumentRecord({
           ownerId: activeProfileId,
           category: documentCategory,
-          vehiclePlate: canonicalizeVehiclePlate(fields.vehicle || profileVehiclePlate),
+          vehiclePlate: documentVehiclePlate,
           file,
           fileHash,
           documentDate: targetDate,
