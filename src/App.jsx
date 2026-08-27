@@ -785,6 +785,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
 
 const reportMonths = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DRIVER_BILLING_VISIBLE_MONTHS = 12;
+const DRIVER_BILLING_EXPANDED_VISIBLE_MONTHS = 8;
 const DRIVER_BILLING_CHART_LEFT_MARGIN = 76;
 const DRIVER_BILLING_CHART_Y_AXIS_WIDTH = 66;
 const DRIVER_BILLING_CHART_RIGHT_MARGIN = 22;
@@ -4528,7 +4529,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       const viewportWidth = scrollElement.clientWidth;
       if (!viewportWidth) return;
       const availableChartWidth = Math.max(1, viewportWidth);
-      const monthColumnWidth = Math.max(24, availableChartWidth / DRIVER_BILLING_VISIBLE_MONTHS);
+      const monthColumnWidth = Math.max(24, availableChartWidth / DRIVER_BILLING_EXPANDED_VISIBLE_MONTHS);
       const nextWidth = Math.max(viewportWidth, DRIVER_BILLING_CHART_LEFT_MARGIN + DRIVER_BILLING_CHART_Y_AXIS_WIDTH + DRIVER_BILLING_CHART_RIGHT_MARGIN + monthlyBillingHistory.length * monthColumnWidth);
       setBillingChartWidth(nextWidth);
     };
@@ -4550,10 +4551,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       const calendarCurrentMonthKey = `${calendarToday.getFullYear()}-${String(calendarToday.getMonth() + 1).padStart(2, "0")}`;
       const currentIndex = monthlyBillingHistory.findIndex((month) => month.key === calendarCurrentMonthKey);
       const endIndex = currentIndex >= 0 ? currentIndex + 1 : monthlyBillingHistory.length;
-      const startIndex = Math.max(0, endIndex - DRIVER_BILLING_VISIBLE_MONTHS);
+      const startIndex = Math.max(0, endIndex - DRIVER_BILLING_EXPANDED_VISIBLE_MONTHS);
       const chartDataWidth = Math.max(1, billingChartWidth - DRIVER_BILLING_CHART_LEFT_MARGIN - DRIVER_BILLING_CHART_Y_AXIS_WIDTH - DRIVER_BILLING_CHART_RIGHT_MARGIN);
       const monthColumnWidth = chartDataWidth / Math.max(1, monthlyBillingHistory.length);
-      const targetScrollLeft = monthlyBillingHistory.length > DRIVER_BILLING_VISIBLE_MONTHS ? DRIVER_BILLING_CHART_LEFT_MARGIN + DRIVER_BILLING_CHART_Y_AXIS_WIDTH + startIndex * monthColumnWidth : 0;
+      const targetScrollLeft = monthlyBillingHistory.length > DRIVER_BILLING_EXPANDED_VISIBLE_MONTHS ? DRIVER_BILLING_CHART_LEFT_MARGIN + DRIVER_BILLING_CHART_Y_AXIS_WIDTH + startIndex * monthColumnWidth : 0;
       scrollElement.scrollLeft = Math.max(0, Math.min(scrollElement.scrollWidth - scrollElement.clientWidth, targetScrollLeft));
     });
     return () => window.cancelAnimationFrame(frame);
@@ -4895,7 +4896,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               </header>
               {expandedPreviewMetric === "billing" && (
                 <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--billing" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
-                  <div ref={billingChartScrollRef} className="driver-mobile-chart-dialog__billing-scroll" role="region" aria-label="Facturación mensual por año. Los meses más recientes aparecen primero; desliza horizontalmente para consultar el resto">
+                  <div ref={billingChartScrollRef} className="driver-mobile-chart-dialog__billing-scroll" role="region" aria-label="Facturación mensual por año. Se muestran ocho meses por vista; desliza horizontalmente para consultar el resto">
                     <div className="driver-mobile-chart-dialog__billing-canvas" style={{ width: `${billingChartWidth}px` }}>
                       <BarChart width={billingChartWidth} height={340} data={monthlyBillingHistory} margin={{ top: 26, right: 22, bottom: 62, left: 76 }} onMouseMove={(state) => showDriverChartTooltip("billing", state)} onTouchStart={(state) => showDriverChartTooltip("billing", state)} onTouchMove={(state) => showDriverChartTooltip("billing", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
@@ -7886,9 +7887,9 @@ function DriverBillingMonthTick({ x, y, payload }) {
   const shortYear = String(year).slice(-2);
   return (
     <g transform={`translate(${x},${y})`}>
-      <text x="0" y="0" dy="9" textAnchor="middle" fill="#526783" fontSize="7" fontWeight="850">
+      <text x="0" y="0" dy="9" textAnchor="middle" fill="#526783" fontSize="11" fontWeight="900">
         <tspan x="0" dy="0">{String(month).toUpperCase()}</tspan>
-        <tspan x="0" dy="11" fontSize="6">{shortYear}</tspan>
+        <tspan x="0" dy="13" fontSize="10" fontWeight="900">{shortYear}</tspan>
       </text>
     </g>
   );
@@ -7900,14 +7901,14 @@ function DriverBillingBarValueLabel({ x, y, width, height, value }) {
   const centerX = Number(x) + Number(width) / 2;
   const centerY = Number(y) + Number(height) / 2;
   const label = formatCurrency(numericValue);
-  const fontSize = Math.max(9, Math.min(13, Number(width) * 0.24, Number(height) * 0.22));
+  const fontSize = Math.max(9, Math.min(15, Number(width) * 0.34, Number(height) * 0.2));
   return (
     <text
       x={centerX}
       y={centerY}
       fill="#fff"
       fontSize={fontSize}
-      fontWeight="850"
+      fontWeight="900"
       textAnchor="middle"
       dominantBaseline="central"
       transform={`rotate(-90 ${centerX} ${centerY})`}
