@@ -3355,6 +3355,12 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const [driverNoticeOpen, setDriverNoticeOpen] = useState(false);
   const [driverNavSection, setDriverNavSection] = useState("home");
   const [entryFormOpen, setEntryFormOpen] = useState(false);
+  useEffect(() => {
+    setSelectedDate(getDriverDateKey());
+    setPeriodPickerOpen("");
+    setDriverMenuOpen(false);
+    setDriverNoticeOpen(false);
+  }, [activeProfileId, preview]);
   const [circleUpload, setCircleUpload] = useState({ key: "", status: "idle", fileName: "" });
   const [circleReview, setCircleReview] = useState(null);
   const [circlePreviewUrls, setCirclePreviewUrls] = useState({});
