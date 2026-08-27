@@ -7901,7 +7901,7 @@ function DriverBillingBarValueLabel({ x, y, width, height, value }) {
   const centerX = Number(x) + Number(width) / 2;
   const centerY = Number(y) + Number(height) / 2;
   const label = formatCurrency(numericValue);
-  const fontSize = Math.max(9, Math.min(15, Number(width) * 0.34, Number(height) * 0.2));
+  const fontSize = Math.max(9, Math.min(21, Number(width) * 0.6, Number(height) * 0.18));
   return (
     <text
       x={centerX}
