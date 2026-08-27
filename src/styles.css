@@ -5966,11 +5966,16 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   overflow: visible;
   max-width: 100%;
   padding-inline: 1px;
-  font-size: clamp(10px, 2.8vw, 12.5px);
+  font-size: clamp(10px, 2.8vw, 11.5px);
+  letter-spacing: -.06em;
   line-height: 1.1;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
   text-wrap: balance;
+  transform: scaleX(.92);
+  transform-origin: center;
 }
 .driver-mobile-app--updated .driver-mobile-record-card--billing > span,
 .driver-mobile-app--updated .driver-mobile-record-card--total-km > span,
@@ -5987,6 +5992,14 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-mobile-app--updated .driver-mobile-record-card > span,
   .driver-app--preview .driver-mobile-record-card > span {
     font-size: 10px;
+  }
+}
+
+@media (max-width: 360px) {
+  .driver-mobile-app--updated .driver-mobile-record-card > span,
+  .driver-app--preview .driver-mobile-record-card > span {
+    font-size: 9.5px;
+    transform: scaleX(.86);
   }
 }
 
