@@ -3493,7 +3493,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       },
       onStatus: (status) => {
         if (!mounted) return;
-        if (["SUBSCRIBED", "CHANNEL_ERROR", "TIMED_OUT"].includes(status)) queueRefresh(false);
+        if (["SUBSCRIBED", "CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) queueRefresh(false);
       },
     });
     return () => {
