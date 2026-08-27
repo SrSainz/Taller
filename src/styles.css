@@ -5974,3 +5974,54 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
     font-size: 10px;
   }
 }
+
+/* Calendario semanal del conductor: superficie roja de alta visibilidad. */
+.driver-mobile-app .driver-mobile-week-swipe-wrap {
+  border-color: #9f0000;
+  background: #d20000;
+  box-shadow: 0 5px 14px rgba(151, 0, 0, .2);
+}
+.driver-mobile-app .driver-mobile-week-table {
+  background: #d20000;
+}
+.driver-mobile-app .driver-mobile-week-table th,
+.driver-mobile-app .driver-mobile-week-table td {
+  border-color: rgba(255, 255, 255, .28);
+  color: #fff;
+}
+.driver-mobile-app .driver-mobile-week-table thead th,
+.driver-mobile-app .driver-mobile-week-table thead th:first-child,
+.driver-mobile-app .driver-mobile-week-table tbody th,
+.driver-mobile-app .driver-mobile-week-table tbody td {
+  background: #d20000;
+}
+.driver-mobile-app .driver-mobile-week-table thead th:first-child,
+.driver-mobile-app .driver-mobile-week-table tbody th {
+  background: #ad0000;
+  box-shadow: 5px 0 9px -8px rgba(70, 0, 0, .95);
+}
+.driver-mobile-app .driver-mobile-week-table thead button {
+  color: #fff;
+}
+.driver-mobile-app .driver-mobile-week-table thead button.is-selected {
+  background: #8f0000;
+  color: #fff;
+  box-shadow: 0 3px 7px rgba(70, 0, 0, .3);
+}
+.driver-mobile-app .driver-mobile-week-table tbody tr.is-total th,
+.driver-mobile-app .driver-mobile-week-table tbody tr.is-total td {
+  background: #8f0000;
+  color: #fff;
+}
+.driver-mobile-app .driver-mobile-week-table__amount-trigger,
+.driver-mobile-app .driver-mobile-week-table__amount-input,
+.driver-mobile-app .driver-mobile-week-table__amount-editor b {
+  color: #fff;
+}
+.driver-mobile-app .driver-mobile-week-table__amount-trigger:focus-visible,
+.driver-mobile-app .driver-mobile-week-table__amount-input:hover,
+.driver-mobile-app .driver-mobile-week-table__amount-input:focus {
+  border-color: rgba(255, 255, 255, .9);
+  background: #fff;
+  color: #8f0000;
+}
