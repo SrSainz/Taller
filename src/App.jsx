@@ -4898,7 +4898,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
                 <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--billing" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                   <div ref={billingChartScrollRef} className="driver-mobile-chart-dialog__billing-scroll" role="region" aria-label="Facturación mensual por año. Se muestran ocho meses por vista; desliza horizontalmente para consultar el resto">
                     <div className="driver-mobile-chart-dialog__billing-canvas" style={{ width: `${billingChartWidth}px` }}>
-                      <BarChart width={billingChartWidth} height={340} data={monthlyBillingHistory} margin={{ top: 26, right: 22, bottom: 62, left: 76 }} onMouseMove={(state) => showDriverChartTooltip("billing", state)} onTouchStart={(state) => showDriverChartTooltip("billing", state)} onTouchMove={(state) => showDriverChartTooltip("billing", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                      <BarChart width={billingChartWidth} height={520} data={monthlyBillingHistory} margin={{ top: 30, right: 22, bottom: 68, left: 76 }} onMouseMove={(state) => showDriverChartTooltip("billing", state)} onTouchStart={(state) => showDriverChartTooltip("billing", state)} onTouchMove={(state) => showDriverChartTooltip("billing", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
                         <XAxis dataKey="label" interval={0} tick={<DriverBillingMonthTick />} tickLine={false} axisLine={{ stroke: "#cbd8e8" }} />
                         <YAxis width={66} tick={{ fontSize: 14, fontWeight: 850, fill: "#526783" }} tickLine={false} axisLine={false} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} domain={[0, Math.max(periodSummary.billingScaleMax, ...monthlyBillingHistory.map((month) => month.amount))]} />
@@ -4916,26 +4916,30 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               )}
               {expandedPreviewMetric === "km" && (
                 <div className="driver-mobile-chart-dialog__chart" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
-                  <LineChart width={520} height={250} data={weeklyKmData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }} onMouseMove={(state) => showDriverChartTooltip("km", state)} onTouchStart={(state) => showDriverChartTooltip("km", state)} onTouchMove={(state) => showDriverChartTooltip("km", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} />
-                    <Tooltip active={activeDriverChartTooltip === "km"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} />
-                    <Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} />
-                  </LineChart>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={weeklyKmData} margin={{ top: 28, right: 18, bottom: 38, left: 30 }} onMouseMove={(state) => showDriverChartTooltip("km", state)} onTouchStart={(state) => showDriverChartTooltip("km", state)} onTouchMove={(state) => showDriverChartTooltip("km", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 13, fontWeight: 750 }} tickMargin={10} />
+                      <YAxis tick={{ fontSize: 13, fontWeight: 750 }} tickMargin={8} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} />
+                      <Tooltip active={activeDriverChartTooltip === "km"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} />
+                      <Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={4} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={2.5} strokeDasharray="6 5" dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               )}
               {expandedPreviewMetric === "consumption" && (
                 <div className="driver-mobile-chart-dialog__chart" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
-                  <LineChart width={520} height={250} data={weeklyConsumptionData} margin={{ top: 20, right: 12, bottom: 24, left: 4 }} onMouseMove={(state) => showDriverChartTooltip("consumption", state)} onTouchStart={(state) => showDriverChartTooltip("consumption", state)} onTouchMove={(state) => showDriverChartTooltip("consumption", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l`} />
-                    <Tooltip active={activeDriverChartTooltip === "consumption"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km`} />
-                    <Line type="monotone" dataKey="driverConsumption" name="Este conductor" stroke="#2c6de9" strokeWidth={3} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="otherConsumption" name="Resto" stroke="#9aaac0" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} />
-                  </LineChart>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={weeklyConsumptionData} margin={{ top: 28, right: 18, bottom: 38, left: 30 }} onMouseMove={(state) => showDriverChartTooltip("consumption", state)} onTouchStart={(state) => showDriverChartTooltip("consumption", state)} onTouchMove={(state) => showDriverChartTooltip("consumption", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 13, fontWeight: 750 }} tickMargin={10} />
+                      <YAxis tick={{ fontSize: 13, fontWeight: 750 }} tickMargin={8} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l`} />
+                      <Tooltip active={activeDriverChartTooltip === "consumption"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km`} />
+                      <Line type="monotone" dataKey="driverConsumption" name="Este conductor" stroke="#2c6de9" strokeWidth={4} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="otherConsumption" name="Resto" stroke="#9aaac0" strokeWidth={2.5} strokeDasharray="6 5" dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               )}
             </div>

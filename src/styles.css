@@ -3913,16 +3913,19 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-week-table tbody td > * { max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .driver-mobile-week-table__amount-editor { overflow: hidden; }
 .driver-mobile-week-table__amount-trigger, .driver-mobile-week-table__amount-input { max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -.03em; }
-.driver-mobile-chart-dialog { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 12px; background: rgba(5,22,47,.58); }
-.driver-mobile-chart-dialog__panel { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; padding: 14px; border: 1px solid #d7e2ef; border-radius: 18px; background: #fff; box-shadow: 0 18px 50px rgba(3,24,55,.3); }
-.driver-mobile-chart-dialog__panel > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.driver-mobile-chart-dialog { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 10px; background: rgba(5,22,47,.58); }
+.driver-mobile-chart-dialog__panel { width: min(640px, calc(100vw - 20px)); height: min(780px, calc(100dvh - 20px)); max-height: calc(100dvh - 20px); display: flex; flex-direction: column; overflow: hidden; padding: 14px; border: 1px solid #d7e2ef; border-radius: 18px; background: #fff; box-shadow: 0 18px 50px rgba(3,24,55,.3); }
+.driver-mobile-chart-dialog__panel > header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .driver-mobile-chart-dialog__panel > header span { color: #587398; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
 .driver-mobile-chart-dialog__panel > header h2 { margin: 3px 0 0; color: #102d58; font-size: 18px; }
 .driver-mobile-chart-dialog__panel > header button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 1px solid #d4dfec; border-radius: 9px; background: #f7faff; color: #173661; cursor: pointer; }
-.driver-mobile-chart-dialog__chart { width: 100%; min-height: 250px; overflow: hidden; margin-top: 4px; }
+.driver-mobile-chart-dialog__chart { width: 100%; min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; overflow: hidden; margin-top: 4px; }
 .driver-mobile-chart-dialog__chart > .recharts-wrapper { width: 100% !important; min-width: 0 !important; }
-.driver-mobile-chart-dialog__chart > .recharts-wrapper > svg { width: 100% !important; height: 250px !important; }
-.driver-mobile-chart-dialog__hint { margin: 4px 0 0; color: #74839a; font-size: 9px; text-align: center; }
+.driver-mobile-chart-dialog__chart > .recharts-wrapper > svg { width: 100% !important; height: 100% !important; min-height: 0; }
+.driver-mobile-chart-dialog__chart > .recharts-responsive-container { width: 100% !important; height: 100% !important; min-height: 0 !important; flex: 1 1 auto; }
+.driver-mobile-chart-dialog__chart > .recharts-responsive-container > .recharts-wrapper { width: 100% !important; height: 100% !important; min-width: 0 !important; }
+.driver-mobile-chart-dialog__chart > .recharts-responsive-container .recharts-surface { width: 100% !important; height: 100% !important; }
+.driver-mobile-chart-dialog__hint { flex: 0 0 auto; margin: 8px 0 0; color: #74839a; font-size: 10px; text-align: center; }
 
 /* Histórico mensual del conductor: tira desplazable y lectura vertical por barra. */
 .driver-mobile-history-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; scrollbar-color: #9db7dc transparent; }
@@ -3948,21 +3951,20 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-billing-history__month.is-selected i { background: #286ee7; }
 .driver-mobile-billing-history__month.is-selected > small b, .driver-mobile-billing-history__month.is-selected > small em { color: #1d55ad; }
 .driver-mobile-billing-history__month:hover, .driver-mobile-billing-history__month:focus-visible { border-color: transparent; outline: 0; background: #eff5ff; }
-.driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--billing) { width: min(900px, calc(100vw - 24px)); }
-.driver-mobile-chart-dialog__chart--billing { min-height: 376px; overflow: visible; }
-.driver-mobile-chart-dialog__billing-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; padding: 4px 0 10px; scrollbar-width: thin; scrollbar-color: #9db7dc transparent; }
+.driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--billing) { width: min(640px, calc(100vw - 20px)); }
+.driver-mobile-chart-dialog__chart--billing { min-height: 0; overflow: visible; }
+.driver-mobile-chart-dialog__billing-scroll { width: 100%; min-height: 0; flex: 1 1 auto; overflow-x: auto; overscroll-behavior-inline: contain; padding: 4px 0 10px; scrollbar-width: thin; scrollbar-color: #9db7dc transparent; }
 .driver-mobile-chart-dialog__billing-scroll:focus-visible { outline: 2px solid rgba(44,109,233,.5); outline-offset: 2px; }
-.driver-mobile-chart-dialog__billing-canvas { width: max-content; min-width: 100%; display: inline-block; }
-.driver-mobile-chart-dialog__billing-canvas .recharts-wrapper { width: 100% !important; min-width: 0; }
-.driver-mobile-chart-dialog__billing-canvas .recharts-surface { max-width: none; }
+.driver-mobile-chart-dialog__billing-canvas { width: max-content; min-width: 100%; height: 100%; display: inline-block; }
+.driver-mobile-chart-dialog__billing-canvas .recharts-wrapper { width: 100% !important; height: 100% !important; min-width: 0; }
+.driver-mobile-chart-dialog__billing-canvas .recharts-surface { max-width: none; height: 100% !important; }
 .driver-mobile-chart-dialog__chart--billing .recharts-cartesian-axis-tick text { font-weight: 900; }
 .driver-mobile-chart-dialog__chart--billing + .driver-mobile-chart-dialog__hint { margin-top: 0; font-weight: 750; }
 @media (max-width: 520px) {
   .driver-mobile-preview-chart-card__summary strong { font-size: 9px; }
   .driver-mobile-preview-chart-card__summary span, .driver-mobile-preview-chart-card__legend, .driver-mobile-preview-history::before, .driver-mobile-preview-consumption::before, .driver-mobile-preview-chart-card__heading { font-size: 6px; }
-  .driver-mobile-chart-dialog__panel { padding: 11px; }
-  .driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--billing) { width: calc(100vw - 24px); }
-  .driver-mobile-chart-dialog__chart--billing { min-height: 376px; }
+  .driver-mobile-chart-dialog__panel { width: calc(100vw - 16px); height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); padding: 11px; }
+  .driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--billing) { width: calc(100vw - 16px); }
 }
 
 /* Matrícula canónica + titular: el distintivo pequeño mantiene la asociación visible en todas las vistas. */
