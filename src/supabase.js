@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { getDocumentMimeType, validateDocumentFile } from "./documentAnalysis.js";
+import { hashDocumentFile } from "./transactions.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
@@ -110,6 +112,46 @@ const safeFileName = (value = "documento") => String(value)
 const documentRecordColumns = "id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at";
 const maintenanceReportColumns = "id, reporter_id, vehicle_plate, note, photo_path, photo_name, photo_mime_type, photo_size, status, created_at, updated_at";
 
+const randomUploadToken = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+const maintenancePhotoMimeTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+const getMaintenancePhotoMimeType = (file) => {
+  const explicitType = String(file?.type ?? "").split(";", 1)[0].trim().toLocaleLowerCase("es");
+  const extension = String(file?.name ?? "").split(".").pop()?.toLocaleLowerCase("es") ?? "";
+  if (explicitType && explicitType !== "application/octet-stream" && explicitType !== "image/*") {
+    if (explicitType === "image/jpg") return "image/jpeg";
+    return maintenancePhotoMimeTypes.has(explicitType) ? explicitType : "";
+  }
+  return ({ jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", heif: "image/heif" })[extension] ?? "";
+};
+
+export const validateMaintenancePhotoFile = (file) => {
+  if (!file) return { valid: false, message: "No se ha seleccionado ninguna fotografía." };
+  const mimeType = getMaintenancePhotoMimeType(file);
+  if (!mimeType) return { valid: false, message: "Fotografía no compatible. Selecciona JPG, PNG, WEBP, HEIC o HEIF." };
+  if (file.size > 8 * 1024 * 1024) return { valid: false, message: "La fotografía supera el límite de 8 MB." };
+  return { valid: true, mimeType };
+};
+
+/**
+ * PostgREST commonly caps a response at 1,000 rows. Every operational list
+ * uses this helper so a busy fleet does not silently lose older documents,
+ * entries, transactions or notices from the visible application.
+ */
+export const fetchAllSupabaseRows = async (queryFactory, { pageSize = 500, maxRows = 100000 } = {}) => {
+  if (!supabase) return { data: [], error: null };
+  const safePageSize = Math.max(1, Math.min(1000, Number(pageSize) || 500));
+  const safeMaxRows = Math.max(safePageSize, Number(maxRows) || 100000);
+  const rows = [];
+  for (let offset = 0; offset < safeMaxRows; offset += safePageSize) {
+    const { data, error } = await queryFactory().range(offset, Math.min(offset + safePageSize - 1, safeMaxRows - 1));
+    if (error) return { data: null, error };
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < safePageSize) return { data: rows, error: null };
+  }
+  return { data: rows, error: new Error("La lista supera el límite de seguridad de registros cargables.") };
+};
+
 const findDocumentByHash = async (ownerId, fileHash) => {
   if (!fileHash) return null;
   const { data, error } = await supabase
@@ -123,10 +165,15 @@ const findDocumentByHash = async (ownerId, fileHash) => {
 };
 
 const refreshPendingDocument = async (document, values) => {
-  if (!document || document.status === "approved") return document;
+  if (!document) return document;
+  // A re-review of the same original file must update the extracted fields
+  // as well as its central movements. Keep an already approved document
+  // approved while replacing its review values; otherwise a corrected amount
+  // would be written only to transactions and the archived document would
+  // display stale data on the next reload.
   const { data, error } = await supabase
     .from("documents")
-    .update({ ...values, status: "review", updated_at: new Date().toISOString() })
+    .update({ ...values, status: document.status === "approved" ? "approved" : "review", updated_at: new Date().toISOString() })
     .eq("id", document.id)
     .select(documentRecordColumns)
     .single();
@@ -136,24 +183,35 @@ const refreshPendingDocument = async (document, values) => {
 
 export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, file, fileHash = null, documentDate = null, extractedData = {}, fieldConfidence = {}, overallConfidence = null, status = "review" }) => {
   if (!supabase || !ownerId || !file) throw new Error("No se puede guardar el documento sin una sesión activa.");
+  const validation = validateDocumentFile(file, "upload");
+  if (!validation.valid) throw new Error(validation.message);
+  const mimeType = getDocumentMimeType(file);
+  let resolvedFileHash = fileHash;
+  if (!resolvedFileHash) {
+    try {
+      resolvedFileHash = await hashDocumentFile(file);
+    } catch {
+      resolvedFileHash = "";
+    }
+  }
   const documentValues = {
     category,
     vehicle_plate: vehiclePlate || null,
     file_name: file.name || "documento",
-    mime_type: file.type || "application/octet-stream",
+    mime_type: mimeType,
     file_size: file.size || 0,
     document_date: documentDate || null,
     extracted_data: extractedData,
     field_confidence: fieldConfidence,
     overall_confidence: overallConfidence,
   };
-  const existingDocument = await findDocumentByHash(ownerId, fileHash);
+  const existingDocument = await findDocumentByHash(ownerId, resolvedFileHash);
   if (existingDocument) return refreshPendingDocument(existingDocument, documentValues);
 
-  const path = `${ownerId}/${category}/${Date.now()}-${safeFileName(file.name)}`;
+  const path = `${ownerId}/${category}/${randomUploadToken()}-${safeFileName(file.name)}`;
   const { error: uploadError } = await supabase.storage
     .from("documents")
-    .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
+    .upload(path, file, { contentType: mimeType, upsert: false });
   if (uploadError) throw uploadError;
 
   const { data, error } = await supabase
@@ -162,7 +220,7 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
       owner_id: ownerId,
       ...documentValues,
       file_path: path,
-      file_hash: fileHash || null,
+      file_hash: resolvedFileHash || null,
       status,
     })
     .select(documentRecordColumns)
@@ -170,8 +228,8 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
 
   if (error) {
     await supabase.storage.from("documents").remove([path]);
-    if (fileHash && (error.code === "23505" || /file_hash|duplicad/i.test(error.message ?? ""))) {
-      const racedDocument = await findDocumentByHash(ownerId, fileHash);
+    if (resolvedFileHash && (error.code === "23505" || /file_hash|duplicad/i.test(error.message ?? ""))) {
+      const racedDocument = await findDocumentByHash(ownerId, resolvedFileHash);
       if (racedDocument) return refreshPendingDocument(racedDocument, documentValues);
     }
     throw error;
@@ -180,7 +238,7 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
 };
 
 export const confirmDocumentTransactions = async (documentId, operations) => {
-  if (!supabase || !documentId || !operations?.length) throw new Error("No hay operaciones válidas para guardar.");
+  if (!supabase || !documentId || !Array.isArray(operations)) throw new Error("No hay operaciones válidas para guardar.");
   const { data, error } = await supabase.rpc("confirm_document_transactions", { p_document_id: documentId, p_operations: operations });
   if (error) throw error;
   return data;
@@ -198,30 +256,36 @@ export const deleteDocumentRecord = async (document) => {
   return { deleted: true, storageError: storageError?.message || "" };
 };
 
-export const listMaintenanceReports = async ({ vehiclePlate = "", reporterId = "", limit = 500 } = {}) => {
+export const listMaintenanceReports = async ({ vehiclePlate = "", reporterId = "", limit = null } = {}) => {
   if (!supabase) return { data: [], error: null };
-  let query = supabase
-    .from("maintenance_reports")
-    .select(maintenanceReportColumns)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (vehiclePlate) query = query.eq("vehicle_plate", vehiclePlate);
-  if (reporterId) query = query.eq("reporter_id", reporterId);
-  return query;
+  const queryFactory = () => {
+    let query = supabase
+      .from("maintenance_reports")
+      .select(maintenanceReportColumns)
+      .order("created_at", { ascending: false });
+    if (vehiclePlate) query = query.eq("vehicle_plate", vehiclePlate);
+    if (reporterId) query = query.eq("reporter_id", reporterId);
+    return Number.isFinite(Number(limit)) && Number(limit) > 0 ? query.limit(Number(limit)) : query;
+  };
+  return Number.isFinite(Number(limit)) && Number(limit) > 0
+    ? queryFactory()
+    : fetchAllSupabaseRows(queryFactory);
 };
 
 export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note = "", photoFile = null } = {}) => {
   if (!supabase || !reporterId || !vehiclePlate) throw new Error("Falta la asociación del conductor o la matrícula.");
   const trimmedNote = String(note ?? "").trim();
   if (!trimmedNote && !photoFile) throw new Error("Escribe una incidencia o añade una fotografía.");
+  const photoValidation = photoFile ? validateMaintenancePhotoFile(photoFile) : { valid: true, mimeType: "" };
+  if (!photoValidation.valid) throw new Error(photoValidation.message);
 
   let photoPath = null;
   if (photoFile) {
     const pathPlate = safeFileName(vehiclePlate).toLowerCase() || "vehiculo";
-    photoPath = `${reporterId}/${pathPlate}/${Date.now()}-${safeFileName(photoFile.name || "incidencia.jpg")}`;
+    photoPath = `${reporterId}/${pathPlate}/${randomUploadToken()}-${safeFileName(photoFile.name || "incidencia.jpg")}`;
     const { error: uploadError } = await supabase.storage
       .from("maintenance-reports")
-      .upload(photoPath, photoFile, { contentType: photoFile.type || "image/jpeg", upsert: false });
+      .upload(photoPath, photoFile, { contentType: photoValidation.mimeType, upsert: false });
     if (uploadError) throw uploadError;
   }
 
@@ -233,7 +297,7 @@ export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note =
       note: trimmedNote,
       photo_path: photoPath,
       photo_name: photoFile?.name || null,
-      photo_mime_type: photoFile?.type || null,
+      photo_mime_type: photoFile ? photoValidation.mimeType : null,
       photo_size: photoFile?.size || 0,
       status: "pending",
       updated_at: new Date().toISOString(),
@@ -297,11 +361,12 @@ export const upsertDriverPeriodFinancial = async ({ driverId, periodStart, payro
 
 export const listCommissionReports = async () => {
   if (!supabase) return { data: [], error: null };
-  return supabase
+  const queryFactory = () => supabase
     .from("commission_reports")
     .select("id, driver_id, vehicle_plate, period_start, period_end, driver_name, billing, commission_rate, commission_base, threshold_bonus, tips, tolls, total_benefit_month, payroll, total_to_collect, file_path, file_name, created_at, updated_at")
     .order("period_start", { ascending: false })
     .order("created_at", { ascending: false });
+  return fetchAllSupabaseRows(queryFactory);
 };
 
 export const uploadCommissionReport = async ({ report, pdfBlob, createdBy }) => {

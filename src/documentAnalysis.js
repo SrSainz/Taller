@@ -52,14 +52,35 @@ export const documentFieldDefinitions = {
 export const documentMaxFileSize = 12 * 1024 * 1024;
 export const documentMaxRequestSize = 3.2 * 1024 * 1024;
 
-const allowedImageExtensions = new Set(["jpg", "jpeg", "png", "webp"]);
+export const supportedDocumentMimeTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+const supportedImageMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const getExtension = (fileName = "") => String(fileName).split(".").pop()?.toLocaleLowerCase("es") ?? "";
 
-export const getDocumentKind = (file) => {
+/**
+ * Browsers occasionally omit File.type for files selected from a phone. We
+ * infer that case from the extension, but reject an explicit unsupported MIME
+ * type so GIF/HEIC/SVG cannot reach the Storage/API path that cannot process
+ * them consistently on every device.
+ */
+export const getDocumentMimeType = (file) => {
+  const explicitType = String(file?.type ?? "").split(";", 1)[0].trim().toLocaleLowerCase("es");
   const extension = getExtension(file?.name);
-  if (file?.type === "application/pdf" || extension === "pdf") return "pdf";
-  if (file?.type?.startsWith("image/") || allowedImageExtensions.has(extension)) return "image";
+  if (explicitType && explicitType !== "application/octet-stream") {
+    if (explicitType === "image/jpg") return "image/jpeg";
+    return supportedDocumentMimeTypes.has(explicitType) ? explicitType : "";
+  }
+  if (extension === "pdf") return "application/pdf";
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  return "";
+};
+
+export const getDocumentKind = (file) => {
+  const mimeType = getDocumentMimeType(file);
+  if (mimeType === "application/pdf") return "pdf";
+  if (supportedImageMimeTypes.has(mimeType)) return "image";
   return "unsupported";
 };
 
@@ -89,6 +110,11 @@ export const prepareDocumentFile = async (file) => {
     if (!blob || (blob.size >= file.size && scale === 1)) return file;
     const baseName = String(file.name || "documento").replace(/\.[^.]+$/, "");
     return new File([blob], `${baseName}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+  } catch {
+    // A camera can provide a valid image that the optional browser decoder
+    // cannot resize. Keep the original so the upload can still be reviewed
+    // and the server remains the final validation boundary.
+    return file;
   } finally {
     bitmap?.close?.();
   }
@@ -96,7 +122,16 @@ export const prepareDocumentFile = async (file) => {
 
 export const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader();
-  reader.addEventListener("load", () => resolve(String(reader.result)));
+  reader.addEventListener("load", () => {
+    const result = String(reader.result ?? "");
+    const separator = result.indexOf(",");
+    if (separator < 0) {
+      reject(new Error("No se ha podido preparar el archivo para analizarlo."));
+      return;
+    }
+    const mimeType = getDocumentMimeType(file) || "application/octet-stream";
+    resolve(`data:${mimeType};base64,${result.slice(separator + 1)}`);
+  });
   reader.addEventListener("error", () => reject(new Error("No se ha podido leer el archivo.")));
   reader.readAsDataURL(file);
 });

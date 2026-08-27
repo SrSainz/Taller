@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import handler, { buildPrompt, buildSchema } from "../api/analyze-document.js";
-import { hasDriverBillingAmount, normalizeDocumentAnalysis, normalizeDriverBillingAnalysisFields } from "../src/documentAnalysis.js";
+import { getDocumentKind, getDocumentMimeType, hasDriverBillingAmount, normalizeDocumentAnalysis, normalizeDriverBillingAnalysisFields, validateDocumentFile } from "../src/documentAnalysis.js";
 
 const invoke = async (request) => {
   const response = {
@@ -82,6 +82,48 @@ test("rejects invalid document payloads before calling the AI provider", async (
     assert.equal(result.statusCode, 400);
     assert.equal(result.json.code, "INVALID_DOCUMENT");
   } finally {
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
+test("acepta solo los formatos que el Storage y la IA pueden procesar", () => {
+  assert.equal(getDocumentMimeType({ name: "ticket.JPG", type: "" }), "image/jpeg");
+  assert.equal(getDocumentKind({ name: "factura.pdf", type: "application/octet-stream" }), "pdf");
+  assert.equal(getDocumentKind({ name: "foto.gif", type: "image/gif" }), "unsupported");
+  assert.equal(getDocumentKind({ name: "foto.heic", type: "image/heic" }), "unsupported");
+  assert.equal(validateDocumentFile({ name: "foto.svg", type: "image/svg+xml", size: 120 }).valid, false);
+});
+
+test("devuelve un error controlado si el proveedor de IA no responde", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-only-placeholder";
+  globalThis.fetch = async () => { throw Object.assign(new Error("network down"), { name: "TypeError" }); };
+  try {
+    const result = await invoke({ method: "POST", body: { category: "billing", fileName: "factura.jpg", dataUrl: "data:image/jpeg;base64,AA==" } });
+    assert.equal(result.statusCode, 502);
+    assert.equal(result.json.code, "AI_UNAVAILABLE");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  }
+});
+
+test("rechaza solicitudes demasiado grandes antes de llamar al proveedor", async () => {
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-only-placeholder";
+  let called = false;
+  globalThis.fetch = async () => { called = true; throw new Error("should not be called"); };
+  try {
+    const result = await invoke({ method: "POST", body: { category: "billing", fileName: "factura.jpg", dataUrl: `data:image/jpeg;base64,${"A".repeat(5 * 1024 * 1024)}` } });
+    assert.equal(result.statusCode, 413);
+    assert.equal(result.json.code, "REQUEST_TOO_LARGE");
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = previousKey;
   }

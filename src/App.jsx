@@ -68,7 +68,7 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, listMaintenanceReports, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial } from "./supabase";
+import { confirmDocumentTransactions, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, fetchAllSupabaseRows, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, listMaintenanceReports, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, validateMaintenancePhotoFile } from "./supabase";
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
@@ -1922,7 +1922,7 @@ function QuickActionMenu({ step, category, onCategory, onDocumentAction, onNotic
           <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--fuel" onClick={() => handleCategory("consumption")}><IconGasStation size={21} /><span>Consumo</span></button>
         </div>
       </div>}
-      <input ref={nativeInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Seleccionar una acción: Cámara o Archivos" onChange={handleFile} />
+      <input ref={nativeInputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" aria-label="Seleccionar una acción: Cámara o Archivos" onChange={handleFile} />
     </>
   );
 }
@@ -2356,14 +2356,14 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const refreshTransactions = useCallback(async () => {
     if (!isAdmin || !supabase) return;
     const [transactionResult, entryResult] = await Promise.all([
-      supabase
+      fetchAllSupabaseRows(() => supabase
         .from("transactions")
         .select("id, type, occurred_on, amount, driver_id, vehicle_plate, source_document_id, category, metadata, dedupe_key, created_at")
-        .order("occurred_on", { ascending: false }),
-      supabase
+        .order("occurred_on", { ascending: false })),
+      fetchAllSupabaseRows(() => supabase
         .from("driver_entries")
         .select("id, driver_id, vehicle_plate, entry_date, billing, billing_override, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, refunds, wash_expenses, other_expenses, notes, created_at, updated_at")
-        .order("entry_date", { ascending: false }),
+        .order("entry_date", { ascending: false })),
     ]);
     if (transactionResult.error) throw transactionResult.error;
     if (entryResult.error) throw entryResult.error;
@@ -2377,11 +2377,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
 
   const refreshDocuments = useCallback(async () => {
     if (!isAdmin || !supabase) return;
-    const { data, error } = await supabase
+    const { data, error } = await fetchAllSupabaseRows(() => supabase
       .from("documents")
-      .select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, extracted_data, field_confidence, overall_confidence, document_date, status, created_at, updated_at")
-      .order("created_at", { ascending: false })
-      .limit(500);
+      .select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, extracted_data, field_confidence, overall_confidence, document_date, status, created_at, updated_at")
+      .order("created_at", { ascending: false }));
     if (error) throw error;
     const nextDocuments = (data ?? []).map(normalizeDocumentRecord);
     setDocumentRecords(nextDocuments);
@@ -2390,15 +2389,16 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
 
   const refreshMaintenanceReports = useCallback(async () => {
     if (!isAdmin || !supabase) return;
-    const { data, error } = await listMaintenanceReports({ limit: 500 });
+    const { data, error } = await listMaintenanceReports();
     if (error) throw error;
     setMaintenanceReports((data ?? []).map(normalizeMaintenanceReportRecord));
   }, [isAdmin]);
 
   const saveAdminMaintenanceReport = useCallback(async ({ vehiclePlate, note = "", photoFile = null } = {}) => {
     if (!isAdmin || !session.user.id) throw new Error("Solo el administrador puede crear este aviso.");
-    if (photoFile && (!String(photoFile.type ?? "").startsWith("image/") || photoFile.size > 8 * 1024 * 1024)) {
-      throw new Error("La foto debe ser una imagen de hasta 8 MB.");
+    if (photoFile) {
+      const validation = validateMaintenancePhotoFile(photoFile);
+      if (!validation.valid) throw new Error(validation.message);
     }
     const saved = await createMaintenanceReport({ reporterId: session.user.id, vehiclePlate, note, photoFile });
     const normalizedReport = normalizeMaintenanceReportRecord(saved);
@@ -2456,6 +2456,12 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     const matchingTransactions = transactionType
       ? transactions.filter((transaction) => transaction.type === transactionType && transaction.driver_id === driverId && transaction.vehicle_plate === vehiclePlate && String(transaction.occurred_on) === dateKey)
       : [];
+    const dedupeKeyForAmount = (key, nextAmount) => {
+      const parts = String(key ?? "").split(":");
+      if (parts.length < 4) return key || null;
+      parts[3] = Number(nextAmount).toFixed(2);
+      return parts.join(":");
+    };
     if (matchingTransactions.length > 0) {
       const nextAmount = transactionType === "billing" ? nextBilling : nextFuelCost;
       if (nextAmount <= 0) {
@@ -2466,12 +2472,14 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         const nextMetadata = transactionType === "fuel"
           ? { ...(primary.metadata ?? {}), liters: nextFuelLiters }
           : primary.metadata ?? {};
-        const { error } = await supabase.from("transactions").update({ amount: Number(nextAmount.toFixed(2)), metadata: nextMetadata }).eq("id", primary.id);
-        if (error) throw error;
         if (duplicates.length > 0) {
           const { error: duplicateError } = await supabase.from("transactions").delete().in("id", duplicates.map((transaction) => transaction.id));
           if (duplicateError) throw duplicateError;
         }
+        const nextDedupeKey = dedupeKeyForAmount(primary.dedupe_key, nextAmount);
+        const transactionUpdate = { amount: Number(nextAmount.toFixed(2)), metadata: nextMetadata, ...(nextDedupeKey ? { dedupe_key: nextDedupeKey } : {}) };
+        const { error } = await supabase.from("transactions").update(transactionUpdate).eq("id", primary.id);
+        if (error) throw error;
       }
     }
 
@@ -2809,7 +2817,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     setPhotoInvoices((current) => [normalizedInvoice, ...current.filter((item) => item.id !== normalizedInvoice.id)]);
     if (file && supabase && session.user?.id) {
       try {
-        await uploadDocumentRecord({ ownerId: session.user.id, category: "billing", vehiclePlate: normalizedInvoice.plate, file, extractedData: normalizedInvoice, overallConfidence: 96, status: "review" });
+        await uploadDocumentRecord({ ownerId: session.user.id, category: "billing", vehiclePlate: normalizedInvoice.plate, file, documentDate: normalizedInvoice.dateIso || null, extractedData: normalizedInvoice, overallConfidence: 96, status: "review" });
       } catch (error) {
         notify(`Factura guardada localmente; no se pudo subir el adjunto: ${error.message}`);
       }
@@ -2817,21 +2825,23 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   };
 
   const saveProcessedDocumentLegacy = async (document) => {
-    const { file, ...documentWithoutFile } = document;
+    const { file, originalFile, ...documentWithoutFile } = document;
+    const archiveFile = originalFile || file;
     const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
     setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
     let cloudSaved = false;
-    if (file && supabase && session.user?.id) {
+    if (archiveFile && supabase && session.user?.id) {
       try {
         const fields = savedDocument.fields ?? {};
-        const documentDate = savedDocument.category === "billing" ? fields.serviceDate || fields.issueDate || new Date().toISOString().slice(0, 10) : fields.date || new Date().toISOString().slice(0, 10);
-        const fileHash = await hashDocumentFile(file);
-        const vehiclePlate = resolveVehiclePlate(fields.vehicle);
-        const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate, file, fileHash, documentDate, extractedData: { ...fields, vehicle: vehiclePlate }, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
+        const documentDate = savedDocument.category === "billing" ? fields.serviceDate || fields.issueDate || fields.date || fields.periodStart : fields.date || fields.serviceDate || fields.issueDate;
+        if (!documentDate) throw new Error("Indica la fecha impresa del documento antes de guardarlo.");
+        const fileHash = await hashDocumentFile(archiveFile);
+        const assignedVehicle = savedDocument.driverId ? driverProfiles.find((profile) => profile.id === savedDocument.driverId)?.vehicle_plate : "";
+        const vehiclePlate = canonicalizeVehiclePlate(assignedVehicle || savedDocument.vehiclePlate || fields.vehicle) || resolveVehiclePlate(fields.vehicle);
+        const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate, file: archiveFile, fileHash, documentDate, extractedData: { ...fields, vehicle: vehiclePlate }, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
         const operations = operationsFromDocument({ category: savedDocument.category, fields: { ...fields, vehicle: vehiclePlate }, vehiclePlate, fileHash, fallbackDate: documentDate });
-        if (!operations.length) throw new Error("No se ha reconocido ningún importe económico. Revisa los campos antes de confirmar.");
         const result = await confirmDocumentTransactions(uploaded.id, operations);
-        if (result?.duplicate && !result?.created) throw new Error("Este documento ya estaba registrado y no se ha vuelto a sumar.");
+        if (result?.duplicate && !result?.created && operations.length > 0) throw new Error("Este documento ya estaba registrado y no se ha vuelto a sumar.");
         await refreshTransactions();
         cloudSaved = true;
       } catch (error) {
@@ -2845,7 +2855,11 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       const amount = Number(fields.total) || Number(fields.netAmount) || 0;
       const vehiclePlate = resolveVehiclePlate(fields.vehicle);
       if (amount > 0 && vehiclePlate) {
-        const dateIso = /^\d{4}-\d{2}-\d{2}$/.test(String(fields.issueDate ?? "")) ? fields.issueDate : new Date().toISOString().slice(0, 10);
+        const dateIso = /^\d{4}-\d{2}-\d{2}$/.test(String(fields.issueDate ?? "")) ? fields.issueDate : fields.serviceDate;
+        if (!dateIso) {
+          notify("La factura necesita una fecha impresa antes de archivarse.");
+          return;
+        }
         const displayDate = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateIso}T12:00:00`)).replace(".", "");
         savePhotoInvoiceLegacy({
           id: fields.invoiceNumber || `FAC-IA-${String(Date.now()).slice(-6)}`,
@@ -2934,26 +2948,33 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   };
 
   const saveProcessedDocumentCentral = async (document) => {
-    const { file, ...documentWithoutFile } = document;
+    const { file, originalFile, ...documentWithoutFile } = document;
+    const archiveFile = originalFile || file;
     const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
     const fields = savedDocument.fields ?? {};
-    const vehiclePlate = resolveVehiclePlate(fields.vehicle);
-    const documentDate = (savedDocument.category === "billing" ? fields.serviceDate || fields.issueDate || fields.date || fields.periodStart : fields.date || fields.serviceDate || fields.issueDate) || new Date().toISOString().slice(0, 10);
     const driverId = savedDocument.driverId || "";
+    const assignedVehicle = driverId ? driverProfiles.find((profile) => profile.id === driverId)?.vehicle_plate : "";
+    // A driver upload inherits the active profile's vehicle. OCR may contain
+    // a stale or unrelated plate; it must never redirect the ledger to a
+    // different car.
+    const vehiclePlate = canonicalizeVehiclePlate(assignedVehicle || savedDocument.vehiclePlate || fields.vehicle) || resolveVehiclePlate(fields.vehicle);
     const recordType = savedDocument.recordType || fields.recordType || "";
     const mileageOnly = ["daily-km", "partial-1", "total-km", "total", "odometer", "odometro", "kilometraje diario", "km diarios", "kilometraje total", "km acumulados"].includes(normalizeText(recordType));
     const extractedData = { ...fields, vehicle: vehiclePlate, ...(driverId ? { driverId } : {}), ...(recordType ? { recordType } : {}), source: savedDocument.source || "document-processing" };
     let cloudSaved = false;
     try {
-      const fileHash = file ? await hashDocumentFile(file) : "";
+      const documentDate = savedDocument.category === "billing" ? fields.serviceDate || fields.issueDate || fields.date || fields.periodStart : fields.date || fields.serviceDate || fields.issueDate;
+      if (!documentDate) throw Object.assign(new Error("Indica la fecha impresa del documento antes de guardarlo."), { code: "MISSING_DOCUMENT_DATE" });
+      const fileHash = archiveFile ? await hashDocumentFile(archiveFile) : "";
       const operations = mileageOnly ? [] : operationsFromDocument({ category: savedDocument.category, fields: extractedData, driverId, vehiclePlate, fileHash, fallbackDate: documentDate });
-      if (!mileageOnly && !operations.length) throw new Error("No se ha reconocido ningÃºn importe econÃ³mico. Revisa los campos antes de confirmar.");
-      if (file && supabase && session.user?.id) {
-        const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: savedDocument.category, vehiclePlate, file, fileHash, documentDate, extractedData, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
-        if (operations.length > 0) {
-          const result = await confirmDocumentTransactions(uploaded.id, operations);
-          if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
-        }
+      if (archiveFile && supabase && session.user?.id) {
+        const uploaded = await uploadDocumentRecord({ ownerId: driverId || session.user.id, category: savedDocument.category, vehiclePlate, file: archiveFile, fileHash, documentDate, extractedData, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
+        // Confirm even an empty operation list: if this is a re-review and the
+        // user has cleared every amount, the old central movements must be
+        // removed instead of being resurrected on the next refresh. A new
+        // document with no recognized amount remains archived for review.
+        const result = await confirmDocumentTransactions(uploaded.id, operations);
+        if (result?.duplicate && !result?.created && operations.length > 0) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
         const normalizedUploaded = normalizeDocumentRecord(uploaded);
         setDocumentRecords((current) => [normalizedUploaded, ...current.filter((record) => record.id !== normalizedUploaded.id)]);
         await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
@@ -3394,7 +3415,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       setMaintenanceReports([]);
       return undefined;
     }
-    listMaintenanceReports({ vehiclePlate: profileVehiclePlate, reporterId: activeProfileId, limit: 100 })
+    listMaintenanceReports({ vehiclePlate: profileVehiclePlate, reporterId: activeProfileId })
       .then(({ data, error }) => {
         if (!mounted) return;
         if (error) {
@@ -3433,8 +3454,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       return undefined;
     }
     Promise.all([
-      supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
-      supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, document_date, extracted_data, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(180),
+      fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false })),
+      fetchAllSupabaseRows(() => supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false })),
     ]).then(([entryResult, documentResult]) => {
       if (!mounted) return;
       if (entryResult.error) setMessage(entryResult.error.message);
@@ -3449,8 +3470,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const refreshDriverData = useCallback(async () => {
     if (!supabase || !canQueryDriverData) return;
     const [entryResult, documentResult] = await Promise.all([
-      supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180),
-      supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, document_date, extracted_data, status, created_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false }).limit(180),
+      fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false })),
+      fetchAllSupabaseRows(() => supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false })),
     ]);
     if (entryResult.error) throw entryResult.error;
     if (documentResult.error) throw documentResult.error;
@@ -3491,7 +3512,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
         }
         if (["driver_entries", "documents"].includes(table)) queueRefresh();
         if (table === "maintenance_reports") {
-          listMaintenanceReports({ vehiclePlate: profileVehiclePlate, reporterId: activeProfileId, limit: 100 })
+          listMaintenanceReports({ vehiclePlate: profileVehiclePlate, reporterId: activeProfileId })
             .then(({ data, error }) => {
               if (mounted && !error) setMaintenanceReports((data ?? []).map(normalizeMaintenanceReportRecord));
             })
@@ -3635,10 +3656,22 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       let savedDocument = null;
       if (file && supabase) {
         try {
-          const extractedData = { date: entry.entryDate, cost: data.fuel_cost, consumption: data.fuel_liters, unit: "L", odometerKm: data.odometer_km, billing: data.billing, cashCollected: data.cash_collected, tips: data.tips, refunds: data.refunds, tolls: data.tolls, otherExpenses: data.other_expenses };
-          savedDocument = await uploadDocumentRecord({ ownerId: activeProfileId, category: "consumption", vehiclePlate: profileVehiclePlate, file, extractedData, status: "review" });
+          const fileHash = await hashDocumentFile(file);
+          const extractedData = { date: entry.entryDate, recordType: "fuel", cost: data.fuel_cost, consumption: data.fuel_liters, unit: "L", odometerKm: data.odometer_km, billing: data.billing, cashCollected: data.cash_collected, tips: data.tips, refunds: data.refunds, tolls: data.tolls, otherExpenses: data.other_expenses, driverId: activeProfileId, vehicle: profileVehiclePlate, source: "driver-weekly-entry" };
+          savedDocument = await uploadDocumentRecord({ ownerId: activeProfileId, category: "consumption", vehiclePlate: profileVehiclePlate, file, fileHash, documentDate: entry.entryDate, extractedData, status: "review" });
+          const operations = operationsFromDocument({ category: "consumption", fields: extractedData, recordType: "fuel", driverId: activeProfileId, vehiclePlate: profileVehiclePlate, fileHash, fallbackDate: entry.entryDate });
+          if (operations.length > 0) {
+            const result = await confirmDocumentTransactions(savedDocument.id, operations);
+            uploadMessage = result?.duplicate && !result?.created ? " y el justificante ya estaba archivado" : " y el justificante se ha archivado";
+          } else {
+            uploadMessage = " y el justificante se ha archivado para revisión";
+          }
           savedDocument = { ...savedDocument, extracted_data: extractedData };
-          uploadMessage = " y el justificante se ha archivado";
+          // The document and ledger are already persisted at this point. A
+          // transient refresh failure must not turn a successful upload into
+          // a misleading "not uploaded" error; the realtime/visibility
+          // refresh will reconcile the view on the next opportunity.
+          await refreshDriverData().catch(() => undefined);
         } catch (uploadError) {
           uploadMessage = `, pero el justificante no se ha podido subir: ${uploadError.message}`;
         }
@@ -3972,7 +4005,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   };
   const saveCircleReview = async (reviewDocument) => {
     const recordKey = circleReview?.recordKey;
-    const file = reviewDocument?.file;
+    const file = reviewDocument?.originalFile || reviewDocument?.file;
     if (!recordKey || !file) return { ok: false, message: "No se ha encontrado el archivo que estabas revisando." };
     const fields = reviewDocument.fields ?? {};
     const fieldNumber = (...keys) => {
@@ -4124,7 +4157,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       }
       if (Object.keys(entryPatch).length > 0 && (!centralEconomic || !supabase)) await upsertDriverEntry(targetDate, entryPatch);
       if (centralEconomic && supabase) {
-        const { data: refreshedEntries } = await supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }).limit(180);
+        const { data: refreshedEntries } = await fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }));
         if (refreshedEntries) setEntries(refreshedEntries.map(normalizeDriverEntryRecord));
       }
       const normalizedDocument = normalizeDocumentRecord(savedDocument);
@@ -4395,7 +4428,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
                 <output className="driver-entry-grid__readonly" aria-label={"Kilómetros totales del coche " + (vehicle?.plate ?? "vehículo")}><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output>
                 <label className="driver-entry-grid__wide">Nota opcional<textarea readOnly={!preview} rows={2} value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, reembolso u otro gasto imputable" /></label>
               </div>
-              <label className="driver-file-input"><IconUpload size={18} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
+              <label className="driver-file-input"><IconUpload size={18} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
               <footer><span className="driver-entry-status" role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={17} /></button></footer>
             </fieldset>
           </form>
@@ -4819,7 +4852,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       <div className="driver-mobile-body">
         {!preview && !isStandalone && <div className="driver-mobile-install-card"><div className="driver-mobile-install-card__copy"><IconDownload size={17} /><span><strong>Instala SOBRE RUEDAS</strong><small>Ábrela desde el icono de la rueda sin buscar el enlace.</small></span></div><button type="button" onClick={() => void onInstall?.(setMessage)}>Instalar aplicación</button></div>}
         {message && <div className="driver-mobile-message" role="status">{message}</div>}
-        <input ref={circleFileInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" aria-label="Elegir cámara o archivo para el registro" onChange={handleCircleFile} />
+        <input ref={circleFileInputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" aria-label="Elegir cámara o archivo para el registro" onChange={handleCircleFile} />
         <section ref={homeRef} className="driver-mobile-section driver-mobile-section--home" aria-label="Resumen del conductor">
           <article className="driver-mobile-month-summary">
             <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{(vehicle?.owner?.dni ?? "").replaceAll("-", "")}</b></span></div>
@@ -4886,7 +4919,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
           <div className="driver-mobile-period-control" ref={periodPickerRef}><button type="button" className="driver-mobile-period-trigger" aria-label="Seleccionar mes" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "month"} onClick={() => { setWeekPickerOpen(false); setPeriodPickerOpen((current) => current === "month" ? "" : "month"); }}><span>{reportMonths[driverPeriodMonth]}</span><IconChevronDown size={14} /></button><button type="button" className="driver-mobile-period-year" aria-label="Seleccionar año" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "year"} onClick={() => { setWeekPickerOpen(false); setPeriodPickerOpen((current) => current === "year" ? "" : "year"); }}>{driverPeriodYear}</button>{periodPickerOpen === "month" && <div className="driver-period-picker__menu driver-mobile-period-menu" role="listbox" aria-label="Meses disponibles">{reportMonths.map((monthLabel, monthIndex) => <button type="button" role="option" aria-selected={driverPeriodMonth === monthIndex} ref={driverPeriodMonth === monthIndex ? periodPickerOptionRef : undefined} className={driverPeriodMonth === monthIndex ? "is-selected" : ""} onClick={() => selectDriverPeriod(driverPeriodYear, monthIndex)} key={monthLabel}>{monthLabel}</button>)}</div>}{periodPickerOpen === "year" && <div className="driver-period-picker__menu driver-period-picker__menu--years driver-mobile-period-menu" role="listbox" aria-label="Años disponibles">{driverPeriodYears.map((yearOption) => <button type="button" role="option" aria-selected={driverPeriodYear === yearOption} ref={driverPeriodYear === yearOption ? periodPickerOptionRef : undefined} className={driverPeriodYear === yearOption ? "is-selected" : ""} onClick={() => selectDriverPeriod(yearOption, driverPeriodMonth)} key={yearOption}>{yearOption}</button>)}</div>}</div>
           <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={`driver-mobile-week-table__row--${row.key}${row.key === "total" ? " is-total" : ""}`} key={row.key}><th className={`driver-mobile-week-table__label driver-mobile-week-table__label--${row.key}`} scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{weeklyCell(row, value, driverWeekDays[index].key, true)}</td>)}</tr>)}</tbody></table></div>
         </section>
-        {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Precio neto<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Reembolsos<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.refunds} onChange={(event) => updateEntry("refunds", event.target.value)} /><i>€</i></label><label>Lavados<input type="number" min="0" step="0.01" value={entry.washExpenses} onChange={(event) => updateEntry("washExpenses", event.target.value)} /><i>€</i></label><label>Varios<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input readOnly={!preview} type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea readOnly={!preview} rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, reembolso u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
+        {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Precio neto<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Reembolsos<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.refunds} onChange={(event) => updateEntry("refunds", event.target.value)} /><i>€</i></label><label>Lavados<input type="number" min="0" step="0.01" value={entry.washExpenses} onChange={(event) => updateEntry("washExpenses", event.target.value)} /><i>€</i></label><label>Varios<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input readOnly={!preview} type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea readOnly={!preview} rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, reembolso u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
         {expandedPreviewMetric && (
           <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}>
             <div className="driver-mobile-chart-dialog__panel">
@@ -6944,7 +6977,7 @@ function DriverDayEditWorkflow({ item, onCancel }) {
         <label className="driver-day-edit-form__wide">Notas del registro<textarea rows="2" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Añade una aclaración para este día (opcional)" /></label>
       </div>
       <section className="driver-day-edit-documents" aria-labelledby="driver-day-edit-documents-title">
-        <header><div><strong id="driver-day-edit-documents-title">Documentos del día</strong><small>Las fotos originales quedan archivadas junto al registro.</small></div><button type="button" className="secondary-button" onClick={() => fileInputRef.current?.click()}><IconUpload size={16} />Añadir documento</button><input ref={fileInputRef} className="sr-only" type="file" accept="image/*,.pdf,application/pdf" onChange={handleFile} /></header>
+        <header><div><strong id="driver-day-edit-documents-title">Documentos del día</strong><small>Las fotos originales quedan archivadas junto al registro.</small></div><button type="button" className="secondary-button" onClick={() => fileInputRef.current?.click()}><IconUpload size={16} />Añadir documento</button><input ref={fileInputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" onChange={handleFile} /></header>
         {documents.length > 0 ? <div className="driver-day-edit-document-list">{documents.map((document) => <div className="driver-day-edit-document" key={document.id}><span><IconCamera size={16} /><strong>{getDriverDocumentKindLabel(document)}</strong><small>{document.file_name || "Documento original"}</small></span><div><button type="button" className="table-action" onClick={() => item.onOpenDocument?.(document)}>Ver</button><button type="button" className="table-action driver-day-edit-document__delete" onClick={() => removeDocument(document)}><IconTrash size={14} />Borrar</button></div></div>)}</div> : <p className="driver-day-edit-documents__empty"><IconCamera size={17} />No hay foto o documento archivado para este día.</p>}
       </section>
       {error && <p className="driver-day-edit-error" role="alert"><IconAlertTriangle size={16} />{error}</p>}
@@ -7207,12 +7240,9 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
     const nextFile = event.target.files?.[0] ?? null;
     event.target.value = "";
     if (!nextFile) return;
-    if (!String(nextFile.type ?? "").startsWith("image/")) {
-      setMessage("La incidencia solo admite fotografías.");
-      return;
-    }
-    if (nextFile.size > 8 * 1024 * 1024) {
-      setMessage("La foto debe ocupar como máximo 8 MB.");
+    const validation = validateMaintenancePhotoFile(nextFile);
+    if (!validation.valid) {
+      setMessage(validation.message);
       return;
     }
     setMessage("");
@@ -8141,6 +8171,8 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         driverId,
         source,
         file: preparedFile,
+        originalFile: file,
+        vehiclePlate: defaultVehicle,
         fileName: preparedFile?.name || file.name,
         fileType: preparedFile?.type || file.type,
         fields: fieldsToRecord(fields),
@@ -8242,6 +8274,7 @@ function InvoiceLinesTable({ date, items }) {
 
 function InvoicePhotoWorkflow({ initialPlate, vehicles, onCancel, onSave }) {
   const [stage, setStage] = useState("upload");
+  const [error, setError] = useState("");
   const [preview, setPreview] = useState("");
   const [fileName, setFileName] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -8260,6 +8293,12 @@ function InvoicePhotoWorkflow({ initialPlate, vehicles, onCancel, onSave }) {
 
   const preparePhoto = (file) => {
     if (!file) return;
+    const validation = validateDocumentFile(file, "upload");
+    if (!validation.valid || validation.kind !== "image") {
+      setError(validation.valid ? "Selecciona una imagen JPG, PNG o WEBP para la factura." : validation.message);
+      return;
+    }
+    setError("");
     setSelectedFile(file);
     setFileName(file.name);
     const reader = new FileReader();
@@ -8267,6 +8306,7 @@ function InvoicePhotoWorkflow({ initialPlate, vehicles, onCancel, onSave }) {
       setPreview(String(reader.result));
       setStage("review");
     });
+    reader.addEventListener("error", () => setError("No se ha podido leer la fotografía. Elige otra imagen e inténtalo de nuevo."));
     reader.readAsDataURL(file);
   };
 
@@ -8307,6 +8347,7 @@ function InvoicePhotoWorkflow({ initialPlate, vehicles, onCancel, onSave }) {
             <label className="secondary-button" htmlFor="invoice-gallery"><IconUpload size={17} />Elegir imagen</label>
             <input id="invoice-gallery" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => preparePhoto(event.target.files?.[0])} />
           </div>
+          {error && <p className="invoice-photo-error" role="alert">{error}</p>}
           <button className="text-button" onClick={() => { setFileName("factura_taller_28-07-2026.jpg"); setStage("review"); }}>Probar con una factura de ejemplo</button>
         </div>
         <div className="invoice-workflow-actions"><button className="secondary-button" onClick={onCancel}>Cancelar</button></div>
@@ -8320,7 +8361,7 @@ function InvoicePhotoWorkflow({ initialPlate, vehicles, onCancel, onSave }) {
         <aside className="photo-preview">
           {preview ? <img src={preview} alt="Fotografía de la factura seleccionada" /> : <span className="photo-preview__placeholder"><IconFileInvoice size={34} /><strong>Factura de ejemplo</strong></span>}
           <div><IconCamera size={17} /><span><strong>{fileName}</strong><small>Imagen preparada para revisión</small></span></div>
-          <button className="text-button" onClick={() => setStage("upload")}>Cambiar fotografía</button>
+          <button className="text-button" onClick={() => { setError(""); setStage("upload"); }}>Cambiar fotografía</button>
         </aside>
 
         <section className="invoice-extraction">

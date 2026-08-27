@@ -1226,7 +1226,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .invoice-source-file small { overflow: hidden; color: var(--muted); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
 
 .modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(5, 31, 25, .5); backdrop-filter: blur(3px); }
-.modal { width: min(540px, 100%); max-height: min(720px, 92vh); overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: #fff; box-shadow: 0 24px 70px rgba(3,35,28,.24); }
+.modal { width: min(540px, 100%); max-height: min(720px, 92vh); max-height: min(720px, 92dvh); overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: #fff; box-shadow: 0 24px 70px rgba(3,35,28,.24); }
 .modal > header { display: flex; align-items: flex-start; justify-content: space-between; padding: 18px 19px; border-bottom: 1px solid var(--line); }
 .modal > header span { display: block; margin-bottom: 5px; color: var(--green-700); font-size: 7px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .modal h2 { margin: 0; font-size: 17px; }
@@ -1259,6 +1259,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .upload-zone__icon { width: 58px; height: 58px; display: grid; place-items: center; margin-bottom: 3px; border-radius: 16px; background: var(--green-50); color: var(--green-800); }
 .photo-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
 .photo-actions label { cursor: pointer; }
+.invoice-photo-error { width: min(100%, 560px); margin: 0 auto; padding: 10px 14px; border: 1px solid #efb3bd; border-radius: 12px; color: #9b263c; background: #fff2f4; font-weight: 700; text-align: center; }
 .text-button { padding: 5px 3px; border: 0; background: transparent; color: var(--green-700); font-size: 9px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .text-button:hover { color: var(--green-950); }
 .invoice-workflow-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 14px 19px; border-top: 1px solid var(--line); background: #fff; }

@@ -17,8 +17,15 @@ const normalizedFields = (fields = {}) => Object.fromEntries(Object.entries(fiel
 
 export const hashDocumentFile = async (file) => {
   if (!file?.arrayBuffer || !globalThis.crypto?.subtle) return "";
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  try {
+    const digest = await globalThis.crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  } catch {
+    // Hashing improves duplicate detection but must never prevent an already
+    // validated file from being archived when a browser lacks a usable
+    // crypto implementation or the read fails transiently.
+    return "";
+  }
 };
 
 export const buildDedupeKey = ({ fileHash, type, date, amount, driverId, vehiclePlate, sourceIdentity = "" }) =>
@@ -96,20 +103,41 @@ export const operationsFromDocument = ({ category, fields = {}, recordType = "",
 
 export const transactionsToDriverEntries = (transactions = []) => {
   const rows = new Map();
+  const fieldByType = {
+    billing: "billing",
+    cash: "cash_collected",
+    tip: "tips",
+    toll: "tolls",
+    refund: "refunds",
+    wash: "wash_expenses",
+    miscellaneous: "other_expenses",
+  };
   transactions.forEach((transaction) => {
     if (!transaction.driver_id || !transaction.occurred_on) return;
     const key = `${transaction.driver_id}:${transaction.occurred_on}`;
-    const row = rows.get(key) ?? { id: key, driver_id: transaction.driver_id, vehicle_plate: canonicalizeVehiclePlate(transaction.vehicle_plate), entry_date: transaction.occurred_on, billing: 0, cash_collected: 0, tips: 0, fuel_cost: 0, fuel_liters: 0, odometer_km: 0, tolls: 0, refunds: 0, wash_expenses: 0, other_expenses: 0 };
+    const row = rows.get(key) ?? (() => {
+      const next = { id: key, driver_id: transaction.driver_id, vehicle_plate: canonicalizeVehiclePlate(transaction.vehicle_plate), entry_date: transaction.occurred_on, billing: 0, cash_collected: 0, tips: 0, fuel_cost: 0, fuel_liters: 0, odometer_km: 0, tolls: 0, refunds: 0, wash_expenses: 0, other_expenses: 0 };
+      Object.defineProperty(next, "_centralFields", { value: new Set(), enumerable: false, writable: false });
+      return next;
+    })();
     const amount = money(transaction.amount);
-    if (transaction.type === "billing") row.billing += amount;
-    if (transaction.type === "cash") row.cash_collected += amount;
-    if (transaction.type === "tip") row.tips += amount;
-    if (transaction.type === "fuel") { row.fuel_cost += amount; row.fuel_liters += money(transaction.metadata?.liters); }
-    if (transaction.type === "toll") row.tolls += amount;
-    if (transaction.type === "refund") row.refunds += amount;
-    if (transaction.type === "wash") row.wash_expenses += amount;
-    if (transaction.type === "miscellaneous") row.other_expenses += amount;
-    row.odometer_km = Math.max(row.odometer_km, money(transaction.metadata?.odometerKm));
+    const field = fieldByType[transaction.type];
+    if (field) {
+      row[field] += amount;
+      row._centralFields.add(field);
+    }
+    if (transaction.type === "fuel") {
+      row.fuel_cost += amount;
+      row._centralFields.add("fuel_cost");
+      if (Object.hasOwn(transaction.metadata ?? {}, "liters")) {
+        row.fuel_liters += money(transaction.metadata?.liters);
+        row._centralFields.add("fuel_liters");
+      }
+    }
+    if (Object.hasOwn(transaction.metadata ?? {}, "odometerKm")) {
+      row.odometer_km = Math.max(row.odometer_km, money(transaction.metadata?.odometerKm));
+      row._centralFields.add("odometer_km");
+    }
     rows.set(key, row);
   });
   return [...rows.values()].sort((a, b) => b.entry_date.localeCompare(a.entry_date));
@@ -126,9 +154,18 @@ export const mergeDriverEntries = (legacyEntries = [], centralEntries = []) => {
     const key = `${centralEntry.driver_id}:${centralEntry.entry_date}`;
     const legacyEntry = rows.get(key) ?? {};
     const merged = { ...legacyEntry, ...centralEntry, vehicle_plate: canonicalizeVehiclePlate(centralEntry.vehicle_plate || legacyEntry.vehicle_plate) };
+    const centralFields = centralEntry._centralFields instanceof Set ? centralEntry._centralFields : null;
     driverEntryAmountKeys.forEach((field) => {
       const centralValue = money(centralEntry[field]);
       const legacyValue = money(legacyEntry[field]);
+      if (centralFields && !centralFields.has(field)) {
+        merged[field] = legacyValue;
+        return;
+      }
+      if (centralFields?.has(field)) {
+        merged[field] = centralValue;
+        return;
+      }
       merged[field] = field === "odometer_km"
         ? Math.max(centralValue, legacyValue)
         : (centralValue > 0 ? centralValue : legacyValue);

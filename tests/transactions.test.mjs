@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { operationsFromDocument, transactionsToDriverEntries } from "../src/transactions.js";
+import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "../src/transactions.js";
+
+test("un fallo opcional del hash no impide archivar un archivo validado", async () => {
+  assert.equal(await hashDocumentFile({ arrayBuffer: async () => { throw new Error("lectura interrumpida"); } }), "");
+});
 
 test("facturación crea operaciones centrales para total, efectivo y propinas en la fecha impresa", () => {
   const rows = operationsFromDocument({
@@ -83,4 +87,22 @@ test("la proyección diaria suma una única fuente central para todas las pantal
   assert.equal(rows[0].cash_collected, 35);
   assert.equal(rows[0].fuel_cost, 72.4);
   assert.equal(rows[0].fuel_liters, 43.2);
+});
+
+test("la proyección central respeta ceros explícitos y no borra campos legacy no representados", () => {
+  const legacy = [{ driver_id: "d1", entry_date: "2026-08-14", vehicle_plate: "5754 MJV", billing: 240.88, fuel_cost: 50, fuel_liters: 20, tips: 4 }];
+  const central = transactionsToDriverEntries([
+    { id: "fuel-1", type: "fuel", occurred_on: "2026-08-14", amount: 20, driver_id: "d1", vehicle_plate: "5754 MJV", metadata: {} },
+  ]);
+  const merged = mergeDriverEntries(legacy, central)[0];
+  assert.equal(merged.billing, 240.88);
+  assert.equal(merged.fuel_cost, 20);
+  assert.equal(merged.fuel_liters, 20);
+  assert.equal(merged.tips, 4);
+
+  const explicitZero = { id: "d1:2026-08-14", driver_id: "d1", entry_date: "2026-08-14", vehicle_plate: "5754 MJV", billing: 0 };
+  Object.defineProperty(explicitZero, "_centralFields", { value: new Set(["billing"]), enumerable: false });
+  const corrected = mergeDriverEntries(legacy, [explicitZero])[0];
+  assert.equal(corrected.billing, 0);
+  assert.equal(corrected.fuel_cost, 50);
 });

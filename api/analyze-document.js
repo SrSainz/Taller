@@ -1,6 +1,7 @@
 import { getVercelOidcToken } from "@vercel/oidc";
 
 const MAX_DATA_URL_BYTES = 4 * 1024 * 1024;
+const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
 const structuredExtractionAddendum = "Prioriza siempre la fecha impresa, el importe total pagado, la matricula visible y el proveedor. En documentos de consumo identifica tambien combustible, gasolinera y numero de ticket y, si el documento indica expresamente que agrupa varios repostajes o consumos del mismo dia, devuelve ese numero en consumptionCount; si no lo indica, devuelve null. En capturas de facturacion separa precio neto base, promociones, facturacion total, efectivo cobrado y propinas; no sumes la propina al precio neto. Devuelve null cuando un campo no sea legible y no inventes valores.";
 
 const billingSchema = {
@@ -66,11 +67,38 @@ const json = (res, status, payload) => {
 };
 
 const readBody = async (req) => {
-  if (Buffer.isBuffer(req.body)) return JSON.parse(req.body.toString("utf8"));
-  if (req.body && typeof req.body === "object") return req.body;
-  if (typeof req.body === "string") return JSON.parse(req.body);
+  const parse = (value) => {
+    const serialized = Buffer.isBuffer(value) ? value : Buffer.from(String(value), "utf8");
+    if (serialized.byteLength > MAX_REQUEST_BYTES) {
+      const error = new Error("La solicitud supera el límite permitido.");
+      error.code = "REQUEST_TOO_LARGE";
+      throw error;
+    }
+    return JSON.parse(serialized.toString("utf8"));
+  };
+  if (Buffer.isBuffer(req.body)) return parse(req.body);
+  if (req.body && typeof req.body === "object") {
+    const serialized = Buffer.from(JSON.stringify(req.body), "utf8");
+    if (serialized.byteLength > MAX_REQUEST_BYTES) {
+      const error = new Error("La solicitud supera el límite permitido.");
+      error.code = "REQUEST_TOO_LARGE";
+      throw error;
+    }
+    return req.body;
+  }
+  if (typeof req.body === "string") return parse(req.body);
   const chunks = [];
-  for await (const chunk of req) chunks.push(Buffer.from(chunk));
+  let bytes = 0;
+  for await (const chunk of req) {
+    const buffer = Buffer.from(chunk);
+    bytes += buffer.byteLength;
+    if (bytes > MAX_REQUEST_BYTES) {
+      const error = new Error("La solicitud supera el límite permitido.");
+      error.code = "REQUEST_TOO_LARGE";
+      throw error;
+    }
+    chunks.push(buffer);
+  }
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 };
 
@@ -151,15 +179,18 @@ export default async function handler(req, res) {
   let body;
   try {
     body = await readBody(req);
-  } catch {
+  } catch (error) {
+    if (error?.code === "REQUEST_TOO_LARGE") {
+      return json(res, 413, { code: "REQUEST_TOO_LARGE", message: "La solicitud supera el límite permitido." });
+    }
     return json(res, 400, { code: "INVALID_JSON", message: "La solicitud no contiene un JSON válido." });
   }
 
   const category = body?.category;
   const dataUrl = body?.dataUrl;
   const fileName = String(body?.fileName || "documento");
-  const fileType = String(body?.fileType || "");
-  if (!Object.hasOwn({ billing: true, consumption: true }, category) || typeof dataUrl !== "string" || !/^data:(?:image\/(?:jpeg|png|webp)|application\/pdf);base64,/i.test(dataUrl)) {
+  const dataUrlMatch = typeof dataUrl === "string" ? dataUrl.match(/^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,/i) : null;
+  if (!Object.hasOwn({ billing: true, consumption: true }, category) || !dataUrlMatch) {
     return json(res, 400, { code: "INVALID_DOCUMENT", message: "Faltan el tipo de registro o el documento." });
   }
   if (Buffer.byteLength(dataUrl, "utf8") > MAX_DATA_URL_BYTES) {
@@ -167,26 +198,34 @@ export default async function handler(req, res) {
   }
 
   const content = [{ type: "input_text", text: `${buildPrompt(category)} ${structuredExtractionAddendum}` }];
-  if (fileType === "application/pdf" || fileName.toLocaleLowerCase("es").endsWith(".pdf")) {
+  const dataMimeType = dataUrlMatch[1].toLocaleLowerCase("es");
+  if (dataMimeType === "application/pdf") {
     content.push({ type: "input_file", filename: fileName, file_data: dataUrl });
   } else {
     content.push({ type: "input_image", image_url: dataUrl, detail: "high" });
   }
 
   const usesGateway = !directOpenAiKey;
-  const openAiResponse = await fetch(usesGateway ? "https://ai-gateway.vercel.sh/v1/responses" : "https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${aiToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_DOCUMENT_MODEL?.trim() || (usesGateway ? "openai/gpt-5.4" : "gpt-4.1-mini"),
-      input: [{ role: "user", content }],
-      text: { format: { type: "json_schema", name: "fleet_document_extraction", strict: true, schema: buildSchema(category) } },
-    }),
-    signal: AbortSignal.timeout(45000),
-  });
+  let openAiResponse;
+  try {
+    openAiResponse = await fetch(usesGateway ? "https://ai-gateway.vercel.sh/v1/responses" : "https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${aiToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_DOCUMENT_MODEL?.trim() || (usesGateway ? "openai/gpt-5.4" : "gpt-4.1-mini"),
+        input: [{ role: "user", content }],
+        text: { format: { type: "json_schema", name: "fleet_document_extraction", strict: true, schema: buildSchema(category) } },
+      }),
+      signal: AbortSignal.timeout(45000),
+    });
+  } catch (error) {
+    const timeout = error?.name === "AbortError" || error?.name === "TimeoutError";
+    console.error("OpenAI document analysis request failed", timeout ? "timeout" : error?.message || "network error");
+    return json(res, timeout ? 504 : 502, { code: timeout ? "AI_TIMEOUT" : "AI_UNAVAILABLE", message: timeout ? "El análisis ha tardado demasiado. Inténtalo de nuevo." : "No se ha podido conectar con el servicio de análisis. Inténtalo de nuevo." });
+  }
   const responseText = await openAiResponse.text();
   let responseBody;
   try {
