@@ -3610,7 +3610,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 
 /* Vista móvil de conductor inspirada en la referencia: azul marino, tarjetas blancas y semana legible. */
 body:has(.driver-mobile-app) { background: #e8edf5; }
-.driver-mobile-app { position: relative; width: min(480px, 100%); height: 100dvh; min-height: 100dvh; margin: 0 auto; overflow-y: auto; overscroll-behavior-y: contain; background: #f7f8fb; color: #15233d; box-shadow: 0 0 34px rgba(18, 43, 83, .12); }
+.driver-mobile-app { position: relative; width: min(480px, 100%); height: 100dvh; min-height: 100dvh; margin: 0 auto; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; background: #f7f8fb; color: #15233d; box-shadow: 0 0 34px rgba(18, 43, 83, .12); }
 .driver-mobile-topbar { position: sticky; z-index: 40; top: 0; display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; min-height: 56px; column-gap: 6px; padding: 5px 10px; background: #092e68; color: #fff; box-shadow: 0 4px 14px rgba(7, 32, 73, .2); }
 .driver-mobile-topbar__icon { width: 38px; height: 38px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #fff; cursor: pointer; }
 .driver-mobile-topbar__icon:hover, .driver-mobile-topbar__icon:focus-visible { background: rgba(255,255,255,.12); outline: 0; }
@@ -3644,7 +3644,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-app--preview .driver-mobile-topbar__avatar { width: 30px; height: 30px; flex-basis: 30px; }
 .driver-app--preview .driver-mobile-topbar__identity > strong { font-size: clamp(19px, 5.7vw, 24px); }
 .driver-app--preview .driver-mobile-topbar__plate { font-size: clamp(13px, 3.9vw, 17px); letter-spacing: .045em; }
-.driver-mobile-body { display: grid; gap: 14px; min-height: calc(100dvh - 56px); padding: 14px 12px 92px; }
+.driver-mobile-body { display: grid; gap: 14px; min-height: calc(100dvh - 56px); padding: 14px 12px 92px; touch-action: pan-y; }
 .driver-app--preview .driver-mobile-body { min-height: calc(100dvh - 42px); padding-bottom: 24px; }
 .driver-mobile-install-card { display: flex; align-items: center; justify-content: space-between; gap: 9px; padding: 8px 10px; border: 1px solid #c9dcf2; border-radius: 11px; background: #eef6ff; color: #174888; }
 .driver-mobile-install-card__copy { min-width: 0; display: flex; align-items: center; gap: 8px; }
@@ -3727,7 +3727,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-app--preview .driver-mobile-record-card__image { width: clamp(50px, 13vw, 62px); border-width: 3px; }
 .driver-app--preview .driver-mobile-week-table thead th { height: 37px; }
 .driver-app--preview .driver-mobile-week-table tbody th, .driver-app--preview .driver-mobile-week-table tbody td { padding-block: 5px; }
-.driver-mobile-billing-history { display: flex !important; gap: 5px; overflow-x: auto; padding: 4px 1px 3px; margin-top: 4px; text-align: left !important; scrollbar-width: thin; }
+.driver-mobile-billing-history { display: flex !important; gap: 5px; overflow-x: auto; padding: 4px 1px 3px; margin-top: 4px; text-align: left !important; scrollbar-width: thin; touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; }
 .driver-mobile-billing-history__month { flex: 0 0 72px; min-height: 58px; display: grid; align-content: space-between; gap: 3px; padding: 6px; border: 1px solid #e0e7f0; border-radius: 9px; background: #f8faff; color: #29466f; text-align: left; cursor: pointer; }
 .driver-mobile-billing-history__month:hover, .driver-mobile-billing-history__month:focus-visible { border-color: #6c94d1; outline: 0; background: #eff5ff; }
 .driver-mobile-billing-history__month.is-selected { border-color: #2c6de9; background: #edf4ff; box-shadow: inset 0 0 0 1px rgba(44,109,233,.12); }
@@ -3978,6 +3978,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--billing) { width: min(640px, calc(100vw - 20px)); }
 .driver-mobile-chart-dialog__chart--billing { min-height: 0; overflow: visible; }
 .driver-mobile-chart-dialog__billing-scroll { width: 100%; height: 100%; min-height: 0; flex: 1 1 auto; box-sizing: border-box; overflow-x: auto; overscroll-behavior-inline: contain; padding: 4px 0 10px; scrollbar-width: thin; scrollbar-color: #9db7dc transparent; }
+.driver-mobile-chart-dialog__billing-scroll { touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; }
 .driver-mobile-chart-dialog__billing-scroll:focus-visible { outline: 2px solid rgba(44,109,233,.5); outline-offset: 2px; }
 .driver-mobile-chart-dialog__billing-canvas { width: max-content; min-width: 100%; height: 100%; display: inline-block; }
 .driver-mobile-chart-dialog__billing-canvas .recharts-wrapper { width: 100% !important; height: 100% !important; min-width: 0; }
@@ -5619,7 +5620,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 
 /* Calendario semanal del conductor: conceptos fijos y días desplazables. */
 .driver-mobile-week-swipe-wrap {
-  touch-action: auto;
+  touch-action: pan-y;
 }
 .driver-mobile-week-page {
   overflow: visible;
@@ -5631,7 +5632,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-inline: contain;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
   scrollbar-width: thin;
   scrollbar-color: #9db7dc transparent;
 }
