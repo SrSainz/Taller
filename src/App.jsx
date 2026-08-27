@@ -4451,9 +4451,11 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const [weekSwipeOffset, setWeekSwipeOffset] = useState(0);
   const [weekSwipeActive, setWeekSwipeActive] = useState(false);
   const [weekSwipeTransition, setWeekSwipeTransition] = useState(false);
+  const [weekPickerOpen, setWeekPickerOpen] = useState(false);
   const [weeklyDrafts, setWeeklyDrafts] = useState({});
   const [weeklyEditKey, setWeeklyEditKey] = useState("");
   const weeklyPressRef = useRef({ pointerId: null, startAt: 0, startX: 0, startY: 0, cancelled: false });
+  const weekPickerRef = useRef(null);
   const [maintenanceNoteOpen, setMaintenanceNoteOpen] = useState(false);
   const [maintenanceNoteDraft, setMaintenanceNoteDraft] = useState(maintenanceNote ?? "");
   const [maintenanceNotePhoto, setMaintenanceNotePhoto] = useState(null);
@@ -4576,6 +4578,44 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   }, [driverMenuOpen, setDriverMenuOpen]);
   const currentWeekPage = driverWeekPages.find((page) => page.offset === 0) ?? driverWeekPages[1];
   const weekLabel = currentWeekPage?.days?.[0]?.date ? new Intl.DateTimeFormat("es-ES", { day: "numeric" }).format(currentWeekPage.days[0].date) : "";
+  const weekPickerOptions = (() => {
+    const periodStart = new Date(driverPeriodYear, driverPeriodMonth, 1);
+    const firstWeekStart = getDriverWeekStart(periodStart);
+    const periodEnd = new Date(driverPeriodYear, driverPeriodMonth + 1, 0);
+    const lastWeekStart = getDriverWeekStart(periodEnd);
+    const currentWeekStart = currentWeekPage?.days?.[0]?.date ? getDriverWeekStart(currentWeekPage.days[0].date) : firstWeekStart;
+    const rangeFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
+    const options = [];
+    for (let start = new Date(firstWeekStart); start <= lastWeekStart; start.setDate(start.getDate() + 7)) {
+      const startDate = new Date(start);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 6);
+      options.push({
+        key: getDriverDateKey(startDate),
+        offset: Math.round((startDate.getTime() - currentWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000)),
+        label: `SEMANA DEL ${startDate.getDate()}`,
+        range: `${rangeFormatter.format(startDate).replace(/\./g, "")} – ${rangeFormatter.format(endDate).replace(/\./g, "")}`,
+      });
+    }
+    return options;
+  })();
+  const selectDriverWeek = (offset) => {
+    setWeekPickerOpen(false);
+    if (offset !== 0) shiftDriverWeek(offset);
+  };
+  useEffect(() => {
+    if (!weekPickerOpen) return undefined;
+    const closeOnOutsidePointer = (event) => {
+      if (!weekPickerRef.current?.contains(event.target)) setWeekPickerOpen(false);
+    };
+    const closeOnEscape = (event) => { if (event.key === "Escape") setWeekPickerOpen(false); };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [weekPickerOpen]);
   const editableWeeklyRows = preview ? ADMIN_EDITABLE_WEEKLY_ROWS : DRIVER_EDITABLE_WEEKLY_ROWS;
   const formatWeeklyAmount = (value) => {
     const numericValue = Number(value) || 0;
@@ -4823,8 +4863,20 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={`driver-mobile-week-table__row--${row.key}${row.key === "total" ? " is-total" : ""}`} key={`${page.key}-${row.key}`}><th className={`driver-mobile-week-table__label driver-mobile-week-table__label--${row.key}`} scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{weeklyCell(row, value, page.days[index].key, page.offset === 0)}</td>)}</tr>)}</tbody></table></div></div>)}
             </div>
           </div>
-          <header className="driver-mobile-section__heading driver-mobile-section__heading--week"><div><h2 id="driver-mobile-week-title">SEMANA DEL {weekLabel}</h2><small>Selecciona un día para revisar sus registros</small></div><div className="driver-mobile-week-actions"><button type="button" aria-label="Semana anterior" onClick={() => shiftDriverWeek(-1)}><IconChevronLeft size={16} /></button><button type="button" aria-label="Semana siguiente" onClick={() => shiftDriverWeek(1)}><IconChevronRight size={16} /></button></div></header>
-          <div className="driver-mobile-period-control" ref={periodPickerRef}><button type="button" className="driver-mobile-period-trigger" aria-label="Seleccionar mes" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "month"} onClick={() => setPeriodPickerOpen((current) => current === "month" ? "" : "month")}><span>{reportMonths[driverPeriodMonth]}</span><IconChevronDown size={14} /></button><button type="button" className="driver-mobile-period-year" aria-label="Seleccionar año" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "year"} onClick={() => setPeriodPickerOpen((current) => current === "year" ? "" : "year")}>{driverPeriodYear}</button>{periodPickerOpen === "month" && <div className="driver-period-picker__menu driver-mobile-period-menu" role="listbox" aria-label="Meses disponibles">{reportMonths.map((monthLabel, monthIndex) => <button type="button" role="option" aria-selected={driverPeriodMonth === monthIndex} ref={driverPeriodMonth === monthIndex ? periodPickerOptionRef : undefined} className={driverPeriodMonth === monthIndex ? "is-selected" : ""} onClick={() => selectDriverPeriod(driverPeriodYear, monthIndex)} key={monthLabel}>{monthLabel}</button>)}</div>}{periodPickerOpen === "year" && <div className="driver-period-picker__menu driver-period-picker__menu--years driver-mobile-period-menu" role="listbox" aria-label="Años disponibles">{driverPeriodYears.map((yearOption) => <button type="button" role="option" aria-selected={driverPeriodYear === yearOption} ref={driverPeriodYear === yearOption ? periodPickerOptionRef : undefined} className={driverPeriodYear === yearOption ? "is-selected" : ""} onClick={() => selectDriverPeriod(yearOption, driverPeriodMonth)} key={yearOption}>{yearOption}</button>)}</div>}</div>
+          <header className="driver-mobile-section__heading driver-mobile-section__heading--week">
+            <div className="driver-mobile-week-picker" ref={weekPickerRef}>
+              <button type="button" className="driver-mobile-week-picker__trigger" aria-label={`Seleccionar semana del ${weekLabel}`} aria-haspopup="listbox" aria-expanded={weekPickerOpen} aria-controls="driver-mobile-week-picker-menu" onClick={() => setWeekPickerOpen((current) => !current)}>
+                <span id="driver-mobile-week-title">SEMANA DEL {weekLabel}</span>
+                <IconChevronDown size={14} aria-hidden="true" />
+              </button>
+              {weekPickerOpen && <div id="driver-mobile-week-picker-menu" className="driver-period-picker__menu driver-mobile-week-picker__menu" role="listbox" aria-label="Semanas del mes">
+                {weekPickerOptions.map((option) => <button type="button" role="option" aria-selected={option.offset === 0} className={option.offset === 0 ? "is-selected" : ""} onClick={() => selectDriverWeek(option.offset)} key={option.key}><span>{option.label}</span><small>{option.range}</small></button>)}
+              </div>}
+              <small>Selecciona un día para revisar sus registros</small>
+            </div>
+            <div className="driver-mobile-week-actions"><button type="button" aria-label="Semana anterior" onClick={() => shiftDriverWeek(-1)}><IconChevronLeft size={16} /></button><button type="button" aria-label="Semana siguiente" onClick={() => shiftDriverWeek(1)}><IconChevronRight size={16} /></button></div>
+          </header>
+          <div className="driver-mobile-period-control" ref={periodPickerRef}><button type="button" className="driver-mobile-period-trigger" aria-label="Seleccionar mes" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "month"} onClick={() => { setWeekPickerOpen(false); setPeriodPickerOpen((current) => current === "month" ? "" : "month"); }}><span>{reportMonths[driverPeriodMonth]}</span><IconChevronDown size={14} /></button><button type="button" className="driver-mobile-period-year" aria-label="Seleccionar año" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "year"} onClick={() => { setWeekPickerOpen(false); setPeriodPickerOpen((current) => current === "year" ? "" : "year"); }}>{driverPeriodYear}</button>{periodPickerOpen === "month" && <div className="driver-period-picker__menu driver-mobile-period-menu" role="listbox" aria-label="Meses disponibles">{reportMonths.map((monthLabel, monthIndex) => <button type="button" role="option" aria-selected={driverPeriodMonth === monthIndex} ref={driverPeriodMonth === monthIndex ? periodPickerOptionRef : undefined} className={driverPeriodMonth === monthIndex ? "is-selected" : ""} onClick={() => selectDriverPeriod(driverPeriodYear, monthIndex)} key={monthLabel}>{monthLabel}</button>)}</div>}{periodPickerOpen === "year" && <div className="driver-period-picker__menu driver-period-picker__menu--years driver-mobile-period-menu" role="listbox" aria-label="Años disponibles">{driverPeriodYears.map((yearOption) => <button type="button" role="option" aria-selected={driverPeriodYear === yearOption} ref={driverPeriodYear === yearOption ? periodPickerOptionRef : undefined} className={driverPeriodYear === yearOption ? "is-selected" : ""} onClick={() => selectDriverPeriod(yearOption, driverPeriodMonth)} key={yearOption}>{yearOption}</button>)}</div>}</div>
           <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={`driver-mobile-week-table__row--${row.key}${row.key === "total" ? " is-total" : ""}`} key={row.key}><th className={`driver-mobile-week-table__label driver-mobile-week-table__label--${row.key}`} scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{weeklyCell(row, value, driverWeekDays[index].key, true)}</td>)}</tr>)}</tbody></table></div>
         </section>
         {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" value={entry.entryDate} onChange={(event) => { setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Precio neto<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Reembolsos<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.refunds} onChange={(event) => updateEntry("refunds", event.target.value)} /><i>€</i></label><label>Lavados<input type="number" min="0" step="0.01" value={entry.washExpenses} onChange={(event) => updateEntry("washExpenses", event.target.value)} /><i>€</i></label><label>Varios<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input readOnly={!preview} type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea readOnly={!preview} rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, reembolso u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/*,.pdf,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview}>{preview ? "Solo lectura" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}

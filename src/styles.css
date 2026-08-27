@@ -5975,53 +5975,116 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   }
 }
 
-/* Calendario semanal del conductor: superficie roja de alta visibilidad. */
-.driver-mobile-app .driver-mobile-week-swipe-wrap {
-  border-color: #9f0000;
-  background: #d20000;
-  box-shadow: 0 5px 14px rgba(151, 0, 0, .2);
+/* El calendario semanal conserva su superficie blanca; el rojo queda reservado a mes y año. */
+.driver-mobile-week-picker {
+  position: relative;
+  min-width: 0;
 }
-.driver-mobile-app .driver-mobile-week-table {
-  background: #d20000;
-}
-.driver-mobile-app .driver-mobile-week-table th,
-.driver-mobile-app .driver-mobile-week-table td {
-  border-color: rgba(255, 255, 255, .28);
-  color: #fff;
-}
-.driver-mobile-app .driver-mobile-week-table thead th,
-.driver-mobile-app .driver-mobile-week-table thead th:first-child,
-.driver-mobile-app .driver-mobile-week-table tbody th,
-.driver-mobile-app .driver-mobile-week-table tbody td {
-  background: #d20000;
-}
-.driver-mobile-app .driver-mobile-week-table thead th:first-child,
-.driver-mobile-app .driver-mobile-week-table tbody th {
-  background: #ad0000;
-  box-shadow: 5px 0 9px -8px rgba(70, 0, 0, .95);
-}
-.driver-mobile-app .driver-mobile-week-table thead button {
-  color: #fff;
-}
-.driver-mobile-app .driver-mobile-week-table thead button.is-selected {
-  background: #8f0000;
-  color: #fff;
-  box-shadow: 0 3px 7px rgba(70, 0, 0, .3);
-}
-.driver-mobile-app .driver-mobile-week-table tbody tr.is-total th,
-.driver-mobile-app .driver-mobile-week-table tbody tr.is-total td {
-  background: #8f0000;
-  color: #fff;
-}
-.driver-mobile-app .driver-mobile-week-table__amount-trigger,
-.driver-mobile-app .driver-mobile-week-table__amount-input,
-.driver-mobile-app .driver-mobile-week-table__amount-editor b {
-  color: #fff;
-}
-.driver-mobile-app .driver-mobile-week-table__amount-trigger:focus-visible,
-.driver-mobile-app .driver-mobile-week-table__amount-input:hover,
-.driver-mobile-app .driver-mobile-week-table__amount-input:focus {
-  border-color: rgba(255, 255, 255, .9);
+.driver-mobile-week-picker__trigger {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 6px 9px;
+  border: 1px solid #d7dfec;
+  border-radius: 9px;
   background: #fff;
-  color: #8f0000;
+  color: #173661;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+}
+.driver-mobile-week-picker__trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.driver-mobile-week-picker__trigger svg {
+  flex: 0 0 auto;
+  color: #315a9d;
+}
+.driver-mobile-week-picker__trigger:hover,
+.driver-mobile-week-picker__trigger:focus-visible,
+.driver-mobile-week-picker__trigger[aria-expanded="true"] {
+  border-color: #6c94d1;
+  outline: 0;
+  background: #f5f8fd;
+  box-shadow: 0 0 0 3px rgba(44, 109, 233, .1);
+}
+.driver-mobile-week-picker__menu {
+  top: calc(100% + 4px);
+  left: 0;
+  right: auto;
+  width: 216px;
+  max-width: min(216px, calc(100vw - 24px));
+  max-height: 226px;
+  padding: 5px;
+}
+.driver-mobile-week-picker__menu button {
+  min-height: 38px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1.05;
+}
+.driver-mobile-week-picker__menu button small {
+  display: block;
+  color: #718099;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: none;
+}
+.driver-mobile-week-picker__menu button.is-selected {
+  background: #092e68;
+  color: #fff;
+}
+.driver-mobile-week-picker__menu button.is-selected small {
+  color: rgba(255, 255, 255, .82);
+}
+.driver-mobile-section__heading--week {
+  position: relative;
+  z-index: 12;
+}
+.driver-mobile-section__heading--week > div:first-child {
+  min-width: 0;
+}
+.driver-mobile-period-trigger,
+.driver-mobile-period-year {
+  min-height: 34px;
+  padding: 6px 11px;
+  border-radius: 9px;
+  font-size: 12px;
+  letter-spacing: .03em;
+}
+.driver-mobile-period-trigger { min-width: 118px; }
+.driver-mobile-period-year { min-width: 70px; }
+.driver-mobile-period-menu button {
+  min-height: 32px;
+  font-size: 11px;
+}
+
+@media (max-width: 380px) {
+  .driver-mobile-week-picker__trigger {
+    min-height: 32px;
+    padding-inline: 7px;
+    font-size: 11px;
+  }
+  .driver-mobile-period-trigger,
+  .driver-mobile-period-year {
+    min-height: 32px;
+    padding-inline: 8px;
+    font-size: 11px;
+  }
+  .driver-mobile-period-trigger { min-width: 108px; }
+  .driver-mobile-period-year { min-width: 62px; }
+  .driver-mobile-week-picker__menu button { min-height: 36px; }
 }
