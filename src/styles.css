@@ -4553,6 +4553,14 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .report-period-trigger__arrow:hover, .report-period-trigger__arrow:focus-visible { background: #eaf5f1; color: var(--green-900); outline: 0; }
 .report-period-trigger--arrow-only > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* General: los controles de mes/fecha y año se distinguen con el fondo rojo solicitado. */
+.dashboard-period-bar .report-period-trigger { border-color: #a91d27; background: #c9232f; color: #fff; }
+.dashboard-period-bar .report-period-trigger--arrow-only:hover,
+.dashboard-period-bar .report-period-trigger--arrow-only:has(.report-period-trigger__arrow[aria-expanded="true"]) { border-color: #a91d27; background: #b51f2a; color: #fff; }
+.dashboard-period-bar .report-period-trigger__arrow { color: #fff; }
+.dashboard-period-bar .report-period-trigger__arrow:hover,
+.dashboard-period-bar .report-period-trigger__arrow:focus-visible { background: rgba(255,255,255,.16); color: #fff; outline: 0; }
+
 /* Neto deja una holgura visual entre las barras negras y sus tarjetas. */
 .net-detail-backdrop { top: calc(70px + 6px); bottom: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom) + 6px); }
 .net-detail-modal { border-radius: 10px; }
