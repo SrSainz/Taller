@@ -4476,6 +4476,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const weekSwipeDuration = 520;
   const kmChartMax = Math.max(500, Math.ceil(Math.max(0, ...weeklyKmData.flatMap(({ driverKm, otherKm }) => [Number(driverKm) || 0, Number(otherKm) || 0])) / 100) * 100);
   const kmChartTicks = Array.from({ length: kmChartMax / 100 + 1 }, (_, index) => index * 100);
+  const consumptionChartTicks = [3.5, 4, 4.5, 5, 5.5];
   const homeRef = useRef(null);
   const statsRef = useRef(null);
   const historyRef = useRef(null);
@@ -4967,10 +4968,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               {expandedPreviewMetric === "consumption" && (
                 <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--consumption" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={weeklyConsumptionData} margin={{ top: 32, right: 22, bottom: 56, left: 64 }} onMouseMove={(state) => showDriverChartTooltip("consumption", state)} onTouchStart={(state) => showDriverChartTooltip("consumption", state)} onTouchMove={(state) => showDriverChartTooltip("consumption", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                    <LineChart data={weeklyConsumptionData} margin={{ top: 32, right: 14, bottom: 62, left: 46 }} onMouseMove={(state) => showDriverChartTooltip("consumption", state)} onTouchStart={(state) => showDriverChartTooltip("consumption", state)} onTouchMove={(state) => showDriverChartTooltip("consumption", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
-                      <XAxis dataKey="label" tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickMargin={13} />
-                      <YAxis tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickMargin={10} tickFormatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l`} />
+                      <XAxis dataKey="label" interval={0} tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickMargin={13} />
+                      <YAxis width={56} ticks={consumptionChartTicks} domain={[3.5, 5.5]} allowDataOverflow allowDecimals tickMargin={6} tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickFormatter={(value) => Number(value).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} />
                       <Tooltip active={activeDriverChartTooltip === "consumption"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} labelStyle={{ fontSize: 18, fontWeight: 900, color: "#102d58" }} itemStyle={{ fontSize: 17, fontWeight: 900, color: "#173661" }} formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km`} />
                       <Line type="monotone" dataKey="driverConsumption" name="Este conductor" stroke="#2c6de9" strokeWidth={5} dot={{ r: 5 }} />
                       <Line type="monotone" dataKey="otherConsumption" name="Resto" stroke="#9aaac0" strokeWidth={3} strokeDasharray="6 5" dot={{ r: 4 }} />
