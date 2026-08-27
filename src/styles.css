@@ -5740,6 +5740,10 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .modal--driver-document-review > header p { font-size: 16px; line-height: 1.25; }
 .modal--driver-document-review .document-processing-file strong { font-size: 20px; }
 .modal--driver-document-review .document-processing-file small { font-size: 14px; line-height: 1.3; }
+.modal--driver-document-review .document-processing-state strong { font-size: 28px; }
+.modal--driver-document-review .document-processing-state p { font-size: 18px; }
+.modal--driver-document-review .document-processing-state small { font-size: 14px; }
+.modal--driver-document-review .document-processing-state button { font-size: 20px; }
 .modal--driver-document-review .document-processing-preview__file strong { font-size: 18px; }
 .modal--driver-document-review .document-review-preview strong { font-size: 18px; }
 .modal--driver-document-review .document-review-preview small { font-size: 14px; }
@@ -5763,6 +5767,10 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .modal--driver-document-review > header p { font-size: 16px; }
   .modal--driver-document-review .document-processing-file strong { font-size: 24px; }
   .modal--driver-document-review .document-processing-file small { font-size: 18px; }
+  .modal--driver-document-review .document-processing-state strong { font-size: 28px; }
+  .modal--driver-document-review .document-processing-state p { font-size: 18px; }
+  .modal--driver-document-review .document-processing-state small { font-size: 14px; }
+  .modal--driver-document-review .document-processing-state button { font-size: 20px; }
   .modal--driver-document-review .document-review-preview strong { font-size: 22px; }
   .modal--driver-document-review .document-review-preview small { font-size: 18px; }
   .modal--driver-document-review .document-review-heading h3 { font-size: 30px; }
