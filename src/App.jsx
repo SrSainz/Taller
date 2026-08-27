@@ -4564,13 +4564,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       ? "0"
       : numericValue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
-  const formatWeeklyCellAmount = (value, rowKey) => {
-    if (rowKey === "total") return formatWeeklyAmount(value);
-    const numericValue = Number(value) || 0;
-    return numericValue === 0
-      ? "0"
-      : Math.round(numericValue).toLocaleString("es-ES", { maximumFractionDigits: 0 });
-  };
+  const formatWeeklyCellAmount = (value) => formatWeeklyAmount(value);
   const clearWeeklyPress = () => {
     weeklyPressRef.current = { pointerId: null, startAt: 0, startX: 0, startY: 0, cancelled: false };
   };

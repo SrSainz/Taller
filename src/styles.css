@@ -5561,7 +5561,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 }
 .driver-mobile-week-table {
   width: max-content;
-  min-width: 820px;
+  min-width: 900px;
   table-layout: fixed;
 }
 .driver-mobile-week-table thead th:first-child,
@@ -5585,8 +5585,8 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 }
 .driver-mobile-week-table thead th:not(:first-child),
 .driver-mobile-week-table tbody td {
-  width: 101px;
-  min-width: 101px;
+  width: 112px;
+  min-width: 112px;
 }
 .driver-mobile-week-table thead th {
   height: 58px;
@@ -5639,7 +5639,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 
 @media (max-width: 520px) {
   .driver-mobile-week-table {
-    min-width: 820px;
+    min-width: 900px;
   }
   .driver-mobile-week-table thead th:first-child,
   .driver-mobile-week-table tbody th {
