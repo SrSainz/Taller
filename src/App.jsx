@@ -4554,7 +4554,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       const startIndex = Math.max(0, endIndex - DRIVER_BILLING_EXPANDED_VISIBLE_MONTHS);
       const chartDataWidth = Math.max(1, billingChartWidth - DRIVER_BILLING_CHART_LEFT_MARGIN - DRIVER_BILLING_CHART_Y_AXIS_WIDTH - DRIVER_BILLING_CHART_RIGHT_MARGIN);
       const monthColumnWidth = chartDataWidth / Math.max(1, monthlyBillingHistory.length);
-      const targetScrollLeft = monthlyBillingHistory.length > DRIVER_BILLING_EXPANDED_VISIBLE_MONTHS ? DRIVER_BILLING_CHART_LEFT_MARGIN + DRIVER_BILLING_CHART_Y_AXIS_WIDTH + startIndex * monthColumnWidth : 0;
+      const targetScrollLeft = monthlyBillingHistory.length > DRIVER_BILLING_EXPANDED_VISIBLE_MONTHS ? DRIVER_BILLING_CHART_LEFT_MARGIN + startIndex * monthColumnWidth : 0;
       scrollElement.scrollLeft = Math.max(0, Math.min(scrollElement.scrollWidth - scrollElement.clientWidth, targetScrollLeft));
     });
     return () => window.cancelAnimationFrame(frame);
