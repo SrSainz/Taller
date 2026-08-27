@@ -3760,10 +3760,12 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-section--history { padding-bottom: 4px; }
 .driver-mobile-section__heading--week { align-items: flex-start; }
 .driver-mobile-period-control { position: relative; display: flex; justify-content: flex-end; gap: 5px; margin: 2px 0 7px; }
-.driver-mobile-period-trigger, .driver-mobile-period-year { min-height: 26px; display: inline-flex; align-items: center; justify-content: space-between; gap: 5px; padding: 4px 8px; border: 1px solid #d9e1ec; border-radius: 7px; background: #fff; color: #234578; font-size: 9px; font-weight: 800; text-transform: uppercase; cursor: pointer; }
+.driver-mobile-period-trigger, .driver-mobile-period-year { min-height: 26px; display: inline-flex; align-items: center; justify-content: space-between; gap: 5px; padding: 4px 8px; border: 1px solid #d20000; border-radius: 7px; background: #d20000; color: #fff; font-size: 9px; font-weight: 800; text-transform: uppercase; cursor: pointer; box-shadow: 0 3px 8px rgba(210, 0, 0, .16); }
 .driver-mobile-period-trigger { min-width: 92px; }
 .driver-mobile-period-year { min-width: 48px; }
-.driver-mobile-period-trigger:hover, .driver-mobile-period-trigger:focus-visible, .driver-mobile-period-year:hover, .driver-mobile-period-year:focus-visible { border-color: #6c94d1; outline: 0; }
+.driver-mobile-period-trigger:hover, .driver-mobile-period-trigger[aria-expanded="true"], .driver-mobile-period-year:hover, .driver-mobile-period-year[aria-expanded="true"] { border-color: #b50000; background: #b50000; color: #fff; }
+.driver-mobile-period-trigger:focus-visible, .driver-mobile-period-year:focus-visible { border-color: #b50000; outline: 2px solid rgba(210, 0, 0, .3); outline-offset: 2px; }
+.driver-mobile-period-trigger svg { color: #fff; }
 .driver-mobile-period-menu { top: calc(100% + 4px); right: 0; left: auto; width: 132px; max-height: 190px; padding: 5px; border-color: #d8e1ed; }
 .driver-mobile-period-menu button { min-height: 27px; font-size: 9px; }
 .driver-mobile-week-table-wrap { overflow-x: auto; border: 1px solid #e0e6ee; border-radius: 14px; background: #fff; box-shadow: 0 4px 12px rgba(24,47,82,.06); scrollbar-width: thin; }
