@@ -4620,7 +4620,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     };
   }, [driverMenuOpen, setDriverMenuOpen]);
   const currentWeekPage = driverWeekPages.find((page) => page.offset === 0) ?? driverWeekPages[1];
-  const weekLabel = currentWeekPage?.days?.[0]?.date ? new Intl.DateTimeFormat("es-ES", { day: "numeric" }).format(currentWeekPage.days[0].date) : "";
+  const currentWeekStartDate = currentWeekPage?.days?.[0]?.date ? getDriverWeekStart(currentWeekPage.days[0].date) : getDriverWeekStart(driverPeriodDate);
+  const weekLabel = currentWeekStartDate ? String(currentWeekStartDate.getDate()) : "";
   const weekPickerOptions = (() => {
     const periodStart = new Date(driverPeriodYear, driverPeriodMonth, 1);
     const firstWeekStart = getDriverWeekStart(periodStart);
@@ -4908,8 +4909,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
           </div>
           <header className="driver-mobile-section__heading driver-mobile-section__heading--week">
             <div className="driver-mobile-week-picker" ref={weekPickerRef}>
-              <button type="button" className="driver-mobile-week-picker__trigger" aria-label={`Seleccionar semana del ${weekLabel}`} aria-haspopup="listbox" aria-expanded={weekPickerOpen} aria-controls="driver-mobile-week-picker-menu" onClick={() => setWeekPickerOpen((current) => !current)}>
-                <span id="driver-mobile-week-title">SEMANA DEL {weekLabel}</span>
+              <button type="button" className="driver-mobile-week-picker__trigger" aria-label={`Seleccionar semana del lunes ${weekLabel}`} aria-haspopup="listbox" aria-expanded={weekPickerOpen} aria-controls="driver-mobile-week-picker-menu" onClick={() => setWeekPickerOpen((current) => !current)}>
+                <span className="driver-mobile-week-picker__label" id="driver-mobile-week-title"><span>SEMANA DEL</span><strong>{weekLabel}</strong></span>
                 <IconChevronDown size={14} aria-hidden="true" />
               </button>
               {weekPickerOpen && <div id="driver-mobile-week-picker-menu" className="driver-period-picker__menu driver-mobile-week-picker__menu" role="listbox" aria-label="Semanas del mes">

@@ -6065,6 +6065,31 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.driver-mobile-week-picker__trigger > .driver-mobile-week-picker__label {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+.driver-mobile-week-picker__label > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.driver-mobile-week-picker__label > strong {
+  flex: 0 0 auto;
+  color: #092e68;
+  font-size: 1.08em;
+  font-variant-numeric: tabular-nums;
+}
+.driver-mobile-section--history > .driver-mobile-section__heading,
+.driver-mobile-section--history > .driver-mobile-period-control {
+  align-self: center;
+}
 .driver-mobile-week-picker__trigger svg {
   flex: 0 0 auto;
   color: #315a9d;
