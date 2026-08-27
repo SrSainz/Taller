@@ -5993,11 +5993,11 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-app--updated .driver-mobile-record-card > span,
 .driver-app--preview .driver-mobile-record-card > span {
   order: 1;
-  min-height: 2.35em;
+  min-height: 2.45em;
   overflow: visible;
   max-width: 100%;
   padding-inline: 1px;
-  font-size: clamp(10px, 2.8vw, 11.5px);
+  font-size: clamp(11px, 3vw, 12.5px);
   letter-spacing: -.06em;
   line-height: 1.1;
   white-space: normal;
@@ -6022,14 +6022,14 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   }
   .driver-mobile-app--updated .driver-mobile-record-card > span,
   .driver-app--preview .driver-mobile-record-card > span {
-    font-size: 10px;
+    font-size: 10.8px;
   }
 }
 
 @media (max-width: 360px) {
   .driver-mobile-app--updated .driver-mobile-record-card > span,
   .driver-app--preview .driver-mobile-record-card > span {
-    font-size: 9.5px;
+    font-size: 10.2px;
     transform: scaleX(.86);
   }
 }
