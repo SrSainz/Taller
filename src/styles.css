@@ -5541,6 +5541,114 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-day-panel__documents-empty--header > span[aria-hidden="true"] { font-size: 6.5px; }
 }
 
+/* Calendario semanal del conductor: conceptos fijos y días desplazables. */
+.driver-mobile-week-swipe-wrap {
+  touch-action: auto;
+}
+.driver-mobile-week-page {
+  overflow: visible;
+}
+.driver-mobile-week-page .driver-mobile-week-table-wrap,
+.driver-mobile-section--history > .driver-mobile-week-table-wrap {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
+  touch-action: pan-x;
+  scrollbar-width: thin;
+  scrollbar-color: #9db7dc transparent;
+}
+.driver-mobile-week-table {
+  width: max-content;
+  min-width: 820px;
+  table-layout: fixed;
+}
+.driver-mobile-week-table thead th:first-child,
+.driver-mobile-week-table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  width: 112px;
+  min-width: 112px;
+  max-width: 112px;
+  box-sizing: border-box;
+  background: #fff;
+  box-shadow: 5px 0 9px -8px rgba(16, 45, 88, .75);
+}
+.driver-mobile-week-table thead th:first-child {
+  z-index: 4;
+  background: #fff;
+}
+.driver-mobile-week-table tbody tr.is-total th {
+  background: #f2f6fc;
+}
+.driver-mobile-week-table thead th:not(:first-child),
+.driver-mobile-week-table tbody td {
+  width: 101px;
+  min-width: 101px;
+}
+.driver-mobile-week-table thead th {
+  height: 58px;
+  padding: 6px 4px;
+}
+.driver-mobile-week-table thead button {
+  height: 47px;
+  gap: 3px;
+  padding: 4px 3px;
+  border-radius: 9px;
+}
+.driver-mobile-week-table thead button span {
+  font-size: 12px;
+  line-height: 1;
+}
+.driver-mobile-week-table thead button strong {
+  font-size: 19px;
+  line-height: 1;
+}
+.driver-mobile-week-table tbody th {
+  padding: 11px 8px;
+  font-size: 13px;
+  line-height: 1.08;
+}
+.driver-mobile-week-table tbody td {
+  padding: 10px 5px;
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.1;
+}
+.driver-mobile-week-table tr.is-total th,
+.driver-mobile-week-table tr.is-total td {
+  font-size: 16px;
+}
+.driver-mobile-week-table__amount-editor,
+.driver-mobile-week-table__amount-trigger,
+.driver-mobile-week-table__amount-input {
+  min-height: 39px;
+}
+.driver-mobile-week-table__amount-trigger,
+.driver-mobile-week-table__amount-input {
+  padding-inline: 3px;
+  font-size: inherit;
+}
+.driver-mobile-week-table__label--fuel,
+.driver-mobile-week-table__label--refunds {
+  font-size: 12px !important;
+  letter-spacing: -.025em !important;
+}
+
+@media (max-width: 520px) {
+  .driver-mobile-week-table {
+    min-width: 820px;
+  }
+  .driver-mobile-week-table thead th:first-child,
+  .driver-mobile-week-table tbody th {
+    width: 112px;
+    min-width: 112px;
+    max-width: 112px;
+  }
+}
+
 /* Conductores: el importe y la foto abren el mismo editor del día. */
 .driver-day-panel__editable-metric {
   min-width: 0;
