@@ -15,25 +15,25 @@
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
-      "src": "/icons/sobre-ruedas-192.png?v=20260805",
+      "src": "/icons/sobre-ruedas-192.png?v=20260827",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/sobre-ruedas-512.png?v=20260805",
+      "src": "/icons/sobre-ruedas-512.png?v=20260827",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/sobre-ruedas-maskable-192.png?v=20260805",
+      "src": "/icons/sobre-ruedas-maskable-192.png?v=20260827",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icons/sobre-ruedas-maskable-512.png?v=20260805",
+      "src": "/icons/sobre-ruedas-maskable-512.png?v=20260827",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -44,19 +44,19 @@
       "name": "Flota",
       "short_name": "Flota",
       "url": "/#/flota",
-      "icons": [{ "src": "/icons/sobre-ruedas-192.png?v=20260805", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/sobre-ruedas-192.png?v=20260827", "sizes": "192x192" }]
     },
     {
       "name": "Mantenimiento",
       "short_name": "Taller",
       "url": "/#/mantenimiento",
-      "icons": [{ "src": "/icons/sobre-ruedas-192.png?v=20260805", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/sobre-ruedas-192.png?v=20260827", "sizes": "192x192" }]
     },
     {
       "name": "Facturas",
       "short_name": "Facturas",
       "url": "/#/facturas",
-      "icons": [{ "src": "/icons/sobre-ruedas-192.png?v=20260805", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/sobre-ruedas-192.png?v=20260827", "sizes": "192x192" }]
     }
   ]
 }

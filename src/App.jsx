@@ -1816,6 +1816,11 @@ const isPasswordRecoveryLink = () => {
 };
 
 const isStandaloneApp = () => window.matchMedia("(display-mode: standalone)").matches || Boolean(window.navigator.standalone);
+const isAppleTouchDevice = () => {
+  const userAgent = String(window.navigator.userAgent ?? "");
+  return /iPhone|iPad|iPod/i.test(userAgent)
+    || (window.navigator.platform === "MacIntel" && Number(window.navigator.maxTouchPoints) > 1);
+};
 
 const initialAppNav = () => {
   if (isStandaloneApp() || !window.location.hash) {
@@ -2070,8 +2075,12 @@ export function App() {
       notice("SOBRE RUEDAS ya está instalada y abierta como aplicación en este dispositivo.");
       return;
     }
+    if (isAppleTouchDevice()) {
+      notice("En iPhone o iPad: abre esta página en Safari, pulsa Compartir y elige «Añadir a pantalla de inicio». Después abre SOBRE RUEDAS desde su icono.");
+      return;
+    }
     if (!installPrompt) {
-      notice("Abre el menú del navegador y elige «Instalar aplicación» o «Añadir a pantalla de inicio».");
+      notice("En Android, abre esta página en Chrome y elige «Instalar aplicación» en el menú ⋮. Si no aparece, vuelve a pulsar este botón cuando termine de cargar.");
       return;
     }
     try {
@@ -3045,7 +3054,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       <main className="workspace">
           <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores", "Administración"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}${activeNav === "Mantenimiento" ? " topbar--maintenance" : ""}`}>
           <div className="topbar-title">
-            <button className="workspace-home-button admin-topbar-home" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260805" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
+            <button className="workspace-home-button admin-topbar-home" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260827" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
             {activeNav === adminNavItem.label && isAdmin ? <button type="button" className="admin-title-control" onClick={() => { setAdminHeaderOpen((value) => !value); setAdminHeaderMessage(""); setTopbarMenuOpen(false); setNotificationsOpen(false); }} aria-expanded={adminHeaderOpen} aria-controls="admin-header-sheet"><span>ADMINISTRADOR</span><strong>{profileName.toLocaleUpperCase("es")}</strong><IconChevronDown size={17} /></button> : <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : activeNav === "Administración" ? "Usuarios y permisos" : "Gestión centralizada de vehículos"}</small>}</div>}
           </div>
           {activeNav === "Mantenimiento" && <MaintenanceSearch query={maintenanceSearchQuery} open={maintenanceSearchOpen} suggestions={maintenanceSearchSuggestions} onQueryChange={setMaintenanceSearchQuery} onOpenChange={setMaintenanceSearchOpen} onSelect={openMaintenanceSearchRecord} />}
@@ -3447,14 +3456,20 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     if (!supabase || !canQueryDriverData) return undefined;
     let mounted = true;
     let refreshTimer = 0;
-    const queueRefresh = () => {
+    const queueRefresh = (showError = true) => {
       window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(() => {
         refreshDriverData().catch((error) => {
-          if (mounted) setMessage(`No se han podido actualizar los datos: ${error.message}`);
+          if (mounted && showError) setMessage(`No se han podido actualizar los datos: ${error.message}`);
         });
       }, 80);
     };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") queueRefresh(false);
+    };
+    const refreshInterval = window.setInterval(() => queueRefresh(false), 30000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
     const unsubscribe = subscribeToAppChanges({
       userId: activeProfileId,
       isAdmin: preview,
@@ -3477,12 +3492,16 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
         }
       },
       onStatus: (status) => {
-        if (mounted && (status === "CHANNEL_ERROR" || status === "TIMED_OUT")) setMessage("La conexión se está recuperando; los datos se volverán a sincronizar automáticamente.");
+        if (!mounted) return;
+        if (["SUBSCRIBED", "CHANNEL_ERROR", "TIMED_OUT"].includes(status)) queueRefresh(false);
       },
     });
     return () => {
       mounted = false;
       window.clearTimeout(refreshTimer);
+      window.clearInterval(refreshInterval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
       unsubscribe();
     };
   }, [activeProfileId, canQueryDriverData, onProfileChange, onSignOut, preview, profileVehiclePlate, refreshDriverData, session.user.id]);

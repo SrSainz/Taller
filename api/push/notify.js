@@ -106,8 +106,8 @@ export default async function handler(req, res) {
   const body = JSON.stringify({
     ...message,
     tag: "sobre-ruedas-app-change",
-    icon: "/icons/sobre-ruedas-192.png?v=20260805",
-    badge: "/icons/sobre-ruedas-maskable-192.png?v=20260805",
+    icon: "/icons/sobre-ruedas-192.png?v=20260827",
+    badge: "/icons/sobre-ruedas-maskable-192.png?v=20260827",
     eventId: payload.eventId || `${payload.table || "app"}-${Date.now()}`,
   });
   const results = await Promise.allSettled(subscriptions.map((subscription) => webpush.sendNotification(subscription, body, { ttl: 300, urgency: "high" })));

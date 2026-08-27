@@ -1,14 +1,14 @@
-const cacheName = "sobre-ruedas-shell-v17";
+const cacheName = "sobre-ruedas-shell-v18";
 const appShell = [
   "/",
   "/index.html",
-  "/manifest.webmanifest?v=20260805",
+  "/manifest.webmanifest?v=20260827",
   "/brand/sobre-ruedas-logo.png",
   "/brand/sobre-ruedas-app-icon.png",
-  "/icons/sobre-ruedas-192.png?v=20260805",
-  "/icons/sobre-ruedas-512.png?v=20260805",
-  "/icons/sobre-ruedas-maskable-192.png?v=20260805",
-  "/icons/sobre-ruedas-maskable-512.png?v=20260805",
+  "/icons/sobre-ruedas-192.png?v=20260827",
+  "/icons/sobre-ruedas-512.png?v=20260827",
+  "/icons/sobre-ruedas-maskable-192.png?v=20260827",
+  "/icons/sobre-ruedas-maskable-512.png?v=20260827",
 ];
 
 const cacheAppShell = async () => {
@@ -41,8 +41,8 @@ self.addEventListener("push", (event) => {
   const targetUrl = data.url || "/#/informes";
   event.waitUntil(self.registration.showNotification(title, {
     body,
-    icon: data.icon || "/icons/sobre-ruedas-192.png?v=20260805",
-    badge: data.badge || "/icons/sobre-ruedas-maskable-192.png?v=20260805",
+    icon: data.icon || "/icons/sobre-ruedas-192.png?v=20260827",
+    badge: data.badge || "/icons/sobre-ruedas-maskable-192.png?v=20260827",
     tag: data.tag || "sobre-ruedas-app-change",
     renotify: true,
     data: { url: targetUrl },
