@@ -5229,6 +5229,49 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .admin-driver-access-editor__actions button { min-height: 36px; padding: 7px 13px; border: 1px solid #c9d9d3; border-radius: 9px; background: #fff; color: #31564c; font: inherit; font-size: 10px; font-weight: 850; cursor: pointer; }
 .admin-driver-access-editor__actions .primary-button { border-color: #137f6d; background: #137f6d; color: #fff; }
 
+/* El aviso de mantenimiento del conductor debe ser una acción principal
+   legible: ocupa todo el ancho que le reserva la fila y no recorta el texto. */
+.driver-mobile-app--updated .driver-mobile-maintenance-note__trigger {
+  width: 100%;
+  max-width: 250px;
+  min-width: 0;
+  min-height: 48px;
+  flex: 1 1 0;
+  gap: 7px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  font-size: clamp(12px, 3.4vw, 15px);
+  font-weight: 950;
+  letter-spacing: .025em;
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+.driver-mobile-app--updated .driver-mobile-maintenance-note__trigger > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+.driver-mobile-app--updated .driver-mobile-maintenance-note__trigger > span {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.driver-mobile-app--updated .driver-mobile-maintenance-note__count {
+  min-width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  font-size: 10px;
+}
+
+@media (max-width: 380px) {
+  .driver-mobile-app--updated .driver-mobile-maintenance-note__trigger {
+    max-width: 230px;
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+}
+
 /* La cuenta real del conductor usa la misma composición compacta y actual que la vista previa. */
 .driver-app--live .driver-mobile-topbar { grid-template-columns: minmax(0, 1fr); padding-inline: 14px; }
 .driver-app--live .driver-mobile-topbar__title { justify-self: start; }
