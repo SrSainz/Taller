@@ -5943,35 +5943,49 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 }
 
 /* Acciones de captura del conductor: las etiquetas alternan arriba y abajo
-   para poder crecer sin invadir la acción contigua. */
-.driver-mobile-record-card {
+   para poder crecer sin invadir la acción contigua. La fila conserva un
+   colchón vertical para que el texto ampliado no roce el bloque superior ni
+   las gráficas inferiores. */
+.driver-mobile-app--updated .driver-mobile-record-grid,
+.driver-app--preview .driver-mobile-record-grid {
+  align-items: start;
+  gap: 6px;
+  padding-block: clamp(6px, 1.8vw, 10px);
+}
+.driver-mobile-app--updated .driver-mobile-record-card,
+.driver-app--preview .driver-mobile-record-card {
   align-content: start;
-  gap: 7px;
-  padding-top: 0;
+  gap: 6px;
+  padding: 2px 0;
 }
 .driver-mobile-record-card__image { order: 0; }
-.driver-mobile-record-card > span {
+.driver-mobile-app--updated .driver-mobile-record-card > span,
+.driver-app--preview .driver-mobile-record-card > span {
   order: 1;
-  min-height: 2.25em;
+  min-height: 2.35em;
   overflow: visible;
   max-width: 100%;
-  font-size: clamp(10px, 3vw, 13px);
-  line-height: 1.12;
+  padding-inline: 1px;
+  font-size: clamp(10px, 2.8vw, 12.5px);
+  line-height: 1.1;
   white-space: normal;
   overflow-wrap: anywhere;
-}
-.driver-mobile-record-card--billing > span,
-.driver-mobile-record-card--total-km > span {
-  order: -1;
-}
-.driver-mobile-record-card--billing > span,
-.driver-mobile-record-card--daily-km > span,
-.driver-mobile-record-card--total-km > span {
   text-wrap: balance;
+}
+.driver-mobile-app--updated .driver-mobile-record-card--billing > span,
+.driver-mobile-app--updated .driver-mobile-record-card--total-km > span,
+.driver-app--preview .driver-mobile-record-card--billing > span,
+.driver-app--preview .driver-mobile-record-card--total-km > span {
+  order: -1;
 }
 
 @media (max-width: 380px) {
-  .driver-mobile-record-card > span {
+  .driver-mobile-app--updated .driver-mobile-record-grid,
+  .driver-app--preview .driver-mobile-record-grid {
+    padding-block: 6px;
+  }
+  .driver-mobile-app--updated .driver-mobile-record-card > span,
+  .driver-app--preview .driver-mobile-record-card > span {
     font-size: 10px;
   }
 }
