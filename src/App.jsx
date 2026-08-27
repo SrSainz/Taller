@@ -4931,7 +4931,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
                 <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--billing" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                   <div ref={billingChartScrollRef} className="driver-mobile-chart-dialog__billing-scroll" role="region" aria-label="Facturación mensual por año. Se muestran ocho meses por vista; desliza horizontalmente para consultar el resto">
                     <div className="driver-mobile-chart-dialog__billing-canvas" style={{ width: `${billingChartWidth}px` }}>
-                      <BarChart width={billingChartWidth} height={520} data={monthlyBillingHistory} margin={{ top: 30, right: 22, bottom: 68, left: 76 }} onMouseMove={(state) => showDriverChartTooltip("billing", state)} onTouchStart={(state) => showDriverChartTooltip("billing", state)} onTouchMove={(state) => showDriverChartTooltip("billing", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                      <BarChart width={billingChartWidth} height={520} data={monthlyBillingHistory} margin={{ top: 30, right: 22, bottom: 96, left: 76 }} onMouseMove={(state) => showDriverChartTooltip("billing", state)} onTouchStart={(state) => showDriverChartTooltip("billing", state)} onTouchMove={(state) => showDriverChartTooltip("billing", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
                         <XAxis dataKey="label" interval={0} tick={<DriverBillingMonthTick />} tickLine={false} axisLine={{ stroke: "#cbd8e8" }} />
                         <YAxis width={66} tick={{ fontSize: 14, fontWeight: 850, fill: "#526783" }} tickLine={false} axisLine={false} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} domain={[0, Math.max(periodSummary.billingScaleMax, ...monthlyBillingHistory.map((month) => month.amount))]} />
@@ -7921,11 +7921,11 @@ function DriverBillingMonthTick({ x, y, payload }) {
   const month = payload?.payload?.shortLabel ?? String(payload?.value ?? "").split(" ")[0];
   const year = payload?.payload?.year ?? String(payload?.value ?? "").split(" ").slice(-1)[0];
   const shortYear = String(year).slice(-2);
+  const verticalLabel = `${String(month).toUpperCase()} ${shortYear}`;
   return (
-    <g transform={`translate(${x},${y})`}>
-      <text x="0" y="0" dy="9" textAnchor="middle" fill="#526783" fontSize="11" fontWeight="900">
-        <tspan x="0" dy="0">{String(month).toUpperCase()}</tspan>
-        <tspan x="0" dy="13" fontSize="10" fontWeight="900">{shortYear}</tspan>
+    <g className="driver-billing-month-tick" transform={`translate(${x},${y + 9}) rotate(-90)`}>
+      <text x="0" y="0" textAnchor="end" fill="#526783" fontSize="18" fontWeight="900" letterSpacing="0.2">
+        {verticalLabel}
       </text>
     </g>
   );
