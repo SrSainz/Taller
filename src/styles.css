@@ -4082,7 +4082,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   min-height: 0;
   padding-bottom: 3px;
 }
-.driver-app--preview .driver-mobile-month-summary__metric--billing > span { font-size: 9px; }
+.driver-app--preview .driver-mobile-month-summary__metric--billing > span { font-size: 11px; }
 .driver-app--preview .driver-mobile-month-summary__metric--billing > strong { font-size: clamp(25px, 7vw, 32px); }
 .driver-app--preview .driver-mobile-billing-target {
   margin-top: 3px;
@@ -4320,10 +4320,10 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 /* Objetivos y pendiente de mantenimiento en la vista del conductor. */
 .driver-mobile-billing-target__header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; min-width: 0; line-height: 1; }
 .driver-mobile-billing-target__billing { min-width: 0; display: grid; gap: 2px; align-content: end; }
-.driver-mobile-billing-target__billing > span { overflow: hidden; margin-bottom: 1px; color: #4b5870; font-size: 11px; font-weight: 850; letter-spacing: .04em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.driver-mobile-billing-target__billing > span { overflow: hidden; margin-bottom: 1px; color: #4b5870; font-size: 13px; font-weight: 850; letter-spacing: .04em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .driver-mobile-billing-target__billing > strong { overflow: hidden; color: #2266df; font-size: clamp(25px, 7vw, 32px); font-variant-numeric: tabular-nums; font-weight: 900; letter-spacing: -.04em; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
 .driver-mobile-billing-target__goal { min-width: 0; display: grid; justify-items: end; align-content: end; gap: 4px; padding-bottom: 1px; text-align: right; }
-.driver-mobile-billing-target__goal > span { overflow: hidden; margin-bottom: 1px; color: #345a93; font-size: 12px; font-weight: 900; letter-spacing: .02em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.driver-mobile-billing-target__goal > span { overflow: hidden; margin-bottom: 1px; color: #345a93; font-size: 14px; font-weight: 900; letter-spacing: .02em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .driver-mobile-billing-target__goal > strong { color: #2c6de9; font-size: 22px; font-variant-numeric: tabular-nums; font-weight: 900; line-height: 1; white-space: nowrap; }
 .driver-mobile-billing-target__goal > strong small { margin-left: 3px; color: inherit; font-size: 9px; font-weight: 800; }
 .driver-mobile-billing-target.is-goal-reached .driver-mobile-billing-target__goal > strong { color: #159b79; }
@@ -4350,7 +4350,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-month-summary__tips-layout { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
 .driver-mobile-month-summary__tips-value { min-width: 0; display: grid; gap: 3px; }
 .driver-mobile-month-summary__tips-trigger { min-width: 0; display: grid; justify-items: start; gap: 3px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.driver-mobile-month-summary__tips-trigger > span { display: inline-flex; align-items: center; gap: 4px; color: #4b5870; font-size: clamp(11px, 3.1vw, 14px); font-weight: 900; letter-spacing: .06em; line-height: 1; text-transform: uppercase; }
+.driver-mobile-month-summary__tips-trigger > span { display: inline-flex; align-items: center; gap: 4px; color: #4b5870; font-size: clamp(13px, 3.6vw, 16px); font-weight: 900; letter-spacing: .06em; line-height: 1; text-transform: uppercase; }
 .driver-mobile-month-summary__tips-trigger > span svg { flex: 0 0 auto; transition: transform .18s ease; }
 .driver-mobile-month-summary__tips-trigger[aria-expanded="true"] > span svg { transform: rotate(180deg); }
 .driver-mobile-month-summary__tips-trigger > strong { color: #159b79; font-size: clamp(24px, 6.5vw, 33px); font-weight: 900; letter-spacing: -.04em; line-height: 1; white-space: nowrap; }
@@ -4387,12 +4387,12 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-maintenance-note__camera { border-color: #e1a83e !important; background: #fff5db !important; color: #925b06 !important; }
 .driver-mobile-maintenance-note__camera:hover, .driver-mobile-maintenance-note__camera:focus-visible { border-color: #c98611 !important; background: #ffedbc !important; outline: 0; }
 .driver-app--preview .driver-mobile-month-summary__tips-layout { align-items: center; }
-.driver-app--preview .driver-mobile-month-summary__tips-trigger > span { font-size: 8px; }
+.driver-app--preview .driver-mobile-month-summary__tips-trigger > span { font-size: 11px; }
 .driver-app--preview .driver-mobile-month-summary__tips-trigger > strong { font-size: clamp(18px, 5vw, 24px); }
 .driver-app--preview .driver-mobile-maintenance-note__trigger { min-height: 30px; padding: 5px 8px; font-size: 8px; }
 @media (max-width: 380px) {
   .driver-mobile-month-summary__tips-layout { gap: 7px; }
-  .driver-mobile-month-summary__tips-trigger > span { font-size: 9px; }
+  .driver-mobile-month-summary__tips-trigger > span { font-size: 11px; }
   .driver-mobile-month-summary__tips-trigger > strong { font-size: 23px; }
   .driver-mobile-maintenance-note__trigger { padding-inline: 7px; font-size: 8px; }
 }
