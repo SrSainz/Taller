@@ -3809,6 +3809,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-section--history > .driver-mobile-period-control { grid-column: 2; grid-row: 1; order: initial; margin: 0; }
 .driver-mobile-section--history > .driver-mobile-week-swipe-wrap { grid-column: 1 / -1; grid-row: 2; order: initial; width: 100%; }
 .driver-mobile-week-table__amount-editor { width: 100%; min-width: 0; min-height: 25px; display: flex; align-items: center; justify-content: center; gap: 1px; }
+.driver-mobile-week-table__amount-readonly { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .driver-mobile-week-table__amount-editor b { flex: 0 0 auto; color: #4e5e76; font-size: 8px; font-weight: 850; line-height: 1; }
 .driver-mobile-week-table__amount-trigger { width: 100%; min-width: 0; min-height: 25px; padding: 2px 1px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #4e5e76; font: inherit; font-size: 8px; font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1.2; text-align: center; cursor: default; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .driver-mobile-week-table__amount-trigger:focus-visible { border-color: #9db9e0; outline: 2px solid rgba(44,109,233,.22); outline-offset: 1px; background: #f4f8ff; color: #173661; }

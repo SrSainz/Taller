@@ -86,13 +86,16 @@ import { getImportedTipsByPeriod } from "./data/driverTipsSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
 import { gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender, getGestoriaDocumentsForPeriod, getGestoriaExpenseForPeriod } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleOwner as getCanonicalVehicleOwner, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
+import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
 const SUMMARY_CHART_COLOR = "#1976c9";
 const INTRACOMMUNITY_VAT_RATE = 0.08;
-const DRIVER_EDITABLE_WEEKLY_ROWS = new Set(["wash", "other"]);
-const ADMIN_EDITABLE_WEEKLY_ROWS = new Set(["cash", "fuel", "refunds", "wash", "other"]);
+// Contrato de permisos del calendario semanal: el conductor solo edita lavados y varios.
+// La vista de administración conserva la edición de sus cinco filas operativas.
+const DRIVER_EDITABLE_WEEKLY_ROWS = new Set(driverEditableWeeklyRowKeys);
+const ADMIN_EDITABLE_WEEKLY_ROWS = new Set(administratorEditableWeeklyRowKeys);
 const WEEKLY_EDIT_MAX_PRESS_MS = 1000;
 const calculateNetDriverCommission = (driverName, billing) => calculateDriverCommission({ driverName, billing }).totalToCollect;
 const chartMetricOptions = [
@@ -4738,7 +4741,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     return () => document.removeEventListener("pointerdown", closeWeeklyEditorOutside, true);
   }, [weeklyEditKey]);
   const weeklyCell = (row, value, dateKey, isEditorHost = false) => {
-    if (!editableWeeklyRows.has(row.key)) return formatWeeklyCellAmount(value, row.key);
+    if (!editableWeeklyRows.has(row.key)) {
+      const formattedValue = formatWeeklyCellAmount(value, row.key);
+      return <span className="driver-mobile-week-table__amount-readonly" aria-label={`${row.label} del ${dateKey}: ${formattedValue}. Solo lectura`}>{formattedValue}</span>;
+    }
     const draftKey = `${dateKey}:${row.key}`;
     const hasDraft = Object.hasOwn(weeklyDrafts, draftKey);
     const displayedValue = hasDraft ? weeklyDrafts[draftKey] : formatWeeklyCellAmount(value, row.key);
