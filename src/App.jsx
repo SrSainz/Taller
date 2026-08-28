@@ -87,6 +87,7 @@ import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
 import { gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender, getGestoriaDocumentsForPeriod, getGestoriaExpenseForPeriod } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleOwner as getCanonicalVehicleOwner, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
+import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -864,12 +865,6 @@ const getDriverBillingVisualPosition = (value, milestones = [], scaleMax = 9000)
 };
 const formatShortCurrency = (value) => `${Math.round(value).toLocaleString("es-ES")} €`;
 const formatDriverBarAmount = (value) => Number(value) >= 1000 ? `${(Number(value) / 1000).toLocaleString("es-ES", { maximumFractionDigits: 1 })}k` : `${Math.round(Number(value) || 0)}`;
-const getDriverDateKey = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 const parseDriverDateKey = (value) => {
   const [year, month, day] = String(value ?? "").split("-").map(Number);
   return Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
@@ -4032,7 +4027,11 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       setMessage(validation.message);
       return;
     }
-    setCircleReview({ recordKey, file, defaultDate: selectedDate });
+    // The upload moment is the safe default. The calendar may still be
+    // showing another day, and the printed date belongs to the document, not
+    // necessarily to the day on which the driver is registering it.
+    const captureDate = getDriverDateKey();
+    setCircleReview({ recordKey, file, defaultDate: captureDate, captureDate });
     setCircleUpload({ key: recordKey, status: "review", fileName: file.name });
     return;
   };
@@ -4055,11 +4054,11 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     // extracted value must never be allowed to change the driver's owner
     // context or trip the vehicle-bound RLS check.
     const documentVehiclePlate = profileVehiclePlate || canonicalizeVehiclePlate(fields.vehicle);
-    const printedDate = recordKey === "billing"
-      ? fields.date || fields.serviceDate || fields.issueDate || fields.periodStart
-      : fields.date;
-    const detectedDate = normalizeDriverDocumentDate(printedDate);
-    const targetDate = detectedDate ?? selectedDate;
+    const captureDate = circleReview?.captureDate || circleReview?.defaultDate || getDriverDateKey();
+    const targetDate = resolveDriverUploadDate({
+      captureDate,
+      intentionalDate: fields.date,
+    });
     const cost = fieldNumber("cost", "total", "amount", "netAmount");
     const consumption = fieldNumber("consumption");
     const consumptionCount = Math.max(1, Math.round(fieldNumber("consumptionCount") || (recordKey === "consumption" ? 1 : 0)));
@@ -4076,6 +4075,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     const points = fieldNumber("points");
     const extractedData = {
       date: targetDate,
+      captureDate,
+      dateSource: targetDate === captureDate ? "capture" : "intentional-edit",
       source: "driver-circle",
       recordType: recordKey,
       recordLabel: dailyPhotoRecords.find((record) => record.key === recordKey)?.label ?? recordKey,
@@ -4198,7 +4199,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       setCirclePreviewUrls((current) => ({ ...current, [recordKey]: URL.createObjectURL(file) }));
       setCircleUpload({ key: recordKey, status: supabase ? "saved" : "local", fileName: file.name });
       setCircleReview(null);
-      if (detectedDate && detectedDate !== selectedDate) setSelectedDate(detectedDate);
+      if (targetDate !== selectedDate) setSelectedDate(targetDate);
       const recordLabel = dailyPhotoRecords.find((record) => record.key === recordKey)?.label ?? "Registro";
       const destinationMessage = recordKey === "fuel"
         ? "Repostaje semanal, Administración > Vehículos > Combustible y Neto"
@@ -8064,11 +8065,29 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
   const [saveState, setSaveState] = useState({ saving: false, message: "" });
+  const [dateEditOpen, setDateEditOpen] = useState(false);
   const applyContextDefaults = useCallback((nextFields) => {
+    const normalizedRecordType = normalizeText(recordType);
+    const isDriverBilling = category === "billing" && ["billing", "billing_daily"].includes(normalizedRecordType);
+    const isDriverFuel = category === "consumption" && normalizedRecordType === "fuel";
+    const isDriverDailyKm = category === "consumption" && ["daily-km", "partial-1", "kilometraje diario", "km diarios"].includes(normalizedRecordType);
+    const isDriverTotalKm = category === "consumption" && ["total-km", "total", "odometer", "odometro", "kilometraje total", "km acumulados"].includes(normalizedRecordType);
+    const isDriverConsumption = category === "consumption" && ["consumption", "consumption rate", "consumption_rate", "consumo"].includes(normalizedRecordType);
+    const isDriverCapture = isDriverBilling || isDriverFuel || isDriverDailyKm || isDriverTotalKm || isDriverConsumption;
+
+    // A document's printed date is useful for audit, but it must not silently
+    // move a driver's entry to another day. Keep the capture/upload date in
+    // the editable date field; an explicit edit later is preserved by state.
+    if (isDriverCapture && defaultDate) {
+      return nextFields.map((field) => {
+        if (field.key === "date") return { ...field, value: defaultDate, confidence: 100 };
+        if (isDriverConsumption && field.key === "consumptionCount" && (field.value === "" || field.value === null || field.value === undefined)) return { ...field, value: 1, confidence: 100 };
+        return field;
+      });
+    }
+
     const dateKeys = category === "billing" ? ["serviceDate", "issueDate", "date", "periodStart"] : ["date"];
     const hasDetectedDate = nextFields.some((field) => dateKeys.includes(field.key) && field.value);
-    const isDriverBilling = category === "billing" && ["billing", "billing_daily"].includes(normalizeText(recordType));
-    const isDriverConsumption = category === "consumption" && ["consumption", "consumption rate", "consumption_rate", "consumo"].includes(normalizeText(recordType));
     const detectedDate = nextFields.find((field) => ["date", "serviceDate", "issueDate", "periodStart"].includes(field.key) && field.value)?.value;
     const fallbackDate = defaultDate && !hasDetectedDate ? defaultDate : "";
     const defaultDateKey = isDriverBilling || category === "consumption" ? "date" : "serviceDate";
@@ -8169,6 +8188,9 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   const isDriverMileageReview = isDriverDailyKmReview || isDriverTotalKmReview;
   const isDriverConsumptionReview = category === "consumption" && ["consumption", "consumption rate", "consumption_rate", "consumo"].includes(normalizedRecordType);
   const isDriverBillingReview = category === "billing" && ["billing", "billing_daily"].includes(normalizedRecordType);
+  const isDriverCaptureReview = isDriverFuelReview || isDriverMileageReview || isDriverConsumptionReview || isDriverBillingReview;
+  const isOptionalDriverDateReview = isDriverCaptureReview && !isDriverFuelReview && !isDriverBillingReview;
+  const driverDateField = fields.find((field) => field.key === "date");
   const driverBillingReviewLabels = { date: "Día", connection: "Conexión", trips: "Viajes", points: "Puntos", netAmount: "Precio neto", promotions: "Promociones", tips: "Propina", refunds: "Reembolsos", cashCollected: "Efectivo cobrado" };
   const driverBillingReviewKeys = ["date", "connection", "trips", "points", "netAmount", "promotions", "tips", "refunds", "cashCollected"];
   const driverMileageReviewKeys = isDriverDailyKmReview ? ["dailyKm", "vehicle"] : ["odometerKm", "vehicle"];
@@ -8285,6 +8307,11 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         <div className="document-review-fields">
           {lowConfidenceFields.length > 0 && <div className="document-review-warning" role="status"><IconAlertTriangle size={17} /><span><strong>Revisión necesaria</strong><small>Los campos marcados en ámbar tienen una confianza inferior al 80%.</small></span></div>}
           <div className="document-review-heading"><div><h3>{isDriverFuelReview ? "Importe del repostaje" : isDriverDailyKmReview ? "Kilometraje diario" : isDriverTotalKmReview ? "Kilómetros acumulados" : isDriverConsumptionReview ? "Consumo registrado" : isDriverBillingReview ? "Estadísticas del día" : "Datos clasificados"}</h3><p>{isDriverFuelReview ? "Comprueba la fecha y el importe total antes de archivarlo." : isDriverMileageReview ? "Comprueba el kilometraje y el vehículo antes de archivarlo." : isDriverConsumptionReview ? "Comprueba el consumo, el vehículo y la cantidad registrada para este día." : isDriverBillingReview ? "Comprueba estos datos de la captura antes de archivarlos." : "Revisa y corrige antes de guardarlos en la aplicación."}</p></div><span className="document-review-confidence">{overallConfidence}% IA</span></div>
+          {isOptionalDriverDateReview && <div className="document-review-date-control">
+            {!dateEditOpen
+              ? <button type="button" className="secondary-button" onClick={() => setDateEditOpen(true)}>Cambiar fecha</button>
+              : <label className="document-review-date-control__field"><span><strong>Fecha del registro</strong><small>Solo cambia la fecha si este documento corresponde a otro día.</small></span><input type="date" value={driverDateField?.value ?? defaultDate} disabled={saveState.saving} onChange={(event) => updateField("date", event.target.value)} /></label>}
+          </div>}
           <div className="document-fields-grid">
             {reviewFields.map((field) => {
               const low = field.confidence < 80;

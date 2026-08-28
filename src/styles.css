@@ -2152,6 +2152,14 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .document-review-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .document-review-heading h3 { margin: 0; font-size: 12px; }
 .document-review-heading p { margin: 4px 0 0; color: var(--muted); font-size: 8px; }
+.document-review-date-control { display: flex; justify-content: flex-start; margin: 0 0 12px; }
+.document-review-date-control > button { min-height: 32px; }
+.document-review-date-control__field { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; color: #52605a; font-size: 8px; font-weight: 650; }
+.document-review-date-control__field > span { display: flex; flex-direction: column; gap: 3px; }
+.document-review-date-control__field strong { color: var(--text); }
+.document-review-date-control__field small { color: var(--muted); font-size: 7px; font-weight: 500; }
+.document-review-date-control__field input { min-height: 37px; padding: 8px 9px; border: 1px solid var(--line-dark); border-radius: 7px; background: #fff; color: var(--text); font-size: 9px; outline: 0; }
+.document-review-date-control__field input:focus { border-color: #7eb3a2; box-shadow: 0 0 0 3px rgba(16,126,103,.08); }
 .document-review-confidence { flex: 0 0 auto; padding: 5px 7px; border-radius: 6px; background: var(--green-50); color: var(--green-800); font-size: 8px; font-weight: 750; }
 .document-fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .document-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: #52605a; font-size: 8px; font-weight: 650; }
@@ -5943,6 +5951,9 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .modal--driver-document-review .document-review-heading h3 { font-size: 24px; line-height: 1.15; }
 .modal--driver-document-review .document-review-heading p { font-size: 16px; line-height: 1.4; }
 .modal--driver-document-review .document-review-confidence { font-size: 16px; }
+.modal--driver-document-review .document-review-date-control__field { font-size: 16px; }
+.modal--driver-document-review .document-review-date-control__field small { font-size: 13px; }
+.modal--driver-document-review .document-review-date-control__field input { font-size: 18px; }
 .modal--driver-document-review .document-field { font-size: 16px; }
 .modal--driver-document-review .document-field > span small { font-size: 13px; }
 .modal--driver-document-review .document-field input { font-size: 18px; line-height: 1.25; }
@@ -5967,6 +5978,9 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .modal--driver-document-review .document-review-heading h3 { font-size: 30px; }
   .modal--driver-document-review .document-review-heading p { font-size: 20px; }
   .modal--driver-document-review .document-review-confidence { font-size: 20px; }
+  .modal--driver-document-review .document-review-date-control__field { align-items: flex-start; flex-direction: column; font-size: 24px; }
+  .modal--driver-document-review .document-review-date-control__field small { font-size: 20px; }
+  .modal--driver-document-review .document-review-date-control__field input { width: 100%; font-size: 32px; }
   .modal--driver-document-review .document-field { font-size: 24px; }
   .modal--driver-document-review .document-field > span small { font-size: 20px; }
   .modal--driver-document-review .document-field input { font-size: 32px; }
