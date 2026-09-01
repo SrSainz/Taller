@@ -271,7 +271,7 @@ final result: passed
 
 - Fuente visual seleccionada: `C:/Users/aiday/.codex/generated_images/01a029d9-f09f-7801-b0eb-a3f1e3233595/exec-63956572-9180-47f2-b51c-642dd79df118.png` (1487 × 1058 px, densidad 1x), modelo oscuro con tres Toyota y trazos rojos.
 - Referencia de tratamiento de marca: `C:/Users/aiday/.codex/generated_images/01a029d9-f09f-7801-b0eb-a3f1e3233595/exec-c6485740-293a-4e85-94e4-9e2f0321dff7.png` (1487 × 1058 px, densidad 1x), solo el wordmark «SOBRE RUEDAS» sobre fondo claro.
-- Implementación: `src/App.jsx`, `src/styles.css`, `public/brand/sobre-ruedas-logo.png`, `public/net-vehicles/` y `public/driver-avatars/`.
+- Implementación: `src/App.jsx`, `src/styles.css`, `public/brand/sobre-ruedas-logo.png`, `public/neto/neto-road-hero.png`, `public/net-vehicles/` y `public/driver-avatars/`.
 - Validación de compilación: `dist/client` contiene el logotipo, los tres vehículos y las seis fotografías reales de conductores.
 - Smoke test browser: `http://127.0.0.1:5175/#/informes` carga la pantalla de acceso sin errores; el entorno de validación no proporciona valores públicos reales de Supabase, por lo que no se pudo abrir el modal autenticado de Neto en el navegador.
 

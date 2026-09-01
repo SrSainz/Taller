@@ -6387,21 +6387,12 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   isolation: isolate;
   padding: 12px 13px 11px;
   background:
-    radial-gradient(circle at 50% 82%, rgba(217, 32, 48, .2), transparent 35%),
-    linear-gradient(180deg, #071116 0%, #0a171d 57%, #081015 100%);
+    linear-gradient(180deg, rgba(7, 17, 22, .28), rgba(8, 16, 21, .72)),
+    url("/neto/neto-road-hero.png") center bottom / cover no-repeat;
 }
 .net-detail-modal__hero::before {
-  position: absolute;
-  z-index: -1;
-  right: -8%;
-  bottom: -58px;
-  left: -8%;
-  height: 112px;
-  border-top: 1px solid rgba(239, 51, 64, .45);
-  background: repeating-linear-gradient(168deg, transparent 0 16px, rgba(196, 27, 43, .3) 17px 18px, transparent 19px 31px);
+  display: none;
   content: "";
-  transform: perspective(140px) rotateX(30deg);
-  transform-origin: center bottom;
 }
 .net-detail-modal__hero::after {
   position: absolute;
