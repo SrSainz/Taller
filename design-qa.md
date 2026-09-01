@@ -297,3 +297,39 @@ final result: blocked
 - La comprobación visual autenticada queda bloqueada en el entorno local porque las variables públicas de Supabase no están disponibles; la ruta solo muestra la pantalla de acceso. Build y tests sí se completaron correctamente.
 
 final result: blocked
+
+## Iteración actual: Neto gris-rojo-gris con ficha horizontal
+
+### Evidencia
+
+- Fuente visual: `C:\Users\aiday\AppData\Local\Temp\codex-clipboard-23be5c28-cc46-4ebc-9723-b76ae8c7840d.png` (274 × 253 px, densidad 1x), referencia con tres Toyota orientados en la misma dirección, gris–rojo–gris, luces/brillo inferior, matrículas y conductores.
+- Implementación: `src/App.jsx` (`NetDetailModal`) y `src/styles.css` (composición final de fichas NETO); se reutiliza la vista lateral real de `public/net-vehicles/toyota-corolla-blue.png`, con tratamiento gris–rojo–gris, fondo de asfalto y brillo de `public/neto/neto-road-hero.png`.
+- Implementación screenshot: no capturada; el navegador integrado quedó no disponible durante la comprobación (`Browser is not available`) y la configuración local no permite abrir la ruta autenticada sin las variables públicas de Supabase.
+- URL a revisar cuando el acceso esté disponible: `http://localhost:5175/?release=vehicle-owners-1be6e79#/flota` → Neto.
+- Estado esperado: resumen de Neto cerrado, tres fichas visibles, cada coche ocupa una fila completa y al pulsar la fila se abre el detalle existente.
+
+### Comparación y superficies de fidelidad
+
+- Layout: las tres fichas pasan a filas apaisadas apiladas; la matrícula queda encima del coche, los conductores quedan en una sola columna y Facturación/Gastos/Neto se agrupan a la derecha.
+- Tipografía: las matrículas, nombres e importes usan pesos altos; los importes de la columna financiera se amplían aproximadamente al doble del tamaño anterior y se mantienen contenidos dentro de su columna.
+- Color: primer y tercer coche usan tratamiento plateado y el central rojo; se conserva el fondo de asfalto oscuro y el recurso visual de luz inferior.
+- Imaginería: las tres filas comparten la misma vista lateral para evitar orientaciones mezcladas; se mantienen las fotos reales de cada conductor mediante `getDriverAvatarPath`.
+- Copy: se muestra `FACTURACIÓN`, `GASTOS` y `NETO`; desaparece `Gastos registrados` en la vista resumida.
+- Accesibilidad e interacción: cada fila sigue siendo un elemento `role="button"`, navegable con teclado, y conserva la apertura del detalle y de los gastos sin modificar los cálculos.
+
+### Hallazgos y bloqueo
+
+- La comparación pixel a pixel queda bloqueada porque no fue posible capturar la implementación autenticada. No se han inventado resultados visuales ni se ha saltado el inicio de sesión.
+- La fuente es una composición raster pequeña; para evitar usarla como captura de interfaz, los coches se representan con assets de vehículo individuales ya presentes en el proyecto y el texto permanece como contenido HTML accesible.
+
+### Checklist de implementación
+
+- [x] Tres filas apaisadas con interacción de apertura conservada.
+- [x] Vista lateral común con tratamiento gris–rojo–gris.
+- [x] Matrículas sin recuadro, grandes y encima de cada coche.
+- [x] Conductores apilados verticalmente con sus fotografías reales.
+- [x] Facturación, Gastos y Neto a la derecha con cifras ampliadas.
+- [x] Tests automáticos (37/37) y build de producción ejecutados correctamente.
+- [ ] Revisión visual autenticada en móvil y escritorio cuando el navegador y Supabase estén disponibles.
+
+final result: blocked

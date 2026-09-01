@@ -4918,7 +4918,6 @@ body:has(.net-detail-backdrop) .topbar--reports {
   .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed { padding-block: 6px; }
 }
 
-*/
 
 .maintenance-reports-dialog-backdrop { position: fixed; z-index: 340; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10, 18, 15, .48); }
 .maintenance-reports-dialog { width: min(100%, 680px); max-height: min(90dvh, 760px); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; border: 1px solid #e1b353; border-radius: 18px; background: #fffdf8; box-shadow: 0 25px 80px rgba(10, 20, 14, .25); }
@@ -7737,4 +7736,247 @@ body:has(.net-detail-backdrop) .topbar--reports {
   .net-detail-modal__close { top: 7px; right: 8px; width: 29px; height: 29px; }
   .net-detail-modal__overview { padding-top: 8px; padding-bottom: 7px; }
   .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed { padding-block: 6px; }
+}
+
+/* Neto: composición final gris-rojo-gris para las tres fichas de vehículos. */
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-carousel {
+  background-color: #04080b;
+  background-image: url("/neto/neto-road-hero.png");
+  background-position: center bottom;
+  background-size: cover;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed {
+  display: block;
+  min-height: 0;
+  padding: clamp(9px, 1.4vw, 18px) clamp(14px, 3.2vw, 38px);
+  border-bottom: 1px solid rgba(225, 239, 236, .2);
+  background-color: rgba(3, 8, 11, .73);
+  background-image: url("/neto/neto-road-hero.png");
+  background-position: center bottom;
+  background-size: cover;
+  cursor: pointer;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-content {
+  min-width: 0;
+  height: 100%;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.38fr) minmax(170px, .76fr) !important;
+  grid-template-areas: "vehicle finance" !important;
+  align-items: center;
+  gap: clamp(12px, 3vw, 42px);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__vehicle-column {
+  grid-area: vehicle;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(4px, .7vw, 9px);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__plate {
+  grid-area: auto;
+  justify-self: start;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #f4fbf8;
+  font-size: clamp(22px, 3.1vw, 40px);
+  font-weight: 950;
+  letter-spacing: .12em;
+  line-height: 1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .62);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual {
+  min-width: 0;
+  min-height: 0;
+  height: clamp(82px, 15vh, 164px);
+  display: grid;
+  place-items: center start;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual img {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  display: block;
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, .62));
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--tone-silver .net-detail-card__vehicle-visual img {
+  filter: grayscale(1) brightness(1.48) contrast(.88) drop-shadow(0 10px 12px rgba(0, 0, 0, .62));
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--tone-red .net-detail-card__vehicle-visual img {
+  filter: saturate(1.85) hue-rotate(145deg) brightness(.96) contrast(1.05) drop-shadow(0 10px 12px rgba(0, 0, 0, .62));
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers {
+  grid-area: auto;
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 4px;
+  padding: 0;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  border: 0;
+  border-top: 1px solid rgba(218, 235, 231, .2);
+  border-radius: 0;
+  background: transparent;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__driver-identity {
+  min-width: 0;
+  display: flex !important;
+  align-items: center;
+  gap: 7px;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__driver-avatar {
+  width: clamp(22px, 3vw, 34px);
+  height: clamp(22px, 3vw, 34px);
+  flex-basis: clamp(22px, 3vw, 34px);
+  border-color: rgba(255, 255, 255, .54);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .32);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers .net-detail-card__driver-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #f2faf7;
+  font-size: clamp(12px, 1.45vw, 18px);
+  font-weight: 950;
+  letter-spacing: .045em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers .net-detail-card__driver-amount {
+  flex: 0 0 auto;
+  color: #d9e9e5;
+  font-size: clamp(12px, 1.45vw, 18px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance {
+  grid-area: finance;
+  min-width: 0;
+  align-self: stretch;
+  display: grid;
+  align-content: center;
+  gap: clamp(8px, 1.25vw, 17px);
+  padding-left: clamp(12px, 2.2vw, 28px);
+  border-left: 1px solid rgba(226, 239, 236, .24);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line {
+  min-width: 0;
+  display: grid;
+  align-items: start;
+  justify-content: initial;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line span,
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net span {
+  min-height: 0;
+  overflow: visible;
+  color: rgba(224, 239, 235, .76);
+  font-size: clamp(11px, 1.35vw, 16px);
+  font-weight: 900;
+  letter-spacing: .1em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line strong,
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(24px, 3.5vw, 46px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  letter-spacing: -.045em;
+  line-height: .95;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding-top: clamp(7px, 1vw, 13px);
+  border-top: 1px solid rgba(226, 239, 236, .24);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net strong {
+  color: #f2f8f6;
+  font-size: clamp(28px, 4.2vw, 54px);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net--negative strong { color: #ff9a9f; }
+
+@media (max-width: 720px) {
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed { padding: 8px 10px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-content {
+    grid-template-columns: minmax(0, 1.18fr) minmax(106px, .82fr) !important;
+    gap: 7px;
+  }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__plate { font-size: clamp(19px, 5.5vw, 29px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual { height: clamp(72px, 13vh, 112px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance { gap: 6px; padding-left: 8px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line span,
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net span { font-size: clamp(9px, 2.6vw, 13px); letter-spacing: .07em; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line strong { font-size: clamp(19px, 5.7vw, 30px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net strong { font-size: clamp(22px, 6.4vw, 34px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers { gap: 2px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers > div { gap: 4px; padding-block: 2px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__driver-avatar { width: 23px; height: 23px; flex-basis: 23px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers .net-detail-card__driver-name,
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers .net-detail-card__driver-amount { font-size: clamp(10px, 2.8vw, 14px); }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed { padding-block: 5px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-content { gap: 5px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__plate { font-size: clamp(17px, 5vw, 24px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual { height: clamp(62px, 12vh, 88px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line strong { font-size: clamp(17px, 5vw, 25px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net strong { font-size: clamp(20px, 5.7vw, 29px); }
 }
