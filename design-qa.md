@@ -288,3 +288,12 @@ final result: passed
 - El estado de la revisión visual profunda del modal autenticado queda bloqueado únicamente por la ausencia de credenciales públicas de Supabase en el entorno aislado; no se han introducido credenciales ni datos de prueba.
 
 final result: blocked
+
+## Iteración actual: wordmark de la barra superior
+
+- Fuente visual: `C:\Users\aiday\AppData\Local\Temp\codex-clipboard-b767efe6-fd3e-4c42-9357-82f7dbc26d14.png` (wordmark «SOBRE RUEDAS» en blanco y rojo).
+- Implementación: `src/App.jsx` y `src/styles.css`.
+- El texto junto a la rueda del topbar ahora se divide semánticamente en `SOBRE` blanco y `RUEDAS` rojo, con tipografía condensada e inclinada, manteniendo la escala responsive.
+- La comprobación visual autenticada queda bloqueada en el entorno local porque las variables públicas de Supabase no están disponibles; la ruta solo muestra la pantalla de acceso. Build y tests sí se completaron correctamente.
+
+final result: blocked

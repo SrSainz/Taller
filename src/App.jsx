@@ -224,6 +224,10 @@ const netVehicleImages = {
   "5754 MJV": { src: "/net-vehicles/toyota-corolla-purple.png", tone: "silver", view: "trasera de tres cuartos" },
 };
 
+function SobreRuedasWordmark({ className = "" }) {
+  return <span className={`sobre-ruedas-wordmark${className ? ` ${className}` : ""}`} aria-label="SOBRE RUEDAS"><strong>SOBRE</strong><em>RUEDAS</em></span>;
+}
+
 const vehicleOwnerSeed = vehicleOwnerByPlate;
 
 const vehiclesSeed = [
@@ -3119,7 +3123,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
           <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores", "Administración"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}${activeNav === "Mantenimiento" ? " topbar--maintenance" : ""}`}>
           <div className="topbar-title">
             <button className="workspace-home-button admin-topbar-home" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260827" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
-            {activeNav === adminNavItem.label && isAdmin ? <button type="button" className="admin-title-control" onClick={() => { setAdminHeaderOpen((value) => !value); setAdminHeaderMessage(""); setTopbarMenuOpen(false); setNotificationsOpen(false); }} aria-expanded={adminHeaderOpen} aria-controls="admin-header-sheet"><span>ADMINISTRADOR</span><strong>{profileName.toLocaleUpperCase("es")}</strong><IconChevronDown size={17} /></button> : <div><span>{compactDetailHeader ? detailHeaderTitle : activeNav === "Informes" ? "SOBRE RUEDAS" : activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>{!compactDetailHeader && <small>{activeNav === "Informes" ? "Resumen general de la flota" : activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : activeNav === "Administración" ? "Usuarios y permisos" : "Gestión centralizada de vehículos"}</small>}</div>}
+            {activeNav === adminNavItem.label && isAdmin ? <button type="button" className="admin-title-control" onClick={() => { setAdminHeaderOpen((value) => !value); setAdminHeaderMessage(""); setTopbarMenuOpen(false); setNotificationsOpen(false); }} aria-expanded={adminHeaderOpen} aria-controls="admin-header-sheet"><span>ADMINISTRADOR</span><strong>{profileName.toLocaleUpperCase("es")}</strong><IconChevronDown size={17} /></button> : <div>{compactDetailHeader ? <span>{detailHeaderTitle}</span> : activeNav === "Informes" ? <SobreRuedasWordmark /> : <span>{activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>}{!compactDetailHeader && activeNav !== "Informes" && <small>{activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : activeNav === "Administración" ? "Usuarios y permisos" : "Gestión centralizada de vehículos"}</small>}</div>}
           </div>
           {activeNav === "Mantenimiento" && <MaintenanceSearch query={maintenanceSearchQuery} open={maintenanceSearchOpen} suggestions={maintenanceSearchSuggestions} onQueryChange={setMaintenanceSearchQuery} onOpenChange={setMaintenanceSearchOpen} onSelect={openMaintenanceSearchRecord} />}
           {!compactDetailHeader && <div className="topbar-actions">

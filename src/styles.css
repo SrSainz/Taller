@@ -4917,6 +4917,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
   .net-detail-modal__overview { padding-top: 8px; padding-bottom: 7px; }
   .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed { padding-block: 6px; }
 }
+
 */
 
 .maintenance-reports-dialog-backdrop { position: fixed; z-index: 340; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10, 18, 15, .48); }
@@ -7669,6 +7670,42 @@ body:has(.net-detail-backdrop) .topbar--reports {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+}
+
+/* Wordmark de SOBRE RUEDAS junto a la rueda: blanco, rojo y condensado como la referencia. */
+.topbar-title > div:has(.sobre-ruedas-wordmark) { gap: 0; }
+.topbar-title .sobre-ruedas-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .24em;
+  color: #fff;
+  font-family: "Arial Narrow", "Roboto Condensed", "Helvetica Neue", sans-serif;
+  font-size: clamp(16px, 1.8vw, 22px);
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: .035em;
+  line-height: 1;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .48);
+  white-space: nowrap;
+}
+.topbar-title .sobre-ruedas-wordmark strong,
+.topbar-title .sobre-ruedas-wordmark em {
+  color: inherit;
+  font-family: inherit;
+  font-size: 1em;
+  font-style: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+.topbar-title .sobre-ruedas-wordmark strong { color: #fff !important; }
+.topbar-title .sobre-ruedas-wordmark em { color: #ef3340 !important; }
+
+@media (max-width: 520px) {
+  .topbar-title .sobre-ruedas-wordmark { font-size: 16px; letter-spacing: .025em; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .topbar-title .sobre-ruedas-wordmark { font-size: 14px; }
 }
 
 @media (max-width: 720px) {
