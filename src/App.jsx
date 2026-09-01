@@ -219,9 +219,9 @@ const orderAdminDriverCardsForVehicle = (vehicle, profiles = []) => {
 };
 
 const netVehicleImages = {
-  "5043 MLC": { src: "/net-vehicles/toyota-corolla-green.png", tone: "green", view: "frontal de tres cuartos" },
-  "5750 MJV": { src: "/net-vehicles/toyota-corolla-blue.png", tone: "blue", view: "lateral" },
-  "5754 MJV": { src: "/net-vehicles/toyota-corolla-red.png", tone: "red", view: "trasera de tres cuartos" },
+  "5043 MLC": { src: "/net-vehicles/toyota-corolla-blue.png", tone: "blue", view: "lateral" },
+  "5750 MJV": { src: "/net-vehicles/toyota-corolla-red.png", tone: "red", view: "trasera de tres cuartos" },
+  "5754 MJV": { src: "/net-vehicles/toyota-corolla-purple.png", tone: "silver", view: "trasera de tres cuartos" },
 };
 
 const vehicleOwnerSeed = vehicleOwnerByPlate;
@@ -5663,6 +5663,11 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
     setActiveBreakdownEditor("");
     setBreakdownFormError("");
   };
+  const handleCollapsedCardKeyDown = (event, plate) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    toggleVehicle(plate);
+  };
   const toggleExpenseRow = (rowKey) => {
     setExpandedExpenseRows((current) => {
       const next = new Set(current);
@@ -5860,7 +5865,7 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
         </section>}
         {!selectedDetail ? <>
           <div className="net-detail-carousel" aria-label="Vehículos profesionales con resultado neto">
-            {orderedDetails.map(({ vehicle, revenue, totalExpenses, net, driverRows = [] }) => <article className={`net-detail-card net-detail-card--collapsed net-detail-card--tone-${netVehicleImages[vehicle.plate]?.tone ?? "green"}`} key={vehicle.plate}>
+            {orderedDetails.map(({ vehicle, revenue, totalExpenses, net, driverRows = [] }) => <article className={`net-detail-card net-detail-card--collapsed net-detail-card--tone-${netVehicleImages[vehicle.plate]?.tone ?? "green"}`} key={vehicle.plate} role="button" tabIndex={0} aria-expanded={false} aria-label={`Abrir gastos y detalle de ${vehicle.plate}`} onClick={() => toggleVehicle(vehicle.plate)} onKeyDown={(event) => handleCollapsedCardKeyDown(event, vehicle.plate)}>
               <div className={`net-detail-card__vehicle-visual net-detail-card__vehicle-visual--${netVehicleImages[vehicle.plate]?.tone ?? "green"}`}><img src={netVehicleImages[vehicle.plate]?.src ?? vehicleBrandLogos[getVehicleBrand(vehicle)]} alt={`Toyota Corolla sedan, vista ${netVehicleImages[vehicle.plate]?.view ?? "frontal"}`} loading="eager" /></div>
               <div className="net-detail-card__collapsed-content">
               <VehiclePlateLabel vehicleOrPlate={vehicle} className="net-detail-card__plate" />
@@ -5870,7 +5875,6 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
               {reportYear === 2026 && <div className="net-detail-card__collapsed-drivers" aria-label={`Conductores y facturación de ${vehicle.plate}`}>
                 {driverRows.map((row) => <div key={row.key}><span className="net-detail-card__driver-identity"><span className="net-detail-card__driver-avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="net-detail-card__driver-name">{row.driver}</span></span><strong className="net-detail-card__driver-amount">{formatCurrency(row.revenue)}</strong></div>)}
               </div>}
-              <button type="button" className="net-detail-card__expand" onClick={() => toggleVehicle(vehicle.plate)} aria-label={`Abrir gastos de ${vehicle.plate}`}><IconChevronDown size={21} /></button>
               </div>
             </article>)}
           </div>

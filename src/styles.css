@@ -4458,6 +4458,467 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .maintenance-pending-review-button > b { min-width: 24px; height: 24px; display: grid; place-items: center; padding: 0 6px; border-radius: 999px; background: #d88513; color: #fff; font-size: 10px; line-height: 1; }
 .maintenance-pending-review-button:not(.has-pending) { background: #fffaf0; border-color: #f0d59a; }
 
+/* Neto: la referencia elegida es una ficha oscura de flota, no un modal
+   centrado. La cabecera global queda visible y el contenido ocupa todo el
+   espacio entre la barra superior y la navegación inferior. */
+/* Bloque legado superado por el override final; queda comentado para evitar
+   mantener dos implementaciones activas de la misma vista. */
+/*
+body:has(.net-detail-backdrop) {
+  overflow: hidden;
+  background: #04080b;
+}
+
+body:has(.net-detail-backdrop) .topbar--reports {
+  border-bottom-color: rgba(255, 255, 255, .14);
+  background-color: #05080b;
+  background-image: url("/neto/neto-road-hero.png");
+  background-position: center 74%;
+  background-size: cover;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, .32);
+}
+
+.net-detail-backdrop {
+  z-index: 9;
+  top: 70px;
+  right: 0;
+  bottom: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom));
+  left: 0;
+  align-items: stretch;
+  padding: 0;
+  background: #04080b;
+}
+
+.net-detail-modal {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #04080b;
+  box-shadow: none;
+}
+
+.net-detail-modal__header {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  right: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  min-height: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.net-detail-modal__header .net-detail-modal__brand,
+.net-detail-modal__header .net-detail-modal__header-heading {
+  display: none !important;
+}
+
+.net-detail-modal__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  pointer-events: auto;
+  border-color: rgba(255, 255, 255, .24);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .38);
+  color: #fff;
+}
+
+.net-detail-modal__close:hover,
+.net-detail-modal__close:focus-visible {
+  border-color: rgba(255, 255, 255, .62);
+  background: rgba(239, 51, 64, .78);
+  color: #fff;
+}
+
+.net-detail-modal__hero {
+  display: none;
+}
+
+.net-detail-modal__overview {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 11px 58px 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, .16);
+  background-color: rgba(5, 10, 13, .94);
+  background-image:
+    linear-gradient(180deg, rgba(4, 9, 12, .48), rgba(4, 9, 12, .9)),
+    url("/neto/neto-road-hero.png");
+  background-position: center 77%;
+  background-size: cover;
+}
+
+.net-detail-modal__overview .net-detail-modal__header-content {
+  min-width: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.net-detail-modal__total {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.net-detail-modal__total > span {
+  overflow: hidden;
+  color: rgba(226, 238, 235, .72);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .1em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.net-detail-modal__total > strong {
+  overflow: hidden;
+  color: #f0fff6;
+  font-size: clamp(25px, 4vw, 36px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  letter-spacing: -.045em;
+  line-height: .92;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-detail-modal__period-controls {
+  min-width: 0;
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.net-detail-modal__period-trigger {
+  min-width: 90px;
+  min-height: 36px;
+  padding-inline: 9px;
+  border-color: rgba(255, 255, 255, .34);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, .34);
+  color: #fff;
+  font-size: 9px;
+}
+
+.net-detail-modal__period-trigger--year { min-width: 72px; }
+
+.net-detail-modal__period-trigger:hover,
+.net-detail-modal__period-trigger[aria-expanded="true"],
+.net-detail-modal__period-trigger:focus-visible {
+  border-color: #ef3340;
+  background: rgba(239, 51, 64, .34);
+}
+
+.net-detail-modal .net-detail-modal__period-menu.report-period-menu--wheel {
+  z-index: 60;
+  border-color: rgba(255, 255, 255, .2);
+  background: #0a1115;
+  box-shadow: 0 18px 34px rgba(0, 0, 0, .48);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-carousel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+  background-color: #050a0e;
+  background-image:
+    linear-gradient(180deg, rgba(2, 7, 10, .66), rgba(2, 7, 10, .88)),
+    url("/neto/neto-road-hero.png");
+  background-position: center bottom;
+  background-size: cover;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .36) transparent;
+  touch-action: pan-y;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed {
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  display: grid;
+  grid-template-columns: minmax(125px, 36%) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  gap: clamp(10px, 2.1vw, 24px);
+  padding: clamp(9px, 1.5vw, 16px) clamp(14px, 3vw, 34px);
+  border: 0;
+  border-bottom: 1px solid rgba(213, 235, 231, .17);
+  border-radius: 0;
+  background: rgba(4, 10, 14, .68);
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color .16s ease;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:last-child {
+  border-bottom-color: transparent;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:hover,
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:focus-visible {
+  background: rgba(22, 35, 40, .84);
+  outline: 0;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(239, 51, 64, .82);
+}
+
+.net-detail-card--tone-green,
+.net-detail-card--tone-blue,
+.net-detail-card--tone-red,
+.net-detail-card--tone-silver {
+  --net-accent: #dcebe7;
+  --net-soft: rgba(255, 255, 255, .08);
+  --net-pale: rgba(255, 255, 255, .06);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual {
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual img {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 8px rgba(0, 0, 0, .48));
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--tone-silver .net-detail-card__vehicle-visual img {
+  filter: grayscale(1) brightness(1.36) contrast(.84) drop-shadow(0 7px 8px rgba(0, 0, 0, .52));
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-content {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "plate net"
+    "billing billing"
+    "expenses expenses"
+    "drivers drivers";
+  align-content: center;
+  gap: clamp(4px, .8vw, 8px);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__plate {
+  grid-area: plate;
+  min-width: 0;
+  width: max-content;
+  max-width: 100%;
+  align-self: center;
+  margin: 0;
+  overflow: hidden;
+  padding: 5px 9px;
+  border: 1px solid rgba(235, 245, 242, .3);
+  border-radius: 4px;
+  background: rgba(7, 14, 19, .94);
+  color: #e8f1ef;
+  font-size: clamp(13px, 2vw, 20px);
+  font-weight: 950;
+  letter-spacing: .08em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__net--large {
+  grid-area: net;
+  min-width: max-content;
+  align-self: center;
+  margin: 0;
+  color: #f4fbf8;
+  font-size: clamp(17px, 3vw, 28px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  letter-spacing: -.045em;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0 2px;
+  border: 0;
+  border-top: 1px solid rgba(224, 239, 236, .16);
+  border-radius: 0;
+  background: transparent;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line--billing { grid-area: billing; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line:not(.net-detail-card__collapsed-line--billing) { grid-area: expenses; }
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line span {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(213, 229, 226, .7);
+  font-size: clamp(8px, 1.15vw, 11px);
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line strong {
+  flex: 0 0 auto;
+  overflow: hidden;
+  color: #f0f8f5;
+  font-size: clamp(11px, 1.8vw, 16px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-detail-card__collapsed-drivers {
+  grid-area: drivers;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(4px, .8vw, 8px);
+  padding-top: 2px;
+}
+
+.net-detail-card__collapsed-drivers > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 4px 5px;
+  border: 1px solid rgba(217, 237, 232, .1);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, .2);
+}
+
+.net-detail-card__driver-identity {
+  min-width: 0;
+  display: flex !important;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.net-detail-card__driver-avatar {
+  width: clamp(19px, 2.6vw, 27px);
+  height: clamp(19px, 2.6vw, 27px);
+  flex: 0 0 clamp(19px, 2.6vw, 27px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .4);
+  border-radius: 50%;
+  background: #263238;
+  color: #e5f0ed;
+  font-size: 9px;
+  font-weight: 950;
+}
+
+.net-detail-card__driver-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }
+
+.net-detail-card__collapsed-drivers .net-detail-card__driver-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #e7f2ef;
+  font-size: clamp(9px, 1.35vw, 13px);
+  font-weight: 950;
+  letter-spacing: .035em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.net-detail-card__collapsed-drivers .net-detail-card__driver-amount {
+  flex: 0 0 auto;
+  color: #c9ded8;
+  font-size: clamp(9px, 1.35vw, 13px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__expand { display: none; }
+
+@media (max-width: 720px) {
+  .net-detail-backdrop { top: 64px; }
+  .net-detail-modal__overview { padding: 10px 50px 9px 11px; }
+  .net-detail-modal__overview .net-detail-modal__header-content { gap: 7px; }
+  .net-detail-modal__total > span { font-size: 7px; letter-spacing: .07em; }
+  .net-detail-modal__total > strong { font-size: clamp(21px, 6vw, 29px); }
+  .net-detail-modal__period-controls { gap: 4px; }
+  .net-detail-modal__period-trigger { min-width: 78px; min-height: 33px; padding-inline: 7px; font-size: 8px; }
+  .net-detail-modal__period-trigger--year { min-width: 61px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed {
+    grid-template-columns: minmax(108px, 37%) minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__plate { padding: 4px 6px; font-size: clamp(11px, 3.2vw, 15px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__net--large { font-size: clamp(15px, 4.4vw, 22px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line span { font-size: 7px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line strong { font-size: clamp(10px, 2.9vw, 14px); }
+  .net-detail-card__collapsed-drivers { gap: 3px; }
+  .net-detail-card__collapsed-drivers > div { gap: 3px; padding: 3px; }
+  .net-detail-card__collapsed-drivers .net-detail-card__driver-name,
+  .net-detail-card__collapsed-drivers .net-detail-card__driver-amount { font-size: clamp(8px, 2.4vw, 11px); }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .net-detail-backdrop { top: 54px; }
+  .net-detail-modal__close { top: 7px; right: 8px; width: 29px; height: 29px; }
+  .net-detail-modal__overview { padding-top: 8px; padding-bottom: 7px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed { padding-block: 6px; }
+}
+*/
+
 .maintenance-reports-dialog-backdrop { position: fixed; z-index: 340; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10, 18, 15, .48); }
 .maintenance-reports-dialog { width: min(100%, 680px); max-height: min(90dvh, 760px); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; border: 1px solid #e1b353; border-radius: 18px; background: #fffdf8; box-shadow: 0 25px 80px rgba(10, 20, 14, .25); }
 .maintenance-reports-dialog__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 18px 20px 15px; border-bottom: 1px solid #f0dfb4; background: #fff7e5; }
@@ -6791,4 +7252,452 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .net-detail-card__collapsed-drivers .net-detail-card__driver-name { font-size: 8px; }
   .net-detail-card__collapsed-drivers .net-detail-card__driver-amount { font-size: 8px; }
   .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__expand { min-height: 20px; }
+}
+
+/* Neto: override final de la ficha de coches iluminados.
+   Este bloque queda al final para que no vuelvan a ganar las reglas antiguas
+   del modal centrado ni las variantes móviles que ocultaban los conductores. */
+body:has(.net-detail-backdrop) .topbar--reports {
+  background-color: #05080b;
+  background-image: url("/neto/neto-road-hero.png");
+  background-position: center 74%;
+  background-size: cover;
+  border-bottom-color: rgba(255, 255, 255, .14);
+}
+
+.net-detail-backdrop {
+  z-index: 9;
+  top: 70px;
+  right: 0;
+  bottom: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom));
+  left: 0;
+  align-items: stretch;
+  padding: 0;
+  background: #04080b;
+}
+
+.net-detail-modal {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #04080b;
+  box-shadow: none;
+}
+
+.net-detail-modal__header {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  right: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  min-height: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.net-detail-modal__header .net-detail-modal__brand,
+.net-detail-modal__header .net-detail-modal__header-heading {
+  display: none !important;
+}
+
+.net-detail-modal__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  pointer-events: auto;
+  border-color: rgba(255, 255, 255, .24);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .42);
+  color: #fff;
+}
+
+.net-detail-modal__close:hover,
+.net-detail-modal__close:focus-visible {
+  border-color: rgba(255, 255, 255, .68);
+  background: rgba(239, 51, 64, .82);
+  color: #fff;
+}
+
+.net-detail-modal__hero { display: none !important; }
+
+.net-detail-modal__overview {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 11px 58px 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, .16);
+  background-color: rgba(5, 10, 13, .95);
+  background-image:
+    linear-gradient(180deg, rgba(4, 9, 12, .48), rgba(4, 9, 12, .9)),
+    url("/neto/neto-road-hero.png");
+  background-position: center 77%;
+  background-size: cover;
+}
+
+.net-detail-modal__overview .net-detail-modal__header-content {
+  min-width: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.net-detail-modal__total {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.net-detail-modal__total > span {
+  overflow: hidden;
+  color: rgba(226, 238, 235, .72);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .1em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.net-detail-modal__total > strong {
+  overflow: hidden;
+  color: #f0fff6;
+  font-size: clamp(25px, 4vw, 36px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  letter-spacing: -.045em;
+  line-height: .92;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-detail-modal__period-controls {
+  min-width: 0;
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.net-detail-modal__period-trigger {
+  min-width: 90px;
+  min-height: 36px;
+  padding-inline: 9px;
+  border-color: rgba(255, 255, 255, .34);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, .38);
+  color: #fff;
+  font-size: 9px;
+}
+
+.net-detail-modal__period-trigger--year { min-width: 72px; }
+
+.net-detail-modal__period-trigger:hover,
+.net-detail-modal__period-trigger[aria-expanded="true"],
+.net-detail-modal__period-trigger:focus-visible {
+  border-color: #ef3340;
+  background: rgba(239, 51, 64, .38);
+}
+
+.net-detail-modal .net-detail-modal__period-menu.report-period-menu--wheel {
+  z-index: 60;
+  border-color: rgba(255, 255, 255, .2);
+  background: #0a1115;
+  box-shadow: 0 18px 34px rgba(0, 0, 0, .48);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-carousel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+  background-color: #050a0e;
+  background-image:
+    linear-gradient(180deg, rgba(2, 7, 10, .66), rgba(2, 7, 10, .88)),
+    url("/neto/neto-road-hero.png");
+  background-position: center bottom;
+  background-size: cover;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .36) transparent;
+  touch-action: pan-y;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed {
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  display: grid;
+  grid-template-columns: minmax(125px, 36%) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  gap: clamp(10px, 2.1vw, 24px);
+  padding: clamp(9px, 1.5vw, 16px) clamp(14px, 3vw, 34px);
+  border: 0;
+  border-bottom: 1px solid rgba(213, 235, 231, .17);
+  border-radius: 0;
+  background: rgba(4, 10, 14, .68);
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color .16s ease;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:last-child { border-bottom-color: transparent; }
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:hover,
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:focus-visible { background: rgba(22, 35, 40, .84); outline: 0; }
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:focus-visible { box-shadow: inset 0 0 0 2px rgba(239, 51, 64, .82); }
+
+.net-detail-card--tone-green,
+.net-detail-card--tone-blue,
+.net-detail-card--tone-red,
+.net-detail-card--tone-silver {
+  --net-accent: #dcebe7;
+  --net-soft: rgba(255, 255, 255, .08);
+  --net-pale: rgba(255, 255, 255, .06);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual {
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual img {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 8px rgba(0, 0, 0, .48));
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--tone-silver .net-detail-card__vehicle-visual img {
+  filter: grayscale(1) brightness(1.36) contrast(.84) drop-shadow(0 7px 8px rgba(0, 0, 0, .52));
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-content {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "plate net"
+    "billing billing"
+    "expenses expenses"
+    "drivers drivers";
+  align-content: center;
+  gap: clamp(4px, .8vw, 8px);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__plate {
+  grid-area: plate;
+  min-width: 0;
+  width: max-content;
+  max-width: 100%;
+  align-self: center;
+  margin: 0;
+  overflow: hidden;
+  padding: 5px 9px;
+  border: 1px solid rgba(235, 245, 242, .3);
+  border-radius: 4px;
+  background: rgba(7, 14, 19, .94);
+  color: #e8f1ef;
+  font-size: clamp(13px, 2vw, 20px);
+  font-weight: 950;
+  letter-spacing: .08em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__net--large {
+  grid-area: net;
+  min-width: max-content;
+  align-self: center;
+  margin: 0;
+  color: #f4fbf8;
+  font-size: clamp(17px, 3vw, 28px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  letter-spacing: -.045em;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0 2px;
+  border: 0;
+  border-top: 1px solid rgba(224, 239, 236, .16);
+  border-radius: 0;
+  background: transparent;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line--billing { grid-area: billing; }
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line:not(.net-detail-card__collapsed-line--billing) { grid-area: expenses; }
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line span {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(213, 229, 226, .7);
+  font-size: clamp(8px, 1.15vw, 11px);
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line strong {
+  flex: 0 0 auto;
+  overflow: hidden;
+  color: #f0f8f5;
+  font-size: clamp(11px, 1.8vw, 16px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-detail-card__collapsed-drivers {
+  grid-area: drivers;
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(4px, .8vw, 8px);
+  padding-top: 2px;
+}
+
+.net-detail-card__collapsed-drivers > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 4px 5px;
+  border: 1px solid rgba(217, 237, 232, .1);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, .2);
+}
+
+.net-detail-card__driver-identity {
+  min-width: 0;
+  display: flex !important;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.net-detail-card__driver-avatar {
+  width: clamp(19px, 2.6vw, 27px);
+  height: clamp(19px, 2.6vw, 27px);
+  flex: 0 0 clamp(19px, 2.6vw, 27px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .4);
+  border-radius: 50%;
+  background: #263238;
+  color: #e5f0ed;
+  font-size: 9px;
+  font-weight: 950;
+}
+
+.net-detail-card__driver-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }
+
+.net-detail-card__collapsed-drivers .net-detail-card__driver-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #e7f2ef;
+  font-size: clamp(9px, 1.35vw, 13px);
+  font-weight: 950;
+  letter-spacing: .035em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.net-detail-card__collapsed-drivers .net-detail-card__driver-amount {
+  flex: 0 0 auto;
+  color: #c9ded8;
+  font-size: clamp(9px, 1.35vw, 13px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__expand { display: none !important; }
+
+.net-detail-modal--expanded .net-detail-expanded {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 720px) {
+  .net-detail-backdrop { top: 64px; }
+  .net-detail-modal__overview { padding: 10px 50px 9px 11px; }
+  .net-detail-modal__overview .net-detail-modal__header-content { gap: 7px; }
+  .net-detail-modal__total > span { font-size: 7px; letter-spacing: .07em; }
+  .net-detail-modal__total > strong { font-size: clamp(21px, 6vw, 29px); }
+  .net-detail-modal__period-controls { gap: 4px; }
+  .net-detail-modal__period-trigger { min-width: 78px; min-height: 33px; padding-inline: 7px; font-size: 8px; }
+  .net-detail-modal__period-trigger--year { min-width: 61px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed {
+    grid-template-columns: minmax(108px, 37%) minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__plate { padding: 4px 6px; font-size: clamp(11px, 3.2vw, 15px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__net--large { font-size: clamp(15px, 4.4vw, 22px); }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line span { font-size: 7px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__collapsed-line strong { font-size: clamp(10px, 2.9vw, 14px); }
+  .net-detail-card__collapsed-drivers { gap: 3px; }
+  .net-detail-card__collapsed-drivers > div { gap: 3px; padding: 3px; }
+  .net-detail-card__collapsed-drivers .net-detail-card__driver-name,
+  .net-detail-card__collapsed-drivers .net-detail-card__driver-amount { font-size: clamp(8px, 2.4vw, 11px); }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .net-detail-backdrop { top: 54px; }
+  .net-detail-modal__close { top: 7px; right: 8px; width: 29px; height: 29px; }
+  .net-detail-modal__overview { padding-top: 8px; padding-bottom: 7px; }
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed { padding-block: 6px; }
 }
