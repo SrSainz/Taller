@@ -21,15 +21,16 @@ test("si falta la fecha de captura, usa la fecha local actual como respaldo", ()
 
 test("Alex, Amin y Fernando imputan sus documentos de madrugada al día anterior", () => {
   const cases = [
-    { driverName: "Alex", category: "billing", time: [0, 0] },
-    { driverName: "Amin", category: "consumption", recordType: "fuel", time: [8, 59] },
-    { driverName: "Fernando", category: "consumption", recordType: "total-km", time: [4, 30] },
+    { driverName: "Alex", vehiclePlate: "5043 MLC", category: "billing", time: [0, 0] },
+    { driverName: "Amin", vehiclePlate: "5750 MJV", category: "consumption", recordType: "fuel", time: [8, 59] },
+    { driverName: "Fernando", vehiclePlate: "5754 MJV", category: "consumption", recordType: "total-km", time: [4, 30] },
   ];
 
-  cases.forEach(({ driverName, category, recordType, time }) => {
+  cases.forEach(({ driverName, vehiclePlate, category, recordType, time }) => {
     const capturedAt = new Date(2026, 7, 28, time[0], time[1]);
     assert.equal(resolveDriverUploadDate({
       driverName,
+      vehiclePlate,
       category,
       recordType,
       captureAt: capturedAt,
@@ -40,9 +41,17 @@ test("Alex, Amin y Fernando imputan sus documentos de madrugada al día anterior
 
 test("a las 09:00 empieza el día actual y los demás conductores no cambian", () => {
   const capturedAt = new Date(2026, 7, 28, 9, 0);
-  assert.equal(resolveDriverUploadDate({ driverName: "Fernando", category: "billing", captureAt: capturedAt, captureDate: getDriverDateKey(capturedAt) }), "2026-08-28");
-  assert.equal(resolveDriverUploadDate({ driverName: "Tirso", category: "billing", captureAt: new Date(2026, 7, 28, 8, 30), captureDate: "2026-08-28" }), "2026-08-28");
-  assert.equal(resolveDriverUploadDate({ driverName: "Mauricio", category: "consumption", captureAt: new Date(2026, 7, 28, 7, 15), captureDate: "2026-08-28" }), "2026-08-28");
+  assert.equal(resolveDriverUploadDate({ driverName: "Fernando", vehiclePlate: "5754 MJV", category: "billing", captureAt: capturedAt, captureDate: getDriverDateKey(capturedAt) }), "2026-08-28");
+  assert.equal(resolveDriverUploadDate({ driverName: "Tirso", vehiclePlate: "5043 MLC", category: "billing", captureAt: new Date(2026, 7, 28, 8, 30), captureDate: "2026-08-28" }), "2026-08-28");
+  assert.equal(resolveDriverUploadDate({ driverName: "Mauricio", vehiclePlate: "5750 MJV", category: "consumption", captureAt: new Date(2026, 7, 28, 7, 15), captureDate: "2026-08-28" }), "2026-08-28");
+});
+
+test("un sustituto desconocido hereda la política de la plaza del vehículo", () => {
+  const capturedAt = new Date(2026, 7, 28, 8, 15);
+  assert.equal(resolveDriverUploadDate({ driverName: "Nuevo conductor", vehiclePlate: "5750MJV", category: "billing", captureAt: capturedAt, captureDate: "2026-08-28" }), "2026-08-27");
+  assert.equal(resolveDriverUploadDate({ driverName: "Nuevo conductor", vehiclePlate: "5043MLC", category: "billing", captureAt: capturedAt, captureDate: "2026-08-28" }), "2026-08-27");
+  assert.equal(resolveDriverUploadDate({ driverName: "Nuevo conductor", vehiclePlate: "5754 MJV", category: "billing", captureAt: capturedAt, captureDate: "2026-08-28" }), "2026-08-27");
+  assert.equal(resolveDriverUploadDate({ driverName: "Nuevo conductor", vehiclePlate: "9401 LTG", category: "billing", captureAt: capturedAt, captureDate: "2026-08-28" }), "2026-08-28");
 });
 
 test("la fecha editada expresamente mantiene prioridad incluso durante la madrugada", () => {

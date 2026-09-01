@@ -1,6 +1,14 @@
 const ISO_DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
 const EARLY_MORNING_DRIVER_KEYS = new Set(["alex", "amin", "fernando"]);
+// The rollover belongs to the operating slot, not to a person's name. The
+// other driver is the stable anchor for each two-driver professional car;
+// an unknown replacement in the rollover slot inherits the same rule.
+const EARLY_MORNING_VEHICLE_POLICIES = Object.freeze({
+  "5043MLC": Object.freeze(["tirso"]),
+  "5750MJV": Object.freeze(["mauricio"]),
+  "5754MJV": Object.freeze(["andres"]),
+});
 const DRIVER_UPLOAD_CATEGORIES = new Set([
   "billing",
   "billing_daily",
@@ -27,6 +35,12 @@ const normalizeDriverKey = (value) => String(value ?? "")
   .normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "")
   .split(/\s+/)[0];
+
+const normalizeVehicleKey = (value) => String(value ?? "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLocaleUpperCase("es")
+  .replace(/[^A-Z0-9]/g, "");
 
 const asValidDate = (value) => {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
@@ -68,6 +82,7 @@ export const resolveDriverUploadDate = ({
   captureAt = null,
   intentionalDate = "",
   driverName = "",
+  vehiclePlate = "",
   category = "",
   recordType = "",
   now = new Date(),
@@ -79,7 +94,11 @@ export const resolveDriverUploadDate = ({
   const dateKey = asDateKey(captureDate) || getDriverDateKey(captureMoment);
   const categoryKey = String(recordType || category || "").trim().toLocaleLowerCase("es");
   const isDriverDocument = DRIVER_UPLOAD_CATEGORIES.has(categoryKey);
-  const isEarlyMorningDriver = EARLY_MORNING_DRIVER_KEYS.has(normalizeDriverKey(driverName));
+  const driverKey = normalizeDriverKey(driverName);
+  const vehiclePolicy = EARLY_MORNING_VEHICLE_POLICIES[normalizeVehicleKey(vehiclePlate)];
+  const isEarlyMorningDriver = vehiclePolicy
+    ? !vehiclePolicy.includes(driverKey)
+    : EARLY_MORNING_DRIVER_KEYS.has(driverKey);
 
   if (isDriverDocument && isEarlyMorningDriver && captureMoment.getHours() < 9) {
     return previousDateKey(dateKey);
