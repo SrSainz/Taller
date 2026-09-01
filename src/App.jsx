@@ -5772,7 +5772,10 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
       <header><strong>FACTURACIÓN POR CONDUCTOR</strong><strong>IMPORTE</strong></header>
       <div className="net-detail-card__driver-billing-rows">
         {driverRows.map((row) => <div key={row.key}>
-          <span><strong className="net-detail-card__driver-name">{row.driver}</strong></span>
+          <span className="net-detail-card__driver-identity">
+            <span className="net-detail-card__driver-avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span>
+            <strong className="net-detail-card__driver-name">{row.driver}</strong>
+          </span>
           <strong className="net-detail-card__driver-amount">{formatCurrency(row.revenue)}</strong>
         </div>)}
       </div>
@@ -5783,6 +5786,25 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
     <div className="net-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className={`net-detail-modal${selectedDetail ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-label="Detalle de NETO">
         <header className="net-detail-modal__header">
+          <div className="net-detail-modal__brand" aria-label="SOBRE RUEDAS">
+            <img src="/brand/sobre-ruedas-logo.png" alt="" />
+            <span><strong>SOBRE</strong><em> RUEDAS</em><small>GESTIÓN DE FLOTA</small></span>
+          </div>
+          <div className="net-detail-modal__header-heading"><span>NETO</span><small>{periodLabel}</small></div>
+          <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
+        </header>
+        <section className="net-detail-modal__hero" aria-label={`Vista visual de Neto de ${periodLabel}`}>
+          <div className="net-detail-modal__hero-cars" aria-hidden="true">
+            {orderedDetails.map(({ vehicle }) => {
+              const visual = netVehicleImages[vehicle.plate];
+              return <span className={`net-detail-modal__hero-car net-detail-modal__hero-car--${visual?.tone ?? "green"}`} key={vehicle.plate}>
+                <img src={visual?.src ?? vehicleBrandLogos[getVehicleBrand(vehicle)]} alt="" />
+              </span>;
+            })}
+          </div>
+          <div className="net-detail-modal__hero-copy"><span>RESULTADO OPERATIVO</span><h1>NETO</h1></div>
+        </section>
+        <section className="net-detail-modal__overview" aria-label={`Resumen neto de ${periodLabel}`}>
           <div className="net-detail-modal__header-content">
             <div className="net-detail-modal__total"><span>NETO TOTAL · 3 COCHES</span><strong aria-label={`Total neto de ${periodLabel}`}>{formatCurrency(total)}</strong></div>
             <div className="net-detail-modal__period-controls" role="group" aria-label="Periodo de Neto">
@@ -5796,8 +5818,7 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
               </div>
             </div>
           </div>
-          <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
-        </header>
+        </section>
         {reportYear !== 2026 && <section className="net-detail-historical-billing" aria-label={`Facturación histórica documental de ${periodLabel}`}>
           <header><div><strong>FACTURACIÓN HISTÓRICA</strong><small>Fuente documental separada · no modifica perfiles ni registros diarios</small></div><div><span>Total documental</span><strong>{formatCurrency(historicalDocumentTotal)}</strong></div></header>
           {historicalBillingRows.length > 0 ? <div className="net-detail-historical-billing__rows">{historicalBillingRows.map((row) => <div key={row.key}><span><strong>{row.driver}</strong><small>{row.plate || "Matrícula pendiente"} · {row.missingVehicle ? "No sumado: matrícula pendiente" : row.usedInNet ? "Usado en Neto" : "No sumado: existe registro real"} · {row.extractedLabel}</small></span><strong>{formatCurrency(row.revenue)}</strong></div>)}</div> : <p>No hay facturación documental cargada para este periodo.</p>}
@@ -5813,7 +5834,7 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
               <div className="net-detail-card__collapsed-line net-detail-card__collapsed-line--billing"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
               <div className="net-detail-card__collapsed-line"><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div>
               {reportYear === 2026 && <div className="net-detail-card__collapsed-drivers" aria-label={`Conductores y facturación de ${vehicle.plate}`}>
-                {driverRows.map((row) => <div key={row.key}><span className="net-detail-card__driver-name">{row.driver}</span><strong className="net-detail-card__driver-amount">{formatCurrency(row.revenue)}</strong></div>)}
+                {driverRows.map((row) => <div key={row.key}><span className="net-detail-card__driver-identity"><span className="net-detail-card__driver-avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="net-detail-card__driver-name">{row.driver}</span></span><strong className="net-detail-card__driver-amount">{formatCurrency(row.revenue)}</strong></div>)}
               </div>}
               <button type="button" className="net-detail-card__expand" onClick={() => toggleVehicle(vehicle.plate)} aria-label={`Abrir gastos de ${vehicle.plate}`}><IconChevronDown size={21} /></button>
               </div>

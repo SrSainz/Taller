@@ -264,3 +264,27 @@ final result: passed
 No quedan diferencias accionables P0, P1 o P2 en la región modificada. La fuente visual corresponde al estado cerrado anterior; el panel abierto es el estado nuevo solicitado y se comprobó en móvil.
 
 final result: passed
+
+## Iteración actual: Neto oscuro mobile-first con coches iluminados
+
+### Evidencia
+
+- Fuente visual seleccionada: `C:/Users/aiday/.codex/generated_images/01a029d9-f09f-7801-b0eb-a3f1e3233595/exec-63956572-9180-47f2-b51c-642dd79df118.png` (1487 × 1058 px, densidad 1x), modelo oscuro con tres Toyota y trazos rojos.
+- Referencia de tratamiento de marca: `C:/Users/aiday/.codex/generated_images/01a029d9-f09f-7801-b0eb-a3f1e3233595/exec-c6485740-293a-4e85-94e4-9e2f0321dff7.png` (1487 × 1058 px, densidad 1x), solo el wordmark «SOBRE RUEDAS» sobre fondo claro.
+- Implementación: `src/App.jsx`, `src/styles.css`, `public/brand/sobre-ruedas-logo.png`, `public/net-vehicles/` y `public/driver-avatars/`.
+- Validación de compilación: `dist/client` contiene el logotipo, los tres vehículos y las seis fotografías reales de conductores.
+- Smoke test browser: `http://127.0.0.1:5175/#/informes` carga la pantalla de acceso sin errores; el entorno de validación no proporciona valores públicos reales de Supabase, por lo que no se pudo abrir el modal autenticado de Neto en el navegador.
+
+### Comparación
+
+- La composición de Neto conserva una cabecera compacta, una banda hero oscura con tres vehículos y acentos rojos, y un resumen operativo móvil apilado.
+- El wordmark aparece aislado en la cabecera con `SOBRE` blanco, `RUEDAS` rojo y el logotipo real de SOBRE RUEDAS; no se usa la captura generada como fondo de interfaz.
+- Las tarjetas conservan el funcionamiento existente: periodo, total, gastos, expansión y cálculos no cambian; ahora muestran el vehículo en una tarjeta apaisada y los dos conductores con sus fotos reales.
+
+### Interacciones verificadas
+
+- Tests automáticos: 33 pasados, 0 fallos.
+- Build de producción: Vite y empaquetado de Sites completados correctamente.
+- El estado de la revisión visual profunda del modal autenticado queda bloqueado únicamente por la ausencia de credenciales públicas de Supabase en el entorno aislado; no se han introducido credenciales ni datos de prueba.
+
+final result: blocked
