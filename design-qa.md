@@ -333,3 +333,36 @@ final result: blocked
 - [ ] Revisión visual autenticada en móvil y escritorio cuando el navegador y Supabase estén disponibles.
 
 final result: blocked
+
+## Iteración actual: Neto oscuro compacto sin recortes
+
+### Evidencia
+
+- Fuente visual seleccionada: `C:\Users\aiday\AppData\Local\Temp\codex-clipboard-23be5c28-cc46-4ebc-9723-b76ae8c7840d.png` (referencia gris–rojo–gris); se mantiene el recurso original del proyecto `public/net-vehicles/toyota-corolla-blue.png` con el fondo de asfalto y brillo de `public/neto/neto-road-hero.png`.
+- Implementación: `src/App.jsx` (`NetDetailModal`) y `src/styles.css` (composición final de Neto).
+- Captura browser-rendered: no disponible; el navegador integrado no permite abrir la vista autenticada de Neto en este entorno y las variables públicas de Supabase siguen ausentes.
+- URL a revisar cuando el acceso esté disponible: `http://localhost:5175/?release=vehicle-owners-1be6e79#/flota` → Neto.
+
+### Comparación
+
+- El Toyota central usa ahora un tratamiento rojo oscuro y los dos laterales un gris oscuro, manteniendo la orientación común, el asfalto y el brillo inferior.
+- Cada matrícula aparece inmediatamente encima de su coche y los coches reducen aproximadamente un 15 % su altura visual para dejar aire a la información.
+- En cada fila, la columna frontal ordena `NETO`, los dos conductores en vertical, `FACTURACIÓN` y `GASTOS`; la fila se calcula con su propio contenido y el carrusel permite desplazamiento vertical si la altura del dispositivo lo necesita, evitando invadir la siguiente ficha.
+- La cabecera superior y el resumen de periodo se compactan para que `NETO TOTAL`, mes y año queden íntegros antes de comenzar las fichas.
+
+### Checklist
+
+- [x] Tono rojo oscuro para el coche central.
+- [x] Tonos gris oscuro para los coches laterales.
+- [x] Matrícula colocada inmediatamente encima y sin recuadro.
+- [x] Coche reducido aproximadamente un 15 %.
+- [x] Neto, conductores, facturación y gastos dentro de cada fila.
+- [x] Sin elipsis en los importes de las fichas resumidas.
+- [x] Cabecera y resumen de periodo compactos.
+- [ ] Revisión visual autenticada en móvil y escritorio cuando el navegador y Supabase estén disponibles.
+
+### Hallazgos y bloqueo
+
+- No se pudo completar la comparación visual autenticada porque el navegador integrado está bloqueado para esta sesión y el entorno local no tiene credenciales públicas reales de Supabase. No se afirma un pase visual; el estado queda bloqueado hasta poder comprobar los viewports reales.
+
+final result: blocked

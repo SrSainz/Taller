@@ -5876,14 +5876,14 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
                   <div className="net-detail-card__vehicle-column">
                     <VehiclePlateLabel vehicleOrPlate={vehicle} className="net-detail-card__plate" />
                     <div className={`net-detail-card__vehicle-visual net-detail-card__vehicle-visual--${visual?.tone ?? "green"}`}><img src={visual?.src ?? vehicleBrandLogos[getVehicleBrand(vehicle)]} alt={`Toyota Corolla sedan, vista ${visual?.view ?? "frontal"}`} loading="eager" /></div>
+                  </div>
+                  <div className="net-detail-card__collapsed-finance" aria-label={`Facturación, gastos y neto de ${vehicle.plate}`}>
+                    <div className={`net-detail-card__collapsed-net${net < 0 ? " net-detail-card__collapsed-net--negative" : ""}`}><span>NETO</span><strong>{formatCurrency(net)}</strong></div>
                     <div className="net-detail-card__collapsed-drivers" aria-label={`Conductores y facturación de ${vehicle.plate}`}>
                       {driverRows.map((row) => <div key={row.key}><span className="net-detail-card__driver-identity"><span className="net-detail-card__driver-avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="net-detail-card__driver-name">{row.driver}</span></span><strong className="net-detail-card__driver-amount">{formatCurrency(row.revenue)}</strong></div>)}
                     </div>
-                  </div>
-                  <div className="net-detail-card__collapsed-finance" aria-label={`Facturación, gastos y neto de ${vehicle.plate}`}>
                     <div className="net-detail-card__collapsed-line net-detail-card__collapsed-line--billing"><span>FACTURACIÓN</span><strong>{formatCurrency(revenue)}</strong></div>
                     <div className="net-detail-card__collapsed-line net-detail-card__collapsed-line--expenses"><span>GASTOS</span><strong>{formatCurrency(totalExpenses)}</strong></div>
-                    <div className={`net-detail-card__collapsed-net${net < 0 ? " net-detail-card__collapsed-net--negative" : ""}`}><span>NETO</span><strong>{formatCurrency(net)}</strong></div>
                   </div>
                 </div>
               </article>;
