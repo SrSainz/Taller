@@ -5772,8 +5772,8 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
       <header><strong>FACTURACIÓN POR CONDUCTOR</strong><strong>IMPORTE</strong></header>
       <div className="net-detail-card__driver-billing-rows">
         {driverRows.map((row) => <div key={row.key}>
-          <span><strong>{row.driver}</strong><small>{row.billingSource === "ledger" ? "Registro de la aplicación" : "Documento mensual"}</small></span>
-          <strong>{formatCurrency(row.revenue)}</strong>
+          <span><strong className="net-detail-card__driver-name">{row.driver}</strong></span>
+          <strong className="net-detail-card__driver-amount">{formatCurrency(row.revenue)}</strong>
         </div>)}
       </div>
       <footer><span>Facturación del coche</span><strong>{formatCurrency(detail.revenue)}</strong></footer>
@@ -5810,17 +5810,20 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
               <div className="net-detail-card__collapsed-content">
               <VehiclePlateLabel vehicleOrPlate={vehicle} className="net-detail-card__plate" />
               <strong className={`net-detail-card__net net-detail-card__net--large${net < 0 ? " net-detail-card__net--negative" : ""}`}>{formatCurrency(net)}</strong>
-              <div className="net-detail-card__collapsed-line"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
+              <div className="net-detail-card__collapsed-line net-detail-card__collapsed-line--billing"><span>Facturación</span><strong>{formatCurrency(revenue)}</strong></div>
               <div className="net-detail-card__collapsed-line"><span>Gastos registrados</span><strong>{formatCurrency(totalExpenses)}</strong></div>
               {reportYear === 2026 && <div className="net-detail-card__collapsed-drivers" aria-label={`Conductores y facturación de ${vehicle.plate}`}>
-                {driverRows.map((row) => <div key={row.key}><span>{row.driver}</span><strong>{formatCurrency(row.revenue)}</strong></div>)}
+                {driverRows.map((row) => <div key={row.key}><span className="net-detail-card__driver-name">{row.driver}</span><strong className="net-detail-card__driver-amount">{formatCurrency(row.revenue)}</strong></div>)}
               </div>}
               <button type="button" className="net-detail-card__expand" onClick={() => toggleVehicle(vehicle.plate)} aria-label={`Abrir gastos de ${vehicle.plate}`}><IconChevronDown size={21} /></button>
               </div>
             </article>)}
           </div>
         </> : <div className="net-detail-expanded">
-          <button type="button" className="net-detail-back" onClick={() => { setSelectedPlate(""); closeExpenseForm(); }}><IconChevronLeft size={16} />VER LOS 3 COCHES</button>
+          <div className="net-detail-expanded__navigation">
+            <button type="button" className="net-detail-back" onClick={() => { setSelectedPlate(""); closeExpenseForm(); }}><IconChevronLeft size={16} />VER LOS 3 COCHES</button>
+            <VehiclePlateLabel vehicleOrPlate={selectedDetail.vehicle} className="net-detail-back__plate" />
+          </div>
           <article className={`net-detail-expanded__card net-detail-expanded__card--tone-${selectedTone}`}>
             {renderDriverBillingRows(selectedDetail)}
             {renderExpenseRows(selectedDetail)}

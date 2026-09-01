@@ -6193,3 +6193,74 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
   .driver-mobile-period-year { min-width: 62px; }
   .driver-mobile-week-picker__menu button { min-height: 36px; }
 }
+
+/* Neto: los conductores y su facturación tienen prioridad visual en cada coche. */
+.net-detail-card__collapsed-drivers .net-detail-card__driver-name,
+.net-detail-card__driver-billing-rows .net-detail-card__driver-name {
+  color: #18382a;
+  font-size: 13.5px;
+  font-weight: 900;
+  letter-spacing: .015em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+.net-detail-card__collapsed-drivers .net-detail-card__driver-name {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.net-detail-card__driver-billing-rows .net-detail-card__driver-name { font-size: 16.5px; }
+.net-detail-card__collapsed-drivers .net-detail-card__driver-amount,
+.net-detail-card__driver-billing-rows .net-detail-card__driver-amount {
+  flex: 0 0 auto;
+  color: var(--net-accent, #176b43);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+.net-detail-card__driver-billing-rows .net-detail-card__driver-amount { font-size: 18px; }
+.net-detail-card--collapsed .net-detail-card__collapsed-line--billing > strong {
+  font-size: 22.5px;
+  font-weight: 900;
+}
+.net-detail-expanded__navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+.net-detail-expanded__navigation .net-detail-back {
+  min-width: 0;
+  margin: 0;
+}
+.net-detail-back__plate {
+  min-width: 0;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 5px 9px;
+  border: 1px solid rgba(244, 217, 170, .55);
+  border-radius: 7px;
+  color: #f4d9aa;
+  font-size: clamp(13px, 2.8vw, 17px);
+  font-weight: 900;
+  letter-spacing: .04em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.net-detail-back__plate > strong { font-size: inherit; }
+
+@media (max-width: 520px) {
+  .net-detail-card__collapsed-drivers .net-detail-card__driver-name { font-size: 13.5px; }
+  .net-detail-card__driver-billing-rows .net-detail-card__driver-name { font-size: 16.5px; }
+  .net-detail-card__collapsed-drivers .net-detail-card__driver-amount { font-size: 15px; }
+  .net-detail-card__driver-billing-rows .net-detail-card__driver-amount { font-size: 18px; }
+  .net-detail-card--collapsed .net-detail-card__collapsed-line--billing > strong { font-size: 22.5px; }
+  .net-detail-expanded__navigation { gap: 5px; }
+  .net-detail-back { padding-inline: 4px; font-size: 8px; }
+  .net-detail-back__plate { padding-inline: 6px; font-size: 12px; }
+}
