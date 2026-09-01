@@ -85,7 +85,7 @@ import { additionalHistoricalBillingSources } from "./data/additionalHistoricalB
 import { getImportedTipsByPeriod } from "./data/driverTipsSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
 import { gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender, getGestoriaDocumentsForPeriod, getGestoriaExpenseForPeriod } from "./data/gestoriaSummary";
-import { canonicalizeVehiclePlate, getVehicleOwner as getCanonicalVehicleOwner, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
+import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 
@@ -203,6 +203,14 @@ const normalizeDriverAvatarKey = (value) => String(value ?? "")
   .replace(/[\u0300-\u036f]/g, "")
   .split(/\s+/)[0];
 const getDriverAvatarPath = (value) => driverAvatarPaths[normalizeDriverAvatarKey(value)] ?? "";
+const orderDriverProfilesForVehicle = (vehicle, profiles = []) => {
+  const sortedProfiles = [...profiles].sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name));
+  const orderedProfiles = (vehicle?.drivers ?? [])
+    .map((seedDriver) => sortedProfiles.find((driver) => normalizeDriverAvatarKey(driver.full_name) === normalizeDriverAvatarKey(seedDriver)))
+    .filter(Boolean);
+  const matchedProfiles = new Set(orderedProfiles);
+  return [...orderedProfiles, ...sortedProfiles.filter((driver) => !matchedProfiles.has(driver))];
+};
 
 const netVehicleImages = {
   "5043 MLC": { src: "/net-vehicles/toyota-corolla-green.png", tone: "green", view: "frontal de tres cuartos" },
@@ -218,13 +226,13 @@ const vehiclesSeed = [
     owner: vehicleOwnerSeed["5754 MJV"],
     model: "Toyota Corolla",
     use: "Profesional",
-    drivers: ["Andrés", "Fernando"],
+    drivers: getVehicleDriverNames("5754 MJV"),
     odometer: 128460,
     nextServiceKm: 134000,
     serviceDate: "12 ago 2026",
     fuelSchedule: [
-      { label: "04:00–16:00", driver: "Andrés", start: 4, end: 16 },
-      { label: "16:00–04:00", driver: "Fernando", start: 16, end: 4 },
+      { label: "04:00–16:00", driver: vehicleDriverNamesByPlate["5754 MJV"][0], start: 4, end: 16 },
+      { label: "16:00–04:00", driver: vehicleDriverNamesByPlate["5754 MJV"][1], start: 16, end: 4 },
     ],
     monthlyFuel: [
       { date: "28 jul 2026", time: "16:12", liters: 18.4, cost: 31.28 },
@@ -253,13 +261,13 @@ const vehiclesSeed = [
     owner: vehicleOwnerSeed["5750 MJV"],
     model: "Toyota Corolla",
     use: "Profesional",
-    drivers: ["Tirso", "Alex"],
+    drivers: getVehicleDriverNames("5750 MJV"),
     odometer: 142980,
     nextServiceKm: 150000,
     serviceDate: "18 ago 2026",
     fuelSchedule: [
-      { label: "06:00–18:00", driver: "Tirso", start: 6, end: 18 },
-      { label: "18:00–06:00", driver: "Alex", start: 18, end: 6 },
+      { label: "06:00–18:00", driver: vehicleDriverNamesByPlate["5750 MJV"][0], start: 6, end: 18 },
+      { label: "18:00–06:00", driver: vehicleDriverNamesByPlate["5750 MJV"][1], start: 18, end: 6 },
     ],
     monthlyFuel: [
       { date: "28 jul 2026", time: "18:14", liters: 16.8, cost: 28.56 },
@@ -274,8 +282,8 @@ const vehiclesSeed = [
       { date: "11 jul 2026", time: "06:13", liters: 17.8, cost: 30.26 },
     ],
     shifts: [
-      { id: "lpt-t2", label: "Turno 18:00–06:00", driver: "Alex", time: "18:00–06:00", start: 142842, end: 142980, km: 138, liters: 16.8, cost: 28.56, revenue: 435.2, cash: 110, monthRevenue: 8126.4, monthTrips: 139, sentAt: "06:05", confidence: 97 },
-      { id: "lpt-t1", label: "Turno 06:00–18:00", driver: "Tirso", time: "06:00–18:00", start: 142704, end: 142842, km: 138, liters: 17.4, cost: 29.58, revenue: 390.5, cash: 90, monthRevenue: 7318.8, monthTrips: 128, sentAt: "18:04", confidence: 99 },
+      { id: "lpt-t2", label: "Turno 18:00–06:00", driver: vehicleDriverNamesByPlate["5750 MJV"][1], time: "18:00–06:00", start: 142842, end: 142980, km: 138, liters: 16.8, cost: 28.56, revenue: 435.2, cash: 110, monthRevenue: 8126.4, monthTrips: 139, sentAt: "06:05", confidence: 97 },
+      { id: "lpt-t1", label: "Turno 06:00–18:00", driver: vehicleDriverNamesByPlate["5750 MJV"][0], time: "06:00–18:00", start: 142704, end: 142842, km: 138, liters: 17.4, cost: 29.58, revenue: 390.5, cash: 90, monthRevenue: 7318.8, monthTrips: 128, sentAt: "18:04", confidence: 99 },
     ],
     maintenance: [
       { date: "5 jul 2026", km: 140410, concept: "Neumáticos delanteros", amount: 498 },
@@ -288,13 +296,13 @@ const vehiclesSeed = [
     owner: vehicleOwnerSeed["5043 MLC"],
     model: "Toyota Corolla",
     use: "Profesional",
-    drivers: ["Mauricio", "Amin"],
+    drivers: getVehicleDriverNames("5043 MLC"),
     odometer: 210735,
     nextServiceKm: 215000,
     serviceDate: "2 ago 2026",
     fuelSchedule: [
-      { label: "07:00–19:00", driver: "Mauricio", start: 7, end: 19 },
-      { label: "19:00–07:00", driver: "Amin", start: 19, end: 7 },
+      { label: "07:00–19:00", driver: vehicleDriverNamesByPlate["5043 MLC"][0], start: 7, end: 19 },
+      { label: "19:00–07:00", driver: vehicleDriverNamesByPlate["5043 MLC"][1], start: 19, end: 7 },
     ],
     monthlyFuel: [
       { date: "28 jul 2026", time: "19:12", liters: 19.2, cost: 32.64 },
@@ -309,8 +317,8 @@ const vehiclesSeed = [
       { date: "10 jul 2026", time: "07:09", liters: 12.7, cost: 21.59 },
     ],
     shifts: [
-      { id: "jbv-t2", label: "Turno 19:00–07:00", driver: "Amin", time: "19:00–07:00", start: 210614, end: 210735, km: 121, liters: 19.2, cost: 32.64, revenue: 402.75, cash: 122, monthRevenue: 7542.9, monthTrips: 130, sentAt: "07:03", confidence: 96, alert: true },
-      { id: "jbv-t1", label: "Turno 07:00–19:00", driver: "Mauricio", time: "07:00–19:00", start: 210494, end: 210614, km: 120, liters: 12.4, cost: 21.08, revenue: 376.4, cash: 84.5, monthRevenue: 6984.25, monthTrips: 121, sentAt: "19:02", confidence: 98 },
+      { id: "jbv-t2", label: "Turno 19:00–07:00", driver: vehicleDriverNamesByPlate["5043 MLC"][1], time: "19:00–07:00", start: 210614, end: 210735, km: 121, liters: 19.2, cost: 32.64, revenue: 402.75, cash: 122, monthRevenue: 7542.9, monthTrips: 130, sentAt: "07:03", confidence: 96, alert: true },
+      { id: "jbv-t1", label: "Turno 07:00–19:00", driver: vehicleDriverNamesByPlate["5043 MLC"][0], time: "07:00–19:00", start: 210494, end: 210614, km: 120, liters: 12.4, cost: 21.08, revenue: 376.4, cash: 84.5, monthRevenue: 6984.25, monthTrips: 121, sentAt: "19:02", confidence: 98 },
     ],
     maintenance: [
       { date: "24 jul 2026", km: 210120, concept: "Aceite y filtros", amount: 312.5 },
@@ -837,11 +845,11 @@ const getMaintenanceAmountForPeriod = (vehicle, month, year) => vehicle.maintena
 
 const readingSeed = [
   { id: "LEC-4381", time: "Hoy · 04:08", driver: "Fernando", plate: "5754 MJV", total: 128460, daily: 150, confidence: 98, status: "Validada" },
-  { id: "LEC-4380", time: "Hoy · 07:03", driver: "Amin", plate: "5043 MLC", total: 210735, daily: 121, confidence: 96, status: "Revisar" },
-  { id: "LEC-4379", time: "Hoy · 06:05", driver: "Alex", plate: "5750 MJV", total: 142980, daily: 138, confidence: 97, status: "Validada" },
+  { id: "LEC-4380", time: "Hoy · 07:03", driver: "Amin", plate: "5750 MJV", total: 210735, daily: 121, confidence: 96, status: "Revisar" },
+  { id: "LEC-4379", time: "Hoy · 06:05", driver: "Alex", plate: "5043 MLC", total: 142980, daily: 138, confidence: 97, status: "Validada" },
   { id: "LEC-4378", time: "Hoy · 19:05", driver: "David García", plate: "0344 LCP", total: 98215, daily: 13, confidence: 92, status: "Revisar" },
   { id: "LEC-4377", time: "Hoy · 16:05", driver: "Andrés", plate: "5754 MJV", total: 128310, daily: 168, confidence: 99, status: "Validada" },
-  { id: "LEC-4376", time: "Hoy · 19:02", driver: "Mauricio", plate: "5043 MLC", total: 210614, daily: 120, confidence: 98, status: "Validada" },
+  { id: "LEC-4376", time: "Hoy · 19:02", driver: "Mauricio", plate: "5750 MJV", total: 210614, daily: 120, confidence: 98, status: "Validada" },
 ];
 
 const formatKm = (value) => `${new Intl.NumberFormat("es-ES").format(value)} km`;
@@ -1489,8 +1497,8 @@ const importedBillingSources = Object.freeze([
   { key: "tirso", label: "Tirso", summary: tirsoBillingByPeriod },
 ]);
 const allHistoricalBillingSources = Object.freeze([...importedBillingSources, ...additionalHistoricalBillingSources]);
-const historicalDriverVehicleByKey = Object.freeze({ alex: "5750 MJV", amin: "5043 MLC", fernando: "5754 MJV", mauricio: "5043 MLC", tirso: "5750 MJV" });
-const historicalDriverNamesByPlate = Object.freeze({ "5043 MLC": ["Mauricio", "Amin"], "5750 MJV": ["Tirso", "Alex"], "5754 MJV": ["Andrés", "Fernando"] });
+const historicalDriverVehicleByKey = Object.freeze({ alex: "5043 MLC", amin: "5750 MJV", fernando: "5754 MJV", mauricio: "5750 MJV", tirso: "5043 MLC" });
+const historicalDriverNamesByPlate = vehicleDriverNamesByPlate;
 const getImportedDriverKey = (driver) => String(driver ?? "").trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/)[0];
 const getImportedBillingSource = (driver) => importedBillingSources.find((source) => source.key === getImportedDriverKey(driver)) ?? null;
 const getImportedBillingByPeriod = (driver) => {
@@ -1578,10 +1586,12 @@ const getHistoricalBillingRowsForPeriod = (vehicles, driverEntries = [], month, 
 };
 
 const getNetDriverRowsForVehicle = ({ vehicle, billingRows = [], historicalBillingRows = [], includeHistoricalDrivers = false }) => {
-  const driverNames = historicalDriverNamesByPlate[vehicle.plate] ?? vehicle.drivers.slice(0, 2);
+  const driverNames = vehicle.driverProfiles?.length
+    ? vehicle.driverProfiles.slice(0, 2).map((profile) => profile.full_name)
+    : historicalDriverNamesByPlate[vehicle.plate] ?? vehicle.drivers.slice(0, 2);
   const currentDriverRows = driverNames.map((driver, index) => {
     const driverKey = getImportedDriverKey(driver);
-    const liveRow = billingRows.find((row) => getImportedDriverKey(row.driver) === driverKey && row.billingSource === "ledger");
+    const liveRow = billingRows.find((row) => row.plate === vehicle.plate && getImportedDriverKey(row.driver) === driverKey && row.billingSource === "ledger");
     const historicalRow = historicalBillingRows.find((row) => getImportedDriverKey(row.driver) === driverKey);
     const profile = vehicle.driverProfiles?.find((candidate) => getImportedDriverKey(candidate.full_name) === driverKey);
     if (liveRow) return { ...liveRow, plate: vehicle.plate, model: vehicle.model };
@@ -2154,8 +2164,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const [maintenancePlate, setMaintenancePlate] = useState("5043 MLC");
   const [selectedDrivers, setSelectedDrivers] = useState({
     "5754 MJV": "Andrés",
-    "5750 MJV": "Tirso",
-    "5043 MLC": "Mauricio",
+    "5750 MJV": "Mauricio",
+    "5043 MLC": "Alex",
     "0344 LCP": "Ana García",
     "9401 LTG": "Sergio Ruiz",
   });
@@ -2756,9 +2766,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     return { ...vehicle, maintenance: recordedMaintenance, monthlyFuel: [], nextServiceKm: vehicle.odometer, serviceDate: "" };
   }).map((vehicle) => {
     if (vehicle.use !== "Profesional") return { ...vehicle, driverProfiles: [] };
-    const assignedProfiles = driverProfiles
-      .filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate)
-      .sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name));
+    const assignedProfiles = orderDriverProfilesForVehicle(vehicle, driverProfiles.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate));
     if (!assignedProfiles.length) return { ...vehicle, driverProfiles: [] };
     const resolvedDrivers = vehicle.drivers.map((seedDriver, index) => assignedProfiles[index]?.full_name || seedDriver);
     const extraDrivers = assignedProfiles.slice(vehicle.drivers.length).map((driver) => driver.full_name);
@@ -5222,10 +5230,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [], ad
     }
   };
   const driversForVehicle = (vehicle) => {
-    const assigned = drivers
-      .filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate)
-      .sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name))
-      .slice(0, 2);
+    const assigned = orderDriverProfilesForVehicle(vehicle, drivers.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate)).slice(0, 2);
     const assignedNames = new Set(assigned.map((driver) => normalizeDriverAvatarKey(driver.full_name)));
     const fallback = (vehicle.drivers ?? [])
       .map((name, index) => ({ id: `seed-${vehicle.plate.replace(/\s/g, "-")}-${index}`, full_name: name, email: "", vehicle_plate: vehicle.plate, active: true, isSeed: true }))

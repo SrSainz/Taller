@@ -12,6 +12,15 @@ export const vehicleOwnerByPlate = Object.freeze({
   "5754 MJV": Object.freeze({ name: "Aida Pérez Salt", initials: "APS", dni: "500-944-52S" }),
 });
 
+// Asociación operativa única de los conductores profesionales. Se reutiliza
+// como respaldo en las vistas que no han podido cargar todavía los perfiles
+// de Administración, para que Neto y la actividad diaria nunca mezclen coches.
+export const vehicleDriverNamesByPlate = Object.freeze({
+  "5043 MLC": Object.freeze(["Alex", "Tirso"]),
+  "5750 MJV": Object.freeze(["Mauricio", "Amin"]),
+  "5754 MJV": Object.freeze(["Andrés", "Fernando"]),
+});
+
 const plateAliases = Object.freeze({
   "3456 HTR": "0344 LCP",
   "7890 GYL": "9401 LTG",
@@ -34,6 +43,11 @@ export const canonicalizeVehiclePlate = (value) => {
   const canonical = canonicalPlateByKey[normalizePlateKey(raw)];
   if (canonical) return canonical;
   return raw.toLocaleUpperCase("es").replace(/\s+/g, " ").trim();
+};
+
+export const getVehicleDriverNames = (vehicleOrPlate) => {
+  const plate = typeof vehicleOrPlate === "string" ? vehicleOrPlate : vehicleOrPlate?.plate;
+  return [...(vehicleDriverNamesByPlate[canonicalizeVehiclePlate(plate)] ?? [])];
 };
 
 export const getVehicleOwner = (vehicleOrPlate) => {
