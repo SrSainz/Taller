@@ -747,11 +747,12 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .driver-day-panel__document small { color: var(--muted); font-size: 7px; }
 .driver-day-panel__document > svg:last-child { margin-left: auto; flex: 0 0 auto; }
 .driver-day-panel__documents-empty { display: flex; align-items: center; gap: 5px; padding: 6px 8px 7px; border-top: 1px solid var(--line); color: var(--muted); font-size: 7px; }
-.driver-document-context { display: flex; align-items: center; gap: 9px; margin: 0 18px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #f6f9f8; color: var(--green-800); }
+.driver-document-context { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin: 0 18px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #f6f9f8; color: var(--green-800); }
 .driver-document-context > span { min-width: 0; display: grid; gap: 2px; }
 .driver-document-context strong, .driver-document-context small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .driver-document-context strong { color: var(--text); font-size: 10px; }
 .driver-document-context small { color: var(--muted); font-size: 8px; }
+.driver-document-context > button { flex: 0 0 auto; margin-left: auto; min-height: 29px; padding: 5px 8px; color: var(--green-700); font-size: 8px; }
 
 .module-table { min-width: 940px; }
 .module-table td { height: 66px; font-size: 9px; }
@@ -6239,6 +6240,27 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .driver-day-panel__documents-empty--header:focus-visible { border-color: currentColor; background: #fff; outline: 2px solid currentColor; outline-offset: 1px; }
 
 .modal--driver-day-edit { width: min(650px, 100%); }
+.modal--driver-document-date-edit { width: min(570px, 100%); }
+.driver-document-date-workflow { display: grid; gap: 15px; padding: 18px 19px 19px; }
+.driver-document-date-context { display: grid; gap: 4px; padding: 13px 14px; border: 1px solid #b9d0c4; border-radius: 10px; background: #f3faf6; }
+.driver-document-date-context span { color: var(--green-700); font-size: 8px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.driver-document-date-context strong { color: var(--text); font-size: 15px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-document-date-context small { color: var(--muted); font-size: 9px; line-height: 1.35; }
+.driver-document-date-summary { display: grid; gap: 10px; padding: 12px 13px; border: 1px solid #e1d2b1; border-radius: 10px; background: #fffaf0; }
+.driver-document-date-summary header { display: grid; gap: 3px; }
+.driver-document-date-summary header strong { color: #8c5a08; font-size: 11px; }
+.driver-document-date-summary header small { color: #8a7860; font-size: 8px; line-height: 1.35; }
+.driver-document-date-summary > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.driver-document-date-summary > div > span { min-width: 0; display: grid; gap: 3px; padding-right: 8px; border-right: 1px solid #ecdcbf; }
+.driver-document-date-summary > div > span:last-child { padding-right: 0; border-right: 0; }
+.driver-document-date-summary small { color: #8a7860; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.driver-document-date-summary strong { color: var(--text); font-size: 12px; line-height: 1.1; }
+.driver-document-date-help { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.driver-document-date-field { display: grid; gap: 6px; color: #424b47; font-size: 9px; font-weight: 800; }
+.driver-document-date-field input { width: 100%; min-height: 44px; padding: 9px 10px; border: 1px solid var(--line-dark); border-radius: 8px; background: #fff; color: var(--text); font: inherit; font-size: 14px; outline: 0; }
+.driver-document-date-field input:focus { border-color: var(--green-700); box-shadow: 0 0 0 3px rgba(36, 123, 77, .12); }
+.driver-document-date-change { margin: -4px 0 0; padding: 8px 10px; border-radius: 8px; background: #edf8f1; color: var(--green-700); font-size: 9px; font-weight: 800; }
+.driver-document-date-workflow > footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 2px; }
 .driver-day-edit-workflow { display: grid; gap: 15px; padding: 18px 19px 19px; }
 .driver-day-edit-context { display: grid; gap: 4px; padding: 13px 14px; border: 1px solid #b9d0c4; border-radius: 10px; background: #f3faf6; }
 .driver-day-edit-context span { color: var(--green-700); font-size: 8px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
@@ -6281,6 +6303,14 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .driver-day-edit-workflow > footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 2px; }
 
 @media (max-width: 560px) {
+  .driver-document-context > button { width: 100%; margin-left: 0; justify-content: center; }
+  .driver-document-date-workflow { gap: 12px; padding: 14px; }
+  .driver-document-date-summary > div { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .driver-document-date-summary > div > span:nth-child(2) { padding-right: 0; border-right: 0; }
+  .driver-document-date-summary > div > span:nth-child(-n + 2) { padding-bottom: 7px; border-bottom: 1px solid #ecdcbf; }
+  .driver-document-date-summary > div > span:nth-child(3) { padding-bottom: 0; }
+  .driver-document-date-workflow > footer { flex-direction: column-reverse; }
+  .driver-document-date-workflow > footer button { width: 100%; }
   .driver-day-edit-workflow { gap: 12px; padding: 14px; }
   .driver-day-edit-form { grid-template-columns: 1fr; gap: 10px; }
   .driver-day-edit-form__wide { grid-column: auto; }

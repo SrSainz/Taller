@@ -260,6 +260,16 @@ export const confirmDocumentTransactions = async (documentId, operations) => {
   return data;
 };
 
+export const reassignDriverDocumentDate = async (documentId, targetDate) => {
+  if (!supabase || !documentId || !targetDate) throw new Error("No se puede cambiar el día sin una sesión activa, un documento y una fecha.");
+  const { data, error } = await supabase.rpc("reassign_driver_document_date", {
+    p_document_id: documentId,
+    p_target_date: targetDate,
+  });
+  if (error) throw error;
+  return data;
+};
+
 export const deleteDocumentRecord = async (document) => {
   if (!supabase || !document?.id) throw new Error("No se puede borrar el documento sin una sesión activa.");
   const { error } = await supabase.from("documents").delete().eq("id", document.id);
