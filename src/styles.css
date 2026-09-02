@@ -8466,3 +8466,39 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
     max-height: min(calc(100dvh - 54px - var(--bottom-navigation-height) - env(safe-area-inset-bottom)), 820px);
   }
 }
+
+@media (max-width: 350px) {
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-content {
+    grid-template-columns: minmax(0, .62fr) minmax(0, 1.38fr) !important;
+    gap: 5px;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance {
+    gap: 4px;
+    padding-left: 6px;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net span,
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line span {
+    font-size: 10px;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net strong {
+    font-size: 31px;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__driver-avatar {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers .net-detail-card__driver-name,
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers .net-detail-card__driver-amount {
+    font-size: 12px;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line strong {
+    font-size: 19px;
+  }
+}
