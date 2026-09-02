@@ -84,6 +84,7 @@ import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
 import { additionalHistoricalBillingSources } from "./data/additionalHistoricalBillingSummary";
 import { getImportedTipsByPeriod } from "./data/driverTipsSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
+import { getNetMonthlyFixedBilling } from "./data/netMonthlyBilling";
 import { averagePositive, buildDriverWeeklyComparison, parseConnectionHours } from "./driverWeeklyComparison";
 import { GESTORIA_MONTHLY_FIXED_AMOUNT, gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
@@ -1658,12 +1659,18 @@ const getNetDriverRowsForVehicle = ({ vehicle, billingRows = [], historicalBilli
     if (historicalRow) return { ...historicalRow, driverId: profile?.id ?? historicalRow.driverId, plate: vehicle.plate, model: vehicle.model };
     return { key: `${vehicle.plate}-${driver}-${index}`, driver, driverId: profile?.id ?? "", plate: vehicle.plate, model: vehicle.model, trips: 0, revenue: 0, entries: [], billingSource: "none" };
   });
-  if (!includeHistoricalDrivers) return currentDriverRows;
-  const knownDriverKeys = new Set(currentDriverRows.map((row) => getImportedDriverKey(row.driver)));
+  const fixedMonthlyDriverRows = currentDriverRows.map((row) => {
+    const fixedRevenue = getNetMonthlyFixedBilling(row.driver);
+    return fixedRevenue == null
+      ? row
+      : { ...row, revenue: fixedRevenue, billingSource: "fixed-monthly" };
+  });
+  if (!includeHistoricalDrivers) return fixedMonthlyDriverRows;
+  const knownDriverKeys = new Set(fixedMonthlyDriverRows.map((row) => getImportedDriverKey(row.driver)));
   const additionalDriverRows = historicalBillingRows
     .filter((row) => row.isHistoricalOnly && row.plate === vehicle.plate && !row.missingVehicle && !knownDriverKeys.has(getImportedDriverKey(row.driver)))
     .map((row) => ({ ...row, driverId: "", plate: vehicle.plate, model: vehicle.model, billingSource: "document" }));
-  return [...currentDriverRows, ...additionalDriverRows];
+  return [...fixedMonthlyDriverRows, ...additionalDriverRows];
 };
 
 const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transactions = []) => {
