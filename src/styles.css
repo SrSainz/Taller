@@ -8379,3 +8379,20 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
     height: clamp(48px, 9vh, 68px);
   }
 }
+
+@media (min-width: 721px) {
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual img {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: min(100%, 25vw);
+    height: auto;
+    max-height: none;
+    transform: translateY(-50%);
+  }
+}
