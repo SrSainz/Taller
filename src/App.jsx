@@ -88,6 +88,7 @@ import { gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSend
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
+import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -1164,7 +1165,7 @@ const getDriverBillingDocumentsForPeriod = (documents = [], driverId, month, yea
     const date = new Date(`${dateKey}T12:00:00`);
     return date.getFullYear() === year && date.getMonth() === month;
   });
-function getDriverBillingStatsByDate(documents = [], driverId) {
+function getDriverBillingStatsByDate(documents = [], driverId, entries = []) {
   const statsByDate = new Map();
   getDriverBillingDocumentsForDriver(documents, driverId).forEach((document) => {
     const stats = getDriverBillingDocumentStats(document);
@@ -1197,28 +1198,60 @@ function getDriverBillingStatsByDate(documents = [], driverId) {
       cashCollected: Number((current.cashCollected + stats.cashCollected).toFixed(2)),
     });
   });
+  (entries ?? []).forEach((entry) => {
+    if (driverId && entry?.driver_id !== driverId) return;
+    const override = getDriverDayOverride(entry, "billing");
+    const dateKey = String(entry?.entry_date ?? "");
+    if (!override || !dateKey) return;
+    const current = statsByDate.get(dateKey) ?? {
+      dateKey,
+      connection: "",
+      trips: 0,
+      points: 0,
+      baseNetAmount: 0,
+      netAmount: 0,
+      promotions: 0,
+      tips: 0,
+      total: 0,
+      refunds: 0,
+      cashCollected: 0,
+      hasBillingAmount: true,
+    };
+    statsByDate.set(dateKey, applyDriverBillingOverride(current, entry));
+  });
   return statsByDate;
 }
 function getDriverDailyLedgerEntry(entries = [], dateKey, billingStatsByDate = new Map()) {
   const existing = entries.find((item) => String(item.entry_date) === dateKey) ?? null;
   const billingStats = billingStatsByDate.get(dateKey);
-  if (!billingStats) return existing;
+  const fuelOverride = getDriverDayOverride(existing, "fuel");
+  const mileageOverride = getDriverMileageOverride(existing);
+  if (!billingStats && !fuelOverride && !mileageOverride) return existing;
   return {
     ...(existing ?? {}),
     entry_date: dateKey,
-    billing: billingStats.netAmount,
-    billing_override: true,
-    cash_collected: billingStats.cashCollected,
-    tips: billingStats.tips,
-    refunds: billingStats.refunds,
-    driver_billing_stats: billingStats,
+    ...(billingStats ? {
+      billing: billingStats.netAmount,
+      billing_override: true,
+      cash_collected: billingStats.cashCollected,
+      tips: billingStats.tips,
+      refunds: billingStats.refunds,
+      driver_billing_stats: billingStats,
+    } : {}),
+    ...(fuelOverride ? {
+      fuel_cost: Object.prototype.hasOwnProperty.call(fuelOverride, "cost") ? Number(fuelOverride.cost) || 0 : existing?.fuel_cost ?? 0,
+      fuel_liters: Object.prototype.hasOwnProperty.call(fuelOverride, "liters") ? Number(fuelOverride.liters) || 0 : existing?.fuel_liters ?? 0,
+    } : {}),
+    ...(mileageOverride ? {
+      odometer_km: Object.prototype.hasOwnProperty.call(mileageOverride, "odometerKm") ? Number(mileageOverride.odometerKm) || 0 : existing?.odometer_km ?? 0,
+    } : {}),
   };
 }
 function getDriverDailyLedgerEntries(entries = [], billingStatsByDate = new Map(), datePredicate = () => true) {
   const byDate = new Map();
   (entries ?? []).forEach((entry) => {
     const dateKey = String(entry?.entry_date ?? "");
-    if (dateKey && datePredicate(dateKey)) byDate.set(dateKey, entry);
+    if (dateKey && datePredicate(dateKey)) byDate.set(dateKey, getDriverDailyLedgerEntry(entries, dateKey, billingStatsByDate));
   });
   billingStatsByDate.forEach((stats, dateKey) => {
     if (datePredicate(dateKey)) byDate.set(dateKey, getDriverDailyLedgerEntry(entries, dateKey, billingStatsByDate));
@@ -1526,7 +1559,11 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year, documents = 
       const entryDate = new Date(`${entry.entry_date}T12:00:00`);
       return entryDate.getMonth() === month && entryDate.getFullYear() === year;
     });
-    const billingDocumentStats = getDriverBillingDocumentsForPeriod(documents, profile?.id, month, year).map(getDriverBillingDocumentStats);
+    const billingStatsByDate = getDriverBillingStatsByDate(documents, profile?.id, allEntries);
+    const billingDocumentStats = [...billingStatsByDate.values()].filter((stats) => {
+      const date = new Date(`${stats.dateKey}T12:00:00`);
+      return date.getMonth() === month && date.getFullYear() === year;
+    });
     const hasDocumentedBilling = billingDocumentStats.some((stats) => stats.hasBillingAmount);
     const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
     const recordedRevenue = Number((hasDocumentedBilling
@@ -1638,25 +1675,7 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
     if (dateKey) documentsByDate.set(dateKey, [...(documentsByDate.get(dateKey) ?? []), document]);
   });
   const documentsById = new Map(ownedDriverDocuments.map((document) => [document.id, document]));
-  const billingStatsByDate = new Map();
-  ownedDriverDocuments.filter(isDriverBillingDocument).forEach((document) => {
-    const stats = getDriverBillingDocumentStats(document);
-    if (!stats.dateKey || !stats.hasBillingAmount || !stats.dateKey.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-`)) return;
-    const current = billingStatsByDate.get(stats.dateKey) ?? { connection: "", trips: 0, points: 0, baseNetAmount: 0, netAmount: 0, promotions: 0, tips: 0, total: 0, refunds: 0, cashCollected: 0, hasBillingAmount: true };
-    billingStatsByDate.set(stats.dateKey, {
-      ...current,
-      connection: stats.connection || current.connection,
-      trips: current.trips + stats.trips,
-      points: current.points + stats.points,
-      baseNetAmount: current.baseNetAmount + stats.baseNetAmount,
-      netAmount: current.netAmount + stats.netAmount,
-      promotions: current.promotions + stats.promotions,
-      tips: current.tips + stats.tips,
-      total: current.total + stats.total,
-      refunds: current.refunds + stats.refunds,
-      cashCollected: current.cashCollected + stats.cashCollected,
-    });
-  });
+  const billingStatsByDate = new Map([...getDriverBillingStatsByDate(ownedDriverDocuments, row.driverId, realEntries)].filter(([dateKey]) => dateKey.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-`)));
   const mileageDocuments = ownedDriverDocuments
     .map((document) => {
       const data = document?.extracted_data ?? {};
@@ -1683,6 +1702,11 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
     const dateKey = String(entry.entry_date ?? "");
     const odometerKm = getDriverEntryAmount(entry, "odometer_km");
     if (dateKey && odometerKm > 0) odometerByDate.set(dateKey, Math.max(odometerByDate.get(dateKey) ?? 0, odometerKm));
+    const mileageOverride = getDriverMileageOverride(entry);
+    if (dateKey && mileageOverride) {
+      if (Object.prototype.hasOwnProperty.call(mileageOverride, "dailyKm")) dailyKmByDate.set(dateKey, Math.max(0, Number(mileageOverride.dailyKm) || 0));
+      if (Object.prototype.hasOwnProperty.call(mileageOverride, "odometerKm")) odometerByDate.set(dateKey, Math.max(0, Number(mileageOverride.odometerKm) || 0));
+    }
   });
   const dailyKmResolvedByDate = new Map();
   const totalKmResolvedByDate = new Map();
@@ -1756,13 +1780,14 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
   return Array.from({ length: daysInMonth }, (_, index) => {
     const day = index + 1;
     const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const entryForDate = realEntries.find((entry) => String(entry.entry_date) === dateKey);
     const billing = billingDays.get(day) ?? 0;
-    const fuelEntries = fuelByDay.get(day) ?? [];
+    const fallbackFuelEntries = fuelByDay.get(day) ?? [];
+    const fuelEntries = buildDriverFuelOverrideEntries({ override: getDriverDayOverride(entryForDate, "fuel"), dateKey, fallbackEntries: fallbackFuelEntries }) ?? fallbackFuelEntries;
     const km = dailyKmResolvedByDate.get(dateKey) ?? 0;
     const fuelLiters = fuelEntries.reduce((sum, entry) => sum + entry.liters, 0);
     const fuelCost = fuelEntries.reduce((sum, entry) => sum + entry.cost, 0);
     const totalKm = totalKmResolvedByDate.get(dateKey) ?? 0;
-    const entryForDate = realEntries.find((entry) => String(entry.entry_date) === dateKey);
     const documentBillingStats = billingStatsByDate.get(dateKey);
     const billingStats = documentBillingStats ? { ...documentBillingStats } : {
       connection: "",
@@ -1793,7 +1818,7 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
       fuelCost,
       notes: realEntries.find((entry) => String(entry.entry_date) === dateKey)?.notes || "",
       documents: documentsByDate.get(dateKey) ?? [],
-      active: billing > 0 || fuelEntries.length > 0 || km > 0 || totalKm > 0 || documentsByDate.has(dateKey),
+      active: billing > 0 || fuelEntries.length > 0 || km > 0 || totalKm > 0 || documentsByDate.has(dateKey) || Boolean(entryForDate?.manual_overrides),
     };
   });
 };
@@ -2410,7 +2435,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         .order("occurred_on", { ascending: false })),
       fetchAllSupabaseRows(() => supabase
         .from("driver_entries")
-        .select("id, driver_id, vehicle_plate, entry_date, billing, billing_override, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, refunds, wash_expenses, other_expenses, notes, created_at, updated_at")
+        .select("id, driver_id, vehicle_plate, entry_date, billing, billing_override, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at, updated_at")
         .order("entry_date", { ascending: false })),
     ]);
     if (transactionResult.error) throw transactionResult.error;
@@ -2463,35 +2488,55 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     return normalizedReport;
   }, [notify]);
 
-  const saveAdminDriverDay = useCallback(async ({ driverId, vehiclePlate, dateKey, mode, amount, liters, dailyKm, odometerKm, dailyKmChanged = false, odometerChanged = false, notes = "" }) => {
+  const saveAdminDriverDay = useCallback(async ({ driverId, vehiclePlate, dateKey, mode, amount, liters, refuels, dailyKm, odometerKm, dailyKmChanged = false, odometerChanged = false, billingStats: nextBillingStats, notes = "" }) => {
     if (!driverId || !vehiclePlate || !dateKey) throw new Error("Falta la asociación del conductor, coche o día.");
     const existing = driverEntries.find((entry) => entry.driver_id === driverId && String(entry.entry_date) === dateKey) ?? {};
     const numberFor = (key, nextValue) => nextValue === undefined ? Math.max(0, Number(existing[key]) || 0) : Math.max(0, Number(String(nextValue).replace(",", ".")) || 0);
-    const nextBilling = mode === "billing" ? numberFor("billing", amount) : numberFor("billing");
+    const billingOverride = mode === "billing" ? buildDriverBillingOverride(nextBillingStats ?? { baseNetAmount: amount }) : null;
+    const nextBilling = mode === "billing" ? billingOverride.netAmount : numberFor("billing");
     const nextFuelCost = mode === "fuel" ? numberFor("fuel_cost", amount) : numberFor("fuel_cost");
     const nextFuelLiters = mode === "fuel" ? numberFor("fuel_liters", liters) : numberFor("fuel_liters");
+    const existingFuelOverride = getDriverDayOverride(existing, "fuel");
+    const currentFuelRefuels = Object.prototype.hasOwnProperty.call(existingFuelOverride ?? {}, "refuels")
+      ? Math.max(0, Math.round(Number(existingFuelOverride.refuels) || 0))
+      : transactions.filter((transaction) => transaction.type === "fuel" && transaction.driver_id === driverId && transaction.vehicle_plate === vehiclePlate && String(transaction.occurred_on) === dateKey).length;
+    const nextFuelRefuels = mode === "fuel"
+      ? Math.max(0, Math.round(Number(String(refuels ?? currentFuelRefuels).replace(",", ".")) || 0))
+      : currentFuelRefuels;
     const previousOdometer = driverEntries
       .filter((entry) => entry.driver_id === driverId && String(entry.entry_date) < dateKey)
-      .reduce((max, entry) => Math.max(max, Number(entry.odometer_km) || 0), 0);
+      .reduce((max, entry) => {
+        const mileageOverride = getDriverMileageOverride(entry);
+        const odometer = Object.prototype.hasOwnProperty.call(mileageOverride ?? {}, "odometerKm")
+          ? Number(mileageOverride.odometerKm) || 0
+          : Number(entry.odometer_km) || 0;
+        return Math.max(max, odometer);
+      }, 0);
     const nextOdometer = mode === "mileage"
       ? Math.round(odometerChanged || !dailyKmChanged ? numberFor("odometer_km", odometerKm) : Math.max(0, previousOdometer + numberFor("odometer_km", dailyKm)))
       : Math.round(numberFor("odometer_km"));
+    const manualOverrides = mode === "billing"
+      ? mergeDriverDayOverride(existing, "billing", billingOverride)
+      : mode === "fuel"
+        ? mergeDriverDayOverride(existing, "fuel", { cost: Number(nextFuelCost.toFixed(2)), liters: Number(nextFuelLiters.toFixed(2)), refuels: nextFuelRefuels })
+        : mergeDriverDayOverride(existing, "mileage", buildDriverMileageOverride({ dailyKm, odometerKm: nextOdometer }));
     const values = {
       driver_id: driverId,
       vehicle_plate: vehiclePlate,
       entry_date: dateKey,
       billing: nextBilling,
       billing_override: mode === "billing" ? true : existing.billing_override === true,
-      cash_collected: numberFor("cash_collected"),
-      tips: numberFor("tips"),
+      cash_collected: mode === "billing" ? billingOverride.cashCollected : numberFor("cash_collected"),
+      tips: mode === "billing" ? billingOverride.tips : numberFor("tips"),
       fuel_cost: nextFuelCost,
       fuel_liters: nextFuelLiters,
       odometer_km: nextOdometer,
       tolls: numberFor("tolls"),
-      refunds: numberFor("refunds"),
+      refunds: mode === "billing" ? billingOverride.refunds : numberFor("refunds"),
       wash_expenses: numberFor("wash_expenses"),
       other_expenses: numberFor("other_expenses"),
       notes: notes === undefined ? existing.notes ?? null : String(notes || "").trim() || null,
+      manual_overrides: manualOverrides,
       updated_at: new Date().toISOString(),
     };
     const localEntry = { ...existing, ...values, id: existing.id ?? `local-admin-${driverId}-${dateKey}`, created_at: existing.created_at ?? new Date().toISOString() };
@@ -2500,26 +2545,21 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       return localEntry;
     }
 
-    const transactionType = mode === "billing" ? "billing" : mode === "fuel" ? "fuel" : "";
-    const matchingTransactions = transactionType
-      ? transactions.filter((transaction) => transaction.type === transactionType && transaction.driver_id === driverId && transaction.vehicle_plate === vehiclePlate && String(transaction.occurred_on) === dateKey)
-      : [];
     const dedupeKeyForAmount = (key, nextAmount) => {
       const parts = String(key ?? "").split(":");
       if (parts.length < 4) return key || null;
       parts[3] = Number(nextAmount).toFixed(2);
       return parts.join(":");
     };
-    if (matchingTransactions.length > 0) {
-      const nextAmount = transactionType === "billing" ? nextBilling : nextFuelCost;
+    const updateTransactions = async (transactionType, nextAmount, metadataPatch = {}) => {
+      const matchingTransactions = transactions.filter((transaction) => transaction.type === transactionType && transaction.driver_id === driverId && transaction.vehicle_plate === vehiclePlate && String(transaction.occurred_on) === dateKey);
+      if (matchingTransactions.length === 0) return;
       if (nextAmount <= 0) {
         const { error } = await supabase.from("transactions").delete().in("id", matchingTransactions.map((transaction) => transaction.id));
         if (error) throw error;
       } else {
         const [primary, ...duplicates] = matchingTransactions;
-        const nextMetadata = transactionType === "fuel"
-          ? { ...(primary.metadata ?? {}), liters: nextFuelLiters }
-          : primary.metadata ?? {};
+        const nextMetadata = { ...(primary.metadata ?? {}), ...metadataPatch };
         if (duplicates.length > 0) {
           const { error: duplicateError } = await supabase.from("transactions").delete().in("id", duplicates.map((transaction) => transaction.id));
           if (duplicateError) throw duplicateError;
@@ -2529,12 +2569,38 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         const { error } = await supabase.from("transactions").update(transactionUpdate).eq("id", primary.id);
         if (error) throw error;
       }
+    };
+    if (mode === "billing") {
+      await updateTransactions("billing", nextBilling, {
+        connection: billingOverride.connection,
+        trips: billingOverride.trips,
+        points: billingOverride.points,
+        baseNetAmount: billingOverride.baseNetAmount,
+        netAmount: billingOverride.netAmount,
+        promotions: billingOverride.promotions,
+        earningsTotal: billingOverride.total,
+        refunds: billingOverride.refunds,
+        tips: billingOverride.tips,
+        cashCollected: billingOverride.cashCollected,
+      });
+      await updateTransactions("cash", billingOverride.cashCollected);
+      await updateTransactions("tip", billingOverride.tips);
+      await updateTransactions("refund", billingOverride.refunds);
+    }
+    if (mode === "fuel") await updateTransactions("fuel", nextFuelCost, { liters: nextFuelLiters });
+    if (mode === "mileage") {
+      const matchingFuelTransactions = transactions.filter((transaction) => transaction.type === "fuel" && transaction.driver_id === driverId && transaction.vehicle_plate === vehiclePlate && String(transaction.occurred_on) === dateKey);
+      if (matchingFuelTransactions.length > 0) {
+        const primaryFuel = matchingFuelTransactions[0];
+        const { error: mileageError } = await supabase.from("transactions").update({ metadata: { ...(primaryFuel.metadata ?? {}), odometerKm: nextOdometer } }).eq("id", primaryFuel.id);
+        if (mileageError) throw mileageError;
+      }
     }
 
     const { data, error } = await supabase
       .from("driver_entries")
       .upsert(values, { onConflict: "driver_id,entry_date" })
-      .select("id, driver_id, vehicle_plate, entry_date, billing, billing_override, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, refunds, wash_expenses, other_expenses, notes, created_at, updated_at")
+      .select("id, driver_id, vehicle_plate, entry_date, billing, billing_override, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at, updated_at")
       .single();
     if (error) throw error;
     await refreshTransactions();
@@ -3502,7 +3568,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       return undefined;
     }
     Promise.all([
-      fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false })),
+      fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false })),
       fetchAllSupabaseRows(() => supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false })),
     ]).then(([entryResult, documentResult]) => {
       if (!mounted) return;
@@ -3518,7 +3584,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const refreshDriverData = useCallback(async () => {
     if (!supabase || !canQueryDriverData) return;
     const [entryResult, documentResult] = await Promise.all([
-      fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false })),
+      fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false })),
       fetchAllSupabaseRows(() => supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false })),
     ]);
     if (entryResult.error) throw entryResult.error;
@@ -3615,7 +3681,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const calendarDays = useMemo(() => getDriverCalendarDays(driverPeriodDate, 13, -6), [selectedDate]);
   const selectedDayEntry = useMemo(() => entries.find((item) => String(item.entry_date) === selectedDate) ?? null, [entries, selectedDate]);
   const selectedDayDocuments = useMemo(() => documents.filter((document) => getDriverDocumentDateKey(document) === selectedDate), [documents, selectedDate]);
-  const driverBillingStatsByDate = useMemo(() => getDriverBillingStatsByDate(documents, activeProfileId), [documents, activeProfileId]);
+  const driverBillingStatsByDate = useMemo(() => getDriverBillingStatsByDate(documents, activeProfileId, entries), [documents, activeProfileId, entries]);
 
   useEffect(() => {
     if (!periodPickerOpen) return undefined;
@@ -3679,6 +3745,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       wash_expenses: numberFor("wash_expenses"),
       other_expenses: numberFor("other_expenses"),
       notes: patch.notes === undefined ? existing.notes ?? null : String(patch.notes || "").trim() || null,
+      manual_overrides: existing.manual_overrides ?? {},
       updated_at: new Date().toISOString(),
     };
     if (!supabase) {
@@ -3686,7 +3753,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       setEntries((current) => [localEntry, ...current.filter((candidate) => String(candidate.entry_date) !== dateKey)]);
       return localEntry;
     }
-    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").single();
+    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at").single();
     if (error) throw error;
     const normalizedData = normalizeDriverEntryRecord(data);
     setEntries((current) => [normalizedData, ...current.filter((candidate) => candidate.id !== normalizedData.id && String(candidate.entry_date) !== dateKey)]);
@@ -3771,7 +3838,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
     const recordedMonthlyBilling = total(monthEntries, "billing");
-    const billingDocuments = getDriverBillingDocumentsForPeriod(documents, activeProfileId, periodDate.getMonth(), periodDate.getFullYear()).map(getDriverBillingDocumentStats);
+    const billingDocuments = [...getDriverBillingStatsByDate(documents, activeProfileId, entries).values()]
+      .filter((stats) => stats.dateKey.startsWith(monthKey));
     const hasDocumentedMonthlyBilling = billingDocuments.some((stats) => stats.hasBillingAmount);
     const documentedMonthlyBilling = billingDocuments.reduce((sum, stats) => sum + stats.netAmount, 0);
     const documentedMonthlyTips = billingDocuments.reduce((sum, stats) => sum + stats.tips, 0);
@@ -3848,14 +3916,18 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     return summary;
   }, { billing: 0, fuelCost: 0, fuelLiters: 0, odometerKm: 0, cashCollected: 0, tips: 0, refunds: 0, tolls: 0, otherExpenses: 0, hasBilling: false }), [selectedDayDocuments]);
   const selectedDaySource = selectedDayEntry ?? entry;
+  const selectedDayBillingStats = driverBillingStatsByDate.get(selectedDate) ?? null;
+  const selectedDayFuelOverride = getDriverDayOverride(selectedDaySource, "fuel");
+  const selectedDayMileageOverride = getDriverMileageOverride(selectedDaySource);
   const selectedDayData = {
-    billing: selectedDayDocumentData.hasBilling ? selectedDayDocumentData.billing : getDriverEntryAmount(selectedDaySource, "billing") || selectedDayDocumentData.billing,
-    odometer_km: getDriverEntryAmount(selectedDaySource, "odometer_km") || selectedDayDocumentData.odometerKm,
-    fuel_cost: getDriverEntryAmount(selectedDaySource, "fuel_cost") || selectedDayDocumentData.fuelCost,
-    fuel_liters: getDriverEntryAmount(selectedDaySource, "fuel_liters") || selectedDayDocumentData.fuelLiters,
-    cash_collected: selectedDayDocumentData.hasBilling ? selectedDayDocumentData.cashCollected : getDriverEntryAmount(selectedDaySource, "cash_collected") || selectedDayDocumentData.cashCollected,
-    tips: selectedDayDocumentData.hasBilling ? selectedDayDocumentData.tips : getDriverEntryAmount(selectedDaySource, "tips") || selectedDayDocumentData.tips,
-    refunds: selectedDayDocumentData.hasBilling ? selectedDayDocumentData.refunds : getDriverEntryAmount(selectedDaySource, "refunds") || selectedDayDocumentData.refunds,
+    billing: selectedDayBillingStats?.netAmount ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.billing : getDriverEntryAmount(selectedDaySource, "billing") || selectedDayDocumentData.billing),
+    odometer_km: Object.prototype.hasOwnProperty.call(selectedDayMileageOverride ?? {}, "odometerKm") ? Number(selectedDayMileageOverride.odometerKm) || 0 : getDriverEntryAmount(selectedDaySource, "odometer_km") || selectedDayDocumentData.odometerKm,
+    fuel_cost: Object.prototype.hasOwnProperty.call(selectedDayFuelOverride ?? {}, "cost") ? Number(selectedDayFuelOverride.cost) || 0 : getDriverEntryAmount(selectedDaySource, "fuel_cost") || selectedDayDocumentData.fuelCost,
+    fuel_liters: Object.prototype.hasOwnProperty.call(selectedDayFuelOverride ?? {}, "liters") ? Number(selectedDayFuelOverride.liters) || 0 : getDriverEntryAmount(selectedDaySource, "fuel_liters") || selectedDayDocumentData.fuelLiters,
+    daily_km: Object.prototype.hasOwnProperty.call(selectedDayMileageOverride ?? {}, "dailyKm") ? Number(selectedDayMileageOverride.dailyKm) || 0 : 0,
+    cash_collected: selectedDayBillingStats?.cashCollected ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.cashCollected : getDriverEntryAmount(selectedDaySource, "cash_collected") || selectedDayDocumentData.cashCollected),
+    tips: selectedDayBillingStats?.tips ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.tips : getDriverEntryAmount(selectedDaySource, "tips") || selectedDayDocumentData.tips),
+    refunds: selectedDayBillingStats?.refunds ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.refunds : getDriverEntryAmount(selectedDaySource, "refunds") || selectedDayDocumentData.refunds),
     tolls: getDriverEntryAmount(selectedDaySource, "tolls") || selectedDayDocumentData.tolls,
     other_expenses: getDriverEntryAmount(selectedDaySource, "other_expenses") || selectedDayDocumentData.otherExpenses,
   };
@@ -3933,7 +4005,9 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   }, [entries, selectedDate]);
   const selectedOdometer = Number(selectedDayData.odometer_km) || 0;
   const previousOdometer = getDriverEntryAmount(previousDriverEntry, "odometer_km");
-  const partialKm2 = Math.max(0, selectedOdometer - previousOdometer);
+  const partialKm2 = Object.prototype.hasOwnProperty.call(selectedDayMileageOverride ?? {}, "dailyKm")
+    ? Number(selectedDayData.daily_km) || 0
+    : Math.max(0, selectedOdometer - previousOdometer);
   const averageConsumption = partialKm2 > 0 ? (Number(selectedDayData.fuel_liters) || 0) / partialKm2 * 100 : 0;
   const monthlyBillingHistory = useMemo(() => {
     const monthly = new Map();
@@ -4236,7 +4310,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       }
       if (Object.keys(entryPatch).length > 0 && (!centralEconomic || !supabase)) await upsertDriverEntry(targetDate, entryPatch);
       if (centralEconomic && supabase) {
-        const { data: refreshedEntries } = await fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }));
+        const { data: refreshedEntries } = await fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }));
         if (refreshedEntries) setEntries(refreshedEntries.map(normalizeDriverEntryRecord));
       }
       const normalizedDocument = normalizeDocumentRecord(savedDocument);
@@ -6049,7 +6123,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   });
   const documentsById = new Map(documents.map((document) => [document.id, document]));
   const vehicleStats = vehicles.map((vehicle) => {
-    const entries = periodTransactions.filter((transaction) => transaction.type === "fuel" && transaction.vehicle_plate === vehicle.plate).map((transaction) => {
+    const rawEntries = periodTransactions.filter((transaction) => transaction.type === "fuel" && transaction.vehicle_plate === vehicle.plate).map((transaction) => {
       const sourceDocument = documentsById.get(transaction.source_document_id) ?? null;
       const fields = getExtractedDocumentFields(sourceDocument);
       const metadata = transaction.metadata ?? {};
@@ -6072,6 +6146,29 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         sourceDocument,
       };
     });
+    const entriesByDriverDate = new Map();
+    rawEntries.forEach((entry) => {
+      const key = `${entry.driverId ?? ""}:${entry.date}`;
+      entriesByDriverDate.set(key, [...(entriesByDriverDate.get(key) ?? []), entry]);
+    });
+    (driverEntries ?? [])
+      .filter((entry) => {
+        if (entry.vehicle_plate !== vehicle.plate || !getDriverDayOverride(entry, "fuel")) return false;
+        const date = new Date(`${entry.entry_date}T12:00:00`);
+        return date.getFullYear() === reportYear && date.getMonth() === reportMonth;
+      })
+      .forEach((entry) => {
+        const dateKey = String(entry.entry_date);
+        const key = `${entry.driver_id ?? ""}:${dateKey}`;
+        const fallbackEntries = entriesByDriverDate.get(key) ?? [];
+        const overrideEntries = buildDriverFuelOverrideEntries({ override: getDriverDayOverride(entry, "fuel"), dateKey, fallbackEntries }) ?? fallbackEntries;
+        entriesByDriverDate.set(key, overrideEntries.map((overrideEntry) => ({
+          ...overrideEntry,
+          driverId: entry.driver_id,
+          date: dateKey,
+        })));
+      });
+    const entries = [...entriesByDriverDate.values()].flat().sort((left, right) => `${right.date} ${right.time}`.localeCompare(`${left.date} ${left.time}`));
     return {
       vehicle,
       entries,
@@ -6743,31 +6840,9 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const professionalVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.use === "Profesional"), [vehicles]);
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
   const billingRows = useMemo(() => getDriverBillingRows(professionalVehicles, driverEntries, reportMonth, reportYear, documents), [professionalVehicles, driverEntries, reportMonth, reportYear, documents]);
-  const fuelSummaries = useMemo(() => professionalVehicles.map((vehicle) => {
-    const entries = transactions.filter((transaction) => {
-      if (transaction.type !== "fuel" || transaction.vehicle_plate !== vehicle.plate) return false;
-      const date = new Date(`${transaction.occurred_on}T12:00:00`);
-      return date.getFullYear() === reportYear && date.getMonth() === reportMonth;
-    }).map((transaction) => ({
-      driverId: transaction.driver_id,
-      date: transaction.occurred_on,
-      liters: Number(transaction.metadata?.liters) || 0,
-      cost: Number(transaction.amount) || 0,
-    }));
-    return {
-      vehicle,
-      liters: entries.reduce((sum, entry) => sum + entry.liters, 0),
-      cost: entries.reduce((sum, entry) => sum + entry.cost, 0),
-      refuels: entries.length,
-    };
-  }), [professionalVehicles, reportMonth, reportYear, transactions]);
   const driverRows = useMemo(() => billingRows.map((row) => {
     const vehicle = professionalVehicles.find((candidate) => candidate.plate === row.plate);
-    const fuelEntries = transactions.filter((transaction) => {
-      if (transaction.type !== "fuel" || transaction.driver_id !== row.driverId) return false;
-      const date = new Date(`${transaction.occurred_on}T12:00:00`);
-      return date.getFullYear() === reportYear && date.getMonth() === reportMonth;
-    }).map((transaction) => ({ id: transaction.id, transactionId: transaction.id, sourceDocumentId: transaction.source_document_id, date: transaction.occurred_on, time: transaction.metadata?.time || "", liters: Number(transaction.metadata?.liters) || 0, cost: Number(transaction.amount) || 0 }));
+    const fuelEntries = getCorrectedDriverFuelEntriesForPeriod({ driverId: row.driverId, vehiclePlate: row.plate, month: reportMonth, year: reportYear, driverEntries, transactions });
     return {
       ...row,
       vehicle,
@@ -6775,7 +6850,16 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       fuelLiters: fuelEntries.reduce((sum, entry) => sum + entry.liters, 0),
       fuelCost: fuelEntries.reduce((sum, entry) => sum + entry.cost, 0),
     };
-  }), [billingRows, professionalVehicles, reportMonth, reportYear, transactions]);
+  }), [billingRows, driverEntries, professionalVehicles, reportMonth, reportYear, transactions]);
+  const fuelSummaries = useMemo(() => professionalVehicles.map((vehicle) => {
+    const entries = driverRows.filter((row) => row.plate === vehicle.plate).flatMap((row) => row.fuelEntries);
+    return {
+      vehicle,
+      liters: entries.reduce((sum, entry) => sum + entry.liters, 0),
+      cost: entries.reduce((sum, entry) => sum + entry.cost, 0),
+      refuels: entries.length,
+    };
+  }), [driverRows, professionalVehicles]);
   const selectedDriver = driverRows.find((row) => row.key === selectedDriverKey) ?? null;
   const calendarRows = useMemo(() => selectedDriver ? getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, reportMonth, reportYear, documents, transactions) : [], [selectedDriver, reportMonth, reportYear, documents, transactions]);
   const periodKilometres = useMemo(() => calendarRows.reduce((sum, day) => sum + (Number(day.km) || 0), 0), [calendarRows]);
@@ -6946,9 +7030,9 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         driver: selectedDriver.driver,
         driverId: selectedDriver.driverId,
         vehiclePlate: selectedDriver.plate,
-        detail: selectedDayDetail,
+        detail: { ...selectedDayDetail, periodKilometres },
         documents: modeDocuments,
-        onSave: (values) => onSaveDriverDay?.({ driverId: selectedDriver.driverId, vehiclePlate: selectedDriver.plate, dateKey: selectedDateKey, mode, amount: values.amount, liters: values.liters, dailyKm: values.dailyKm, odometerKm: values.odometerKm, dailyKmChanged: values.dailyKmChanged, odometerChanged: values.odometerChanged, notes: values.notes }),
+        onSave: (values) => onSaveDriverDay?.({ driverId: selectedDriver.driverId, vehiclePlate: selectedDriver.plate, dateKey: selectedDateKey, mode, amount: values.amount, liters: values.liters, refuels: values.refuels, dailyKm: values.dailyKm, odometerKm: values.odometerKm, dailyKmChanged: values.dailyKmChanged, odometerChanged: values.odometerChanged, billingStats: values.billingStats, notes: values.notes }),
         onDeleteDocument: (document) => onDeleteDriverDocument?.(document),
         onOpenDocument: openDriverSourceDocument,
         onAddDocument: (file) => setModal({ type: "document-processing", category: mode === "billing" ? "billing" : "consumption", source: "upload", file, selectedPlate: selectedDriver.plate, defaultDate: selectedDateKey, driverId: selectedDriver.driverId, recordType }),
@@ -7051,7 +7135,18 @@ function DriverDayDocumentButtons({ documents = [], onOpen, onEdit, compact = fa
 function DriverDayEditWorkflow({ item, onCancel }) {
   const mode = item.mode || "billing";
   const detail = item.detail ?? {};
-  const [amount, setAmount] = useState(() => String(mode === "billing" ? Number(detail.billing) || 0 : Number(detail.fuelCost) || 0));
+  const detailBillingStats = detail.billingStats ?? {};
+  const initialBillingBase = Number(detailBillingStats.baseNetAmount) || Math.max(0, (Number(detailBillingStats.netAmount) || Number(detail.billing) || 0) - (Number(detailBillingStats.promotions) || 0));
+  const [billingConnection, setBillingConnection] = useState(() => String(detailBillingStats.connection ?? ""));
+  const [billingTrips, setBillingTrips] = useState(() => String(Number(detailBillingStats.trips) || 0));
+  const [billingPoints, setBillingPoints] = useState(() => String(Number(detailBillingStats.points) || 0));
+  const [billingBaseNet, setBillingBaseNet] = useState(() => String(initialBillingBase));
+  const [billingPromotions, setBillingPromotions] = useState(() => String(Number(detailBillingStats.promotions) || 0));
+  const [billingTips, setBillingTips] = useState(() => String(Number(detailBillingStats.tips) || 0));
+  const [billingRefunds, setBillingRefunds] = useState(() => String(Number(detailBillingStats.refunds) || 0));
+  const [billingCashCollected, setBillingCashCollected] = useState(() => String(Number(detailBillingStats.cashCollected) || 0));
+  const [amount, setAmount] = useState(() => String(mode === "billing" ? initialBillingBase : Number(detail.fuelCost) || 0));
+  const [refuels, setRefuels] = useState(() => String(Number(detail.fuelEntries?.length) || 0));
   const [liters, setLiters] = useState(() => String(Number(detail.fuelLiters) || 0));
   const [dailyKm, setDailyKm] = useState(() => String(Number(detail.km) || 0));
   const [odometerKm, setOdometerKm] = useState(() => String(Number(detail.totalKm) || 0));
@@ -7062,12 +7157,35 @@ function DriverDayEditWorkflow({ item, onCancel }) {
   const fileInputRef = useRef(null);
   const label = mode === "billing" ? "Facturación" : mode === "fuel" ? "Repostaje" : "Kilómetros";
   const dateLabel = formatDocumentDisplayDate(item.dateKey);
+  const editorNumber = (value) => Math.max(0, Number(String(value ?? "").replace(",", ".")) || 0);
+  const billingNetPreview = Number((editorNumber(billingBaseNet) + editorNumber(billingPromotions)).toFixed(2));
+  const billingTotalPreview = Number((billingNetPreview + editorNumber(billingTips)).toFixed(2));
+  const mileagePeriodPreview = Number(Math.max(0, (Number(detail.periodKilometres) || 0) - (Number(detail.km) || 0) + editorNumber(dailyKm)).toFixed(2));
 
   const save = async () => {
     setSaving(true);
     setError("");
     try {
-      await item.onSave?.({ amount, liters, dailyKm, odometerKm, dailyKmChanged: Number(dailyKm) !== (Number(detail.km) || 0), odometerChanged: Number(odometerKm) !== (Number(detail.totalKm) || 0), notes });
+      await item.onSave?.({
+        amount: mode === "billing" ? billingNetPreview : amount,
+        liters,
+        refuels,
+        dailyKm,
+        odometerKm,
+        dailyKmChanged: editorNumber(dailyKm) !== (Number(detail.km) || 0),
+        odometerChanged: editorNumber(odometerKm) !== (Number(detail.totalKm) || 0),
+        billingStats: mode === "billing" ? {
+          connection: billingConnection,
+          trips: billingTrips,
+          points: billingPoints,
+          baseNetAmount: billingBaseNet,
+          promotions: billingPromotions,
+          tips: billingTips,
+          refunds: billingRefunds,
+          cashCollected: billingCashCollected,
+        } : undefined,
+        notes,
+      });
       onCancel();
     } catch (caughtError) {
       setError(caughtError?.message || "No se han podido guardar los cambios.");
@@ -7102,9 +7220,29 @@ function DriverDayEditWorkflow({ item, onCancel }) {
     <div className="driver-day-edit-workflow">
       <div className="driver-day-edit-context"><span>{item.driver} · {item.vehiclePlate}</span><strong>{label} · {dateLabel}</strong><small>El cambio se refleja en Conductores, Neto y en el vehículo asociado.</small></div>
       <div className="driver-day-edit-form">
-        {(mode === "billing" || mode === "fuel") && <label>{mode === "billing" ? "Importe facturado" : "Importe del repostaje"}<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} /><i>€</i></div></label>}
-        {mode === "fuel" && <label>Litros repostados<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" value={liters} onChange={(event) => setLiters(event.target.value)} /><i>L</i></div></label>}
-        {mode === "mileage" && <><label>Km diarios<div className="driver-day-edit-input"><input type="number" min="0" step="1" value={dailyKm} onChange={(event) => setDailyKm(event.target.value)} /><i>km</i></div></label><label>Kilometraje acumulado<div className="driver-day-edit-input"><input type="number" min="0" step="1" value={odometerKm} onChange={(event) => setOdometerKm(event.target.value)} /><i>km</i></div></label></>}
+        {mode === "billing" && <>
+          <label>Conexión<input type="text" value={billingConnection} onChange={(event) => setBillingConnection(event.target.value)} placeholder="Ej. 6 h 56 m" /></label>
+          <label>Viajes<input type="number" min="0" step="1" inputMode="numeric" value={billingTrips} onChange={(event) => setBillingTrips(event.target.value)} /></label>
+          <label>Puntos<input type="number" min="0" step="1" inputMode="numeric" value={billingPoints} onChange={(event) => setBillingPoints(event.target.value)} /></label>
+          <label>Precio neto base<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={billingBaseNet} onChange={(event) => setBillingBaseNet(event.target.value)} /><i>€</i></div></label>
+          <label>Promociones<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={billingPromotions} onChange={(event) => setBillingPromotions(event.target.value)} /><i>€</i></div></label>
+          <label>Precio neto con promociones<div className="driver-day-edit-calculated" aria-live="polite"><strong>{formatCurrency(billingNetPreview)}</strong><small>Base + promociones</small></div></label>
+          <label>Propina<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={billingTips} onChange={(event) => setBillingTips(event.target.value)} /><i>€</i></div></label>
+          <label>Ganancias totales<div className="driver-day-edit-calculated" aria-live="polite"><strong>{formatCurrency(billingTotalPreview)}</strong><small>Precio neto + propina</small></div></label>
+          <label>Reembolsos<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={billingRefunds} onChange={(event) => setBillingRefunds(event.target.value)} /><i>€</i></div></label>
+          <label>Efectivo cobrado<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={billingCashCollected} onChange={(event) => setBillingCashCollected(event.target.value)} /><i>€</i></div></label>
+        </>}
+        {mode === "fuel" && <>
+          <label>Importe total<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /><i>€</i></div></label>
+          <label>Repostajes<input type="number" min="0" step="1" inputMode="numeric" value={refuels} onChange={(event) => setRefuels(event.target.value)} /></label>
+          <label>Litros repostados<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={liters} onChange={(event) => setLiters(event.target.value)} /><i>L</i></div></label>
+          <p className="driver-day-edit-form__hint">El importe, los litros y el número de repostajes se reflejan en el día y en los totales mensuales.</p>
+        </>}
+        {mode === "mileage" && <>
+          <label>Km diarios<div className="driver-day-edit-input"><input type="number" min="0" step="1" inputMode="numeric" value={dailyKm} onChange={(event) => setDailyKm(event.target.value)} /><i>km</i></div></label>
+          <label>Kilometraje acumulado<div className="driver-day-edit-input"><input type="number" min="0" step="1" inputMode="numeric" value={odometerKm} onChange={(event) => setOdometerKm(event.target.value)} /><i>km</i></div></label>
+          <label>Total del mes<div className="driver-day-edit-calculated" aria-live="polite"><strong>{formatKm(mileagePeriodPreview)}</strong><small>Se recalcula con los km diarios</small></div></label>
+        </>}
         <label className="driver-day-edit-form__wide">Notas del registro<textarea rows="2" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Añade una aclaración para este día (opcional)" /></label>
       </div>
       <section className="driver-day-edit-documents" aria-labelledby="driver-day-edit-documents-title">
