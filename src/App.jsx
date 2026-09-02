@@ -68,7 +68,7 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, fetchAllSupabaseRows, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverPeriodFinancials, listMaintenanceReports, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, validateMaintenancePhotoFile } from "./supabase";
+import { confirmDocumentTransactions, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, fetchAllSupabaseRows, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverPeriodFinancials, listMaintenanceReports, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, validateMaintenancePhotoFile } from "./supabase";
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
@@ -84,6 +84,7 @@ import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
 import { additionalHistoricalBillingSources } from "./data/additionalHistoricalBillingSummary";
 import { getImportedTipsByPeriod } from "./data/driverTipsSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
+import { averagePositive, buildDriverWeeklyComparison } from "./driverWeeklyComparison";
 import { gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender, getGestoriaDocumentsForPeriod, getGestoriaExpenseForPeriod } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
@@ -3472,6 +3473,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const [entry, setEntry] = useState(() => getDriverEntryForm(getDriverDateKey()));
   const [entries, setEntries] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [driverComparisonRows, setDriverComparisonRows] = useState([]);
+  const driverComparisonRequestRef = useRef(0);
   const [documentPreviews, setDocumentPreviews] = useState([]);
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [file, setFile] = useState(null);
@@ -3594,6 +3597,35 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     setDocumentsLoading(false);
   }, [activeProfileId, canQueryDriverData]);
 
+  const refreshDriverComparison = useCallback(async () => {
+    const requestId = driverComparisonRequestRef.current + 1;
+    driverComparisonRequestRef.current = requestId;
+    if (!supabase || !canQueryDriverData) {
+      if (requestId === driverComparisonRequestRef.current) setDriverComparisonRows([]);
+      return;
+    }
+    const periodDate = parseDriverDateKey(selectedDate) ?? new Date();
+    const weekStart = getDriverWeekStart(periodDate);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const { data, error } = await listDriverDailyComparisons({
+      startDate: getDriverDateKey(weekStart),
+      endDate: getDriverDateKey(weekEnd),
+    });
+    if (error) throw error;
+    if (requestId === driverComparisonRequestRef.current) setDriverComparisonRows(data ?? []);
+  }, [canQueryDriverData, selectedDate]);
+
+  useEffect(() => {
+    let mounted = true;
+    refreshDriverComparison().catch(() => {
+      // The chart remains usable while an older deployment is being migrated;
+      // a successful retry on focus or on the next realtime event fills it in.
+      if (mounted) setDriverComparisonRows([]);
+    });
+    return () => { mounted = false; };
+  }, [refreshDriverComparison]);
+
   useEffect(() => {
     if (!supabase || !canQueryDriverData) return undefined;
     let mounted = true;
@@ -3601,7 +3633,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     const queueRefresh = (showError = true) => {
       window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(() => {
-        refreshDriverData().catch((error) => {
+        refreshDriverData().then(() => refreshDriverComparison()).catch((error) => {
           if (mounted && showError) setMessage(`No se han podido actualizar los datos: ${error.message}`);
         });
       }, 80);
@@ -3624,7 +3656,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
           }).catch(() => undefined);
           return;
         }
-        if (["driver_entries", "documents"].includes(table)) queueRefresh();
+        if (["driver_entries", "documents", "driver_daily_comparison"].includes(table)) queueRefresh();
         if (table === "maintenance_reports") {
           listMaintenanceReports({ vehiclePlate: profileVehiclePlate, reporterId: activeProfileId })
             .then(({ data, error }) => {
@@ -3646,7 +3678,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       unsubscribe();
     };
-  }, [activeProfileId, canQueryDriverData, onProfileChange, onSignOut, preview, profileVehiclePlate, refreshDriverData, session.user.id]);
+  }, [activeProfileId, canQueryDriverData, onProfileChange, onSignOut, preview, profileVehiclePlate, refreshDriverComparison, refreshDriverData, session.user.id]);
 
   useEffect(() => {
     const selectedEntry = entries.find((item) => String(item.entry_date) === selectedDate);
@@ -3936,7 +3968,11 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     return Array.from({ length: 7 }, (_, index) => {
       const date = new Date(weekStart);
       date.setDate(date.getDate() + index);
-      return { date, key: getDriverDateKey(date) };
+      return {
+        date,
+        key: getDriverDateKey(date),
+        label: new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", ""),
+      };
     });
   }, [selectedDate]);
   const driverWeekEntries = useMemo(() => driverWeekDays.map(({ key }) => getDriverDailyLedgerEntry(entries, key, driverBillingStatsByDate)), [driverWeekDays, entries, driverBillingStatsByDate]);
@@ -3945,57 +3981,81 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     pageDate.setDate(pageDate.getDate() + (offset * 7));
     return { offset, ...buildDriverWeekPage(pageDate, entries, weeklyManualValues, driverBillingStatsByDate) };
   }), [driverPeriodDate, entries, weeklyManualValues, driverBillingStatsByDate]);
-  const seededDriverShift = vehicle?.shifts?.find((shift) => normalizeText(shift.driver) === normalizeText(profile.full_name)) ?? vehicle?.shifts?.[0] ?? null;
-  const seededDriverConsumption = 0;
-  const otherDriversConsumptionAverage = useMemo(() => {
-    const professionalShifts = vehiclesSeed.filter((candidate) => candidate.use === "Profesional").flatMap((candidate) => candidate.shifts ?? []);
-    const otherShifts = professionalShifts.filter((shift) => shift.id !== seededDriverShift?.id);
-    const values = otherShifts.map((shift) => shift.km > 0 ? (Number(shift.liters) || 0) / shift.km * 100 : 0).filter((value) => value > 0);
-    return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : seededDriverConsumption;
-  }, [seededDriverConsumption, seededDriverShift]);
-  const otherDriversKmAverage = useMemo(() => {
-    const professionalShifts = vehiclesSeed.filter((candidate) => candidate.use === "Profesional").flatMap((candidate) => candidate.shifts ?? []);
-    const otherShifts = professionalShifts.filter((shift) => shift.id !== seededDriverShift?.id);
-    const values = otherShifts.map((shift) => Number(shift.km) || 0).filter((value) => value > 0);
-    return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-  }, [seededDriverShift]);
-  const weeklyConsumptionData = useMemo(() => {
+  const driverWeeklyRecords = useMemo(() => {
     const chronologicalEntries = [...entries].sort((left, right) => String(left.entry_date ?? "").localeCompare(String(right.entry_date ?? "")));
-    return driverWeekDays.map(({ date, key }) => {
+    const effectiveOdometer = (candidate) => {
+      const mileageOverride = getDriverMileageOverride(candidate);
+      return Object.prototype.hasOwnProperty.call(mileageOverride ?? {}, "odometerKm")
+        ? Number(mileageOverride.odometerKm) || 0
+        : getDriverEntryAmount(candidate, "odometer_km");
+    };
+    return driverWeekDays.map(({ key }) => {
       const currentEntry = entries.find((item) => String(item.entry_date) === key);
-      const consumptionDocument = documents.find((document) => {
-        const data = document.extracted_data ?? {};
+      const getDocumentNumber = (document, keys) => {
+        const data = document?.extracted_data ?? {};
+        const extracted = getExtractedDocumentFields(document);
+        return keys
+          .map((field) => data[field] ?? extracted[field])
+          .map((value) => getDriverDocumentNumber(value))
+          .find((value) => value > 0) ?? 0;
+      };
+      const dailyKilometres = documents
+        .filter((document) => {
+          const recordType = getDriverDocumentRecordType(document);
+          return getDriverDocumentDateKey(document) === key
+            && ["daily-km", "partial-1", "kilometraje diario", "km diarios"].includes(recordType);
+        })
+        .reduce((sum, document) => sum + getDocumentNumber(document, ["dailyKm", "daily_km", "kilometres", "kilometers", "km"]), 0);
+      const consumptionDocuments = documents.filter((document) => {
         return getDriverDocumentDateKey(document) === key
-          && (data.recordType === "consumption" || data.metric === "consumption")
-          && getDriverDocumentNumber(data.consumption) > 0;
+          && getDriverDocumentRecordType(document) === "consumption"
+          && getDocumentNumber(document, ["consumption", "consumptionRate", "consumption_rate"]) > 0;
       });
-      const extractedConsumption = getDriverDocumentNumber(consumptionDocument?.extracted_data?.consumption);
-      const currentOdometer = getDriverEntryAmount(currentEntry, "odometer_km");
+      const consumptionValues = consumptionDocuments.map((document) => getDocumentNumber(document, ["consumption", "consumptionRate", "consumption_rate"])).filter((value) => value > 0);
+      const extractedConsumption = consumptionValues.length > 0
+        ? consumptionValues.reduce((sum, value) => sum + value, 0) / consumptionValues.length
+        : 0;
+      const mileageOverride = getDriverMileageOverride(currentEntry);
+      const hasDailyKmOverride = Object.prototype.hasOwnProperty.call(mileageOverride ?? {}, "dailyKm");
+      const currentOdometer = effectiveOdometer(currentEntry);
       const previousEntry = [...chronologicalEntries].reverse().find((item) => String(item.entry_date ?? "") < key);
-      const previousEntryOdometer = getDriverEntryAmount(previousEntry, "odometer_km");
-      const kilometres = Math.max(0, currentOdometer - previousEntryOdometer);
-      const litres = getDriverEntryAmount(currentEntry, "fuel_liters");
-      const driverConsumption = extractedConsumption || (litres > 0 && kilometres > 0 ? litres / kilometres * 100 : seededDriverConsumption);
+      const previousEntryOdometer = effectiveOdometer(previousEntry);
+      const kilometres = hasDailyKmOverride
+        ? Math.max(0, Number(mileageOverride.dailyKm) || 0)
+        : dailyKilometres > 0
+          ? dailyKilometres
+          : currentEntry && previousEntry ? Math.max(0, currentOdometer - previousEntryOdometer) : 0;
+      const fuelOverride = getDriverDayOverride(currentEntry, "fuel");
+      const litres = Object.prototype.hasOwnProperty.call(fuelOverride ?? {}, "liters")
+        ? Number(fuelOverride.liters) || 0
+        : getDriverEntryAmount(currentEntry, "fuel_liters");
+      const driverConsumption = extractedConsumption > 0
+        ? extractedConsumption
+        : litres > 0 && kilometres > 0 ? litres / kilometres * 100 : 0;
       return {
-        label: new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", ""),
+        dateKey: key,
         kilometres,
-        driverConsumption: Number(driverConsumption.toFixed(1)),
-        otherConsumption: Number(otherDriversConsumptionAverage.toFixed(1)),
+        consumption: Number(driverConsumption.toFixed(1)),
       };
     });
-  }, [driverWeekDays, documents, entries, otherDriversConsumptionAverage, seededDriverConsumption]);
+  }, [driverWeekDays, documents, entries]);
+  const weeklyConsumptionData = useMemo(() => buildDriverWeeklyComparison({
+    days: driverWeekDays,
+    driverRecords: driverWeeklyRecords,
+    comparisonRows: driverComparisonRows,
+  }), [driverComparisonRows, driverWeekDays, driverWeeklyRecords]);
   const weeklyConsumptionAverage = useMemo(() => {
-    const values = weeklyConsumptionData.map((item) => item.driverConsumption).filter((value) => value > 0);
-    return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+    return averagePositive(weeklyConsumptionData.map((item) => item.driverConsumption));
   }, [weeklyConsumptionData]);
+  const otherDriversConsumptionAverage = useMemo(() => averagePositive(weeklyConsumptionData.map((item) => item.otherConsumption)), [weeklyConsumptionData]);
   const weeklyKmData = useMemo(() => weeklyConsumptionData.map((item) => ({
     label: item.label,
-    driverKm: Math.round(item.kilometres || 0),
-    otherKm: Math.round(otherDriversKmAverage || 0),
-  })), [otherDriversKmAverage, weeklyConsumptionData]);
+    driverKm: item.driverKm === null ? null : Math.round(item.driverKm),
+    otherKm: item.otherKm === null ? null : Number(item.otherKm.toFixed(1)),
+  })), [weeklyConsumptionData]);
+  const otherDriversKmAverage = useMemo(() => averagePositive(weeklyKmData.map((item) => item.otherKm)), [weeklyKmData]);
   const weeklyKmAverage = useMemo(() => {
-    const values = weeklyKmData.map((item) => item.driverKm).filter((value) => value > 0);
-    return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+    return averagePositive(weeklyKmData.map((item) => item.driverKm));
   }, [weeklyKmData]);
   const previousDriverEntry = useMemo(() => {
     const previous = entries
@@ -4628,8 +4688,8 @@ function DriverBillingTarget({ periodSummary }) {
 
 function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 520;
-  const kmChartMax = Math.max(500, Math.ceil(Math.max(0, ...weeklyKmData.flatMap(({ driverKm, otherKm }) => [Number(driverKm) || 0, Number(otherKm) || 0])) / 100) * 100);
-  const kmChartTicks = Array.from({ length: kmChartMax / 100 + 1 }, (_, index) => index * 100);
+  const kmChartMax = 600;
+  const kmChartTicks = Array.from({ length: 7 }, (_, index) => index * 100);
   const consumptionChartTicks = [3.5, 4, 4.5, 5, 5.5];
   const homeRef = useRef(null);
   const statsRef = useRef(null);
@@ -5111,10 +5171,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               {expandedPreviewMetric === "km" && (
                 <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--km" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={weeklyKmData} margin={{ top: 32, right: 14, bottom: 62, left: 46 }} onMouseMove={(state) => showDriverChartTooltip("km", state)} onTouchStart={(state) => showDriverChartTooltip("km", state)} onTouchMove={(state) => showDriverChartTooltip("km", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                    <LineChart data={weeklyKmData} margin={{ top: 24, right: 0, bottom: 68, left: 0 }} onMouseMove={(state) => showDriverChartTooltip("km", state)} onTouchStart={(state) => showDriverChartTooltip("km", state)} onTouchMove={(state) => showDriverChartTooltip("km", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
-                      <XAxis dataKey="label" tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickMargin={13} />
-                      <YAxis width={56} ticks={kmChartTicks} domain={[0, kmChartMax]} allowDecimals={false} tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickMargin={6} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} />
+                      <XAxis dataKey="label" interval={0} minTickGap={0} padding={{ left: 2, right: 2 }} tick={{ fontSize: 16, fontWeight: 900, fill: "#102d58" }} tickMargin={10} />
+                      <YAxis width={42} ticks={kmChartTicks} domain={[0, kmChartMax]} allowDataOverflow allowDecimals={false} tick={{ fontSize: 16, fontWeight: 900, fill: "#102d58" }} tickMargin={4} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} />
                       <Tooltip active={activeDriverChartTooltip === "km"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} labelStyle={{ fontSize: 18, fontWeight: 900, color: "#102d58" }} itemStyle={{ fontSize: 17, fontWeight: 900, color: "#173661" }} formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} />
                       <Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={5} dot={{ r: 5 }} />
                       <Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={3} strokeDasharray="6 5" dot={{ r: 4 }} />
@@ -5126,10 +5186,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               {expandedPreviewMetric === "consumption" && (
                 <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--consumption" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={weeklyConsumptionData} margin={{ top: 32, right: 14, bottom: 62, left: 46 }} onMouseMove={(state) => showDriverChartTooltip("consumption", state)} onTouchStart={(state) => showDriverChartTooltip("consumption", state)} onTouchMove={(state) => showDriverChartTooltip("consumption", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                    <LineChart data={weeklyConsumptionData} margin={{ top: 24, right: 0, bottom: 68, left: 0 }} onMouseMove={(state) => showDriverChartTooltip("consumption", state)} onTouchStart={(state) => showDriverChartTooltip("consumption", state)} onTouchMove={(state) => showDriverChartTooltip("consumption", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
-                      <XAxis dataKey="label" interval={0} tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickMargin={13} />
-                      <YAxis width={56} ticks={consumptionChartTicks} domain={[3.5, 5.5]} allowDataOverflow allowDecimals tickMargin={6} tick={{ fontSize: 18, fontWeight: 900, fill: "#102d58" }} tickFormatter={(value) => Number(value).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} />
+                      <XAxis dataKey="label" interval={0} minTickGap={0} padding={{ left: 2, right: 2 }} tick={{ fontSize: 16, fontWeight: 900, fill: "#102d58" }} tickMargin={10} />
+                      <YAxis width={42} ticks={consumptionChartTicks} domain={[3.5, 5.5]} allowDataOverflow allowDecimals tickMargin={4} tick={{ fontSize: 16, fontWeight: 900, fill: "#102d58" }} tickFormatter={(value) => Number(value).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} />
                       <Tooltip active={activeDriverChartTooltip === "consumption"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} labelStyle={{ fontSize: 18, fontWeight: 900, color: "#102d58" }} itemStyle={{ fontSize: 17, fontWeight: 900, color: "#173661" }} formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km`} />
                       <Line type="monotone" dataKey="driverConsumption" name="Este conductor" stroke="#2c6de9" strokeWidth={5} dot={{ r: 5 }} />
                       <Line type="monotone" dataKey="otherConsumption" name="Resto" stroke="#9aaac0" strokeWidth={3} strokeDasharray="6 5" dot={{ r: 4 }} />

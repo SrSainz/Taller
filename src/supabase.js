@@ -53,6 +53,7 @@ const appRealtimeTables = ({ userId, isAdmin }) => {
       "driver_entries",
       "transactions",
       "documents",
+      "driver_daily_comparison",
       "maintenance_reports",
       "driver_period_financials",
       "commission_reports",
@@ -62,6 +63,9 @@ const appRealtimeTables = ({ userId, isAdmin }) => {
     { table: "profiles", filter: `id=eq.${userId}` },
     { table: "driver_entries", filter: `driver_id=eq.${userId}` },
     { table: "documents", filter: `owner_id=eq.${userId}` },
+    // This table contains only daily totals/counts, never another driver's
+    // identity or raw document data.
+    { table: "driver_daily_comparison" },
     { table: "maintenance_reports", filter: `reporter_id=eq.${userId}` },
   ];
 };
@@ -111,6 +115,18 @@ const safeFileName = (value = "documento") => String(value)
 
 const documentRecordColumns = "id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at";
 const maintenanceReportColumns = "id, reporter_id, vehicle_plate, note, photo_path, photo_name, photo_mime_type, photo_size, status, created_at, updated_at";
+const driverDailyComparisonColumns = "entry_date, total_km, drivers_with_km, total_consumption, drivers_with_consumption, updated_at";
+
+export const listDriverDailyComparisons = async ({ startDate = "", endDate = "" } = {}) => {
+  if (!supabase) return { data: [], error: null };
+  let query = supabase
+    .from("driver_daily_comparison")
+    .select(driverDailyComparisonColumns)
+    .order("entry_date", { ascending: true });
+  if (startDate) query = query.gte("entry_date", startDate);
+  if (endDate) query = query.lte("entry_date", endDate);
+  return query;
+};
 
 const randomUploadToken = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 const maintenancePhotoMimeTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);

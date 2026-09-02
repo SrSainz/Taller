@@ -3946,9 +3946,9 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--km) > header h2,
 .driver-mobile-chart-dialog__panel:has(.driver-mobile-chart-dialog__chart--consumption) > header h2 { font-size: 24px; }
 .driver-mobile-chart-dialog__chart--km > .recharts-responsive-container,
-.driver-mobile-chart-dialog__chart--consumption > .recharts-responsive-container { height: auto !important; }
+.driver-mobile-chart-dialog__chart--consumption > .recharts-responsive-container { height: 100% !important; flex: 1 1 auto; }
 .driver-mobile-chart-dialog__chart--km .recharts-cartesian-axis-tick text,
-.driver-mobile-chart-dialog__chart--consumption .recharts-cartesian-axis-tick text { fill: #102d58; font-size: 18px !important; font-weight: 900 !important; }
+.driver-mobile-chart-dialog__chart--consumption .recharts-cartesian-axis-tick text { fill: #102d58; font-size: 16px !important; font-weight: 900 !important; }
 .driver-mobile-chart-dialog__chart--km .recharts-default-tooltip,
 .driver-mobile-chart-dialog__chart--consumption .recharts-default-tooltip { min-width: 160px; padding: 12px 14px !important; border: 1px solid #d7e2ef !important; border-radius: 10px; box-shadow: 0 8px 24px rgba(3,24,55,.16); }
 .driver-mobile-chart-dialog__chart--km .recharts-tooltip-label,
