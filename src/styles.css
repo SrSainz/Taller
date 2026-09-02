@@ -8244,3 +8244,128 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
   .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net strong { font-size: clamp(18px, 5.7vw, 26px); }
   .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line strong { font-size: clamp(11px, 3.15vw, 15px); }
 }
+
+/* Neto: composición del boceto móvil; el área informativa queda limpia y las fichas llenan el espacio disponible. */
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-carousel {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  background-color: #050a0e;
+  background-image:
+    linear-gradient(180deg, rgba(2, 7, 10, .58), rgba(2, 7, 10, .86)),
+    url("/neto/neto-road-hero.png");
+  background-position: center bottom;
+  background-size: cover;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: clamp(8px, 1.25vw, 14px) clamp(12px, 2.6vw, 28px);
+  border: 0;
+  border-bottom: 1px solid rgba(226, 239, 236, .2);
+  border-radius: 0;
+  background: rgba(4, 10, 14, .66);
+  box-shadow: none;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:last-child {
+  border-bottom-color: transparent;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:hover {
+  background: rgba(22, 35, 40, .78);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 2px rgba(235, 247, 243, .42);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-content {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1.03fr) minmax(0, .97fr) !important;
+  grid-template-areas: "vehicle finance" !important;
+  align-items: stretch;
+  gap: clamp(7px, 1.7vw, 16px);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__vehicle-column {
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  gap: 3px;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual {
+  width: 100%;
+  height: clamp(63px, 11.5vh, 125px);
+  align-self: center;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance {
+  align-self: stretch;
+  grid-template-rows: auto auto auto auto;
+  align-content: center;
+  gap: clamp(4px, .65vw, 8px);
+  padding-left: clamp(9px, 1.6vw, 17px);
+  border-left: 1px solid rgba(226, 239, 236, .24);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net,
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers > div,
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line {
+  border-top: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  box-shadow: none !important;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net {
+  padding: 0;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-drivers > div {
+  padding: 2px 0;
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance .net-detail-card__collapsed-line {
+  padding: 0;
+}
+
+@media (max-width: 720px) {
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed {
+    padding: 7px 10px;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-content {
+    gap: 6px;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual {
+    height: clamp(54px, 9.7vh, 90px);
+  }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed {
+    padding-block: 5px;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-content {
+    gap: 5px;
+  }
+
+  .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card--collapsed .net-detail-card__vehicle-visual {
+    height: clamp(48px, 9vh, 68px);
+  }
+}
