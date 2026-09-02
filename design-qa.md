@@ -446,3 +446,40 @@ final result: blocked
 - Las capturas móvil y escritorio posteriores a la corrección no muestran recortes de cifras, solapamientos entre fichas ni pérdida de la interacción de detalle.
 
 final result: passed
+
+## Iteración actual — 2 de septiembre de 2026: Mantenimiento compacto con avisos integrados
+
+### Evidencia
+
+- Fuente funcional y visual: petición del 2 de septiembre de 2026 y captura de la vista autenticada actual antes del cambio en `tmp/maintenance-production-current.png` (390 × 844 px).
+- Implementación: `src/styles.css` y la estructura existente de `Mantenimiento` en `src/App.jsx`; se mantiene un botón independiente para cada acción de pendientes, dentro del recuadro visual compartido de su vehículo.
+- Capturas browser-rendered posteriores: `tmp/maintenance-production-final-390.png` (390 × 844 px), `tmp/maintenance-production-final-360.png` (360 × 800 px) y `tmp/maintenance-production-final-desktop.png` (1280 × 900 px).
+- Comparación conjunta: `tmp/maintenance-design-qa-comparison.png` (820 × 884 px; estado anterior y estado compacto a escala nativa).
+- Producción validada: `https://talleria-flota.vercel.app/?v=63863a6#/mantenimiento`.
+
+### Comparación y resultado
+
+- El control naranja `PENDIENTE DE REVISIÓN` deja de ocupar una columna completa y pasa a ser un recuadro pequeño, con borde propio, centrado dentro de la tarjeta de cada matrícula.
+- La reducción aproximada de cuatro veces se aplica a la superficie visual del aviso: conserva icono, texto en mayúsculas y contador cuando existe, pero libera espacio para la ficha del coche.
+- Las cinco fichas se compactan en altura y separación sin eliminar matrícula, marca, modelo, última actuación ni estado; en 390 × 844 y 360 × 800 las cinco quedan completas antes del historial.
+- En escritorio las cinco filas también se muestran completas y el historial comienza después del divisor, sin que los avisos invadan la ficha siguiente ni la navegación inferior.
+
+### Interacciones y accesibilidad verificadas
+
+- Los cinco controles conservan nombres accesibles por matrícula (`Abrir pendientes de revisión de ...`) y siguen abriendo el diálogo de avisos correspondiente.
+- El diálogo de pendientes mantiene su formulario, foto, permisos y acciones sin cambios.
+- Al pulsar otra ficha de coche, el encabezado y el historial cambian a la matrícula seleccionada.
+- `agent-browser errors`: sin errores nuevos.
+- `pnpm run build`: superado.
+- `pnpm test`: 45/45 pruebas superadas.
+
+### Checklist
+
+- [x] Aviso naranja dentro del recuadro de cada coche.
+- [x] Aviso reducido aproximadamente cuatro veces y con recuadro propio.
+- [x] Cinco coches completos en móvil de 390 px y 360 px.
+- [x] Vista de escritorio compacta sin solapamientos.
+- [x] Funcionalidad del aviso y del historial conservada.
+- [x] Comparación visual anterior/posterior documentada.
+
+final result: passed
