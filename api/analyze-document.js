@@ -2,7 +2,7 @@ import { getVercelOidcToken } from "@vercel/oidc";
 
 const MAX_DATA_URL_BYTES = 4 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
-const structuredExtractionAddendum = "Prioriza siempre la fecha impresa, el importe total pagado, la matricula visible y el proveedor. En documentos de consumo identifica tambien combustible, gasolinera y numero de ticket y, si el documento indica expresamente que agrupa varios repostajes o consumos del mismo dia, devuelve ese numero en consumptionCount; si no lo indica, devuelve null. En capturas de facturacion separa precio neto base, promociones, facturacion total, efectivo cobrado y propinas; no sumes la propina al precio neto. Devuelve null cuando un campo no sea legible y no inventes valores.";
+const structuredExtractionAddendum = "Prioriza siempre la fecha impresa, el importe total pagado, la matricula visible y el proveedor. En documentos de consumo identifica tambien combustible, gasolinera y numero de ticket y, si el documento indica expresamente que agrupa varios repostajes o consumos del mismo dia, devuelve ese numero en consumptionCount; si no lo indica, devuelve null. En capturas de facturacion separa precio neto base, promociones, facturacion total, efectivo cobrado y propinas; no sumes la propina al precio neto. En una factura de taller o mantenimiento identifica la fecha de la actuacion, los kilometros del vehiculo si aparecen impresos, la actuacion realizada, el importe total, el taller y el numero de factura; no inventes los kilometros. Devuelve null cuando un campo no sea legible y no inventes valores.";
 
 const billingSchema = {
   type: "object",
@@ -12,6 +12,7 @@ const billingSchema = {
     invoiceNumber: { type: ["string", "null"] },
     issueDate: { type: ["string", "null"] },
     serviceDate: { type: ["string", "null"] },
+    odometerKm: { type: ["number", "null"] },
     date: { type: ["string", "null"] },
     periodStart: { type: ["string", "null"] },
     periodEnd: { type: ["string", "null"] },
@@ -34,7 +35,7 @@ const billingSchema = {
     expenseCategory: { type: ["string", "null"] },
     vehicle: { type: ["string", "null"] },
   },
-  required: ["company", "invoiceNumber", "issueDate", "serviceDate", "date", "periodStart", "periodEnd", "taxBase", "vat", "total", "baseNetAmount", "netAmount", "promotions", "cashCollected", "tips", "connection", "points", "refunds", "tolls", "washExpenses", "otherExpenses", "trips", "concept", "expenseCategory", "vehicle"],
+  required: ["company", "invoiceNumber", "issueDate", "serviceDate", "odometerKm", "date", "periodStart", "periodEnd", "taxBase", "vat", "total", "baseNetAmount", "netAmount", "promotions", "cashCollected", "tips", "connection", "points", "refunds", "tolls", "washExpenses", "otherExpenses", "trips", "concept", "expenseCategory", "vehicle"],
 };
 
 const consumptionSchema = {

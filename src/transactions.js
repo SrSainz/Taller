@@ -91,7 +91,11 @@ export const operationsFromDocument = ({ category, fields = {}, recordType = "",
     cashCollected: parseNumeric(values.cashCollected),
   } : {};
   return [
-    operation(primaryType, primaryAmount, { category: isMaintenanceDocument ? "taller" : "billing", ...driverBillingMetadata }),
+    operation(primaryType, primaryAmount, {
+      category: isMaintenanceDocument ? "taller" : "billing",
+      ...(isMaintenanceDocument ? { odometerKm: money(values.odometerKm) } : {}),
+      ...driverBillingMetadata,
+    }),
     operation("cash", values.cashCollected, { category: "cash" }),
     operation("tip", values.tips, { category: "tip" }),
     operation("toll", values.tolls, { category: "toll" }),

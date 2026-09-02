@@ -9,6 +9,7 @@ export const documentFieldDefinitions = {
     { key: "invoiceNumber", label: "Número de factura", type: "text", placeholder: "Número o referencia" },
     { key: "issueDate", label: "Fecha de factura", type: "date" },
     { key: "serviceDate", label: "Fecha del servicio", type: "date" },
+    { key: "odometerKm", label: "Kilómetros del vehículo", type: "number", step: "1" },
     { key: "date", label: "Fecha del registro", type: "date" },
     { key: "periodStart", label: "Inicio del periodo", type: "date" },
     { key: "periodEnd", label: "Fin del periodo", type: "date" },

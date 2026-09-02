@@ -2741,6 +2741,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       const concept = metadata.concept || fields.concept || fields.expenseCategory || "Taller";
       const provider = metadata.company || fields.company || fields.provider || "Taller no identificado";
       const invoiceNumber = metadata.invoiceNumber || fields.invoiceNumber || `DOC-${String(transaction.source_document_id ?? transaction.id).slice(0, 8)}`;
+      const odometerKm = getDocumentNumericField(metadata, ["odometerKm", "odometer_km", "kilometres", "kilometers", "km"])
+        || getDocumentNumericField(fields, ["odometerKm", "odometer_km", "kilometres", "kilometers", "km"]);
       return {
         id: invoiceNumber,
         sourceDocumentId: transaction.source_document_id,
@@ -2750,10 +2752,13 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         plate: canonicalizeVehiclePlate(transaction.vehicle_plate),
         concept,
         amount: Number(transaction.amount) || 0,
+        km: odometerKm,
         source: "Documento IA",
         status: sourceDocument?.status === "approved" ? "Asociada" : "Revisar",
         items: [{ concept, amount: Number(transaction.amount) || 0 }],
         filePath: sourceDocument?.file_path ?? "",
+        fileName: sourceDocument?.file_name ?? "",
+        mimeType: sourceDocument?.mime_type ?? "",
       };
     }), [documentRecords, transactions]);
   const invoices = useMemo(() => {
@@ -3250,7 +3255,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" realtimeRevision={realtimeRevision} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
-          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} />}
+          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} notify={notify} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} />}
           {activeNav === "Administración" && isAdmin && <AdminView notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} invoices={invoices} adminFunctionWindow={adminFunctionWindow} onAdminFunctionWindowChange={setAdminFunctionWindow} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
@@ -7638,12 +7643,13 @@ function formatMaintenanceReportDate(value) {
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date).replace(".", "");
 }
 
-function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed }) {
+function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
   const [reportsPlate, setReportsPlate] = useState("");
   const longPressRef = useRef({ timer: null, triggered: false, startX: 0, startY: 0 });
+  const maintenanceInvoiceInputRef = useRef(null);
   const pendingMaintenanceKeyRef = useRef("");
   const handledMaintenanceSearchRef = useRef("");
   const workshopVehicle = vehicles.find((vehicle) => vehicle.plate === workshopPlate) ?? vehicles[0];
@@ -7736,6 +7742,25 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
     window.setTimeout(() => document.getElementById("historial-mantenimiento")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 40);
   };
 
+  const handleMaintenanceInvoiceFile = (event) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!file) return;
+    const validation = validateDocumentFile(file, "upload");
+    if (!validation.valid) {
+      notify?.(validation.message);
+      return;
+    }
+    setModal({
+      type: "document-processing",
+      category: "billing",
+      source: "upload",
+      file,
+      selectedPlate: workshopVehicle.plate,
+      recordType: "maintenance",
+    });
+  };
+
   return (
     <section className="module-page maintenance-page">
       <nav className="maintenance-vehicle-banners" aria-label="Vehículos de la flota">
@@ -7765,6 +7790,12 @@ function MaintenanceView({ initialPlate, invoices, setModal, vehicles, maintenan
           <div className="maintenance-history-vehicle">
             <span className={`vehicle-brand-mark vehicle-brand-mark--${selectedBrand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[selectedBrand]} alt="" /></span>
             <span><h2><VehiclePlateLabel vehicleOrPlate={workshopVehicle} className="maintenance-history-plate" /></h2></span>
+          </div>
+          <div className="maintenance-history-actions">
+            <input ref={maintenanceInvoiceInputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" onChange={handleMaintenanceInvoiceFile} />
+            <button type="button" className="maintenance-history-upload-button" onClick={() => maintenanceInvoiceInputRef.current?.click()} aria-label={`Añadir factura de mantenimiento a ${workshopVehicle.plate}`} title={`Añadir factura de mantenimiento a ${workshopVehicle.plate}`}>
+              <IconCamera size={19} /><span>Añadir factura</span>
+            </button>
           </div>
         </header>
         <div className="maintenance-history-scroll">
@@ -8197,11 +8228,12 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
   const isDriverDocument = modal.type === "driver-document";
   const isPhotoInvoice = modal.type === "invoice-upload";
   const isDocumentProcessing = modal.type === "document-processing";
+  const isMaintenanceDocumentProcessing = isDocumentProcessing && normalizeText(modal.recordType) === "maintenance";
   const isMaintenanceEdit = modal.type === "maintenance-edit";
   const isDriverDayEdit = modal.type === "driver-day-edit";
   const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", "driver-document": "Foto original del conductor", "driver-day-edit": "Editar registro del día", "maintenance-edit": "Editar intervención", support: "Contactar con soporte" };
   const complete = (message) => { notify(message); onClose(); };
-  if (isDocumentProcessing) titles[modal.type] = `${documentCategoryLabels[modal.category] ?? "Documento"} · Análisis IA`;
+  if (isDocumentProcessing) titles[modal.type] = `${isMaintenanceDocumentProcessing ? "Mantenimiento" : documentCategoryLabels[modal.category] ?? "Documento"} · Análisis IA`;
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className={`modal ${isPhotoInvoice ? "modal--invoice-photo" : ""}${isDocumentProcessing ? " modal--document-processing" : ""}${isDriverDocument ? " modal--driver-document" : ""}${isDriverDayEdit ? " modal--driver-day-edit" : ""}${isMaintenanceEdit ? " modal--maintenance-edit" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -8213,7 +8245,7 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
         {isMaintenanceEdit && <MaintenanceEditWorkflow item={item} onCancel={onClose} onSave={(values) => { const saved = onSaveMaintenance?.(values); if (saved !== false) complete("Intervención actualizada y reordenada por fecha"); }} />}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={async (invoice) => { const saved = await onSaveInvoice(invoice); if (saved !== false) complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
-        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} defaultDate={modal.defaultDate} recordType={modal.recordType} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument({ ...document, recordType: modal.recordType || document.recordType }); if (saved === false || saved?.ok === false) return saved; complete("Documento procesado y guardado"); return { ok: true }; }} />}
+        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} defaultDate={modal.defaultDate} recordType={modal.recordType} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument({ ...document, recordType: modal.recordType || document.recordType }); if (saved === false || saved?.ok === false) return saved; complete(isMaintenanceDocumentProcessing ? "Factura de mantenimiento guardada en el vehículo" : "Documento procesado y guardado"); return { ok: true }; }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
         {!isPhotoInvoice && !isDocumentProcessing && !isDriverDocument && !isDriverDayEdit && !isMaintenanceEdit && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Ticket de gasolina revisado" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar ticket" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
       </section>
@@ -8351,6 +8383,18 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
     const isDriverTotalKm = category === "consumption" && ["total-km", "total", "odometer", "odometro", "kilometraje total", "km acumulados"].includes(normalizedRecordType);
     const isDriverConsumption = category === "consumption" && ["consumption", "consumption rate", "consumption_rate", "consumo"].includes(normalizedRecordType);
     const isDriverCapture = isDriverBilling || isDriverFuel || isDriverDailyKm || isDriverTotalKm || isDriverConsumption;
+    const isMaintenanceReview = category === "billing" && normalizedRecordType === "maintenance";
+
+    if (isMaintenanceReview) {
+      const detectedDateField = nextFields.find((field) => ["serviceDate", "issueDate", "date"].includes(field.key) && field.value);
+      const detectedDate = detectedDateField?.value || "";
+      return nextFields.map((field) => {
+        if (field.key === "serviceDate" && !field.value && detectedDate) return { ...field, value: detectedDate, confidence: detectedDateField.confidence };
+        if (field.key === "expenseCategory" && !field.value) return { ...field, value: "Taller", confidence: 100 };
+        if (field.key === "vehicle" && !field.value && defaultVehicle) return { ...field, value: defaultVehicle, confidence: 100 };
+        return field;
+      });
+    }
 
     // A document's printed date is useful for audit, but it must not silently
     // move a driver's entry to another day. Keep the capture/upload date in
@@ -8465,6 +8509,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   const isDriverMileageReview = isDriverDailyKmReview || isDriverTotalKmReview;
   const isDriverConsumptionReview = category === "consumption" && ["consumption", "consumption rate", "consumption_rate", "consumo"].includes(normalizedRecordType);
   const isDriverBillingReview = category === "billing" && ["billing", "billing_daily"].includes(normalizedRecordType);
+  const isMaintenanceReview = category === "billing" && normalizedRecordType === "maintenance";
   const isDriverCaptureReview = isDriverFuelReview || isDriverMileageReview || isDriverConsumptionReview || isDriverBillingReview;
   const isOptionalDriverDateReview = isDriverCaptureReview && !isDriverFuelReview && !isDriverBillingReview;
   const driverDateField = fields.find((field) => field.key === "date");
@@ -8474,7 +8519,11 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   const driverMileageReviewLabels = { dailyKm: "Kilometraje diario", odometerKm: "Kilómetros acumulados", vehicle: "Vehículo" };
   const driverConsumptionReviewKeys = ["consumption", "vehicle", "consumptionCount"];
   const driverConsumptionReviewLabels = { consumption: "Consumo registrado", vehicle: "Vehículo", consumptionCount: "Cantidad de consumos registrados en este día" };
-  const reviewFields = isDriverFuelReview
+  const maintenanceReviewKeys = ["serviceDate", "odometerKm", "concept", "total", "company", "invoiceNumber"];
+  const maintenanceReviewLabels = { serviceDate: "Fecha de la actuación", odometerKm: "Kilómetros del vehículo", concept: "Actuación realizada", total: "Importe total", company: "Taller o empresa", invoiceNumber: "Número de factura" };
+  const reviewFields = isMaintenanceReview
+    ? maintenanceReviewKeys.map((key) => fields.find((field) => field.key === key)).filter(Boolean).map((field) => ({ ...field, label: maintenanceReviewLabels[field.key] ?? field.label }))
+    : isDriverFuelReview
     ? fields.filter((field) => field.key === "date" || field.key === "cost").map((field) => field.key === "cost" ? { ...field, label: "Importe total" } : field)
     : isDriverMileageReview
       ? driverMileageReviewKeys.map((key) => fields.find((field) => field.key === key)).filter(Boolean).map((field) => ({ ...field, label: driverMileageReviewLabels[field.key] ?? field.label }))
@@ -8483,7 +8532,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
     : isDriverBillingReview
       ? driverBillingReviewKeys.map((key) => fields.find((field) => field.key === key)).filter(Boolean).map((field) => ({ ...field, label: driverBillingReviewLabels[field.key] ?? field.label }))
       : fields.filter((field) => !["baseNetAmount", "promotions", "consumptionCount"].includes(field.key));
-  const workflowLabel = isDriverFuelReview ? "Repostaje" : isDriverDailyKmReview ? "Kilómetros diarios" : isDriverTotalKmReview ? "Kilómetros acumulados" : isDriverConsumptionReview ? "Consumo registrado" : documentCategoryLabels[category];
+  const workflowLabel = isMaintenanceReview ? "Mantenimiento" : isDriverFuelReview ? "Repostaje" : isDriverDailyKmReview ? "Kilómetros diarios" : isDriverTotalKmReview ? "Kilómetros acumulados" : isDriverConsumptionReview ? "Consumo registrado" : documentCategoryLabels[category];
   const lowConfidenceFields = reviewFields.filter((field) => field.confidence < 80);
   const overallConfidence = Math.round(Number(analysis?.overallConfidence) || (reviewFields.length ? reviewFields.reduce((total, field) => total + field.confidence, 0) / reviewFields.length : 0));
   const updateField = (key, value) => setFields((current) => {
@@ -8514,6 +8563,26 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   };
   const save = async () => {
     if (saveState.saving) return;
+    const extractedValues = fieldsToRecord(fields);
+    if (isMaintenanceReview) {
+      const maintenanceDate = extractedValues.serviceDate || extractedValues.issueDate || extractedValues.date || "";
+      const maintenanceConcept = String(extractedValues.concept ?? "").trim();
+      const maintenanceAmountValue = extractedValues.total === "" || extractedValues.total === null || extractedValues.total === undefined
+        ? extractedValues.netAmount
+        : extractedValues.total;
+      if (!isMaintenanceDate(maintenanceDate)) {
+        setSaveState({ saving: false, message: "Indica una fecha válida para la actuación antes de guardarla." });
+        return;
+      }
+      if (!maintenanceConcept) {
+        setSaveState({ saving: false, message: "Indica qué actuación se ha realizado antes de guardar la factura." });
+        return;
+      }
+      if (getDriverDocumentNumber(maintenanceAmountValue) <= 0) {
+        setSaveState({ saving: false, message: "Indica un importe total superior a cero antes de guardar la factura." });
+        return;
+      }
+    }
     setSaveState({ saving: true, message: "" });
     try {
       const result = await onSave({
@@ -8526,7 +8595,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         vehiclePlate: defaultVehicle,
         fileName: preparedFile?.name || file.name,
         fileType: preparedFile?.type || file.type,
-        fields: fieldsToRecord(fields),
+        fields: extractedValues,
         fieldConfidence: Object.fromEntries(fields.map((field) => [field.key, field.confidence])),
         overallConfidence,
         warnings: analysis?.warnings ?? [],
@@ -8584,7 +8653,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         </aside>
         <div className="document-review-fields">
           {lowConfidenceFields.length > 0 && <div className="document-review-warning" role="status"><IconAlertTriangle size={17} /><span><strong>Revisión necesaria</strong><small>Los campos marcados en ámbar tienen una confianza inferior al 80%.</small></span></div>}
-          <div className="document-review-heading"><div><h3>{isDriverFuelReview ? "Importe del repostaje" : isDriverDailyKmReview ? "Kilometraje diario" : isDriverTotalKmReview ? "Kilómetros acumulados" : isDriverConsumptionReview ? "Consumo registrado" : isDriverBillingReview ? "Estadísticas del día" : "Datos clasificados"}</h3><p>{isDriverFuelReview ? "Comprueba la fecha y el importe total antes de archivarlo." : isDriverMileageReview ? "Comprueba el kilometraje y el vehículo antes de archivarlo." : isDriverConsumptionReview ? "Comprueba el consumo, el vehículo y la cantidad registrada para este día." : isDriverBillingReview ? "Comprueba estos datos de la captura antes de archivarlos." : "Revisa y corrige antes de guardarlos en la aplicación."}</p></div><span className="document-review-confidence">{overallConfidence}% IA</span></div>
+          <div className="document-review-heading"><div><h3>{isMaintenanceReview ? "Factura de mantenimiento" : isDriverFuelReview ? "Importe del repostaje" : isDriverDailyKmReview ? "Kilometraje diario" : isDriverTotalKmReview ? "Kilómetros acumulados" : isDriverConsumptionReview ? "Consumo registrado" : isDriverBillingReview ? "Estadísticas del día" : "Datos clasificados"}</h3><p>{isMaintenanceReview ? "Comprueba la fecha, los kilómetros, la actuación y el importe antes de archivarla." : isDriverFuelReview ? "Comprueba la fecha y el importe total antes de archivarlo." : isDriverMileageReview ? "Comprueba el kilometraje y el vehículo antes de archivarlo." : isDriverConsumptionReview ? "Comprueba el consumo, el vehículo y la cantidad registrada para este día." : isDriverBillingReview ? "Comprueba estos datos de la captura antes de archivarlos." : "Revisa y corrige antes de guardarlos en la aplicación."}</p></div><span className="document-review-confidence">{overallConfidence}% IA</span></div>
           {isOptionalDriverDateReview && <div className="document-review-date-control">
             {!dateEditOpen
               ? <button type="button" className="secondary-button" onClick={() => setDateEditOpen(true)}>Cambiar fecha</button>
@@ -8596,7 +8665,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
               const value = field.value ?? "";
               return <label className={`document-field${low ? " document-field--low-confidence" : ""}`} key={field.key}>
                 <span><strong>{field.label}</strong><small>{field.confidence}%{low ? " · Revisar" : ""}</small></span>
-                {field.suffix ? <div className="document-field__input"><input type={field.type} min={field.min} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => { if (field.key === "date") setDateWasEdited(true); updateField(field.key, event.target.value); }} /><i>{field.suffix}</i></div> : <input type={field.type} min={field.min} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => { if (field.key === "date") setDateWasEdited(true); updateField(field.key, event.target.value); }} />}
+                {field.suffix ? <div className="document-field__input"><input type={field.type} min={field.min} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => { if (field.key === "date" || (isMaintenanceReview && field.key === "serviceDate")) setDateWasEdited(true); updateField(field.key, event.target.value); }} /><i>{field.suffix}</i></div> : <input type={field.type} min={field.min} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => { if (field.key === "date" || (isMaintenanceReview && field.key === "serviceDate")) setDateWasEdited(true); updateField(field.key, event.target.value); }} />}
               </label>;
             })}
           </div>

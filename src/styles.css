@@ -899,8 +899,13 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .maintenance-vehicle-banner.active .maintenance-vehicle-chevron { color: var(--green-800); transform: translateX(2px); }
 .maintenance-history-panel { overflow: hidden; scroll-margin-top: 86px; }
 .maintenance-history-header { min-height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 20px; border-bottom: 1px solid var(--line); background: #fbfdfc; }
-.maintenance-history-vehicle { display: flex; align-items: center; gap: 13px; }
+.maintenance-history-vehicle { min-width: 0; display: flex; align-items: center; gap: 13px; }
+.maintenance-history-vehicle > span:last-child { min-width: 0; }
 .maintenance-history-vehicle h2 { margin: 3px 0; font-size: 18px; }
+.maintenance-history-actions { flex: 0 0 auto; display: flex; align-items: center; }
+.maintenance-history-upload-button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 11px; border: 1px solid #111; border-radius: 9px; background: #fff; color: #111; font: inherit; font-size: 9px; font-weight: 900; letter-spacing: .035em; text-transform: uppercase; cursor: pointer; }
+.maintenance-history-upload-button:hover, .maintenance-history-upload-button:focus-visible { background: #f0f0f0; outline: 0; box-shadow: 0 0 0 3px rgba(17, 17, 17, .1); }
+.maintenance-history-upload-button svg { flex: 0 0 auto; }
 .maintenance-timeline { position: relative; display: grid; gap: 12px; padding: 17px 18px 20px 28px; background: linear-gradient(180deg, #f6fbf8 0%, #edf6f2 100%); }
 .maintenance-timeline::before { content: ""; position: absolute; top: 62px; bottom: 24px; left: 15px; width: 2px; border-radius: 999px; background: linear-gradient(180deg, #c2e3d5 0%, #9acdb8 100%); }
 .maintenance-timeline-heading { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 1px 3px 2px 0; }
@@ -2932,6 +2937,9 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .page-scroll--dashboard .report-chart-card--static .report-chart-filters { width: 100%; flex: 1 1 auto; }
   .maintenance-page { --maintenance-history-sticky-top: 64px; }
   .maintenance-page .maintenance-history-panel { max-height: calc(100dvh - 64px - var(--bottom-navigation-height) - 12px); }
+  .maintenance-history-header { gap: 9px; padding-inline: 12px; }
+  .maintenance-history-upload-button { width: 42px; min-height: 40px; padding: 0; }
+  .maintenance-history-upload-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 
 @media (max-width: 520px) and (max-height: 700px) {

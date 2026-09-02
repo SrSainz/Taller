@@ -43,6 +43,7 @@ test("requires every nullable extraction field for strict structured output", ()
   assert.deepEqual(new Set(consumptionFields.required), new Set(Object.keys(consumptionFields.properties)));
   assert.ok(Object.hasOwn(billingFields.properties, "baseNetAmount"));
   assert.ok(Object.hasOwn(billingFields.properties, "promotions"));
+  assert.ok(Object.hasOwn(billingFields.properties, "odometerKm"));
 });
 
 test("anchors fuel totals and collected cash to the printed document date", () => {

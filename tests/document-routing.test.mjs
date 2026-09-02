@@ -37,7 +37,7 @@ test("PRUEBA 1: gasolina alimenta consumo, gasolina, gastos, neto y resumen del 
 test("PRUEBA 2: una factura de taller se clasifica como mantenimiento y gasto del vehiculo", () => {
   const operations = operationsFromDocument({
     category: "billing",
-    fields: { serviceDate: "2026-08-15", total: 300, company: "Taller Funes Motorsport", concept: "Reparacion y mantenimiento", expenseCategory: "Taller", vehicle: "5754 MJV", invoiceNumber: "FMS-300" },
+    fields: { serviceDate: "2026-08-15", odometerKm: 210735, total: 300, company: "Taller Funes Motorsport", concept: "Reparacion y mantenimiento", expenseCategory: "Taller", vehicle: "5754 MJV", invoiceNumber: "FMS-300" },
     vehiclePlate: "5754 MJV",
     fileHash: "workshop-300",
   });
@@ -46,6 +46,7 @@ test("PRUEBA 2: una factura de taller se clasifica como mantenimiento y gasto de
   assert.equal(rows[0].type, "maintenance");
   assert.equal(sum(rows, "maintenance"), 300);
   assert.equal(rows[0].category, "taller");
+  assert.equal(rows[0].metadata.odometerKm, 210735);
 });
 
 test("PRUEBA 3: facturacion, efectivo y propinas se guardan separados", () => {
