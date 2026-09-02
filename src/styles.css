@@ -8249,6 +8249,7 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
 .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-carousel {
   flex: 1 1 auto;
   min-height: 0;
+  display: grid !important;
   grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 0;
   padding: 0;
