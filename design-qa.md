@@ -289,6 +289,42 @@ final result: passed
 
 final result: blocked
 
+## Iteración actual — 2 de septiembre de 2026: Neto a ancho completo según boceto móvil
+
+### Evidencia
+
+- Fuente visual: `C:\Users\aiday\OneDrive\Escritorio\20260902_103603.jpg`.
+- Captura autenticada de implementación móvil: `tmp/net-production-mobile-final-v5.png`.
+- Captura autenticada de implementación de escritorio: `tmp/net-production-desktop-postdeploy.png`.
+- Comparación conjunta revisada: `tmp/net-design-qa-comparison.png`.
+- Viewports comprobados: 390 × 844 px (móvil) y 1280 × 900 px (escritorio), estado cerrado de Neto, periodo septiembre de 2026.
+
+### Comparación y resultado
+
+- Las tres fichas profesionales ocupan el ancho completo y se apilan en filas iguales entre el resumen superior y la navegación fija.
+- El área izquierda reserva aproximadamente el 10 % menos de proporción que la versión anterior; la matrícula queda encima del vehículo y el coche permanece dentro de su propia fila.
+- El área derecha agrupa `NETO`, los dos conductores en vertical, `FACTURACIÓN` y `GASTOS`, conservando las fotos reales de Alex, Tirso, Mauricio, Amin, Andrés y Fernando donde corresponde.
+- Se eliminaron los separadores horizontales rojos internos; solo permanecen divisiones neutras y una línea vertical sutil entre el vehículo y la información financiera.
+- En escritorio se añadió un encuadre responsive para evitar que el vehículo invada la fila siguiente; en móvil se conservan las tres filas completas sin scroll vertical del modal.
+- Se verificó la interacción: al tocar una ficha se abre el detalle existente con gastos editables y `VER LOS 3 COCHES` devuelve a la vista resumida.
+
+### Checklist
+
+- [x] Comparación visual conjunta fuente + implementación revisada.
+- [x] Vista móvil 390 × 844 sin recortes ni desbordamiento vertical.
+- [x] Vista escritorio 1280 × 900 sin vehículos invadiendo otras filas.
+- [x] Tres coches en filas apaisadas a ancho completo.
+- [x] Separadores rojos internos eliminados.
+- [x] Funcionalidad de apertura y retorno conservada.
+
+### Verificación técnica
+
+- `pnpm test`: 45/45 pruebas superadas.
+- `pnpm run build`: compilación de producción superada.
+- Producción publicada en `https://talleria-flota.vercel.app`.
+
+final result: passed
+
 ## Iteración actual: wordmark de la barra superior
 
 - Fuente visual: `C:\Users\aiday\AppData\Local\Temp\codex-clipboard-b767efe6-fd3e-4c42-9357-82f7dbc26d14.png` (wordmark «SOBRE RUEDAS» en blanco y rojo).
