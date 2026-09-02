@@ -293,5 +293,6 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Criterio general de trabajo: todos los cambios visuales y funcionales nuevos se diseñan, dimensionan y validan con prioridad de vista móvil; la adaptación a pantallas grandes no debe perjudicar la experiencia móvil.
 
 - La cabecera de la página principal de Administración comparte la identidad visual de Neto: fondo carbón con los trazos rojos de carretera en la franja inferior, rueda roja y texto de alto contraste.
+- El desplegable comparativo de Conductores se identifica como «KM/H REALIZADOS VS RESTO» y calcula los kilómetros realizados por cada hora de conexión frente a la media gris del resto.
 
 The user has granted standing permission to answer “sí” to routine in-scope permission prompts for this project, including normal build and validation checks and, after successful validation, preparing commits containing only the files modified for the current functionality, pushing to the connected GitHub repository, and deploying to the linked Vercel production project without asking for confirmation each time. Unrelated, temporary, or generated files must remain excluded. Destructive actions, data deletion, or work outside the application scope still require confirmation.
