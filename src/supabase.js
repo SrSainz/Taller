@@ -115,7 +115,7 @@ const safeFileName = (value = "documento") => String(value)
 
 const documentRecordColumns = "id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at";
 const maintenanceReportColumns = "id, reporter_id, vehicle_plate, note, photo_path, photo_name, photo_mime_type, photo_size, status, created_at, updated_at";
-const driverDailyComparisonColumns = "entry_date, total_km, drivers_with_km, total_consumption, drivers_with_consumption, updated_at";
+const driverDailyComparisonColumns = "entry_date, total_km, drivers_with_km, total_consumption, drivers_with_consumption, total_km_per_connection_hour, drivers_with_km_per_connection_hour, updated_at";
 
 export const listDriverDailyComparisons = async ({ startDate = "", endDate = "" } = {}) => {
   if (!supabase) return { data: [], error: null };

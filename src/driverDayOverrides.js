@@ -1,3 +1,5 @@
+import { parseConnectionHours } from "./driverWeeklyComparison.js";
+
 const toNumber = (value, fallback = 0) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
   const raw = String(value ?? "").trim().replace(/[^\d,.-]/g, "");
@@ -66,6 +68,9 @@ export const applyDriverBillingOverride = (stats = {}, entry) => {
   return {
     ...stats,
     connection: hasOwn(override, "connection") ? String(override.connection ?? "").trim() : stats.connection ?? "",
+    connectionHours: hasOwn(override, "connection")
+      ? parseConnectionHours(override.connection)
+      : stats.connectionHours ?? parseConnectionHours(stats.connection),
     trips: integer(hasOwn(override, "trips") ? override.trips : stats.trips),
     points: integer(hasOwn(override, "points") ? override.points : stats.points),
     baseNetAmount: base,

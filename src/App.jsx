@@ -84,7 +84,7 @@ import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
 import { additionalHistoricalBillingSources } from "./data/additionalHistoricalBillingSummary";
 import { getImportedTipsByPeriod } from "./data/driverTipsSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
-import { averagePositive, buildDriverWeeklyComparison } from "./driverWeeklyComparison";
+import { averagePositive, buildDriverWeeklyComparison, parseConnectionHours } from "./driverWeeklyComparison";
 import { gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender, getGestoriaDocumentsForPeriod, getGestoriaExpenseForPeriod } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
@@ -1126,6 +1126,7 @@ const getDriverDocumentFieldValue = (fields = {}, keys = []) => {
 const getDriverBillingDocumentStats = (document) => {
   const fields = getExtractedDocumentFields(document);
   const billingAmounts = getDriverBillingAmounts(fields);
+  const connection = String(getDriverDocumentFieldValue(fields, ["connection", "connectionTime", "duration"]) || "").trim();
   const totalValue = getDriverDocumentFieldValue(fields, ["total", "earningsTotal", "grossTotal"]);
   const tips = getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["tips", "tip"]));
   const hasComputedNetAmount = billingAmounts.hasBaseNetAmount || billingAmounts.hasPromotions;
@@ -1137,7 +1138,8 @@ const getDriverBillingDocumentStats = (document) => {
   const total = hasComputedNetAmount ? Number((netAmount + tips).toFixed(2)) : totalValue !== "" ? getDriverDocumentNumber(totalValue) : netAmount + tips;
   return {
     dateKey: getDriverDocumentDateKey(document),
-    connection: String(getDriverDocumentFieldValue(fields, ["connection", "connectionTime", "duration"]) || "").trim(),
+    connection,
+    connectionHours: parseConnectionHours(connection),
     trips: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["trips", "journeys", "viajes"])),
     points: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["points", "puntos"])),
     baseNetAmount: billingAmounts.baseNetAmount,
@@ -1178,6 +1180,7 @@ function getDriverBillingStatsByDate(documents = [], driverId, entries = []) {
     const current = statsByDate.get(stats.dateKey) ?? {
       dateKey: stats.dateKey,
       connection: "",
+      connectionHours: 0,
       trips: 0,
       points: 0,
       baseNetAmount: 0,
@@ -1192,6 +1195,7 @@ function getDriverBillingStatsByDate(documents = [], driverId, entries = []) {
     statsByDate.set(stats.dateKey, {
       ...current,
       connection: stats.connection || current.connection,
+      connectionHours: Number((current.connectionHours + stats.connectionHours).toFixed(3)),
       trips: current.trips + stats.trips,
       points: current.points + stats.points,
       baseNetAmount: Number((current.baseNetAmount + stats.baseNetAmount).toFixed(2)),
@@ -1211,6 +1215,7 @@ function getDriverBillingStatsByDate(documents = [], driverId, entries = []) {
     const current = statsByDate.get(dateKey) ?? {
       dateKey,
       connection: "",
+      connectionHours: 0,
       trips: 0,
       points: 0,
       baseNetAmount: 0,
@@ -4074,13 +4079,18 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       const driverConsumption = extractedConsumption > 0
         ? extractedConsumption
         : litres > 0 && kilometres > 0 ? litres / kilometres * 100 : 0;
+      const billingStats = driverBillingStatsByDate.get(key);
+      const connectionHours = billingStats?.connectionHours > 0
+        ? billingStats.connectionHours
+        : parseConnectionHours(billingStats?.connection);
       return {
         dateKey: key,
         kilometres,
         consumption: Number(driverConsumption.toFixed(1)),
+        connectionHours,
       };
     });
-  }, [driverWeekDays, documents, entries]);
+  }, [driverBillingStatsByDate, driverWeekDays, documents, entries]);
   const weeklyConsumptionData = useMemo(() => buildDriverWeeklyComparison({
     days: driverWeekDays,
     driverRecords: driverWeeklyRecords,
@@ -4090,15 +4100,13 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     return averagePositive(weeklyConsumptionData.map((item) => item.driverConsumption));
   }, [weeklyConsumptionData]);
   const otherDriversConsumptionAverage = useMemo(() => averagePositive(weeklyConsumptionData.map((item) => item.otherConsumption)), [weeklyConsumptionData]);
-  const weeklyKmData = useMemo(() => weeklyConsumptionData.map((item) => ({
+  const weeklyKmPerConnectionHourData = useMemo(() => weeklyConsumptionData.map((item) => ({
     label: item.label,
-    driverKm: item.driverKm === null ? null : Math.round(item.driverKm),
-    otherKm: item.otherKm === null ? null : Number(item.otherKm.toFixed(1)),
+    driverKmPerConnectionHour: item.driverKmPerConnectionHour === null ? null : Number(item.driverKmPerConnectionHour.toFixed(1)),
+    otherKmPerConnectionHour: item.otherKmPerConnectionHour === null ? null : Number(item.otherKmPerConnectionHour.toFixed(1)),
   })), [weeklyConsumptionData]);
-  const otherDriversKmAverage = useMemo(() => averagePositive(weeklyKmData.map((item) => item.otherKm)), [weeklyKmData]);
-  const weeklyKmAverage = useMemo(() => {
-    return averagePositive(weeklyKmData.map((item) => item.driverKm));
-  }, [weeklyKmData]);
+  const otherDriversKmPerConnectionHourAverage = useMemo(() => averagePositive(weeklyKmPerConnectionHourData.map((item) => item.otherKmPerConnectionHour)), [weeklyKmPerConnectionHourData]);
+  const weeklyKmPerConnectionHourAverage = useMemo(() => averagePositive(weeklyKmPerConnectionHourData.map((item) => item.driverKmPerConnectionHour)), [weeklyKmPerConnectionHourData]);
   const previousDriverEntry = useMemo(() => {
     const previous = entries
       .filter((item) => String(item.entry_date ?? "") < selectedDate)
@@ -4533,11 +4541,11 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     weeklyChartData={weeklyChartData}
     monthlyBillingHistory={monthlyBillingHistory}
     weeklyConsumptionData={weeklyConsumptionData}
-    weeklyKmData={weeklyKmData}
-    weeklyKmAverage={weeklyKmAverage}
+    weeklyKmPerConnectionHourData={weeklyKmPerConnectionHourData}
+    weeklyKmPerConnectionHourAverage={weeklyKmPerConnectionHourAverage}
     weeklyConsumptionAverage={weeklyConsumptionAverage}
     otherDriversConsumptionAverage={otherDriversConsumptionAverage}
-    otherDriversKmAverage={otherDriversKmAverage}
+    otherDriversKmPerConnectionHourAverage={otherDriversKmPerConnectionHourAverage}
     dailyPhotoRecords={dailyPhotoRecords}
     driverReferenceImages={driverReferenceImages}
     averageConsumption={averageConsumption}
@@ -4728,10 +4736,10 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmData, weeklyKmAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 520;
-  const kmChartMax = 600;
-  const kmChartTicks = Array.from({ length: 7 }, (_, index) => index * 100);
+  const kmChartMax = 45;
+  const kmChartTicks = [0, 15, 20, 25, 30, 35, 40, 45];
   const consumptionChartTicks = [3.5, 4, 4.5, 5, 5.5];
   const homeRef = useRef(null);
   const statsRef = useRef(null);
@@ -5151,7 +5159,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
             })}
           </div>
           <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
-            <article className="driver-mobile-preview-km driver-mobile-preview-chart-card" role="button" tabIndex={0} aria-label="Kilómetros realizados frente al resto de conductores"><div className="driver-mobile-preview-chart-card__heading">KM REALIZADOS VS RESTO</div><div className="driver-mobile-preview-chart-card__summary"><strong>{Math.round(weeklyKmAverage).toLocaleString("es-ES")} km</strong><span>Resto conductores: {Math.round(otherDriversKmAverage).toLocaleString("es-ES")} km</span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyKmData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherKm" name="Resto conductores" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-preview-chart-card__legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
+            <article className="driver-mobile-preview-km driver-mobile-preview-chart-card" role="button" tabIndex={0} aria-label="Kilómetros realizados por hora de conexión frente al resto de conductores"><div className="driver-mobile-preview-chart-card__heading">KM/H DE CONEXIÓN VS RESTO</div><div className="driver-mobile-preview-chart-card__summary"><strong>{weeklyKmPerConnectionHourAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h</strong><span>Resto conductores: {otherDriversKmPerConnectionHourAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h</span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyKmPerConnectionHourData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverKmPerConnectionHour" name="Este conductor" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherKmPerConnectionHour" name="Resto conductores" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-preview-chart-card__legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
             <article className="driver-mobile-preview-history" aria-label="Facturación mensual histórica"><div className="driver-mobile-history-scroll" role="region" tabIndex="0" aria-label="Histórico de facturación mensual de los últimos doce meses"><div className="driver-mobile-history-bars" role="list">{compactMonthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></div></article>
             <article className="driver-mobile-preview-consumption" aria-label="Consumo semanal comparado"><div className="driver-mobile-consumption-compare"><span>Este conductor<strong>{weeklyConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span><em className={consumptionDifference <= 0 ? "is-better" : "is-higher"}>{consumptionDifference > 0 ? "+" : ""}{consumptionDifference.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</em><span>Resto<strong>{otherDriversConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyConsumptionData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverConsumption" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherConsumption" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-consumption-legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
           </div>
@@ -5187,7 +5195,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
           <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}>
             <div className="driver-mobile-chart-dialog__panel">
               <header>
-                <div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "km" ? "Kilómetros realizados" : "Consumo comparado"}</h2></div>
+                <div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "km" ? "Kilómetros por hora de conexión vs resto" : "Consumo comparado"}</h2></div>
                 <button type="button" aria-label="Cerrar gráfica ampliada" onClick={() => setExpandedPreviewMetric("")}><IconX size={18} /></button>
               </header>
               {expandedPreviewMetric === "billing" && (
@@ -5213,16 +5221,16 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               {expandedPreviewMetric === "km" && (
                 <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--km" onPointerUp={hideDriverChartTooltip} onPointerCancel={hideDriverChartTooltip} onPointerLeave={hideDriverChartTooltip} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={weeklyKmData} margin={{ top: 24, right: 0, bottom: 68, left: 0 }} onMouseMove={(state) => showDriverChartTooltip("km", state)} onTouchStart={(state) => showDriverChartTooltip("km", state)} onTouchMove={(state) => showDriverChartTooltip("km", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
+                    <LineChart data={weeklyKmPerConnectionHourData} margin={{ top: 24, right: 0, bottom: 68, left: 0 }} onMouseMove={(state) => showDriverChartTooltip("km", state)} onTouchStart={(state) => showDriverChartTooltip("km", state)} onTouchMove={(state) => showDriverChartTooltip("km", state)} onTouchEnd={hideDriverChartTooltip} onMouseLeave={hideDriverChartTooltip}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
                       <XAxis dataKey="label" interval={0} minTickGap={0} padding={{ left: 2, right: 2 }} tick={{ fontSize: 16, fontWeight: 900, fill: "#102d58" }} tickMargin={10} />
                       <YAxis width={42} ticks={kmChartTicks} domain={[0, kmChartMax]} allowDataOverflow allowDecimals={false} tick={{ fontSize: 16, fontWeight: 900, fill: "#102d58" }} tickMargin={4} tickFormatter={(value) => Number(value).toLocaleString("es-ES")} />
-                      <Tooltip active={activeDriverChartTooltip === "km"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} labelStyle={{ fontSize: 18, fontWeight: 900, color: "#102d58" }} itemStyle={{ fontSize: 17, fontWeight: 900, color: "#173661" }} formatter={(value) => `${Number(value).toLocaleString("es-ES")} km`} />
-                      <Line type="monotone" dataKey="driverKm" name="Este conductor" stroke="#2c6de9" strokeWidth={5} dot={{ r: 5 }} />
-                      <Line type="monotone" dataKey="otherKm" name="Resto" stroke="#9aaac0" strokeWidth={3} strokeDasharray="6 5" dot={{ r: 4 }} />
+                      <Tooltip active={activeDriverChartTooltip === "km"} cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} labelStyle={{ fontSize: 18, fontWeight: 900, color: "#102d58" }} itemStyle={{ fontSize: 17, fontWeight: 900, color: "#173661" }} formatter={(value) => `${Number(value).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h conexión`} />
+                      <Line type="monotone" dataKey="driverKmPerConnectionHour" name="Este conductor" stroke="#2c6de9" strokeWidth={5} dot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="otherKmPerConnectionHour" name="Resto de conductores" stroke="#9aaac0" strokeWidth={3} strokeDasharray="6 5" dot={{ r: 4 }} />
                     </LineChart>
                   </ResponsiveContainer>
-                  <div className="driver-mobile-chart-dialog__legend" aria-label="Leyenda del gráfico de kilómetros"><span><i className="driver-mobile-chart-dialog__legend-swatch driver-mobile-chart-dialog__legend-swatch--driver" />Este conductor</span><span><i className="driver-mobile-chart-dialog__legend-swatch driver-mobile-chart-dialog__legend-swatch--rest" />Resto</span></div>
+                  <div className="driver-mobile-chart-dialog__legend" aria-label="Leyenda del gráfico de kilómetros por hora de conexión"><span><i className="driver-mobile-chart-dialog__legend-swatch driver-mobile-chart-dialog__legend-swatch--driver" />Este conductor</span><span><i className="driver-mobile-chart-dialog__legend-swatch driver-mobile-chart-dialog__legend-swatch--rest" />Resto de conductores</span></div>
                 </div>
               )}
               {expandedPreviewMetric === "consumption" && (
@@ -6611,7 +6619,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
               <div className="report-stat-grid">
                 <ReportFleetSummaryCard billing={formatMainAmount(periodTotals.billing)} fuel={formatMainAmount(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
                 <ReportStatCard wide icon={IconTool} label="Mantenimiento" value={formatMainAmount(periodTotals.maintenance)} daily={formatMainAmount(periodTotals.maintenance / periodDays)} perKm={formatMainAmount(totalDistance > 0 ? periodTotals.maintenance / totalDistance : 0)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
-                <ReportStatCard wide icon={IconCurrencyEuro} label="Neto" value={formatMainAmount(periodTotals.net)} daily={formatMainAmount(periodTotals.net / periodDays)} perKm={formatMainAmount(totalDistance > 0 ? periodTotals.net / totalDistance : 0)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
+                <ReportStatCard wide netLayout icon={IconCurrencyEuro} label="Neto" value={formatMainAmount(periodTotals.net)} daily={formatMainAmount(periodTotals.net / periodDays)} perKm={formatMainAmount(totalDistance > 0 ? periodTotals.net / totalDistance : 0)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
               </div>
               <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
                 <header className="report-chart-card__top">
@@ -6701,15 +6709,27 @@ function ReportFleetSummaryCard({ billing, fuel, onClick }) {
   );
 }
 
-function ReportStatCard({ wide = false, icon: Icon, label, value, daily, perKm, tone, active, actionLabel, onClick }) {
+function ReportStatCard({ wide = false, netLayout = false, icon: Icon, label, value, daily, perKm, tone, active, actionLabel, onClick }) {
   return (
-    <button type="button" className={`report-stat-card report-stat-card--${tone}${wide ? " report-stat-card--wide" : ""}${active ? " report-stat-card--active" : ""}`} onClick={onClick} aria-label={actionLabel ?? `Mostrar gráfico de ${label}`} aria-pressed={active}>
-      <span className="report-stat-card__header"><span className="report-stat-card__icon"><Icon size={18} /></span><strong>{wide ? label.toLocaleUpperCase("es") : label}</strong></span>
-      {wide ? <span className="report-stat-card__inline-metrics">
-        <span><small>Total</small><strong>{value}</strong></span>
-        <span><small>Por día</small><strong>{daily}</strong></span>
-        <span><small>Por km</small><strong>{perKm}</strong></span>
-      </span> : <>
+    <button type="button" className={`report-stat-card report-stat-card--${tone}${wide ? " report-stat-card--wide" : ""}${netLayout ? " report-stat-card--net-layout" : ""}${active ? " report-stat-card--active" : ""}`} onClick={onClick} aria-label={actionLabel ?? `Mostrar gráfico de ${label}`} aria-pressed={active}>
+      {wide && netLayout ? <>
+        <span className="report-stat-card__net-topline">
+          <span className="report-stat-card__header"><span className="report-stat-card__icon"><Icon size={18} /></span><strong>{label.toLocaleUpperCase("es")}</strong></span>
+          <span className="report-stat-card__net-total"><small>Total</small><strong>{value}</strong></span>
+        </span>
+        <span className="report-stat-card__inline-metrics report-stat-card__inline-metrics--two">
+          <span><small>Por día</small><strong>{daily}</strong></span>
+          <span><small>Por km</small><strong>{perKm}</strong></span>
+        </span>
+      </> : wide ? <>
+        <span className="report-stat-card__header"><span className="report-stat-card__icon"><Icon size={18} /></span><strong>{label.toLocaleUpperCase("es")}</strong></span>
+        <span className="report-stat-card__inline-metrics">
+          <span><small>Total</small><strong>{value}</strong></span>
+          <span><small>Por día</small><strong>{daily}</strong></span>
+          <span><small>Por km</small><strong>{perKm}</strong></span>
+        </span>
+      </> : <>
+        <span className="report-stat-card__header"><span className="report-stat-card__icon"><Icon size={18} /></span><strong>{label}</strong></span>
         <small>Total</small>
         <strong className="report-stat-value">{value}</strong>
         <span className="report-stat-card__footer"><span><small>Por día</small><strong>{daily}</strong></span><span><small>Por km</small><strong>{perKm}</strong></span></span>

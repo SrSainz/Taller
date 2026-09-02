@@ -282,6 +282,18 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .report-stat-card__inline-metrics strong { min-width: 0; overflow: hidden; color: #45534e; font-size: 14px; letter-spacing: -.2px; text-overflow: ellipsis; white-space: nowrap; }
 .report-stat-card--orange .report-stat-card__inline-metrics strong { color: var(--maintenance-orange-strong); }
 .report-stat-card--green .report-stat-card__inline-metrics strong { color: #278c3b; }
+.report-stat-card--net-layout { grid-template-rows: auto auto; }
+.report-stat-card__net-topline { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.report-stat-card--net-layout .report-stat-card__header { min-width: 0; margin-bottom: 0; }
+.report-stat-card--net-layout .report-stat-card__header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report-stat-card__net-total { min-width: 0; display: flex; align-items: baseline; justify-content: flex-end; gap: 6px; text-align: right; }
+.report-stat-card__net-total small { flex: 0 0 auto; color: #7e8a85; font-size: 8px; font-weight: 650; text-transform: uppercase; white-space: nowrap; }
+.report-stat-card__net-total strong { min-width: 0; overflow: hidden; color: #278c3b; font-size: clamp(17px, 4vw, 24px); font-weight: 900; letter-spacing: -.35px; text-overflow: ellipsis; white-space: nowrap; }
+.report-stat-card--net-layout .report-stat-card__inline-metrics--two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding-top: 0; border-top: 0; }
+.report-stat-card--net-layout .report-stat-card__inline-metrics--two > span { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 8px; border: 1px solid #d6e6d9; border-radius: 8px; background: rgba(255,255,255,.58); }
+.report-stat-card--net-layout .report-stat-card__inline-metrics--two > span + span { padding-left: 8px; border-left: 1px solid #d6e6d9; }
+.report-stat-card--net-layout .report-stat-card__inline-metrics--two > span:last-child { align-items: flex-end; text-align: right; }
+.report-stat-card--net-layout .report-stat-card__inline-metrics--two strong { color: #278c3b; }
 .report-stat-card--orange { border-color: var(--maintenance-orange-line); background: #fff5e5; }
 .report-stat-card--orange:hover { border-color: var(--maintenance-orange); }
 .report-stat-card--green { border-color: #b9d9bf; background: #edf8ef; }
@@ -3940,6 +3952,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-chart-dialog { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 10px; background: rgba(5,22,47,.58); }
 .driver-mobile-chart-dialog__panel { width: min(640px, calc(100vw - 20px)); height: min(780px, calc(100dvh - 20px)); max-height: calc(100dvh - 20px); display: flex; flex-direction: column; overflow: hidden; padding: 14px; border: 1px solid #d7e2ef; border-radius: 18px; background: #fff; box-shadow: 0 18px 50px rgba(3,24,55,.3); }
 .driver-mobile-chart-dialog__panel > header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.driver-mobile-chart-dialog__panel > header > div { min-width: 0; flex: 1 1 auto; }
 .driver-mobile-chart-dialog__panel > header span { color: #587398; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
 .driver-mobile-chart-dialog__panel > header h2 { margin: 3px 0 0; color: #102d58; font-size: 18px; font-weight: 900; line-height: 1.08; }
 .driver-mobile-chart-dialog__panel > header button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 1px solid #d4dfec; border-radius: 9px; background: #f7faff; color: #173661; cursor: pointer; }
