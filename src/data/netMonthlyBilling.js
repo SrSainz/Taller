@@ -1,3 +1,5 @@
+import { canonicalizeVehiclePlate } from "./vehicleRegistry.js";
+
 // Importes mensuales fijos que se muestran en la facturación por conductor
 // dentro del detalle de Neto. No sustituyen los documentos ni las operaciones
 // diarias del ledger; solo definen el fijo mensual de este resumen.
@@ -8,6 +10,11 @@ export const netMonthlyFixedBillingByDriver = Object.freeze({
   fernando: 1332.24,
   mauricio: 1323.72,
   tirso: 1323.37,
+});
+
+export const netMonthlyFixedInsuranceByPlate = Object.freeze({
+  "5043 MLC": 220.83,
+  "5750 MJV": 310.00,
 });
 
 const getDriverKey = (driver = "") => String(driver)
@@ -23,3 +30,5 @@ export const getNetMonthlyFixedBilling = (driver) => {
     ? netMonthlyFixedBillingByDriver[key]
     : null;
 };
+
+export const getNetMonthlyFixedInsurance = (plate) => netMonthlyFixedInsuranceByPlate[canonicalizeVehiclePlate(plate)] ?? null;

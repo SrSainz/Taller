@@ -84,7 +84,7 @@ import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
 import { additionalHistoricalBillingSources } from "./data/additionalHistoricalBillingSummary";
 import { getImportedTipsByPeriod } from "./data/driverTipsSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
-import { getNetMonthlyFixedBilling } from "./data/netMonthlyBilling";
+import { getNetMonthlyFixedBilling, getNetMonthlyFixedInsurance } from "./data/netMonthlyBilling";
 import { averagePositive, buildDriverWeeklyComparison, parseConnectionHours } from "./driverWeeklyComparison";
 import { GESTORIA_MONTHLY_FIXED_AMOUNT, gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
@@ -727,6 +727,8 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const licenseLoanAmount = getLicenseLoanAmountForPeriod(vehicle.plate);
   const configuredFuelAmount = getNetFuelAmountForPeriod(vehicle.plate, reportYear, reportMonth);
   const inspectionAmount = getAnnualRecurringExpenseAmount("inspection", vehicle.plate, reportMonth);
+  const configuredInsuranceAmount = getNetMonthlyFixedInsurance(vehicle.plate);
+  const insuranceAmount = configuredInsuranceAmount ?? scale(amounts[9]);
   const vehicleDrivers = (driverNames.length ? driverNames : vehicle.drivers).slice(0, 2);
   const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: 0 }));
   const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
@@ -790,7 +792,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     { key: "taxes", label: "Impuestos", amount: scale(amounts[7]), cadence: "Trimestral" },
     { key: "eu-vat", label: "IVA intracomunitario", amount: intracommunityVat, cadence: intracommunityVatRate > 0 ? `${Math.round(intracommunityVatRate * 100)}% desde enero de 2025` : "0% anterior a enero de 2025", meta: `${formatCurrency(driverBillingTotal)} × ${Math.round(intracommunityVatRate * 100)}%` },
     { key: "leasing", label: "Leasing coche", amount: leasingAmount, cadence: getLeasingCadence(vehicle.plate, reportYear, reportMonth) },
-    { key: "insurance", label: "Seguro", amount: scale(amounts[9]), cadence: "Anual" },
+    { key: "insurance", label: "Seguro", amount: insuranceAmount, cadence: configuredInsuranceAmount == null ? "Anual" : "Mensual · fijo" },
     { key: "inspection", label: "ITV", amount: inspectionAmount || scale(additional.itv), cadence: getAnnualRecurringExpenseCadence("inspection") },
     { key: "road-tax", label: "Impuesto circulación", amount: scale(additional.circulation), cadence: "Anual" },
     { key: "license-loan", label: "Préstamo licencia", amount: licenseLoanAmount, cadence: getLicenseLoanCadence(vehicle.plate) },
@@ -8326,6 +8328,7 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
   const fuelAmount = transactionTotal("fuel") || getFuelCostForPeriod(vehicle, reportMonth, reportYear);
   const maintenanceAmount = transactionTotal("maintenance") || getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear);
   const gestoriaAmount = getGestoriaFixedAmountForPeriod(vehicle.plate);
+  const insuranceAmount = getNetMonthlyFixedInsurance(vehicle.plate);
   const leasingAmount = getLeasingAmountForPeriod(vehicle.plate, reportYear, reportMonth);
   const licenseLoanAmount = getLicenseLoanAmountForPeriod(vehicle.plate);
   const inspectionAmount = getAnnualRecurringExpenseAmount("inspection", vehicle.plate, reportMonth);
@@ -8352,8 +8355,9 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
     payroll: payrollAmount,
     "driver-commission": commissionAmount,
     "eu-vat": intracommunityVatAmount,
+    insurance: insuranceAmount ?? 0,
   };
-  const expenses = expenseCategories.map((category) => ({ ...category, cadence: category.canonicalKey === "leasing" ? getLeasingCadence(vehicle.plate, reportYear, reportMonth) : category.canonicalKey === "license-loan" ? getLicenseLoanCadence(vehicle.plate) : category.canonicalKey === "inspection" ? getAnnualRecurringExpenseCadence("inspection") : category.canonicalKey === "eu-vat" ? (intracommunityVatRate > 0 ? `${Math.round(intracommunityVatRate * 100)}% desde enero de 2025` : "0% anterior a enero de 2025") : category.cadence, amount: Number((amountsByKey[category.canonicalKey] ?? 0).toFixed(2)) }));
+  const expenses = expenseCategories.map((category) => ({ ...category, cadence: category.canonicalKey === "leasing" ? getLeasingCadence(vehicle.plate, reportYear, reportMonth) : category.canonicalKey === "license-loan" ? getLicenseLoanCadence(vehicle.plate) : category.canonicalKey === "inspection" ? getAnnualRecurringExpenseCadence("inspection") : category.canonicalKey === "eu-vat" ? (intracommunityVatRate > 0 ? `${Math.round(intracommunityVatRate * 100)}% desde enero de 2025` : "0% anterior a enero de 2025") : category.canonicalKey === "insurance" && insuranceAmount != null ? "Mensual · fijo" : category.cadence, amount: Number((amountsByKey[category.canonicalKey] ?? 0).toFixed(2)) }));
   const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const operating = expenses.filter((expense) => ["fuel", "workshop", "driver-commission"].includes(expense.canonicalKey) || ["Limpieza coche", "Varios"].includes(expense.label)).reduce((sum, expense) => sum + expense.amount, 0);
   const fixed = total - operating;
