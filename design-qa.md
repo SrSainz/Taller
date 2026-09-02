@@ -402,3 +402,47 @@ final result: blocked
 - No se pudo completar la comparación visual autenticada porque el navegador integrado está bloqueado para esta sesión y el entorno local no tiene credenciales públicas reales de Supabase. No se afirma un pase visual; el estado queda bloqueado hasta poder comprobar los viewports reales.
 
 final result: blocked
+
+## Iteración actual — 2 de septiembre de 2026: Neto con frontal recortado y ficha financiera ampliada
+
+### Evidencia
+
+- Fuente visual de verdad: `C:\Users\aiday\OneDrive\Escritorio\20260902_103603.jpg` (4000 × 3000 px JPEG; se giró 90° para presentarla en orientación vertical en la comparación).
+- Captura browser-rendered móvil: `tmp/net-production-mobile-final-v6.png` (390 × 844 px, viewport CSS 390 × 844 px, densidad del navegador 1x, resumen cerrado, septiembre de 2026).
+- Captura browser-rendered móvil compacta: `tmp/net-production-mobile-360-final.png` (360 × 800 px, viewport CSS 360 × 800 px, densidad del navegador 1x, resumen cerrado, septiembre de 2026).
+- Captura browser-rendered de ancho mínimo: `tmp/net-production-mobile-320-collapsed-final-v3.png` (320 × 800 px, viewport CSS 320 × 800 px, densidad del navegador 1x, resumen cerrado, septiembre de 2026).
+- Captura browser-rendered de escritorio: `tmp/net-production-desktop-final-v6.png` (1280 × 900 px, viewport CSS 1280 × 900 px, densidad del navegador 1x, resumen cerrado, septiembre de 2026).
+- Comparación conjunta revisada: `tmp/net-design-qa-comparison-v2.png` (lienzo 950 × 900 px; boceto ajustado al panel izquierdo e implementación móvil mostrada a escala nativa en el panel derecho).
+- Producción validada: `https://talleria-flota.vercel.app/?release=vehicle-owners-1be6e79#/informes` → Neto.
+
+### Comparación y resultado
+
+- Cada ficha profesional conserva su fila apaisada a ancho completo y el coche aparece recortado desde el borde izquierdo hasta aproximadamente media rueda delantera, ocupando cerca de la mitad del ancho visual anterior.
+- La matrícula permanece inmediatamente encima del coche; la imagen gris–rojo–gris conserva la orientación común, el brillo inferior y el tratamiento oscuro de la referencia visual.
+- El panel financiero se amplía hacia la derecha y muestra con mayor jerarquía `NETO`, los dos conductores en columna con sus fotografías reales, `FACTURACIÓN` y `GASTOS`; no invade la ficha siguiente.
+- La altura disponible se calcula hasta la navegación fija: el tercer coche sube y su importe de `GASTOS` queda visible tanto en 390×844 como en 360×800, sin quedar oculto bajo la barra inferior.
+- En el ancho mínimo comprobado de 320 px se estrecha únicamente el área visual del coche y se ajustan unos pocos píxeles de tipografía; los importes siguen siendo destacados y caben sin solaparse con las etiquetas.
+- No aparecen separadores horizontales rojos dentro de la información; solo se mantiene la división vertical neutra entre el vehículo y la información financiera y una separación sutil entre filas.
+
+### Superficies de fidelidad
+
+- Layout: se conserva la anatomía del boceto — vehículo a la izquierda, matrícula encima e información alineada a la derecha—, dando prioridad al espacio de lectura financiera.
+- Tipografía: se amplían el neto, facturación, gastos, nombres e importes de los conductores; las fotos de Alex, Tirso, Mauricio, Amin, Andrés y Fernando se mantienen asociadas a sus fichas.
+- Color: se mantiene el fondo de asfalto oscuro, gris oscuro para los coches laterales, rojo oscuro para el coche central y acentos claros de la cabecera.
+- Responsividad: las reglas se validan primero en móvil y conservan un encuadre contenido en escritorio, sin desbordamiento ni recorte de texto.
+
+### Interacciones y accesibilidad verificadas
+
+- Pulsar `5043 MLC` abre el detalle existente con la facturación de Alex/Tirso, todos los gastos y los controles de edición; `VER LOS 3 COCHES` permite volver a la vista resumida.
+- Las filas siguen siendo elementos interactivos con nombre accesible y la navegación inferior permanece operativa.
+- La comprobación `agent-browser errors` no devolvió errores de consola nuevos.
+- `pnpm run build`: superado.
+- `pnpm test`: 45/45 pruebas superadas.
+
+### Hallazgos y corrección aplicada
+
+- La versión anterior mostraba demasiado ancho del vehículo, reducía la legibilidad de la información y podía dejar el gasto de la tercera ficha demasiado próximo a la navegación fija.
+- Se corrigió el recorte de la imagen, se redistribuyó la cuadrícula a favor de la información, se aumentaron los textos y avatares y se limitó la altura del modal al espacio visible antes de la navegación.
+- Las capturas móvil y escritorio posteriores a la corrección no muestran recortes de cifras, solapamientos entre fichas ni pérdida de la interacción de detalle.
+
+final result: passed
