@@ -7758,6 +7758,98 @@ body:has(.net-detail-backdrop) .topbar--reports {
   .topbar-title .sobre-ruedas-wordmark { font-size: 16px; letter-spacing: .025em; }
 }
 
+/* Administración: la cabecera comparte el tratamiento oscuro de Neto.
+   La imagen real de carretera conserva los trazos rojos como separación inferior. */
+.app-shell--admin .topbar,
+.app-shell--admin .topbar--reports {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-bottom-color: rgba(239, 51, 64, .78);
+  background-color: #05080b;
+  background-image:
+    linear-gradient(180deg, rgba(4, 9, 12, .38), rgba(4, 9, 12, .72)),
+    url("/neto/neto-road-hero.png");
+  background-position: center 74%;
+  background-size: cover;
+  color: #fff;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, .3), 0 2px 12px rgba(239, 51, 64, .16);
+}
+.app-shell--admin .topbar::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(239, 51, 64, .74) 22%, #ef3340 50%, rgba(239, 51, 64, .74) 78%, transparent);
+  box-shadow: 0 0 11px rgba(239, 51, 64, .68);
+  content: "";
+  pointer-events: none;
+}
+.app-shell--admin .topbar-title,
+.app-shell--admin .topbar-actions {
+  position: relative;
+  z-index: 1;
+}
+.app-shell--admin .admin-topbar-home {
+  border-color: rgba(255, 255, 255, .42);
+  background: #d20000;
+  box-shadow: 0 3px 11px rgba(239, 51, 64, .28);
+}
+.app-shell--admin .admin-topbar-home:hover,
+.app-shell--admin .admin-topbar-home:focus-visible {
+  border-color: rgba(255, 255, 255, .72);
+  background: #e00000;
+  box-shadow: 0 4px 14px rgba(239, 51, 64, .42);
+}
+.app-shell--admin .topbar-title .admin-title-control {
+  color: #fff;
+}
+.app-shell--admin .topbar-title .admin-title-control:hover,
+.app-shell--admin .topbar-title .admin-title-control:focus-visible {
+  background: rgba(255, 255, 255, .12);
+}
+.app-shell--admin .topbar-title .admin-title-control span,
+.app-shell--admin .topbar-title .admin-title-control strong {
+  color: #fff;
+}
+.app-shell--admin .topbar-title .admin-title-control svg {
+  color: rgba(255, 255, 255, .78);
+}
+.app-shell--admin .topbar-title .admin-title-control[aria-expanded="true"] svg {
+  color: #fff;
+}
+.app-shell--admin .topbar-route-button,
+.app-shell--admin .bell-button,
+.app-shell--admin .topbar-menu-button {
+  border-color: rgba(255, 255, 255, .34);
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+}
+.app-shell--admin .topbar-route-button:hover,
+.app-shell--admin .bell-button:hover,
+.app-shell--admin .topbar-menu-button:hover,
+.app-shell--admin .topbar-route-button--active {
+  border-color: rgba(255, 255, 255, .72);
+  background: rgba(255, 255, 255, .22);
+  color: #fff;
+}
+.app-shell--admin .topbar-route-button i,
+.app-shell--admin .bell-button i {
+  border-color: #05080b;
+}
+.app-shell--admin .topbar-route-button--facturas svg {
+  color: #bfe8ff;
+}
+
+@media (max-width: 380px) {
+  .app-shell--admin .topbar,
+  .app-shell--admin .topbar--reports {
+    background-position: center 74%;
+  }
+}
+
 @media (max-width: 520px) and (max-height: 700px) {
   .topbar-title .sobre-ruedas-wordmark { font-size: 14px; }
 }
