@@ -8947,6 +8947,11 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
 }
 
 @media (max-width: 820px) {
+  body:has(.maintenance-page) .topbar--maintenance {
+    flex-basis: 70px;
+    height: 70px;
+  }
+
   .maintenance-page .maintenance-vehicle-banner-row {
     grid-template-columns: minmax(0, 1fr) 78px;
     gap: 6px;
@@ -9227,5 +9232,19 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
 
   .maintenance-page .maintenance-pending-review-button.has-pending > b {
     background: #b32820;
+  }
+}
+
+@media (max-width: 520px) {
+  body:has(.maintenance-page) .topbar--maintenance {
+    flex-basis: 64px;
+    height: 64px;
+  }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  body:has(.maintenance-page) .topbar--maintenance {
+    flex-basis: 54px;
+    height: 54px;
   }
 }
