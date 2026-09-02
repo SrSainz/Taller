@@ -8313,11 +8313,20 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
 
 .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance {
   align-self: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto auto auto;
+  grid-template-areas: none;
   align-content: center;
   gap: clamp(4px, .65vw, 8px);
   padding-left: clamp(9px, 1.6vw, 17px);
   border-left: 1px solid rgba(226, 239, 236, .24);
+}
+
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance > .net-detail-card__collapsed-net,
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance > .net-detail-card__collapsed-drivers,
+.net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-finance > .net-detail-card__collapsed-line {
+  grid-area: auto !important;
 }
 
 .net-detail-modal:not(.net-detail-modal--expanded) .net-detail-card__collapsed-net,
