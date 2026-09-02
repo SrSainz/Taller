@@ -85,7 +85,7 @@ import { additionalHistoricalBillingSources } from "./data/additionalHistoricalB
 import { getImportedTipsByPeriod } from "./data/driverTipsSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
 import { averagePositive, buildDriverWeeklyComparison, parseConnectionHours } from "./driverWeeklyComparison";
-import { gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender, getGestoriaDocumentsForPeriod, getGestoriaExpenseForPeriod } from "./data/gestoriaSummary";
+import { GESTORIA_MONTHLY_FIXED_AMOUNT, gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
@@ -560,7 +560,7 @@ const expenseCategories = [
   { canonicalKey: "driver-commission", label: "Comisiones de conductores", cadence: "Variable" },
   { canonicalKey: "taxes", label: "Impuestos trimestrales", cadence: "Trimestral" },
   { canonicalKey: "eu-vat", label: "IVA intracomunitario", cadence: "8% desde enero de 2025" },
-  { canonicalKey: "accounting", label: "Gestoría", cadence: "Mensual" },
+  { canonicalKey: "accounting", label: "Gestoría", cadence: "Mensual · fijo" },
   { canonicalKey: "insurance", label: "Seguro", cadence: "Anual" },
   { canonicalKey: "inspection", label: "ITV", cadence: "Noviembre · recurrente anual" },
   { label: "Limpieza coche", cadence: "Variable" },
@@ -644,6 +644,7 @@ const getAnnualRecurringExpenseAmount = (key, plate, month) => {
   return expense && month === expense.month && vehicleOrder.includes(canonicalizeVehiclePlate(plate)) ? expense.amount : 0;
 };
 const getAnnualRecurringExpenseCadence = (key) => annualRecurringExpenses[key]?.cadence ?? "Anual";
+const getGestoriaFixedAmountForPeriod = (plate) => vehicleOrder.includes(canonicalizeVehiclePlate(plate)) ? GESTORIA_MONTHLY_FIXED_AMOUNT : 0;
 
 const vehicleExpenseAmounts = {};
 const netAdditionalExpenseAmounts = {};
@@ -725,8 +726,6 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const licenseLoanAmount = getLicenseLoanAmountForPeriod(vehicle.plate);
   const configuredFuelAmount = getNetFuelAmountForPeriod(vehicle.plate, reportYear, reportMonth);
   const inspectionAmount = getAnnualRecurringExpenseAmount("inspection", vehicle.plate, reportMonth);
-  const gestoriaPeriodDocuments = getGestoriaDocumentsForPeriod(vehicle.plate, reportYear, reportMonth);
-  const gestoriaPeriodAmount = getGestoriaExpenseForPeriod(vehicle.plate, reportYear, reportMonth);
   const vehicleDrivers = (driverNames.length ? driverNames : vehicle.drivers).slice(0, 2);
   const fallbackDriverRows = vehicleDrivers.map((driver) => ({ driver, revenue: 0 }));
   const resolvedDriverRows = driverRows.length ? driverRows : fallbackDriverRows;
@@ -780,20 +779,9 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const resolvedPayrollBreakdown = applyNetBreakdownOverrides("payroll", payrollBreakdown, manualBreakdowns);
   const resolvedCommissionBreakdown = applyNetBreakdownOverrides("driver-commission", commissionBreakdown, manualBreakdowns);
   const resolvedSocialBreakdown = applyNetBreakdownOverrides("social-security", socialBreakdown, manualBreakdowns);
-  const accountingBreakdown = gestoriaPeriodDocuments.length
-    ? gestoriaPeriodDocuments.map((document) => ({
-      breakdownKey: document.id,
-      label: document.recurring ? "Cuota mensual de gestoría" : "Gasto extraordinario",
-      concept: document.recurring ? "Cuota mensual de gestoría" : document.concept || "Gasto de gestoría",
-      amount: Number(document.amount) || 0,
-      meta: `${document.documentNumber} · ${formatDocumentDisplayDate(document.dateIso)}`,
-      date: document.dateIso,
-    }))
-    : (Number(additional.gestoria) > 0 ? [{ breakdownKey: "gestoria-manual", label: "Gestoría", concept: "Gestoría", amount: scale(additional.gestoria), meta: "Importe registrado", date: "" }] : []);
-  const resolvedAccountingBreakdown = applyNetBreakdownOverrides("accounting", accountingBreakdown, manualBreakdowns);
   return [
     { key: "workshop", label: "Taller", amount: maintenance, cadence: "Variable" },
-    { key: "accounting", label: "Gestoría", amount: resolvedAccountingBreakdown.length ? breakdownTotal(resolvedAccountingBreakdown) : gestoriaPeriodAmount || scale(additional.gestoria), cadence: resolvedAccountingBreakdown.length ? `${resolvedAccountingBreakdown.length} documento${resolvedAccountingBreakdown.length === 1 ? "" : "s"}` : "Mensual", breakdown: resolvedAccountingBreakdown },
+    { key: "accounting", label: "Gestoría", amount: getGestoriaFixedAmountForPeriod(vehicle.plate), cadence: "Mensual · fijo", breakdown: [] },
     { key: "fuel", label: "Gasolina", amount: breakdownTotal(resolvedFuelBreakdown), cadence: getNetFuelCadence(vehicle.plate, reportYear, reportMonth), breakdown: resolvedFuelBreakdown },
     { key: "payroll", label: "Nóminas", amount: breakdownTotal(resolvedPayrollBreakdown), cadence: "2 conductores", breakdown: resolvedPayrollBreakdown },
     { key: "driver-commission", label: "Comisiones de conductores", amount: resolvedCommissionBreakdown.length ? breakdownTotal(resolvedCommissionBreakdown) : commission, cadence: commissionCadence, breakdown: resolvedCommissionBreakdown, commissionReport: alexCommissionReport },
@@ -8330,7 +8318,7 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
   const transactionTotal = (type) => periodTransactions.filter((transaction) => transaction.type === type).reduce((sum, transaction) => sum + (Number(transaction.amount) || 0), 0);
   const fuelAmount = transactionTotal("fuel") || getFuelCostForPeriod(vehicle, reportMonth, reportYear);
   const maintenanceAmount = transactionTotal("maintenance") || getMaintenanceAmountForPeriod(vehicle, reportMonth, reportYear);
-  const gestoriaAmount = getGestoriaExpenseForPeriod(vehicle.plate, reportYear, reportMonth);
+  const gestoriaAmount = getGestoriaFixedAmountForPeriod(vehicle.plate);
   const leasingAmount = getLeasingAmountForPeriod(vehicle.plate, reportYear, reportMonth);
   const licenseLoanAmount = getLicenseLoanAmountForPeriod(vehicle.plate);
   const inspectionAmount = getAnnualRecurringExpenseAmount("inspection", vehicle.plate, reportMonth);

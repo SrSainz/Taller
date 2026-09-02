@@ -7,6 +7,11 @@ export const gestoriaEmailAccounts = Object.freeze([
 
 export const gestoriaSender = "alvarosanchez@gestoriaduranrivas.com";
 
+// La cuota que se imputa en Neto es una tarifa mensual fija por vehículo.
+// Los documentos importados siguen conservándose para consulta y auditoría,
+// pero no deben hacer variar este gasto operativo recurrente.
+export const GESTORIA_MONTHLY_FIXED_AMOUNT = 82.72;
+
 export const gestoriaOwnerByKey = Object.freeze({
   david: Object.freeze({ name: "David Díaz Muñoz", initials: "DM", plate: "5043 MLC" }),
   "aida-diaz": Object.freeze({ name: "Aida Díaz Pérez", initials: "ADP", plate: "5750 MJV" }),
