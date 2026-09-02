@@ -298,10 +298,11 @@ export const listMaintenanceReports = async ({ vehiclePlate = "", reporterId = "
     : fetchAllSupabaseRows(queryFactory);
 };
 
-export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note = "", photoFile = null } = {}) => {
+export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note = "", photoFile = null, status = "pending" } = {}) => {
   if (!supabase || !reporterId || !vehiclePlate) throw new Error("Falta la asociación del conductor o la matrícula.");
   const trimmedNote = String(note ?? "").trim();
   if (!trimmedNote && !photoFile) throw new Error("Escribe una incidencia o añade una fotografía.");
+  const normalizedStatus = ["pending", "reviewed", "resolved"].includes(status) ? status : "pending";
   const photoValidation = photoFile ? validateMaintenancePhotoFile(photoFile) : { valid: true, mimeType: "" };
   if (!photoValidation.valid) throw new Error(photoValidation.message);
 
@@ -325,7 +326,7 @@ export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note =
       photo_name: photoFile?.name || null,
       photo_mime_type: photoFile ? photoValidation.mimeType : null,
       photo_size: photoFile?.size || 0,
-      status: "pending",
+      status: normalizedStatus,
       updated_at: new Date().toISOString(),
     })
     .select(maintenanceReportColumns)

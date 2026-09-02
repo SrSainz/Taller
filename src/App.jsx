@@ -2513,10 +2513,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       const validation = validateMaintenancePhotoFile(photoFile);
       if (!validation.valid) throw new Error(validation.message);
     }
-    const saved = await createMaintenanceReport({ reporterId: session.user.id, vehiclePlate, note, photoFile });
+    const saved = await createMaintenanceReport({ reporterId: session.user.id, vehiclePlate, note, photoFile, status: "reviewed" });
     const normalizedReport = normalizeMaintenanceReportRecord(saved);
     setMaintenanceReports((current) => [normalizedReport, ...current.filter((report) => report.id !== normalizedReport.id)]);
-    notify(`Aviso de mantenimiento guardado para ${vehiclePlate}.`);
+    notify(`Intervención de la próxima revisión guardada para ${vehiclePlate}.`);
     return normalizedReport;
   }, [isAdmin, notify, session.user.id]);
 
@@ -7778,7 +7778,7 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   return <div className="maintenance-reports-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title">
       <header className="maintenance-reports-dialog__header">
-        <div><span className="eyebrow">Avisos asociados a la matrícula</span><h2 id="maintenance-reports-dialog-title">Pendiente de revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></h2><p>{pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Se conservan también los avisos revisados.</p></div>
+        <div><span className="eyebrow">Avisos asociados a la matrícula</span><h2 id="maintenance-reports-dialog-title">Próxima revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></h2><p>{pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Aquí puedes anotar las intervenciones previstas y conservar sus fotos.</p></div>
         <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar avisos de mantenimiento"><IconX size={18} /></button>
       </header>
       <div className="maintenance-reports-dialog__list" aria-live="polite">
@@ -7791,12 +7791,12 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
         </article>)}
       </div>
       <form className="maintenance-reports-dialog__form" onSubmit={save}>
-        <div><strong>Añadir incidencia desde Administración</strong><small>Disponible para este coche, incluidos Lexus y Peugeot.</small></div>
-        <textarea value={note} onChange={(event) => setNote(event.target.value)} rows="3" placeholder="Describe qué debe revisarse, repararse o cambiarse…" aria-label="Nueva incidencia de mantenimiento" />
+        <div><strong>Intervenciones de la próxima revisión</strong><small>Anota todo lo que debe revisarse, repararse o cambiarse en este coche. También puedes añadir una foto.</small></div>
+        <textarea value={note} onChange={(event) => setNote(event.target.value)} rows="3" placeholder="Escribe las intervenciones previstas para la próxima revisión…" aria-label="Intervenciones de la próxima revisión" />
         <input ref={photoInputRef} className="sr-only" type="file" accept="image/*" capture="environment" aria-label="Fotografiar incidencia desde Administración" onChange={handlePhoto} />
         {photo && <div className="maintenance-reports-dialog__selected-file"><IconCamera size={14} /><span>{photo.name}</span><button type="button" onClick={() => setPhoto(null)} aria-label="Quitar foto seleccionada"><IconX size={13} /></button></div>}
         {message && <p className="maintenance-reports-dialog__message" role="alert">{message}</p>}
-        <footer><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="maintenance-report-camera-button" onClick={choosePhoto} disabled={saving}><IconCamera size={16} />Foto</button><button type="submit" className="primary-button" disabled={saving}><IconCheck size={16} />{saving ? "Guardando…" : "Guardar aviso"}</button></footer>
+        <footer><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="maintenance-report-camera-button" onClick={choosePhoto} disabled={saving}><IconCamera size={16} />Foto</button><button type="submit" className="primary-button" disabled={saving}><IconCheck size={16} />{saving ? "Guardando…" : "Guardar intervención"}</button></footer>
       </form>
     </section>
   </div>;
