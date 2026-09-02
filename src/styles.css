@@ -2955,6 +2955,242 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .maintenance-history-upload-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 
+/* Mantenimiento móvil: las cinco tarjetas ocupan el hueco completo entre las
+   barras fija superior e inferior. El aviso queda integrado en el lateral de
+   cada tarjeta y cambia a rojo mientras existan incidencias sin consultar. */
+@media (max-width: 820px) {
+  body:has(.maintenance-page) {
+    overflow: hidden;
+  }
+
+  body:has(.maintenance-page) .app-shell {
+    display: flex;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body:has(.maintenance-page) .workspace {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body:has(.maintenance-page) .page-scroll {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: 0;
+  }
+
+  .maintenance-page {
+    min-height: 100%;
+    padding: 8px 8px calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom) + 8px);
+  }
+
+  .maintenance-page .maintenance-vehicle-banners {
+    height: calc(100dvh - 70px - var(--bottom-navigation-height) - env(safe-area-inset-bottom) - 16px);
+    min-height: 0;
+    display: grid;
+    grid-template-rows: repeat(5, minmax(0, 1fr));
+    gap: 5px;
+    margin: 0;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row {
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(92px, 26vw, 126px);
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #111;
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row.has-pending {
+    border-color: #d23d33;
+    box-shadow: 0 0 0 1px rgba(210, 61, 51, .16);
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-content: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border: 0;
+    border-right: 1px solid #e2e8e4;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner:hover,
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner:focus-visible,
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner.active {
+    border-right-color: #e2e8e4;
+    background: #fafafa;
+    box-shadow: none;
+    outline: 0;
+    transform: none;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-number {
+    display: none;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .vehicle-brand-mark {
+    width: 42px;
+    height: 42px;
+    align-self: center;
+    border-radius: 10px;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .vehicle-brand-mark img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .vehicle-brand-mark--lexus img {
+    width: 35px;
+    height: 35px;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity {
+    min-width: 0;
+    align-self: center;
+    gap: 2px;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity small {
+    color: #6c7a74;
+    font-size: 7px;
+    line-height: 1;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity > .maintenance-vehicle-plate {
+    overflow: hidden;
+    color: #17251f;
+    font-size: clamp(13px, 3.7vw, 18px);
+    font-weight: 900;
+    line-height: 1.05;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity > span {
+    overflow: hidden;
+    color: #6c7a74;
+    font-size: 8px;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .maintenance-page .maintenance-pending-review-button {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 5px;
+    border: 0;
+    border-left: 1px solid #e4bd6b;
+    border-radius: 0;
+    background: #fffaf0;
+    color: #955b09;
+    box-shadow: none;
+  }
+
+  .maintenance-page .maintenance-pending-review-button:hover,
+  .maintenance-page .maintenance-pending-review-button:focus-visible {
+    border-left-color: #c98713;
+    background: #ffedbd;
+    box-shadow: none;
+    outline: 0;
+  }
+
+  .maintenance-page .maintenance-pending-review-button.has-pending {
+    border-left-color: #d23d33;
+    background: #fff0ee;
+    color: #b32820;
+  }
+
+  .maintenance-page .maintenance-pending-review-button.has-pending:hover,
+  .maintenance-page .maintenance-pending-review-button.has-pending:focus-visible {
+    border-left-color: #b32820;
+    background: #ffdeda;
+  }
+
+  .maintenance-page .maintenance-pending-review-button > svg {
+    width: 25px;
+    height: 25px;
+    flex: 0 0 25px;
+    padding: 4px;
+    border-radius: 7px;
+    background: #edaa2e;
+  }
+
+  .maintenance-page .maintenance-pending-review-button.has-pending > svg {
+    background: #d23d33;
+  }
+
+  .maintenance-page .maintenance-pending-review-button > span {
+    width: auto;
+    max-width: 78px;
+    overflow-wrap: anywhere;
+    color: inherit;
+    font-size: clamp(8px, 2.35vw, 11px);
+    font-weight: 950;
+    line-height: 1.15;
+    letter-spacing: .045em;
+    text-align: center;
+    text-transform: uppercase;
+    text-wrap: balance;
+  }
+
+  .maintenance-page .maintenance-pending-review-button > b {
+    min-width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #d88513;
+    color: #fff;
+    font-size: 8px;
+    line-height: 1;
+  }
+
+  .maintenance-page .maintenance-pending-review-button.has-pending > b {
+    background: #b32820;
+  }
+}
+
+@media (max-width: 520px) {
+  .maintenance-page .maintenance-vehicle-banners {
+    height: calc(100dvh - 64px - var(--bottom-navigation-height) - env(safe-area-inset-bottom) - 16px);
+  }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .maintenance-page .maintenance-vehicle-banners {
+    height: calc(100dvh - 54px - var(--bottom-navigation-height) - env(safe-area-inset-bottom) - 16px);
+  }
+}
+
 @media (max-width: 520px) and (max-height: 700px) {
   .maintenance-page { --maintenance-history-sticky-top: 54px; }
   .maintenance-page .maintenance-history-panel { max-height: calc(100dvh - 54px - var(--bottom-navigation-height) - 10px); }
@@ -8813,5 +9049,183 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
     height: 12px;
     padding: 0 2px;
     font-size: 6px;
+  }
+}
+
+/* Override final de Mantenimiento móvil: cada vehículo es una tarjeta
+   completa y el control de revisión ocupa todo su lateral. */
+@media (max-width: 820px) {
+  .maintenance-page .maintenance-vehicle-banner-row {
+    min-height: 0;
+    height: 100%;
+    grid-template-columns: minmax(0, 1fr) clamp(92px, 26vw, 126px);
+    gap: 0;
+    padding: 0;
+    border: 1px solid #111;
+    border-radius: 10px;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row.has-pending {
+    border-color: #d23d33;
+    box-shadow: 0 0 0 1px rgba(210, 61, 51, .16);
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-content: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border: 0;
+    border-right: 1px solid #e2e8e4;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner:hover,
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner:focus-visible,
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner.active {
+    border-right-color: #e2e8e4;
+    background: #fafafa;
+    box-shadow: none;
+    outline: 0;
+    transform: none;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-number {
+    display: none;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .vehicle-brand-mark {
+    width: 42px;
+    height: 42px;
+    align-self: center;
+    border-radius: 10px;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .vehicle-brand-mark img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .vehicle-brand-mark--lexus img {
+    width: 35px;
+    height: 35px;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity {
+    min-width: 0;
+    align-self: center;
+    gap: 2px;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity small {
+    color: #6c7a74;
+    font-size: 7px;
+    line-height: 1;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity > .maintenance-vehicle-plate {
+    overflow: hidden;
+    color: #17251f;
+    font-size: clamp(13px, 3.7vw, 18px);
+    font-weight: 900;
+    line-height: 1.05;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity > span {
+    overflow: hidden;
+    color: #6c7a74;
+    font-size: 8px;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .maintenance-page .maintenance-pending-review-button {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 5px;
+    border: 0;
+    border-left: 1px solid #e4bd6b;
+    border-radius: 0;
+    background: #fffaf0;
+    color: #955b09;
+    box-shadow: none;
+  }
+
+  .maintenance-page .maintenance-pending-review-button:hover,
+  .maintenance-page .maintenance-pending-review-button:focus-visible {
+    border-left-color: #c98713;
+    background: #ffedbd;
+    box-shadow: none;
+    outline: 0;
+  }
+
+  .maintenance-page .maintenance-pending-review-button.has-pending {
+    border-left-color: #d23d33;
+    background: #fff0ee;
+    color: #b32820;
+  }
+
+  .maintenance-page .maintenance-pending-review-button.has-pending:hover,
+  .maintenance-page .maintenance-pending-review-button.has-pending:focus-visible {
+    border-left-color: #b32820;
+    background: #ffdeda;
+  }
+
+  .maintenance-page .maintenance-pending-review-button > svg {
+    width: 25px;
+    height: 25px;
+    flex: 0 0 25px;
+    padding: 4px;
+    border-radius: 7px;
+    background: #edaa2e;
+  }
+
+  .maintenance-page .maintenance-pending-review-button.has-pending > svg {
+    background: #d23d33;
+  }
+
+  .maintenance-page .maintenance-pending-review-button > span {
+    width: auto;
+    max-width: 78px;
+    overflow-wrap: anywhere;
+    color: inherit;
+    font-size: clamp(8px, 2.35vw, 11px);
+    font-weight: 950;
+    line-height: 1.15;
+    letter-spacing: .045em;
+    text-align: center;
+    text-transform: uppercase;
+    text-wrap: balance;
+  }
+
+  .maintenance-page .maintenance-pending-review-button > b {
+    min-width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #d88513;
+    color: #fff;
+    font-size: 8px;
+    line-height: 1;
+  }
+
+  .maintenance-page .maintenance-pending-review-button.has-pending > b {
+    background: #b32820;
   }
 }

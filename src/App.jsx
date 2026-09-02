@@ -1308,7 +1308,7 @@ const getDocumentNumericField = (fields = {}, keys = []) => {
   }
   return 0;
 };
-const buildAdminDataActivities = ({ transactions = [], documents = [], driverEntries = [], driverProfiles = [] }) => {
+const buildAdminDataActivities = ({ transactions = [], documents = [], driverEntries = [], maintenanceReports = [], driverProfiles = [] }) => {
   const driverNames = new Map(driverProfiles.map((driver) => [driver.id, driver.full_name]));
   const activities = [];
   const add = (activity) => {
@@ -1347,6 +1347,21 @@ const buildAdminDataActivities = ({ transactions = [], documents = [], driverEnt
     if ((Number(entry.fuel_cost) || 0) > 0 && !matchesTransaction("fuel", Number(entry.fuel_cost) || 0)) add({ key: `entry:${entry.id}:fuel:${entry.updated_at}`, kind: "fuel", target: "Vehículos", plate, title: "Nuevo gasto de combustible", detail: `${plate}${suffix} · ${formatCurrency(Number(entry.fuel_cost) || 0)} · ${date}`, createdAt: entry.updated_at || entry.created_at });
     if ((Number(entry.billing) || 0) > 0 && !matchesTransaction("billing", Number(entry.billing) || 0)) add({ key: `entry:${entry.id}:billing:${entry.updated_at}`, kind: "billing", target: "Conductores", plate, title: "Nueva facturación", detail: `${plate}${suffix} · ${formatCurrency(Number(entry.billing) || 0)} · ${date}`, createdAt: entry.updated_at || entry.created_at });
     if ((Number(entry.odometer_km) || 0) > 0) add({ key: `entry:${entry.id}:odometer:${entry.updated_at}`, kind: "mileage", target: "Vehículos", plate, title: "Nuevo kilometraje", detail: `${plate}${suffix} · ${formatKm(Number(entry.odometer_km) || 0)} acumulados · ${date}`, createdAt: entry.updated_at || entry.created_at });
+  });
+  maintenanceReports.forEach((report) => {
+    if (report.status !== "pending") return;
+    const plate = report.vehiclePlate || report.vehicle_plate || "Vehículo sin asignar";
+    const reporter = driverNames.get(report.reporterId || report.reporter_id) || "Conductor";
+    const createdAt = report.createdAt || report.created_at;
+    add({
+      key: `maintenance-report:${report.id}`,
+      kind: "maintenance",
+      target: "Mantenimiento",
+      plate,
+      title: "Nuevo aviso de mantenimiento",
+      detail: `${plate} · ${reporter} · Pendiente de revisión`,
+      createdAt,
+    });
   });
   return activities.sort((left, right) => String(right.createdAt ?? "").localeCompare(String(left.createdAt ?? "")));
 };
@@ -2260,9 +2275,11 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     transactionsReady: false,
     documentsReady: false,
     driverEntriesReady: false,
+    maintenanceReportsReady: false,
     transactionIds: new Set(),
     documentIds: new Set(),
     driverEntries: new Map(),
+    maintenanceReportIds: new Set(),
   });
 
   const unreadAdminNotifications = useMemo(
@@ -2402,9 +2419,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     return () => { mounted = false; };
   }, [isAdmin, refreshDriverProfiles]);
 
-  const announceAdminDataChanges = useCallback(({ source, nextTransactions = [], nextDocuments = [], nextDriverEntries = [] }) => {
+  const announceAdminDataChanges = useCallback(({ source, nextTransactions = [], nextDocuments = [], nextDriverEntries = [], nextMaintenanceReports = [] }) => {
     const snapshot = adminDataSnapshotRef.current;
     let activities = [];
+    let shouldNotify = true;
     if (source === "transactions") {
       const freshTransactions = snapshot.transactionsReady ? nextTransactions.filter((transaction) => !snapshot.transactionIds.has(transaction.id)) : [];
       const nextEntryMap = new Map(nextDriverEntries.map((entry) => [entry.id, `${entry.updated_at ?? ""}:${entry.entry_date}:${entry.billing}:${entry.fuel_cost}:${entry.refunds}:${entry.odometer_km}`]));
@@ -2425,6 +2443,16 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       snapshot.documentIds = new Set(nextDocuments.map((document) => document.id));
       snapshot.documentsReady = true;
     }
+    if (source === "maintenance_reports") {
+      const wasReady = snapshot.maintenanceReportsReady;
+      const freshReports = wasReady
+        ? nextMaintenanceReports.filter((report) => report.status === "pending" && !snapshot.maintenanceReportIds.has(report.id))
+        : nextMaintenanceReports.filter((report) => report.status === "pending");
+      activities = buildAdminDataActivities({ maintenanceReports: freshReports, driverProfiles });
+      snapshot.maintenanceReportIds = new Set(nextMaintenanceReports.map((report) => report.id));
+      snapshot.maintenanceReportsReady = true;
+      shouldNotify = wasReady;
+    }
     if (!activities.length) return;
     setAdminNotifications((current) => {
       const existing = new Set(current.map((activity) => activity.key));
@@ -2433,7 +2461,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       return [...unique, ...current].slice(0, 20);
     });
     const first = activities[0];
-    notify(`${first.title}: ${first.detail}`);
+    if (shouldNotify) notify(`${first.title}: ${first.detail}`);
   }, [driverProfiles, notify]);
 
   const refreshTransactions = useCallback(async () => {
@@ -2474,8 +2502,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     if (!isAdmin || !supabase) return;
     const { data, error } = await listMaintenanceReports();
     if (error) throw error;
-    setMaintenanceReports((data ?? []).map(normalizeMaintenanceReportRecord));
-  }, [isAdmin]);
+    const nextMaintenanceReports = (data ?? []).map(normalizeMaintenanceReportRecord);
+    setMaintenanceReports(nextMaintenanceReports);
+    announceAdminDataChanges({ source: "maintenance_reports", nextMaintenanceReports });
+  }, [announceAdminDataChanges, isAdmin]);
 
   const saveAdminMaintenanceReport = useCallback(async ({ vehiclePlate, note = "", photoFile = null } = {}) => {
     if (!isAdmin || !session.user.id) throw new Error("Solo el administrador puede crear este aviso.");
@@ -2490,11 +2520,11 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     return normalizedReport;
   }, [isAdmin, notify, session.user.id]);
 
-  const markMaintenanceReportReviewed = useCallback(async (reportId, status = "reviewed") => {
+  const markMaintenanceReportReviewed = useCallback(async (reportId, status = "reviewed", { quiet = false } = {}) => {
     const updated = await updateMaintenanceReportStatus(reportId, status);
     const normalizedReport = normalizeMaintenanceReportRecord(updated);
     setMaintenanceReports((current) => current.map((report) => report.id === normalizedReport.id ? normalizedReport : report));
-    notify(status === "resolved" ? "Aviso marcado como resuelto." : "Aviso marcado como revisado.");
+    if (!quiet) notify(status === "resolved" ? "Aviso marcado como resuelto." : "Aviso marcado como revisado.");
     return normalizedReport;
   }, [notify]);
 
@@ -2673,9 +2703,11 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         transactionsReady: false,
         documentsReady: false,
         driverEntriesReady: false,
+        maintenanceReportsReady: false,
         transactionIds: new Set(),
         documentIds: new Set(),
         driverEntries: new Map(),
+        maintenanceReportIds: new Set(),
       };
       return undefined;
     }
@@ -3224,8 +3256,17 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     markAdminNotificationsSeen([activity]);
     setNotificationsOpen(false);
     if (activity?.plate && vehicles.some((vehicle) => vehicle.plate === activity.plate)) setSelectedPlate(activity.plate);
+    if (activity?.target === "Mantenimiento") {
+      if (activity.plate && vehicles.some((vehicle) => vehicle.plate === activity.plate)) setMaintenancePlate(activity.plate);
+      navigateFleetSubItem(fleetSubItems[0]);
+      return;
+    }
     navigate(activity?.target === "Conductores" ? conductorNavItem : navItems[1]);
   };
+
+  const markMaintenanceReportNotificationsSeen = useCallback((plate) => {
+    markAdminNotificationsSeen(adminNotifications.filter((activity) => activity.target === "Mantenimiento" && activity.plate === plate));
+  }, [adminNotifications, markAdminNotificationsSeen]);
 
   if (previewDriver) {
     return <DriverApp session={session} profile={previewDriver} preview onExitPreview={() => setPreviewDriver(null)} onSignOut={onSignOut} onProfileChange={onProfileChange} onInstall={onInstall} isStandalone={isStandalone} />;
@@ -3297,7 +3338,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" realtimeRevision={realtimeRevision} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
-          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} notify={notify} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} />}
+          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} notify={notify} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} onOpenMaintenanceReports={markMaintenanceReportNotificationsSeen} />}
           {activeNav === "Administración" && isAdmin && <AdminView notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} invoices={invoices} adminFunctionWindow={adminFunctionWindow} onAdminFunctionWindowChange={setAdminFunctionWindow} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
@@ -7767,7 +7808,7 @@ function formatMaintenanceReportDate(value) {
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date).replace(".", "");
 }
 
-function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed }) {
+function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed, onOpenMaintenanceReports }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
@@ -7866,6 +7907,15 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
     window.setTimeout(() => document.getElementById("historial-mantenimiento")?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 40);
   };
 
+  const openMaintenanceReports = (plate) => {
+    setReportsPlate(plate);
+    onOpenMaintenanceReports?.(plate);
+    const pendingReports = maintenanceReports.filter((report) => report.vehiclePlate === plate && report.status === "pending");
+    if (pendingReports.length && onMarkMaintenanceReportReviewed) {
+      void Promise.allSettled(pendingReports.map((report) => onMarkMaintenanceReportReviewed(report.id, "reviewed", { quiet: true })));
+    }
+  };
+
   const handleMaintenanceInvoiceFile = (event) => {
     const file = event.target.files?.[0] ?? null;
     event.target.value = "";
@@ -7895,7 +7945,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
           const vehicleReports = maintenanceReports.filter((report) => report.vehiclePlate === vehicle.plate);
           const pendingReports = vehicleReports.filter((report) => report.status === "pending").length;
           return (
-            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
+            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}${pendingReports ? " has-pending" : ""}`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
               <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
                 <span className="maintenance-vehicle-number">{index + 1}</span>
                 <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
@@ -7903,7 +7953,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
                 <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
                 <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
               </button>
-              <button type="button" className={`maintenance-pending-review-button${pendingReports ? " has-pending" : ""}`} onClick={() => setReportsPlate(vehicle.plate)} aria-label={`Abrir pendientes de revisión de ${vehicle.plate}`}><IconAlertTriangle size={16} /><span>PENDIENTE DE REVISIÓN</span>{pendingReports > 0 && <b>{pendingReports}</b>}</button>
+              <button type="button" className={`maintenance-pending-review-button${pendingReports ? " has-pending" : ""}`} onClick={() => openMaintenanceReports(vehicle.plate)} aria-label={`Abrir pendientes de revisión de ${vehicle.plate}${pendingReports ? `, ${pendingReports} pendientes` : ""}`}><IconAlertTriangle size={16} /><span>PENDIENTE DE REVISIÓN</span>{pendingReports > 0 && <b>{pendingReports}</b>}</button>
             </div>
           );
         })}
