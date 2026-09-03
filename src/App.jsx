@@ -71,6 +71,7 @@ import {
 import { confirmDocumentTransactions, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, fetchAllSupabaseRows, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverPeriodFinancials, listMaintenanceReports, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, validateMaintenancePhotoFile } from "./supabase";
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
+import { removeDocumentLocalData } from "./documentDeletion";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
 import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
@@ -1047,6 +1048,7 @@ const buildDriverDocumentModalItem = (document, { driver = "", plate = "", fallb
     filePath: document?.file_path || document?.filePath || "",
     fileName: document?.file_name || document?.fileName || "Documento original",
     mimeType: document?.mime_type || document?.mimeType || "",
+    document,
   };
 };
 const buildDriverTipDayRows = (records = []) => {
@@ -1097,6 +1099,15 @@ const getDriverDocumentKind = (document) => {
   if (["fuel", "fuel receipt", "fuel_receipt", "repostaje"].includes(recordType)) return "fuel";
   if (["consumption", "consumption rate", "consumo"].includes(recordType)) return "consumption";
   if (document?.category === "consumption") return "fuel";
+  return "";
+};
+const getDriverDocumentCircleKey = (document) => {
+  const recordType = getDriverDocumentRecordType(document);
+  if (document?.category === "billing" || recordType === "billing" || recordType === "billing_daily") return "billing";
+  if (["daily-km", "partial-1", "kilometraje diario", "km diarios"].includes(recordType)) return "daily-km";
+  if (["total-km", "total", "odometer", "odometro", "kilometraje total", "km acumulados"].includes(recordType)) return "total-km";
+  if (["consumption", "consumption rate", "consumo"].includes(recordType)) return "consumption";
+  if (["fuel", "fuel receipt", "fuel_receipt", "repostaje"].includes(recordType) || document?.category === "consumption") return "fuel";
   return "";
 };
 const driverDocumentKindLabels = Object.freeze({ billing: "Facturación", fuel: "Repostaje", mileage: "Kilómetros", consumption: "Consumo diario" });
@@ -2642,15 +2653,21 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
 
   const removeAdminDriverDocument = useCallback(async (document) => {
     if (!document?.id) throw new Error("No se ha encontrado el documento.");
+    const cleaned = removeDocumentLocalData({ document, documents: documentRecords, transactions, entries: driverEntries });
     if (!supabase) {
-      setDocumentRecords((current) => current.filter((candidate) => candidate.id !== document.id));
+      setDocumentRecords(cleaned.documents);
+      setTransactions(cleaned.transactions);
+      setDriverEntries(cleaned.entries);
       return true;
     }
     const result = await deleteDocumentRecord(document);
+    setDocumentRecords(cleaned.documents);
+    setTransactions(cleaned.transactions);
+    setDriverEntries(cleaned.entries);
     await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
     if (result?.storageError) notify("Documento eliminado; el archivo privado quedó pendiente de limpieza.");
     return true;
-  }, [notify, refreshDocuments, refreshTransactions]);
+  }, [documentRecords, driverEntries, notify, refreshDocuments, refreshTransactions, transactions]);
 
   const reassignAdminDriverDocumentDate = useCallback(async ({ document, targetDate } = {}) => {
     if (!document?.id) throw new Error("No se ha encontrado el documento.");
@@ -3678,6 +3695,35 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     setDocumentsLoading(false);
   }, [activeProfileId, canQueryDriverData]);
 
+  const removeDriverDocument = useCallback(async (document) => {
+    if (!document?.id) throw new Error("No se ha encontrado el documento.");
+    const cleaned = removeDocumentLocalData({ document, documents, entries, circleMetricValues });
+    if (!supabase) {
+      setDocuments(cleaned.documents);
+      setEntries(cleaned.entries);
+      setCircleMetricValues(cleaned.circleMetricValues);
+    } else {
+      const result = await deleteDocumentRecord(document);
+      setDocuments(cleaned.documents);
+      setEntries(cleaned.entries);
+      setCircleMetricValues(cleaned.circleMetricValues);
+      await refreshDriverData().catch(() => undefined);
+      if (result?.storageError) setMessage("Los datos se han borrado, pero el archivo privado quedó pendiente de limpieza.");
+    }
+    const recordKey = getDriverDocumentCircleKey(document);
+    if (recordKey) {
+      setCirclePreviewUrls((current) => {
+        const next = { ...current };
+        const previewUrl = next[recordKey];
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        delete next[recordKey];
+        return next;
+      });
+      setCircleUpload((current) => current.key === recordKey ? { key: recordKey, status: "idle", fileName: "" } : current);
+    }
+    return true;
+  }, [circleMetricValues, documents, entries, refreshDriverData]);
+
   const refreshDriverComparison = useCallback(async () => {
     const requestId = driverComparisonRequestRef.current + 1;
     driverComparisonRequestRef.current = requestId;
@@ -4246,12 +4292,15 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     return values;
   }, {});
   const directCircleValues = { ...documentCircleValues, ...(circleMetricValues[selectedDate] ?? {}) };
+  const latestCircleDocument = (recordKey) => selectedDayDocuments
+    .filter((document) => getDriverDocumentCircleKey(document) === recordKey)
+    .sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")))[0] ?? null;
   const dailyPhotoRecords = [
-    { key: "fuel", label: "Gasolina", value: formatCurrency(selectedDayData.fuel_cost), image: driverImages.fuelReceipt, hasAttachment: Boolean(uploadedDriverImages.fuelReceipt), Icon: IconGasStation, alt: "Justificante de gasolina" },
-    { key: "billing", label: "Facturación", value: formatCurrency(selectedDayData.billing), image: driverImages.billingReceipt, hasAttachment: Boolean(uploadedDriverImages.billingReceipt), Icon: IconFileInvoice, alt: "Foto de facturación diaria" },
-    { key: "daily-km", label: "Km diarios", value: formatKm(directCircleValues.dailyKm ?? partialKm2), image: driverImages.dailyKm, hasAttachment: Boolean(uploadedDriverImages.dailyKm), Icon: IconGauge, alt: "Lectura de kilómetros diarios" },
-    { key: "total-km", label: "Km acumulados", value: formatKm(directCircleValues.totalKm ?? vehicle?.odometer ?? selectedOdometer), image: driverImages.totalKm, hasAttachment: Boolean(uploadedDriverImages.totalKm), Icon: IconGauge, alt: "Lectura de kilómetros acumulados" },
-    { key: "consumption", label: "Consumo", value: `${Number(directCircleValues.consumption || averageConsumption).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${directCircleValues.consumptionUnit || "l/100 km"}`, image: driverImages.consumption, hasAttachment: Boolean(uploadedDriverImages.consumption), Icon: IconChartBar, alt: "Historial de consumo del vehículo" },
+    { key: "fuel", label: "Gasolina", value: formatCurrency(selectedDayData.fuel_cost), image: driverImages.fuelReceipt, hasAttachment: Boolean(uploadedDriverImages.fuelReceipt || latestCircleDocument("fuel")), document: latestCircleDocument("fuel"), Icon: IconGasStation, alt: "Justificante de gasolina" },
+    { key: "billing", label: "Facturación", value: formatCurrency(selectedDayData.billing), image: driverImages.billingReceipt, hasAttachment: Boolean(uploadedDriverImages.billingReceipt || latestCircleDocument("billing")), document: latestCircleDocument("billing"), Icon: IconFileInvoice, alt: "Foto de facturación diaria" },
+    { key: "daily-km", label: "Km diarios", value: formatKm(directCircleValues.dailyKm ?? partialKm2), image: driverImages.dailyKm, hasAttachment: Boolean(uploadedDriverImages.dailyKm || latestCircleDocument("daily-km")), document: latestCircleDocument("daily-km"), Icon: IconGauge, alt: "Lectura de kilómetros diarios" },
+    { key: "total-km", label: "Km acumulados", value: formatKm(directCircleValues.totalKm ?? vehicle?.odometer ?? selectedOdometer), image: driverImages.totalKm, hasAttachment: Boolean(uploadedDriverImages.totalKm || latestCircleDocument("total-km")), document: latestCircleDocument("total-km"), Icon: IconGauge, alt: "Lectura de kilómetros acumulados" },
+    { key: "consumption", label: "Consumo", value: `${Number(directCircleValues.consumption || averageConsumption).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${directCircleValues.consumptionUnit || "l/100 km"}`, image: driverImages.consumption, hasAttachment: Boolean(uploadedDriverImages.consumption || latestCircleDocument("consumption")), document: latestCircleDocument("consumption"), Icon: IconChartBar, alt: "Historial de consumo del vehículo" },
   ];
   const driverReferenceImages = {
     consumption: "/assets/driver-examples/photo-4.jpg",
@@ -4581,6 +4630,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     otherDriversConsumptionAverage={otherDriversConsumptionAverage}
     otherDriversKmPerConnectionHourAverage={otherDriversKmPerConnectionHourAverage}
     dailyPhotoRecords={dailyPhotoRecords}
+    onDeleteDriverDocument={removeDriverDocument}
     driverReferenceImages={driverReferenceImages}
     averageConsumption={averageConsumption}
     selectedDate={selectedDate}
@@ -4704,7 +4754,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
                 const isImage = String(document.mime_type ?? "").startsWith("image/");
                 const label = document.category === "billing" ? "Facturación" : "Repostaje / consumo";
                 const content = isImage && document.signedUrl ? <img src={document.signedUrl} alt={`Foto de ${label} del ${formatDriverDateLong(selectedDate)}`} loading="lazy" /> : <IconFileInvoice size={22} />;
-                return <article className="driver-day-document" key={document.id}><a href={document.signedUrl || undefined} target="_blank" rel="noreferrer" aria-label={`Abrir ${document.file_name}`}>{content}</a><span><strong>{label}</strong><small>{document.file_name}</small><em>{document.status === "approved" ? "Validado" : "Pendiente de revisión"}</em></span></article>;
+                const deleteKey = getDriverDocumentCircleKey(document) || document.id;
+                return <article className="driver-day-document" key={document.id}><a href={document.signedUrl || undefined} target="_blank" rel="noreferrer" aria-label={`Abrir ${document.file_name}`}>{content}</a><span><strong>{label}</strong><small>{document.file_name}</small><em>{document.status === "approved" ? "Validado" : "Pendiente de revisión"}</em></span>{onDeleteDriverDocument && <button type="button" className="driver-day-document__delete" onClick={() => deleteUploadedDocument(document, deleteKey)} disabled={recordDeleteKey === deleteKey} aria-label={`Borrar foto ${document.file_name}`}>{recordDeleteKey === deleteKey ? "Borrando…" : "Borrar foto"}</button>}</article>;
               })}
             </div>
           </div>
@@ -4770,7 +4821,7 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, onDeleteDriverDocument, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 520;
   const kmChartMax = 45;
   const kmChartTicks = [0, 15, 20, 25, 30, 35, 40, 45];
@@ -4801,6 +4852,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const [maintenanceNoteDraft, setMaintenanceNoteDraft] = useState(maintenanceNote ?? "");
   const [maintenanceNotePhoto, setMaintenanceNotePhoto] = useState(null);
   const [tipsBreakdownOpen, setTipsBreakdownOpen] = useState(false);
+  const [recordDeleteKey, setRecordDeleteKey] = useState("");
+  const [recordDeleteError, setRecordDeleteError] = useState("");
   const maintenanceNoteInputRef = useRef(null);
   const maintenanceNotePhotoInputRef = useRef(null);
   const driverAvatarPath = getDriverAvatarPath(profile.full_name);
@@ -4840,6 +4893,19 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     if (!card) return;
     event.preventDefault();
     openPreviewMetric(card.classList.contains("driver-mobile-preview-km") ? "km" : card.classList.contains("driver-mobile-preview-consumption") ? "consumption" : "billing");
+  };
+  const deleteUploadedDocument = async (document, recordKey) => {
+    if (!document?.id || !onDeleteDriverDocument) return;
+    if (!window.confirm("¿Borrar esta foto/archivo y todos los datos extraídos?")) return;
+    setRecordDeleteError("");
+    setRecordDeleteKey(recordKey);
+    try {
+      await onDeleteDriverDocument(document);
+    } catch (error) {
+      setRecordDeleteError(error?.message || "No se ha podido borrar la foto/archivo.");
+    } finally {
+      setRecordDeleteKey("");
+    }
   };
   useEffect(() => {
     setActiveDriverChartTooltip("");
@@ -5185,13 +5251,17 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
         </section>
         <section ref={statsRef} className="driver-mobile-section driver-mobile-section--today" aria-label="Registros diarios">
           <div className="driver-mobile-record-grid">
-            {dailyPhotoRecords.map(({ key, label, image, hasAttachment, Icon: RecordIcon, alt }) => {
+            {dailyPhotoRecords.map(({ key, label, image, hasAttachment, document, Icon: RecordIcon, alt }) => {
               const isUploading = circleUpload.key === key && circleUpload.status === "uploading";
               const isAttached = hasAttachment || circleUpload.key === key && ["saved", "local"].includes(circleUpload.status);
               const statusLabel = isUploading ? "Guardando…" : isAttached ? "Justificante archivado" : "Sin adjunto";
-              return <button type="button" className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key} onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={`Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>;
+              return <div className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key}>
+                <button type="button" className="driver-mobile-record-card__upload" onClick={() => openCirclePicker(key)} disabled={isUploading} aria-label={`${label}: ${statusLabel}`} title={`Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>
+                {isAttached && document?.id && onDeleteDriverDocument && <button type="button" className="driver-mobile-record-card__delete" onClick={() => deleteUploadedDocument(document, key)} disabled={recordDeleteKey === key} aria-label={`Borrar foto de ${label.toLowerCase()}`}>{recordDeleteKey === key ? "Borrando…" : "Borrar foto"}</button>}
+              </div>;
             })}
           </div>
+          {recordDeleteError && <p className="driver-mobile-record-delete-error" role="alert"><IconAlertTriangle size={14} />{recordDeleteError}</p>}
           <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
             <article className="driver-mobile-preview-km driver-mobile-preview-chart-card" role="button" tabIndex={0} aria-label="KM/H realizados frente al resto de conductores"><div className="driver-mobile-preview-chart-card__heading">KM/H REALIZADOS VS RESTO</div><div className="driver-mobile-preview-chart-card__summary"><strong>{weeklyKmPerConnectionHourAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h</strong><span>Resto conductores: {otherDriversKmPerConnectionHourAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h</span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyKmPerConnectionHourData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverKmPerConnectionHour" name="Este conductor" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherKmPerConnectionHour" name="Resto conductores" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-preview-chart-card__legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
             <article className="driver-mobile-preview-history" aria-label="Facturación mensual histórica"><div className="driver-mobile-history-scroll" role="region" tabIndex="0" aria-label="Histórico de facturación mensual de los últimos doce meses"><div className="driver-mobile-history-bars" role="list">{compactMonthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></div></article>
@@ -7165,7 +7235,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     const fallbackDate = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
     setModal({
       type: "driver-document",
-      item: { ...buildDriverDocumentModalItem(document, { driver: selectedDriver.driver, plate: selectedDriver.plate, fallbackDate }), onChangeDate: () => openDriverDocumentDateEditor(document) },
+      item: { ...buildDriverDocumentModalItem(document, { driver: selectedDriver.driver, plate: selectedDriver.plate, fallbackDate }), onChangeDate: () => openDriverDocumentDateEditor(document), onDeleteDocument: onDeleteDriverDocument, deleteLabel: "Borrar archivo" },
     });
   };
   const selectedDayDocuments = selectedDayDetail?.documents ?? [];
@@ -7205,6 +7275,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         documents: modeDocuments,
         onSave: (values) => onSaveDriverDay?.({ driverId: selectedDriver.driverId, vehiclePlate: selectedDriver.plate, dateKey: selectedDateKey, mode, amount: values.amount, liters: values.liters, refuels: values.refuels, dailyKm: values.dailyKm, odometerKm: values.odometerKm, dailyKmChanged: values.dailyKmChanged, odometerChanged: values.odometerChanged, billingStats: values.billingStats, notes: values.notes }),
         onDeleteDocument: (document) => onDeleteDriverDocument?.(document),
+        documentDeleteLabel: "Borrar archivo",
         onOpenDocument: openDriverSourceDocument,
         onEditDocument: openDriverDocumentDateEditor,
         onAddDocument: (file) => setModal({ type: "document-processing", category: mode === "billing" ? "billing" : "consumption", source: "upload", file, selectedPlate: selectedDriver.plate, defaultDate: selectedDateKey, driverId: selectedDriver.driverId, recordType }),
@@ -7470,7 +7541,7 @@ function DriverDayEditWorkflow({ item, onCancel }) {
       </div>
       <section className="driver-day-edit-documents" aria-labelledby="driver-day-edit-documents-title">
         <header><div><strong id="driver-day-edit-documents-title">Documentos del día</strong><small>Las fotos originales quedan archivadas junto al registro.</small></div><button type="button" className="secondary-button" onClick={() => fileInputRef.current?.click()}><IconUpload size={16} />Añadir documento</button><input ref={fileInputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" onChange={handleFile} /></header>
-        {documents.length > 0 ? <div className="driver-day-edit-document-list">{documents.map((document) => <div className="driver-day-edit-document" key={document.id}><span><IconCamera size={16} /><strong>{getDriverDocumentKindLabel(document)}</strong><small>{document.file_name || "Documento original"}</small></span><div><button type="button" className="table-action" onClick={() => item.onOpenDocument?.(document)}>Ver</button>{item.onEditDocument && <button type="button" className="table-action driver-day-edit-document__date" onClick={() => item.onEditDocument(document)}><IconCalendar size={14} />Cambiar día</button>}<button type="button" className="table-action driver-day-edit-document__delete" onClick={() => removeDocument(document)}><IconTrash size={14} />Borrar</button></div></div>)}</div> : <p className="driver-day-edit-documents__empty"><IconCamera size={17} />No hay foto o documento archivado para este día.</p>}
+        {documents.length > 0 ? <div className="driver-day-edit-document-list">{documents.map((document) => <div className="driver-day-edit-document" key={document.id}><span><IconCamera size={16} /><strong>{getDriverDocumentKindLabel(document)}</strong><small>{document.file_name || "Documento original"}</small></span><div><button type="button" className="table-action" onClick={() => item.onOpenDocument?.(document)}>Ver</button>{item.onEditDocument && <button type="button" className="table-action driver-day-edit-document__date" onClick={() => item.onEditDocument(document)}><IconCalendar size={14} />Cambiar día</button>}<button type="button" className="table-action driver-day-edit-document__delete" onClick={() => removeDocument(document)} aria-label={`${item.documentDeleteLabel ?? "Borrar archivo"}: ${document.file_name || "documento"}`}><IconTrash size={14} />{item.documentDeleteLabel ?? "Borrar archivo"}</button></div></div>)}</div> : <p className="driver-day-edit-documents__empty"><IconCamera size={17} />No hay foto o documento archivado para este día.</p>}
       </section>
       {error && <p className="driver-day-edit-error" role="alert"><IconAlertTriangle size={16} />{error}</p>}
       <footer><button type="button" className="secondary-button" onClick={onCancel} disabled={saving}>Cancelar</button><button type="button" className="primary-button" onClick={save} disabled={saving}>{saving ? <IconRefresh className="document-processing-actions__spinner" size={17} /> : <IconCheck size={17} />}{saving ? "Guardando…" : "Aceptar"}</button></footer>
@@ -8403,6 +8474,23 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
   const isDriverDocumentDateEdit = modal.type === "driver-document-date-edit";
   const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", "driver-document": "Foto original del conductor", "driver-day-edit": "Editar registro del día", "driver-document-date-edit": "Cambiar día del documento", "maintenance-edit": "Editar intervención", support: "Contactar con soporte" };
   const complete = (message) => { notify(message); onClose(); };
+  const [driverDocumentDeleteBusy, setDriverDocumentDeleteBusy] = useState(false);
+  const [driverDocumentDeleteError, setDriverDocumentDeleteError] = useState("");
+  const deleteDriverDocumentFromModal = async () => {
+    if (!item?.onDeleteDocument || !item?.document || driverDocumentDeleteBusy) return;
+    if (!window.confirm("¿Borrar este archivo y todos los datos extraídos?")) return;
+    setDriverDocumentDeleteError("");
+    setDriverDocumentDeleteBusy(true);
+    try {
+      const result = await item.onDeleteDocument(item.document);
+      if (result === false) throw new Error("No se ha podido borrar el archivo.");
+      notify(`${item.deleteLabel ?? "Archivo"} eliminado junto con sus datos.`);
+      onClose();
+    } catch (error) {
+      setDriverDocumentDeleteError(error?.message || "No se ha podido borrar el archivo.");
+      setDriverDocumentDeleteBusy(false);
+    }
+  };
   if (isDocumentProcessing) titles[modal.type] = `${isMaintenanceDocumentProcessing ? "Mantenimiento" : documentCategoryLabels[modal.category] ?? "Documento"} · Análisis IA`;
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -8410,7 +8498,7 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
         <header><div><span>{isDriverDocument || isDriverDocumentDateEdit ? "ARCHIVO DEL DÍA" : "Acción rápida"}</span><h2 id="modal-title">{isFuelInvoice ? "Ticket de gasolina" : isGestoriaInvoice ? "Factura de gestoría" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
         {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.documentNumber ?? item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc ? <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate || item.plateReference || "la flota"}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure> : item.filePath ? <PrivateDocumentAttachment item={item} /> : null}{isGestoriaInvoice && !item.imageSrc && !item.filePath && <div className="invoice-source-file"><IconMail size={17} /><span><strong>Adjunto rescatado del correo</strong><small>{item.sourceFile || "Archivo de Gestoría Durán Rivas"} · {item.sourceAccount}</small></span></div>}<dl><div><dt>Vehículo</dt><dd>{item.plate || `Sin matrícula${item.plateReference ? ` · ref. ${item.plateReference}` : ""}`}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>{[itemOwner.dni ? `DNI ${itemOwner.dni}` : "", itemOwner.location].filter(Boolean).join(" · ")}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div>{item.periodKey && <div><dt>Periodo imputado</dt><dd>{item.periodKey}</dd></div>}<div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
-        {isDriverDocument && <><div className="driver-document-context"><IconCamera size={20} /><span><strong>{item.concept}</strong><small>{item.driver} · {item.date} · {item.fileName}</small></span>{item.onChangeDate && <button type="button" className="table-action" onClick={item.onChangeDate}><IconCalendar size={14} />Cambiar día</button>}</div><PrivateDocumentAttachment item={item} /></>}
+        {isDriverDocument && <><div className="driver-document-context"><IconCamera size={20} /><span><strong>{item.concept}</strong><small>{item.driver} · {item.date} · {item.fileName}</small></span><div className="driver-document-context__actions">{item.onChangeDate && <button type="button" className="table-action" onClick={item.onChangeDate}><IconCalendar size={14} />Cambiar día</button>}{item.onDeleteDocument && item.document && <button type="button" className="table-action driver-document-delete" onClick={deleteDriverDocumentFromModal} disabled={driverDocumentDeleteBusy}><IconTrash size={14} />{driverDocumentDeleteBusy ? "Borrando…" : item.deleteLabel ?? "Borrar archivo"}</button>}</div>{driverDocumentDeleteError && <p className="driver-document-delete-error" role="alert"><IconAlertTriangle size={14} />{driverDocumentDeleteError}</p>}</div><PrivateDocumentAttachment item={item} /></>}
         {isDriverDayEdit && <DriverDayEditWorkflow item={item} onCancel={onClose} />}
         {isDriverDocumentDateEdit && <DriverDocumentDateWorkflow item={item} onCancel={onClose} />}
         {isMaintenanceEdit && <MaintenanceEditWorkflow item={item} onCancel={onClose} onSave={(values) => { const saved = onSaveMaintenance?.(values); if (saved !== false) complete("Intervención actualizada y reordenada por fecha"); }} />}

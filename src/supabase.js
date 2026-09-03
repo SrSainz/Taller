@@ -272,14 +272,15 @@ export const reassignDriverDocumentDate = async (documentId, targetDate) => {
 
 export const deleteDocumentRecord = async (document) => {
   if (!supabase || !document?.id) throw new Error("No se puede borrar el documento sin una sesión activa.");
-  const { error } = await supabase.from("documents").delete().eq("id", document.id);
+  const { data, error } = await supabase.rpc("delete_document_with_cleanup", { p_document_id: document.id });
   if (error) throw error;
   let storageError = null;
-  if (document.file_path) {
-    const result = await supabase.storage.from("documents").remove([document.file_path]);
+  const filePath = document.file_path || data?.file_path || "";
+  if (filePath) {
+    const result = await supabase.storage.from("documents").remove([filePath]);
     storageError = result.error ?? null;
   }
-  return { deleted: true, storageError: storageError?.message || "" };
+  return { ...(data ?? {}), deleted: true, storageError: storageError?.message || "" };
 };
 
 export const listMaintenanceReports = async ({ vehiclePlate = "", reporterId = "", limit = null } = {}) => {
