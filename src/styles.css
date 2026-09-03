@@ -5191,10 +5191,13 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .maintenance-report-card--reviewed { border-left-color: #7ba695; }
 .maintenance-report-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .maintenance-report-card > header > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.maintenance-report-card__recorded-label { color: #9b8b6d; font-size: 7px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .maintenance-report-card > header strong { color: #3d3422; font-size: 11px; }
 .maintenance-report-card > header time { color: #8c8066; font-size: 8px; }
 .maintenance-report-card > header .status-badge { flex: 0 0 auto; }
-.maintenance-report-card > p { margin: 0; color: #51472f; font-size: 10px; line-height: 1.4; white-space: pre-wrap; }
+.maintenance-report-card__message { display: grid; gap: 3px; padding: 8px 9px; border: 1px solid #f1e4c5; border-radius: 8px; background: #fffaf0; }
+.maintenance-report-card__message > small { color: #9b7a3a; font-size: 7px; font-weight: 850; letter-spacing: .035em; text-transform: uppercase; }
+.maintenance-report-card__message > p { margin: 0; color: #51472f; font-size: 10px; line-height: 1.4; white-space: pre-wrap; }
 .maintenance-report-card__review { width: max-content; display: inline-flex; align-items: center; gap: 4px; padding: 5px 7px; border: 1px solid #dfbf73; border-radius: 6px; background: #fff9ec; color: #8a5e0a; font: inherit; font-size: 8px; font-weight: 800; cursor: pointer; }
 .maintenance-report-card__review:hover, .maintenance-report-card__review:focus-visible { border-color: #bf8416; background: #fff0c8; outline: 0; }
 .maintenance-report-photo { width: max-content; max-width: 100%; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; color: #8a5e0a; font-size: 8px; font-weight: 800; text-decoration: none; }

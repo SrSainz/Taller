@@ -91,6 +91,7 @@ import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as get
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
+import { getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -1275,6 +1276,7 @@ const normalizeMaintenanceReportRecord = (report = {}) => ({
   ...report,
   reporterId: report.reporterId ?? report.reporter_id ?? "",
   vehiclePlate: canonicalizeVehiclePlate(report.vehiclePlate ?? report.vehicle_plate),
+  status: ["pending", "reviewed", "resolved"].includes(report.status) ? report.status : "pending",
   photoPath: report.photoPath ?? report.photo_path ?? "",
   photoName: report.photoName ?? report.photo_name ?? "",
   photoMimeType: report.photoMimeType ?? report.photo_mime_type ?? "",
@@ -1343,14 +1345,14 @@ const buildAdminDataActivities = ({ transactions = [], documents = [], driverEnt
     if (report.status !== "pending") return;
     const plate = report.vehiclePlate || report.vehicle_plate || "Vehículo sin asignar";
     const reporter = driverNames.get(report.reporterId || report.reporter_id) || "Conductor";
-    const createdAt = report.createdAt || report.created_at;
+    const createdAt = getMaintenanceReportRecordedAt(report);
     add({
       key: `maintenance-report:${report.id}`,
       kind: "maintenance",
       target: "Mantenimiento",
       plate,
       title: "Nuevo aviso de mantenimiento",
-      detail: `${plate} · ${reporter} · Pendiente de revisión`,
+      detail: `${plate} · ${reporter} · Registrado el ${formatMaintenanceReportDate(createdAt)}`,
       createdAt,
     });
   });
@@ -7708,7 +7710,7 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   const [message, setMessage] = useState("");
   const photoInputRef = useRef(null);
   const driverNames = useMemo(() => new Map(driverProfiles.map((driver) => [driver.id, driver.full_name])), [driverProfiles]);
-  const sortedReports = [...reports].sort((left, right) => String(right.createdAt ?? "").localeCompare(String(left.createdAt ?? "")));
+  const sortedReports = sortMaintenanceReportsByRecordedAt(reports);
   const pendingCount = sortedReports.filter((report) => report.status === "pending").length;
 
   useEffect(() => {
@@ -7775,17 +7777,17 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   return <div className="maintenance-reports-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title">
       <header className="maintenance-reports-dialog__header">
-        <div><span className="eyebrow">Avisos asociados a la matrícula</span><h2 id="maintenance-reports-dialog-title">Próxima revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></h2><p>{pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Aquí puedes anotar las intervenciones previstas y conservar sus fotos.</p></div>
+        <div><span className="eyebrow">Avisos asociados a la matrícula</span><h2 id="maintenance-reports-dialog-title">Próxima revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></h2><p>{pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Los avisos quedan archivados para consultarlos cuando quieras, incluso después de revisarlos.</p></div>
         <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar avisos de mantenimiento"><IconX size={18} /></button>
       </header>
       <div className="maintenance-reports-dialog__list" aria-live="polite">
         {sortedReports.length === 0 && <div className="empty-state"><IconTool size={23} /><strong>Sin incidencias archivadas</strong><span>Los avisos de los conductores aparecerán aquí.</span></div>}
-        {sortedReports.map((report) => <article className={`maintenance-report-card maintenance-report-card--${report.status}`} key={report.id}>
-          <header><div><strong>{driverNames.get(report.reporterId) || "Administrador"}</strong><time dateTime={report.createdAt}>{formatMaintenanceReportDate(report.createdAt)}</time></div><StatusBadge status={report.status === "pending" ? "Pendiente" : report.status === "resolved" ? "Resuelto" : "Revisado"} /></header>
-          {report.note && <p>{report.note}</p>}
+        {sortedReports.map((report) => { const recordedAt = getMaintenanceReportRecordedAt(report); return <article className={`maintenance-report-card maintenance-report-card--${report.status}`} data-report-id={report.id} key={report.id}>
+          <header><div><span className="maintenance-report-card__recorded-label">Registrado por</span><strong>{driverNames.get(report.reporterId) || "Administrador"}</strong><time dateTime={recordedAt}>Registrado el {formatMaintenanceReportDate(recordedAt)}</time></div><StatusBadge status={getMaintenanceReportStatusLabel(report.status)} /></header>
+          {report.note && <div className="maintenance-report-card__message"><small>Aviso escrito por el conductor</small><p>{report.note}</p></div>}
           {report.photoPath && <MaintenanceReportPhoto report={report} />}
           {report.status === "pending" && <button type="button" className="maintenance-report-card__review" onClick={() => markReviewed(report)}><IconCheck size={14} />Marcar revisado</button>}
-        </article>)}
+        </article>; })}
       </div>
       <form className="maintenance-reports-dialog__form" onSubmit={save}>
         <div><strong>Intervenciones de la próxima revisión</strong><small>Anota todo lo que debe revisarse, repararse o cambiarse en este coche. También puedes añadir una foto.</small></div>
