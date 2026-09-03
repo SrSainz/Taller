@@ -909,6 +909,19 @@ const getDriverDailyNetAmount = (entry, dateKey, manualValues = {}) => calculate
   washExpenses: getDriverWeeklyAmount(entry, "wash", dateKey, manualValues),
   otherExpenses: getDriverWeeklyAmount(entry, "other_expenses", dateKey, manualValues),
 });
+const buildDriverWeeklyRows = (days, entries, manualValues = {}) => {
+  const total = (entry, key, index) => getDriverWeeklyAmount(entry, key, days[index]?.key, manualValues);
+  const cumulativeTotals = accumulateDriverWeekTotals(days.map(({ key }, index) => getDriverDailyNetAmount(entries[index], key, manualValues)));
+  return [
+    { key: "net", label: "Precio\nneto", values: entries.map((entry, index) => total(entry, "net", index)) },
+    { key: "cash", label: "Efectivo", values: entries.map((entry, index) => total(entry, "cash_collected", index)) },
+    { key: "fuel", label: "Repostaje", values: entries.map((entry, index) => total(entry, "fuel_cost", index)) },
+    { key: "refunds", label: "Reembolsos", values: entries.map((entry, index) => total(entry, "refunds", index)) },
+    { key: "wash", label: "Lavados", values: entries.map((entry, index) => total(entry, "wash", index)) },
+    { key: "other", label: "Varios", values: entries.map((entry, index) => total(entry, "other_expenses", index)) },
+    { key: "total", label: "Total", values: cumulativeTotals },
+  ];
+};
 const driverWeeklyManualStorageKey = "sobre-ruedas-driver-weekly-manual-v1";
 const driverMaintenanceNoteStorageKey = "sobre-ruedas-driver-maintenance-note-v1";
 const loadDriverWeeklyManualValues = (driverId) => {
@@ -946,17 +959,7 @@ const buildDriverWeekPage = (anchorDate, entries, manualValues = {}, billingStat
     return { date, key: getDriverDateKey(date) };
   });
   const weekEntries = days.map(({ key }) => getDriverDailyLedgerEntry(entries, key, billingStatsByDate));
-  const total = (entry, key, index) => getDriverWeeklyAmount(entry, key, days[index]?.key, manualValues);
-  const cumulativeTotals = accumulateDriverWeekTotals(days.map(({ key }, index) => getDriverDailyNetAmount(weekEntries[index], key, manualValues)));
-  const rows = [
-    { key: "net", label: "Precio\nneto", values: weekEntries.map((entry, index) => total(entry, "net", index)) },
-    { key: "cash", label: "Efectivo", values: weekEntries.map((entry, index) => total(entry, "cash_collected", index)) },
-    { key: "fuel", label: "Repostaje", values: weekEntries.map((entry, index) => total(entry, "fuel_cost", index)) },
-    { key: "refunds", label: "Reembolsos", values: weekEntries.map((entry, index) => total(entry, "refunds", index)) },
-    { key: "wash", label: "Lavados", values: weekEntries.map((entry, index) => total(entry, "wash", index)) },
-    { key: "other", label: "Varios", values: weekEntries.map((entry, index) => total(entry, "other_expenses", index)) },
-    { key: "total", label: "Total", values: cumulativeTotals },
-  ];
+  const rows = buildDriverWeeklyRows(days, weekEntries, manualValues);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
   const shortDate = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
@@ -4578,16 +4581,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     }
   };
   const handleMaintenanceNoteSave = (value) => handleMaintenanceReportSave({ note: value });
-  const weeklyCumulativeTotals = accumulateDriverWeekTotals(driverWeekDays.map(({ key }, index) => getDriverDailyNetAmount(driverWeekEntries[index], key, weeklyManualValues)));
-  const weeklyRows = [
-    { key: "net", label: "Precio\nneto", values: driverWeekEntries.map((item, index) => getDriverWeeklyAmount(item, "net", driverWeekDays[index].key, weeklyManualValues)) },
-    { key: "cash", label: "Efectivo", values: driverWeekEntries.map((item, index) => getDriverWeeklyAmount(item, "cash_collected", driverWeekDays[index].key, weeklyManualValues)) },
-    { key: "fuel", label: "Repostaje", values: driverWeekEntries.map((item, index) => getDriverWeeklyAmount(item, "fuel_cost", driverWeekDays[index].key, weeklyManualValues)) },
-    { key: "refunds", label: "Reembolsos", values: driverWeekEntries.map((item, index) => getDriverWeeklyAmount(item, "refunds", driverWeekDays[index].key, weeklyManualValues)) },
-    { key: "wash", label: "Lavados", values: driverWeekEntries.map((item, index) => getDriverWeeklyAmount(item, "wash", driverWeekDays[index].key, weeklyManualValues)) },
-    { key: "other", label: "Varios", values: driverWeekEntries.map((item, index) => getDriverWeeklyAmount(item, "other_expenses", driverWeekDays[index].key, weeklyManualValues)) },
-    { key: "total", label: "Total", values: weeklyCumulativeTotals },
-  ];
+  const weeklyRows = buildDriverWeeklyRows(driverWeekDays, driverWeekEntries, weeklyManualValues);
   const weeklyChartData = driverWeekDays.map(({ date }, index) => ({
     label: new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", ""),
     consumption: getDriverEntryAmount(driverWeekEntries[index], "fuel_liters"),

@@ -25,6 +25,21 @@ test("acumula el total desde el lunes y el domingo contiene toda la semana", () 
   ]), [100.25, 156.5, 156.5, 177, 166.75, 201.75, 214.5]);
 });
 
+test("reproduce el acumulado diario del calendario mostrado en la captura", () => {
+  const dailyTotals = [
+    { cashCollected: 0 },
+    { cashCollected: -85.25, fuelCost: 40 },
+    { cashCollected: -25.43, washExpenses: 1 },
+    { cashCollected: -45.43 },
+    { cashCollected: 0 },
+    { cashCollected: 0 },
+    { cashCollected: 0 },
+  ].map(calculateDriverDailyTotal);
+
+  assert.deepEqual(dailyTotals, [0, -125.25, -26.43, -45.43, 0, 0, 0]);
+  assert.deepEqual(accumulateDriverWeekTotals(dailyTotals), [0, -125.25, -151.68, -197.11, -197.11, -197.11, -197.11]);
+});
+
 test("los siete días sin datos muestran cero y no arrastran valores", () => {
   assert.deepEqual(accumulateDriverWeekTotals([undefined, null, "", 0, "0,00", NaN, ""]), [0, 0, 0, 0, 0, 0, 0]);
 });
