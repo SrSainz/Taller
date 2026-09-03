@@ -36,8 +36,8 @@ test("reproduce el acumulado diario del calendario mostrado en la captura", () =
     { cashCollected: 0 },
   ].map(calculateDriverDailyTotal);
 
-  assert.deepEqual(dailyTotals, [0, -125.25, -26.43, -45.43, 0, 0, 0]);
-  assert.deepEqual(accumulateDriverWeekTotals(dailyTotals), [0, -125.25, -151.68, -197.11, -197.11, -197.11, -197.11]);
+  assert.deepEqual(dailyTotals, [0, 45.25, 24.43, 45.43, 0, 0, 0]);
+  assert.deepEqual(accumulateDriverWeekTotals(dailyTotals), [0, 45.25, 69.68, 115.11, 115.11, 115.11, 115.11]);
 });
 
 test("los siete días sin datos muestran cero y no arrastran valores", () => {

@@ -88,7 +88,7 @@ export const operationsFromDocument = ({ category, fields = {}, recordType = "",
     earningsTotal: money(values.total || values.earningsTotal) || Number((driverBillingAmounts.netAmount + money(values.tips)).toFixed(2)),
     refunds: money(values.refunds || values.reimbursements),
     tips: money(values.tips),
-    cashCollected: parseNumeric(values.cashCollected),
+    cashCollected: Math.abs(parseNumeric(values.cashCollected)),
   } : {};
   return [
     operation(primaryType, primaryAmount, {
@@ -96,7 +96,7 @@ export const operationsFromDocument = ({ category, fields = {}, recordType = "",
       ...(isMaintenanceDocument ? { odometerKm: money(values.odometerKm) } : {}),
       ...driverBillingMetadata,
     }),
-    operation("cash", values.cashCollected, { category: "cash" }),
+    operation("cash", Math.abs(parseNumeric(values.cashCollected)), { category: "cash" }),
     operation("tip", values.tips, { category: "tip" }),
     operation("toll", values.tolls, { category: "toll" }),
     operation("refund", values.refunds || values.reimbursements, { category: "refund" }),

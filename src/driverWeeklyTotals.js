@@ -14,6 +14,15 @@ const toAmount = (value) => {
 const roundCurrency = (value) => Number(toAmount(value).toFixed(2));
 
 /**
+ * Normalizes the cash collected amount used by the driver's calendar.
+ *
+ * Some legacy document extractions stored cash collected with a leading minus
+ * sign. It is still the amount collected, so the calendar uses its magnitude
+ * before subtracting the expenses shown below it.
+ */
+export const normalizeDriverCashCollected = (value) => roundCurrency(Math.abs(toAmount(value)));
+
+/**
  * Calculates the amount shown in one driver's daily Total cell.
  *
  * The daily total is cash collected less every expense shown in the weekly
@@ -26,7 +35,7 @@ export const calculateDriverDailyTotal = ({
   washExpenses = 0,
   otherExpenses = 0,
 } = {}) => roundCurrency(
-  toAmount(cashCollected)
+  normalizeDriverCashCollected(cashCollected)
   - toAmount(fuelCost)
   - toAmount(refunds)
   - toAmount(washExpenses)

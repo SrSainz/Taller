@@ -90,7 +90,7 @@ import { averagePositive, buildDriverWeeklyComparison, parseConnectionHours } fr
 import { GESTORIA_MONTHLY_FIXED_AMOUNT, gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
-import { accumulateDriverWeekTotals, calculateDriverDailyTotal } from "./driverWeeklyTotals";
+import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
 import { getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
@@ -900,7 +900,8 @@ const getDriverWeeklyAmount = (entry, key, dateKey, manualValues = {}) => {
   if (manualKey && Object.hasOwn(manualValues?.[dateKey] ?? {}, manualKey)) {
     return Number(manualValues[dateKey][manualKey]) || 0;
   }
-  return getDriverEntryAmount(entry, key === "wash" ? "wash_expenses" : key === "net" ? "billing" : key);
+  const amount = getDriverEntryAmount(entry, key === "wash" ? "wash_expenses" : key === "net" ? "billing" : key);
+  return key === "cash_collected" ? normalizeDriverCashCollected(amount) : amount;
 };
 const getDriverDailyNetAmount = (entry, dateKey, manualValues = {}) => calculateDriverDailyTotal({
   cashCollected: getDriverWeeklyAmount(entry, "cash_collected", dateKey, manualValues),
@@ -1077,7 +1078,9 @@ const getDriverEntryForm = (date, item) => ({
   fuelLiters: getDriverFormValue(item?.fuel_liters),
   odometerKm: getDriverFormValue(item?.odometer_km),
   billing: getDriverFormValue(item?.billing),
-  cashCollected: getDriverFormValue(item?.cash_collected),
+  cashCollected: item?.cash_collected === null || item?.cash_collected === undefined || String(item.cash_collected).trim() === ""
+    ? ""
+    : getDriverFormValue(normalizeDriverCashCollected(item.cash_collected)),
   tips: getDriverFormValue(item?.tips),
   refunds: getDriverFormValue(item?.refunds),
   tolls: getDriverFormValue(item?.tolls),
@@ -1148,7 +1151,7 @@ const getDriverBillingDocumentStats = (document) => {
     tips,
     total,
     refunds: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["refunds", "reimbursements", "reembolsos"])),
-    cashCollected: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["cashCollected", "cash_collected", "cash", "efectivo"])),
+    cashCollected: normalizeDriverCashCollected(getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["cashCollected", "cash_collected", "cash", "efectivo"]))),
     hasBillingAmount: hasDriverBillingAmount(fields),
   };
 };
@@ -1275,6 +1278,7 @@ const normalizeTransactionRecord = (transaction = {}) => ({
 const normalizeDriverEntryRecord = (entry = {}) => ({
   ...entry,
   vehicle_plate: canonicalizeVehiclePlate(entry.vehicle_plate),
+  cash_collected: normalizeDriverCashCollected(entry.cash_collected),
 });
 const normalizeDriverProfileRecord = (driver = {}) => ({
   ...driver,
@@ -1831,7 +1835,7 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
       tips: Number(entryForDate?.tips) || 0,
       total: billing + (Number(entryForDate?.tips) || 0),
       refunds: Number(entryForDate?.refunds) || 0,
-      cashCollected: Number(entryForDate?.cash_collected) || 0,
+      cashCollected: normalizeDriverCashCollected(entryForDate?.cash_collected),
       hasBillingAmount: billing > 0,
     };
     if (entryForDate?.billing_override === true) {
@@ -2538,7 +2542,12 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const saveAdminDriverDay = useCallback(async ({ driverId, vehiclePlate, dateKey, mode, amount, liters, refuels, dailyKm, odometerKm, dailyKmChanged = false, odometerChanged = false, billingStats: nextBillingStats, notes = "" }) => {
     if (!driverId || !vehiclePlate || !dateKey) throw new Error("Falta la asociación del conductor, coche o día.");
     const existing = driverEntries.find((entry) => entry.driver_id === driverId && String(entry.entry_date) === dateKey) ?? {};
-    const numberFor = (key, nextValue) => nextValue === undefined ? Math.max(0, Number(existing[key]) || 0) : Math.max(0, Number(String(nextValue).replace(",", ".")) || 0);
+    const numberFor = (key, nextValue) => {
+      const value = nextValue === undefined ? existing[key] : nextValue;
+      return key === "cash_collected"
+        ? normalizeDriverCashCollected(value)
+        : Math.max(0, Number(String(value ?? "").replace(",", ".")) || 0);
+    };
     const billingOverride = mode === "billing" ? buildDriverBillingOverride(nextBillingStats ?? { baseNetAmount: amount }) : null;
     const nextBilling = mode === "billing" ? billingOverride.netAmount : numberFor("billing");
     const nextFuelCost = mode === "fuel" ? numberFor("fuel_cost", amount) : numberFor("fuel_cost");
@@ -3891,7 +3900,14 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const updateEntry = (key, value) => setEntry((current) => ({ ...current, [key]: value }));
   const upsertDriverEntry = async (dateKey, patch = {}) => {
     const existing = entries.find((item) => String(item.entry_date) === dateKey) ?? {};
-    const numberFor = (key) => patch[key] === undefined ? getDriverEntryAmount(existing, key) : Math.max(0, Number(patch[key]) || 0);
+    const numberFor = (key) => {
+      const value = patch[key] === undefined ? existing[key] : patch[key];
+      return key === "cash_collected"
+        ? normalizeDriverCashCollected(value)
+        : patch[key] === undefined
+          ? getDriverEntryAmount(existing, key)
+          : Math.max(0, Number(value) || 0);
+    };
     const values = {
       driver_id: activeProfileId,
       vehicle_plate: profileVehiclePlate,
@@ -3997,7 +4013,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       const date = parseDriverDateKey(dateKey);
       return date && date >= weekStart && date < weekEnd;
     });
-    const total = (list, key) => list.reduce((sum, item) => sum + getDriverEntryAmount(item, key), 0);
+    const total = (list, key) => list.reduce((sum, item) => sum + (key === "cash_collected" ? normalizeDriverCashCollected(item?.[key]) : getDriverEntryAmount(item, key)), 0);
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
     const recordedMonthlyBilling = total(monthEntries, "billing");
     const billingDocuments = [...getDriverBillingStatsByDate(documents, activeProfileId, entries).values()]
@@ -4071,7 +4087,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     summary.fuelCost += fuelCost;
     summary.fuelLiters += fuelLiters;
     summary.odometerKm = odometerKm || summary.odometerKm;
-    summary.cashCollected += getDriverDocumentNumber(data.cashCollected ?? data.cash_collected);
+    summary.cashCollected += normalizeDriverCashCollected(getDriverDocumentNumber(data.cashCollected ?? data.cash_collected));
     summary.tips += getDriverDocumentNumber(data.tips);
     summary.refunds += getDriverDocumentNumber(data.refunds ?? data.reimbursements);
     summary.otherExpenses += getDriverDocumentNumber(data.otherExpenses ?? data.other_expenses);
@@ -4087,7 +4103,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     fuel_cost: Object.prototype.hasOwnProperty.call(selectedDayFuelOverride ?? {}, "cost") ? Number(selectedDayFuelOverride.cost) || 0 : getDriverEntryAmount(selectedDaySource, "fuel_cost") || selectedDayDocumentData.fuelCost,
     fuel_liters: Object.prototype.hasOwnProperty.call(selectedDayFuelOverride ?? {}, "liters") ? Number(selectedDayFuelOverride.liters) || 0 : getDriverEntryAmount(selectedDaySource, "fuel_liters") || selectedDayDocumentData.fuelLiters,
     daily_km: Object.prototype.hasOwnProperty.call(selectedDayMileageOverride ?? {}, "dailyKm") ? Number(selectedDayMileageOverride.dailyKm) || 0 : 0,
-    cash_collected: selectedDayBillingStats?.cashCollected ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.cashCollected : getDriverEntryAmount(selectedDaySource, "cash_collected") || selectedDayDocumentData.cashCollected),
+    cash_collected: normalizeDriverCashCollected(selectedDayBillingStats?.cashCollected ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.cashCollected : getDriverEntryAmount(selectedDaySource, "cash_collected") || selectedDayDocumentData.cashCollected)),
     tips: selectedDayBillingStats?.tips ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.tips : getDriverEntryAmount(selectedDaySource, "tips") || selectedDayDocumentData.tips),
     refunds: selectedDayBillingStats?.refunds ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.refunds : getDriverEntryAmount(selectedDaySource, "refunds") || selectedDayDocumentData.refunds),
     tolls: getDriverEntryAmount(selectedDaySource, "tolls") || selectedDayDocumentData.tolls,
@@ -4382,7 +4398,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     const billingAmounts = recordKey === "billing" ? getDriverBillingAmounts(fields) : null;
     const hasDriverNetAmount = Boolean(billingAmounts?.hasNetAmount || billingAmounts?.hasBaseNetAmount || billingAmounts?.hasPromotions);
     const billing = recordKey === "billing" ? (hasDriverNetAmount ? billingAmounts.netAmount : fieldNumber("total", "amount")) : fieldNumber("total", "netAmount", "amount");
-    const cashCollected = fieldNumber("cashCollected");
+    const cashCollected = normalizeDriverCashCollected(fieldNumber("cashCollected"));
     const tips = fieldNumber("tips");
     const grossTotal = recordKey === "billing" ? (billingAmounts?.hasBaseNetAmount || billingAmounts?.hasPromotions ? Number((billing + tips).toFixed(2)) : fieldNumber("total", "earningsTotal", "amount", "netAmount")) : 0;
     const refunds = fieldNumber("refunds", "reimbursements");

@@ -53,7 +53,7 @@ export const buildDriverBillingOverride = ({
     tips: tipAmount,
     total: roundMoney(netAmount + tipAmount),
     refunds: roundMoney(refunds),
-    cashCollected: roundMoney(cashCollected),
+    cashCollected: roundMoney(Math.abs(toNumber(cashCollected))),
   };
 };
 
@@ -79,7 +79,7 @@ export const applyDriverBillingOverride = (stats = {}, entry) => {
     tips,
     total: roundMoney(hasOwn(override, "total") ? override.total : netAmount + tips),
     refunds: roundMoney(hasOwn(override, "refunds") ? override.refunds : stats.refunds),
-    cashCollected: roundMoney(hasOwn(override, "cashCollected") ? override.cashCollected : stats.cashCollected),
+    cashCollected: roundMoney(Math.abs(toNumber(hasOwn(override, "cashCollected") ? override.cashCollected : stats.cashCollected))),
     hasBillingAmount: true,
   };
 };

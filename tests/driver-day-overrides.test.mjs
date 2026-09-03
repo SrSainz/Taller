@@ -36,6 +36,17 @@ test("la corrección de facturación recalcula precio neto y ganancias sin perde
   assert.equal(result.cashCollected, 120);
 });
 
+test("conserva como positivo el efectivo cobrado aunque el documento lo extraiga con signo negativo", () => {
+  const override = buildDriverBillingOverride({ cashCollected: -85.25 });
+  const result = applyDriverBillingOverride({ cashCollected: 0 }, {
+    entry_date: "2026-09-01",
+    manual_overrides: { billing: override },
+  });
+
+  assert.equal(override.cashCollected, 85.25);
+  assert.equal(result.cashCollected, 85.25);
+});
+
 test("la proyección de repostajes conserva exactamente el total y el número corregido", () => {
   const entries = buildDriverFuelOverrideEntries({
     dateKey: "2026-08-24",

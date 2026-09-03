@@ -47,6 +47,21 @@ test("la captura diaria conserva Precio neto y Reembolsos como conceptos indepen
   assert.equal(entry.refunds, 0.95);
 });
 
+test("normaliza el efectivo cobrado negativo de una captura como importe positivo", () => {
+  const rows = operationsFromDocument({
+    category: "billing",
+    recordType: "billing_daily",
+    fields: { serviceDate: "2026-09-01", total: 294.37, cashCollected: -85.25, vehicle: "5754 MJV" },
+    driverId: "driver-1",
+    fileHash: "negative-cash",
+  });
+  const cash = rows.find(({ type }) => type === "cash");
+  const billing = rows.find(({ type }) => type === "billing");
+
+  assert.equal(cash?.amount, 85.25);
+  assert.equal(billing?.metadata.cashCollected, 85.25);
+});
+
 test("la promoción se suma al Precio neto de la captura diaria sin sumarse a la propina", () => {
   const rows = operationsFromDocument({
     category: "billing",
