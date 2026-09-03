@@ -89,6 +89,7 @@ import { averagePositive, buildDriverWeeklyComparison, parseConnectionHours } fr
 import { GESTORIA_MONTHLY_FIXED_AMOUNT, gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
+import { accumulateDriverWeekTotals, calculateDriverDailyTotal } from "./driverWeeklyTotals";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
 import { getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
@@ -900,20 +901,13 @@ const getDriverWeeklyAmount = (entry, key, dateKey, manualValues = {}) => {
   }
   return getDriverEntryAmount(entry, key === "wash" ? "wash_expenses" : key === "net" ? "billing" : key);
 };
-const getDriverDailyNetAmount = (entry, dateKey, manualValues = {}) => Number((
-  getDriverWeeklyAmount(entry, "cash_collected", dateKey, manualValues)
-  - getDriverWeeklyAmount(entry, "fuel_cost", dateKey, manualValues)
-  - getDriverWeeklyAmount(entry, "refunds", dateKey, manualValues)
-  - getDriverWeeklyAmount(entry, "wash", dateKey, manualValues)
-  - getDriverWeeklyAmount(entry, "other_expenses", dateKey, manualValues)
-).toFixed(2));
-const accumulateDriverWeekTotals = (dailyValues) => {
-  let runningTotal = 0;
-  return dailyValues.map((value) => {
-    runningTotal = Number((runningTotal + (Number(value) || 0)).toFixed(2));
-    return runningTotal;
-  });
-};
+const getDriverDailyNetAmount = (entry, dateKey, manualValues = {}) => calculateDriverDailyTotal({
+  cashCollected: getDriverWeeklyAmount(entry, "cash_collected", dateKey, manualValues),
+  fuelCost: getDriverWeeklyAmount(entry, "fuel_cost", dateKey, manualValues),
+  refunds: getDriverWeeklyAmount(entry, "refunds", dateKey, manualValues),
+  washExpenses: getDriverWeeklyAmount(entry, "wash", dateKey, manualValues),
+  otherExpenses: getDriverWeeklyAmount(entry, "other_expenses", dateKey, manualValues),
+});
 const driverWeeklyManualStorageKey = "sobre-ruedas-driver-weekly-manual-v1";
 const driverMaintenanceNoteStorageKey = "sobre-ruedas-driver-maintenance-note-v1";
 const loadDriverWeeklyManualValues = (driverId) => {
