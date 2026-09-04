@@ -8533,6 +8533,7 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   const sortedReports = sortMaintenanceReportsByRecordedAt(reports);
   const reportCounts = getMaintenanceReportCounts(sortedReports);
   const pendingCount = reportCounts.pending;
+  const vehicleDriverNames = (vehicle?.drivers ?? []).filter(Boolean).join(" · ") || "Conductores del coche";
 
   useEffect(() => {
     const closeOnEscape = (event) => { if (event.key === "Escape") onClose(); };
@@ -8596,29 +8597,35 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   };
 
   return <div className="maintenance-reports-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title">
+    <section className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title" data-maintenance-reports-dialog>
       <header className="maintenance-reports-dialog__header">
-        <div><span className="eyebrow">Histórico de incidencias · {reportCounts.total} {reportCounts.total === 1 ? "aviso" : "avisos"}</span><h2 id="maintenance-reports-dialog-title">Próxima revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></h2><p>{isRefreshing ? "Actualizando el histórico…" : pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Se conserva cada incidencia con la fecha y hora de registro para consultarla cuando quieras.</p>{refreshError && <small className="maintenance-reports-dialog__refresh-error" role="alert">No se ha podido actualizar ahora. Mostrando la última copia disponible.</small>}</div>
+        <div><span className="eyebrow">Pendiente de revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></span><h2 id="maintenance-reports-dialog-title">Pendiente de mantenimiento</h2><p>{isRefreshing ? "Actualizando el histórico…" : pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Aquí se muestra lo mismo que registra el conductor: texto, foto, autor y fecha/hora original.</p>{refreshError && <small className="maintenance-reports-dialog__refresh-error" role="alert">No se ha podido actualizar ahora. Mostrando la última copia disponible.</small>}</div>
         <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar avisos de mantenimiento"><IconX size={18} /></button>
       </header>
-      <div className="maintenance-reports-dialog__list" aria-live="polite">
-        {sortedReports.length === 0 && <div className="empty-state maintenance-reports-dialog__empty"><IconHistory size={23} /><strong>Histórico disponible</strong><span>No hay avisos archivados para este coche todavía.</span><small>Cuando un conductor escriba una incidencia, quedará guardada aquí con todo su texto y la fecha y hora de registro.</small></div>}
-        {sortedReports.map((report, index) => { const recordedAt = getMaintenanceReportRecordedAt(report); const reportNote = getMaintenanceReportNote(report); const reportPhotoPath = report.photoPath ?? report.photo_path ?? ""; const reporterId = report.reporterId ?? report.reporter_id ?? report.reporterID ?? ""; const reporterName = getMaintenanceReportReporterName(report, { fallbackDriverNames: [driverNames.get(String(reporterId)), "Administrador"] }); return <article className={`maintenance-report-card maintenance-report-card--${report.status}`} data-report-id={report.id} data-recorded-at={recordedAt} key={report.id || `${recordedAt}-${index}`}>
-          <header><div><span className="maintenance-report-card__recorded-label">Registrado por</span><strong>{reporterName}</strong><time dateTime={recordedAt}>Registrado el {formatMaintenanceReportDate(recordedAt)}</time></div><StatusBadge status={getMaintenanceReportStatusLabel(report.status)} /></header>
-          <div className="maintenance-report-card__message"><small>{reportNote ? "Texto completo del aviso" : reportPhotoPath ? "Aviso sin texto · fotografía adjunta" : "Aviso sin texto"}</small><p>{getMaintenanceReportDisplayMessage(report)}</p></div>
-          {reportPhotoPath && <MaintenanceReportPhoto report={report} />}
-          {reportPhotoPath && report.photoName && <small className="maintenance-report-card__attachment">Archivo adjunto: {report.photoName}</small>}
-          {report.status === "pending" && <button type="button" className="maintenance-report-card__review" onClick={() => markReviewed(report)}><IconCheck size={14} />Marcar revisado</button>}
-        </article>; })}
-      </div>
       <form className="maintenance-reports-dialog__form" onSubmit={save}>
-        <div><strong>Intervenciones de la próxima revisión</strong><small>Anota todo lo que debe revisarse, repararse o cambiarse en este coche. También puedes añadir una foto.</small></div>
+        <div><strong>Qué conviene hacer en la próxima revisión</strong><small>Consulta abajo los avisos del conductor o anota una intervención para este coche. También puedes añadir una foto.</small></div>
         <textarea value={note} onChange={(event) => setNote(event.target.value)} rows="3" placeholder="Escribe las intervenciones previstas para la próxima revisión…" aria-label="Intervenciones de la próxima revisión" />
         <input ref={photoInputRef} className="sr-only" type="file" accept="image/*" capture="environment" aria-label="Fotografiar incidencia desde Administración" onChange={handlePhoto} />
         {photo && <div className="maintenance-reports-dialog__selected-file"><IconCamera size={14} /><span>{photo.name}</span><button type="button" onClick={() => setPhoto(null)} aria-label="Quitar foto seleccionada"><IconX size={13} /></button></div>}
         {message && <p className="maintenance-reports-dialog__message" role="alert">{message}</p>}
         <footer><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="maintenance-report-camera-button" onClick={choosePhoto} disabled={saving}><IconCamera size={16} />Foto</button><button type="submit" className="primary-button" disabled={saving}><IconCheck size={16} />{saving ? "Guardando…" : "Guardar intervención"}</button></footer>
       </form>
+      <section className="maintenance-reports-dialog__history" aria-label={`Histórico del coche ${vehicle?.plate ?? ""}`}>
+        <header className="maintenance-reports-dialog__history-header">
+          <div><strong>HISTÓRICO DEL COCHE</strong><span>{vehicleDriverNames}</span></div>
+          <b>{reportCounts.total}</b>
+        </header>
+        <div className="maintenance-reports-dialog__list" aria-live="polite">
+          {sortedReports.length === 0 && <div className="empty-state maintenance-reports-dialog__empty"><IconHistory size={23} /><strong>Histórico disponible</strong><span>No hay avisos archivados para este coche todavía.</span><small>Cuando un conductor escriba una incidencia, quedará guardada aquí con todo su texto y la fecha y hora de registro.</small></div>}
+          {sortedReports.map((report, index) => { const recordedAt = getMaintenanceReportRecordedAt(report); const reportNote = getMaintenanceReportNote(report); const reportPhotoPath = report.photoPath ?? report.photo_path ?? ""; const reporterId = report.reporterId ?? report.reporter_id ?? report.reporterID ?? ""; const reporterName = getMaintenanceReportReporterName(report, { fallbackDriverNames: [driverNames.get(String(reporterId)), ...((vehicle?.drivers ?? []).filter(Boolean)), "Administrador"] }); return <article className={`maintenance-report-card maintenance-report-card--${report.status}`} data-report-id={report.id} data-recorded-at={recordedAt} key={report.id || `${recordedAt}-${index}`}>
+            <header><div><span className="maintenance-report-card__recorded-label">Registrado por</span><strong>{reporterName}</strong><time dateTime={recordedAt}>Registrado el {formatMaintenanceReportDate(recordedAt)}</time></div><StatusBadge status={getMaintenanceReportStatusLabel(report.status)} /></header>
+            <div className="maintenance-report-card__message"><small>{reportNote ? "Texto completo del aviso" : reportPhotoPath ? "Aviso sin texto · fotografía adjunta" : "Aviso sin texto"}</small><p>{getMaintenanceReportDisplayMessage(report)}</p></div>
+            {reportPhotoPath && <MaintenanceReportPhoto report={report} />}
+            {reportPhotoPath && report.photoName && <small className="maintenance-report-card__attachment">Archivo adjunto: {report.photoName}</small>}
+            {report.status === "pending" && <button type="button" className="maintenance-report-card__review" onClick={() => markReviewed(report)}><IconCheck size={14} />Marcar revisado</button>}
+          </article>; })}
+        </div>
+      </section>
     </section>
   </div>;
 }
