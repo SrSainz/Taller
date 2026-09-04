@@ -118,7 +118,81 @@ const safeFileName = (value = "documento") => String(value)
 
 const documentRecordColumns = "id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at";
 const maintenanceReportColumns = "id, reporter_id, reporter_name, vehicle_plate, note, photo_path, photo_name, photo_mime_type, photo_size, status, created_at, updated_at";
+const transactionRecordColumns = "id, type, occurred_on, amount, driver_id, vehicle_plate, source_document_id, category, metadata, dedupe_key, created_at";
+const driverEntryRecordColumns = "id, driver_id, vehicle_plate, entry_date, billing, billing_override, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at, updated_at";
 const driverDailyComparisonColumns = "entry_date, total_km, drivers_with_km, total_consumption, drivers_with_consumption, total_km_per_connection_hour, drivers_with_km_per_connection_hour, updated_at";
+
+// A signed URL is a short-lived capability, not the file itself. Keeping the
+// capability in memory prevents every React render, route change or realtime
+// event from asking Storage to sign the same object again. The cache key also
+// includes the transform so a thumbnail and its original never get mixed.
+const storageUrlCache = new Map();
+const storageUrlSafetyWindowMs = 60 * 1000;
+
+export const createCachedStorageUrl = async ({ bucket, path, expiresIn = 3600, transform = null } = {}) => {
+  if (!supabase || !bucket || !path) return { signedUrl: "", error: new Error("Archivo no disponible.") };
+  const normalizedExpiresIn = Math.max(60, Number(expiresIn) || 3600);
+  const transformKey = transform ? JSON.stringify(transform) : "original";
+  const cacheKey = `${bucket}:${path}:${transformKey}`;
+  const now = Date.now();
+  const cached = storageUrlCache.get(cacheKey);
+  if (cached?.promise) return cached.promise;
+  if (cached?.signedUrl && cached.expiresAt > now + storageUrlSafetyWindowMs) {
+    return { signedUrl: cached.signedUrl, error: null };
+  }
+
+  const request = supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, normalizedExpiresIn, transform ? { transform } : undefined)
+    .then(({ data, error }) => {
+      if (error || !data?.signedUrl) {
+        storageUrlCache.delete(cacheKey);
+        return { signedUrl: "", error: error ?? new Error("No se ha podido firmar el archivo.") };
+      }
+      storageUrlCache.set(cacheKey, {
+        signedUrl: data.signedUrl,
+        expiresAt: Date.now() + Math.max(60, normalizedExpiresIn - 60) * 1000,
+      });
+      return { signedUrl: data.signedUrl, error: null };
+    })
+    .catch((error) => {
+      storageUrlCache.delete(cacheKey);
+      return { signedUrl: "", error };
+    });
+  storageUrlCache.set(cacheKey, { promise: request });
+  return request;
+};
+
+export const clearCachedStorageUrl = ({ bucket = "", path = "" } = {}) => {
+  const prefix = `${bucket}:${path}:`;
+  [...storageUrlCache.keys()].forEach((key) => {
+    if (key.startsWith(prefix)) storageUrlCache.delete(key);
+  });
+};
+
+export const getTransactionRecord = async (id) => {
+  if (!supabase || !id) return { data: null, error: null };
+  return supabase.from("transactions").select(transactionRecordColumns).eq("id", id).maybeSingle();
+};
+
+export const getDriverEntryRecord = async ({ id, driverId = "" } = {}) => {
+  if (!supabase || !id) return { data: null, error: null };
+  let query = supabase.from("driver_entries").select(driverEntryRecordColumns).eq("id", id);
+  if (driverId) query = query.eq("driver_id", driverId);
+  return query.maybeSingle();
+};
+
+export const getDocumentRecord = async ({ id, ownerId = "" } = {}) => {
+  if (!supabase || !id) return { data: null, error: null };
+  let query = supabase.from("documents").select(documentRecordColumns).eq("id", id);
+  if (ownerId) query = query.eq("owner_id", ownerId);
+  return query.maybeSingle();
+};
+
+export const getMaintenanceReportRecord = async (id) => {
+  if (!supabase || !id) return { data: null, error: null };
+  return supabase.from("maintenance_reports").select(maintenanceReportColumns).eq("id", id).maybeSingle();
+};
 
 export const listDriverDailyComparisons = async ({ startDate = "", endDate = "" } = {}) => {
   if (!supabase) return { data: [], error: null };
@@ -347,11 +421,15 @@ export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note =
   return data;
 };
 
-export const createMaintenanceReportPhotoUrl = async (photoPath, expiresIn = 600) => {
-  if (!supabase || !photoPath) return "";
-  const { data, error } = await supabase.storage.from("maintenance-reports").createSignedUrl(photoPath, expiresIn);
+export const createMaintenanceReportPhotoUrl = async (photoPath, expiresIn = 600, { thumbnail = false } = {}) => {
+  const { signedUrl, error } = await createCachedStorageUrl({
+    bucket: "maintenance-reports",
+    path: photoPath,
+    expiresIn,
+    transform: thumbnail ? { width: 480, height: 320, resize: "contain", quality: 65 } : null,
+  });
   if (error) throw error;
-  return data?.signedUrl ?? "";
+  return signedUrl;
 };
 
 export const updateMaintenanceReportStatus = async (reportId, status = "reviewed") => {
@@ -394,13 +472,17 @@ export const upsertDriverPeriodFinancial = async ({ driverId, periodStart, payro
   return data;
 };
 
-export const listCommissionReports = async () => {
+export const listCommissionReports = async ({ periodStart = "" } = {}) => {
   if (!supabase) return { data: [], error: null };
-  const queryFactory = () => supabase
-    .from("commission_reports")
-    .select("id, driver_id, vehicle_plate, period_start, period_end, driver_name, billing, commission_rate, commission_base, threshold_bonus, tips, tolls, total_benefit_month, payroll, total_to_collect, file_path, file_name, created_at, updated_at")
-    .order("period_start", { ascending: false })
-    .order("created_at", { ascending: false });
+  const queryFactory = () => {
+    let query = supabase
+      .from("commission_reports")
+      .select("id, driver_id, vehicle_plate, period_start, period_end, driver_name, billing, commission_rate, commission_base, threshold_bonus, tips, tolls, total_benefit_month, payroll, total_to_collect, file_path, file_name, created_at, updated_at")
+      .order("period_start", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (periodStart) query = query.eq("period_start", periodStart);
+    return query;
+  };
   return fetchAllSupabaseRows(queryFactory);
 };
 
@@ -441,7 +523,7 @@ export const uploadCommissionReport = async ({ report, pdfBlob, createdBy }) => 
 
 export const createCommissionReportDownloadUrl = async (filePath) => {
   if (!supabase || !filePath) throw new Error("Informe no disponible.");
-  const { data, error } = await supabase.storage.from("commission-reports").createSignedUrl(filePath, 600);
+  const { signedUrl, error } = await createCachedStorageUrl({ bucket: "commission-reports", path: filePath, expiresIn: 600 });
   if (error) throw error;
-  return data?.signedUrl ?? "";
+  return signedUrl;
 };

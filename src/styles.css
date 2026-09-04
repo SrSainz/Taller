@@ -92,8 +92,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .topbar { position: relative; z-index: 10; height: 70px; flex: 0 0 70px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; background: #050505; border-bottom: 1px solid #242424; color: #fff; }
 .topbar--reports { border-color: #242424; background: #050505; color: #fff; }
 .topbar--reports .topbar-title small, .topbar--reports .date, .topbar--reports .profile small { color: rgba(255,255,255,.74); }
-.topbar--reports .install-app-button, .topbar--reports .bell-button, .topbar--reports .topbar-route-button { border-color: rgba(255,255,255,.34); background: rgba(255,255,255,.12); color: #fff; }
-.topbar--reports .install-app-button:hover, .topbar--reports .bell-button:hover, .topbar--reports .topbar-route-button:hover, .topbar--reports .profile:hover, .topbar--reports .icon-button:hover { background: rgba(255,255,255,.2); }
+.topbar--reports .install-app-button, .topbar--reports .topbar-refresh-button, .topbar--reports .bell-button, .topbar--reports .topbar-route-button { border-color: rgba(255,255,255,.34); background: rgba(255,255,255,.12); color: #fff; }
+.topbar--reports .install-app-button:hover, .topbar--reports .topbar-refresh-button:hover, .topbar--reports .bell-button:hover, .topbar--reports .topbar-route-button:hover, .topbar--reports .profile:hover, .topbar--reports .icon-button:hover { background: rgba(255,255,255,.2); }
 .topbar--reports .topbar-route-button--active { border-color: rgba(255,255,255,.7); background: rgba(255,255,255,.25); }
 .topbar--reports .workspace-home-button { border-color: rgba(255,255,255,.4); background: rgba(255,255,255,.16); color: #fff; }
 .topbar--reports .workspace-home-button:hover { background: rgba(255,255,255,.26); }
@@ -124,6 +124,11 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .topbar-route-button--active { border-color: #78a99a; background: var(--green-50); color: var(--green-900); }
 .install-app-button { min-height: 35px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid #a9c7be; border-radius: 8px; background: var(--green-50); color: var(--green-900); font: inherit; font-size: 8px; font-weight: 750; cursor: pointer; }
 .install-app-button:hover { border-color: #6fa492; background: #e1f2ec; }
+.topbar-refresh-button { min-height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: #43564f; font: inherit; font-size: 7.5px; font-weight: 750; cursor: pointer; }
+.topbar-refresh-button:hover { border-color: #a9c7be; background: var(--green-50); color: var(--green-900); }
+.topbar-refresh-button:disabled { cursor: wait; opacity: .72; }
+.topbar-refresh-button.is-loading svg { animation: data-sync-spin .85s linear infinite; }
+@keyframes data-sync-spin { to { transform: rotate(360deg); } }
 .date { display: flex; align-items: center; gap: 7px; color: #4f5e58; font-size: 10px; white-space: nowrap; }
 .bell-button { position: relative; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; }
 .bell-button:hover { background: var(--green-50); }
@@ -140,9 +145,9 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .topbar .topbar-title span, .topbar .profile, .topbar .profile strong { color: #fff; }
 .topbar .workspace-home-button { border-color: rgba(255,255,255,.42); background: #d20000; }
 .topbar .workspace-home-button:hover { background: #e00000; }
-.topbar .install-app-button, .topbar .bell-button { border-color: rgba(255,255,255,.32); background: rgba(255,255,255,.1); color: #fff; }
+.topbar .install-app-button, .topbar .topbar-refresh-button, .topbar .bell-button { border-color: rgba(255,255,255,.32); background: rgba(255,255,255,.1); color: #fff; }
 .topbar .topbar-route-button { border-color: rgba(255,255,255,.32); background: rgba(255,255,255,.1); color: #fff; }
-.topbar .install-app-button:hover, .topbar .topbar-route-button:hover, .topbar .bell-button:hover, .topbar .profile:hover { background: rgba(255,255,255,.2); }
+.topbar .install-app-button:hover, .topbar .topbar-refresh-button:hover, .topbar .topbar-route-button:hover, .topbar .bell-button:hover, .topbar .profile:hover { background: rgba(255,255,255,.2); }
 .topbar .avatar { background: rgba(255,255,255,.16); }
 .topbar-route-button { position: relative; }
 .topbar-route-button i { position: absolute; top: -5px; right: -4px; min-width: 14px; height: 14px; display: grid; place-items: center; padding: 0 2px; border: 2px solid #050505; border-radius: 999px; background: var(--green-900); color: #fff; font-size: 6.5px; font-style: normal; font-weight: 750; }
@@ -3932,6 +3937,11 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-app--preview .driver-mobile-topbar { position: relative; grid-template-columns: 38px minmax(0, 1fr); min-height: 42px; padding: 3px 10px; }
 .driver-app--preview .driver-mobile-topbar__icon, .driver-app--preview .driver-mobile-topbar__popover { display: none; }
 .driver-mobile-topbar__back { position: relative; z-index: 2; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #fff; cursor: pointer; }
+.driver-mobile-topbar__refresh { width: 38px; height: 38px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #fff; cursor: pointer; }
+.driver-mobile-topbar__refresh:hover, .driver-mobile-topbar__refresh:focus-visible { background: rgba(255,255,255,.12); outline: 0; }
+.driver-mobile-topbar__refresh:disabled { cursor: wait; opacity: .72; }
+.driver-mobile-topbar__refresh.is-loading svg { animation: data-sync-spin .85s linear infinite; }
+.driver-app--preview .driver-mobile-topbar__refresh { display: none; }
 .driver-mobile-topbar__back:focus-visible { outline: 2px solid #fff; outline-offset: 1px; border-radius: 7px; }
 .driver-app--preview .driver-mobile-topbar__title { justify-content: flex-start; }
 .driver-app--preview .driver-mobile-topbar__avatar { width: 30px; height: 30px; flex-basis: 30px; }
@@ -5915,6 +5925,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
     gap: 3px;
   }
   .app-shell--admin .topbar-route-button,
+  .app-shell--admin .topbar-refresh-button,
   .app-shell--admin .bell-button,
   .app-shell--admin .topbar-menu-button {
     width: 29px;
@@ -5922,6 +5933,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
     min-height: 29px;
     border-radius: 8px;
   }
+  .app-shell--admin .topbar-refresh-button span { display: none; }
   .app-shell--admin .page-scroll {
     height: calc(100dvh - 54px - var(--bottom-navigation-height) - env(safe-area-inset-bottom));
   }
@@ -6089,7 +6101,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
 }
 
 /* La cuenta real del conductor usa la misma composición compacta y actual que la vista previa. */
-.driver-app--live .driver-mobile-topbar { grid-template-columns: minmax(0, 1fr); padding-inline: 14px; }
+.driver-app--live .driver-mobile-topbar { grid-template-columns: minmax(0, 1fr) 38px; padding-inline: 14px; }
 .driver-app--live .driver-mobile-topbar__title { justify-self: start; }
 .driver-mobile-app--updated .driver-mobile-month-summary { padding: 0 2px 2px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .driver-mobile-app--updated .driver-mobile-month-summary__heading { display: none; }
@@ -8137,6 +8149,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
   color: #fff;
 }
 .app-shell--admin .topbar-route-button,
+.app-shell--admin .topbar-refresh-button,
 .app-shell--admin .bell-button,
 .app-shell--admin .topbar-menu-button {
   border-color: rgba(255, 255, 255, .34);
@@ -8144,6 +8157,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
   color: #fff;
 }
 .app-shell--admin .topbar-route-button:hover,
+.app-shell--admin .topbar-refresh-button:hover,
 .app-shell--admin .bell-button:hover,
 .app-shell--admin .topbar-menu-button:hover,
 .app-shell--admin .topbar-route-button--active {

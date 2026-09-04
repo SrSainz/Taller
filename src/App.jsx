@@ -68,7 +68,7 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, fetchAllSupabaseRows, getProfile, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverPeriodFinancials, listMaintenanceReports, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, validateMaintenancePhotoFile } from "./supabase";
+import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, fetchAllSupabaseRows, getDocumentRecord, getDriverEntryRecord, getMaintenanceReportRecord, getProfile, getTransactionRecord, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverPeriodFinancials, listMaintenanceReports, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, validateMaintenancePhotoFile } from "./supabase";
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
@@ -106,6 +106,9 @@ const DRIVER_EDITABLE_WEEKLY_ROWS = new Set(driverEditableWeeklyRowKeys);
 const ADMIN_EDITABLE_WEEKLY_ROWS = new Set(administratorEditableWeeklyRowKeys);
 const WEEKLY_EDIT_MAX_PRESS_MS = 1000;
 const DRIVER_CURRENT_WEEK_ONLY_MESSAGE = "Solo puedes modificar la semana en curso (de lunes a domingo). Las semanas y meses anteriores son de solo consulta.";
+const DATA_REFRESH_MIN_INTERVAL_MS = 60 * 1000;
+const DOCUMENT_THUMBNAIL_TRANSFORM = { width: 320, height: 240, resize: "contain", quality: 65 };
+const canTransformImage = (mimeType) => String(mimeType ?? "").startsWith("image/") && !["image/heic", "image/heif"].includes(String(mimeType ?? "").toLocaleLowerCase("es"));
 const calculateNetDriverCommission = (driverName, billing) => calculateDriverCommission({ driverName, billing }).totalToCollect;
 const chartMetricOptions = [
   { value: "summary", label: "Resumen" },
@@ -2254,6 +2257,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const [maintenanceReports, setMaintenanceReports] = useState([]);
   const [processedDocuments, setProcessedDocuments] = useState(loadProcessedDocuments);
   const [realtimeRevision, setRealtimeRevision] = useState(0);
+  const [realtimeTable, setRealtimeTable] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const accountStorageKey = session.user?.id ?? "anonymous";
@@ -2293,6 +2297,23 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     driverEntries: new Map(),
     maintenanceReportIds: new Set(),
   });
+  const adminFullRefreshRef = useRef(null);
+  const adminLastFullRefreshAtRef = useRef(0);
+  const adminTransactionsRef = useRef(transactions);
+  const adminDriverEntriesRef = useRef(driverEntries);
+  const adminDocumentsRef = useRef(documentRecords);
+  const adminMaintenanceReportsRef = useRef(maintenanceReports);
+  const adminDriverProfilesRef = useRef(driverProfiles);
+  const adminRefreshDataRef = useRef(null);
+  const [adminSyncStatus, setAdminSyncStatus] = useState("idle");
+
+  useEffect(() => {
+    adminTransactionsRef.current = transactions;
+    adminDriverEntriesRef.current = driverEntries;
+    adminDocumentsRef.current = documentRecords;
+    adminMaintenanceReportsRef.current = maintenanceReports;
+    adminDriverProfilesRef.current = driverProfiles;
+  }, [documentRecords, driverEntries, driverProfiles, maintenanceReports, transactions]);
 
   const unreadAdminNotifications = useMemo(
     () => adminNotifications.filter((activity) => !readNotificationKeys.has(activity.key)),
@@ -2418,52 +2439,102 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const refreshDriverProfiles = useCallback(async () => {
     if (!isAdmin) return;
     const response = await invokeAdminUsers({ action: "list" });
-    setDriverProfiles((response.profiles ?? []).map(normalizeDriverProfileRecord));
+    const nextProfiles = (response.profiles ?? []).map(normalizeDriverProfileRecord);
+    adminDriverProfilesRef.current = nextProfiles;
+    setDriverProfiles(nextProfiles);
   }, [isAdmin]);
 
-  useEffect(() => {
-    if (!isAdmin) {
-      setDriverProfiles([]);
-      return undefined;
-    }
-    let mounted = true;
-    refreshDriverProfiles().catch(() => { if (mounted) setDriverProfiles([]); });
-    return () => { mounted = false; };
-  }, [isAdmin, refreshDriverProfiles]);
-
-  const announceAdminDataChanges = useCallback(({ source, nextTransactions = [], nextDocuments = [], nextDriverEntries = [], nextMaintenanceReports = [] }) => {
+  const announceAdminDataChanges = useCallback(({ source, nextTransactions = [], nextDocuments = [], nextDriverEntries = [], nextMaintenanceReports = [], incremental = false, eventType = "" }) => {
     const snapshot = adminDataSnapshotRef.current;
     let activities = [];
     let shouldNotify = true;
     if (source === "transactions") {
-      const freshTransactions = snapshot.transactionsReady ? nextTransactions.filter((transaction) => !snapshot.transactionIds.has(transaction.id)) : [];
-      const nextEntryMap = new Map(nextDriverEntries.map((entry) => [entry.id, `${entry.updated_at ?? ""}:${entry.entry_date}:${entry.billing}:${entry.fuel_cost}:${entry.refunds}:${entry.odometer_km}`]));
-      const freshEntries = snapshot.driverEntriesReady
-        ? nextDriverEntries.filter((entry) => snapshot.driverEntries.get(entry.id) !== nextEntryMap.get(entry.id))
-        : [];
-      activities = buildAdminDataActivities({ transactions: freshTransactions, driverEntries: freshEntries, driverProfiles });
-      snapshot.transactionIds = new Set(nextTransactions.map((transaction) => transaction.id));
-      snapshot.driverEntries = nextEntryMap;
-      snapshot.transactionsReady = true;
+      if (incremental) {
+        const transaction = nextTransactions[0];
+        const transactionId = transaction?.id;
+        if (eventType === "DELETE") {
+          if (transactionId) snapshot.transactionIds.delete(transactionId);
+        } else if (transactionId) {
+          if (snapshot.transactionsReady && eventType === "INSERT" && !snapshot.transactionIds.has(transactionId)) {
+            activities = buildAdminDataActivities({ transactions: [transaction], driverProfiles: adminDriverProfilesRef.current });
+          }
+          snapshot.transactionIds.add(transactionId);
+        }
+        snapshot.transactionsReady = true;
+      } else {
+        const freshTransactions = snapshot.transactionsReady ? nextTransactions.filter((transaction) => !snapshot.transactionIds.has(transaction.id)) : [];
+        const nextEntryMap = new Map(nextDriverEntries.map((entry) => [entry.id, `${entry.updated_at ?? ""}:${entry.entry_date}:${entry.billing}:${entry.fuel_cost}:${entry.refunds}:${entry.odometer_km}`]));
+        const freshEntries = snapshot.driverEntriesReady
+          ? nextDriverEntries.filter((entry) => snapshot.driverEntries.get(entry.id) !== nextEntryMap.get(entry.id))
+          : [];
+        activities = buildAdminDataActivities({ transactions: freshTransactions, driverEntries: freshEntries, driverProfiles: adminDriverProfilesRef.current });
+        snapshot.transactionIds = new Set(nextTransactions.map((transaction) => transaction.id));
+        snapshot.driverEntries = nextEntryMap;
+        snapshot.transactionsReady = true;
+        snapshot.driverEntriesReady = true;
+      }
+    }
+    if (source === "driver_entries" && incremental) {
+      const entry = nextDriverEntries[0];
+      const entryId = entry?.id;
+      const entrySignature = entry ? `${entry.updated_at ?? ""}:${entry.entry_date}:${entry.billing}:${entry.fuel_cost}:${entry.refunds}:${entry.odometer_km}` : "";
+      if (eventType === "DELETE") {
+        if (entryId) snapshot.driverEntries.delete(entryId);
+      } else if (entryId) {
+        const previousSignature = snapshot.driverEntries.get(entryId);
+        if (snapshot.driverEntriesReady && previousSignature && previousSignature !== entrySignature) {
+          activities = buildAdminDataActivities({ driverEntries: [entry], driverProfiles });
+        }
+        snapshot.driverEntries.set(entryId, entrySignature);
+      }
       snapshot.driverEntriesReady = true;
     }
     if (source === "documents") {
-      const freshDocuments = snapshot.documentsReady ? nextDocuments.filter((document) => !snapshot.documentIds.has(document.id)) : [];
-      const freshInvoiceCount = freshDocuments.filter((document) => document.category === "billing").length;
-      if (freshInvoiceCount > 0) setUnreadInvoiceCount((current) => current + freshInvoiceCount);
-      activities = buildAdminDataActivities({ documents: freshDocuments, driverProfiles });
-      snapshot.documentIds = new Set(nextDocuments.map((document) => document.id));
-      snapshot.documentsReady = true;
+      if (incremental) {
+        const document = nextDocuments[0];
+        const documentId = document?.id;
+        if (eventType === "DELETE") {
+          if (documentId) snapshot.documentIds.delete(documentId);
+        } else if (documentId) {
+          if (snapshot.documentsReady && eventType === "INSERT" && !snapshot.documentIds.has(documentId)) {
+            activities = buildAdminDataActivities({ documents: [document], driverProfiles: adminDriverProfilesRef.current });
+            if (document.category === "billing") setUnreadInvoiceCount((current) => current + 1);
+          }
+          snapshot.documentIds.add(documentId);
+        }
+        snapshot.documentsReady = true;
+      } else {
+        const freshDocuments = snapshot.documentsReady ? nextDocuments.filter((document) => !snapshot.documentIds.has(document.id)) : [];
+        const freshInvoiceCount = freshDocuments.filter((document) => document.category === "billing").length;
+        if (freshInvoiceCount > 0) setUnreadInvoiceCount((current) => current + freshInvoiceCount);
+        activities = buildAdminDataActivities({ documents: freshDocuments, driverProfiles: adminDriverProfilesRef.current });
+        snapshot.documentIds = new Set(nextDocuments.map((document) => document.id));
+        snapshot.documentsReady = true;
+      }
     }
     if (source === "maintenance_reports") {
-      const wasReady = snapshot.maintenanceReportsReady;
-      const freshReports = wasReady
-        ? nextMaintenanceReports.filter((report) => report.status === "pending" && !snapshot.maintenanceReportIds.has(report.id))
-        : nextMaintenanceReports.filter((report) => report.status === "pending");
-      activities = buildAdminDataActivities({ maintenanceReports: freshReports, driverProfiles });
-      snapshot.maintenanceReportIds = new Set(nextMaintenanceReports.map((report) => report.id));
-      snapshot.maintenanceReportsReady = true;
-      shouldNotify = wasReady;
+      if (incremental) {
+        const report = nextMaintenanceReports[0];
+        const reportId = report?.id;
+        if (eventType === "DELETE") {
+          if (reportId) snapshot.maintenanceReportIds.delete(reportId);
+        } else if (reportId) {
+          if (snapshot.maintenanceReportsReady && eventType === "INSERT" && report.status === "pending" && !snapshot.maintenanceReportIds.has(reportId)) {
+            activities = buildAdminDataActivities({ maintenanceReports: [report], driverProfiles: adminDriverProfilesRef.current });
+          }
+          snapshot.maintenanceReportIds.add(reportId);
+        }
+        snapshot.maintenanceReportsReady = true;
+      } else {
+        const wasReady = snapshot.maintenanceReportsReady;
+        const freshReports = wasReady
+          ? nextMaintenanceReports.filter((report) => report.status === "pending" && !snapshot.maintenanceReportIds.has(report.id))
+          : nextMaintenanceReports.filter((report) => report.status === "pending");
+        activities = buildAdminDataActivities({ maintenanceReports: freshReports, driverProfiles: adminDriverProfilesRef.current });
+        snapshot.maintenanceReportIds = new Set(nextMaintenanceReports.map((report) => report.id));
+        snapshot.maintenanceReportsReady = true;
+        shouldNotify = wasReady;
+      }
     }
     if (!activities.length) return;
     setAdminNotifications((current) => {
@@ -2474,7 +2545,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     });
     const first = activities[0];
     if (shouldNotify) notify(`${first.title}: ${first.detail}`);
-  }, [driverProfiles, notify]);
+  }, [notify]);
 
   const refreshTransactions = useCallback(async () => {
     if (!isAdmin || !supabase) return;
@@ -2493,8 +2564,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     const nextTransactions = (transactionResult.data ?? []).map(normalizeTransactionRecord);
     const nextEntries = (entryResult.data ?? []).map(normalizeDriverEntryRecord);
     const centralEntries = transactionsToDriverEntries(nextTransactions);
+    adminTransactionsRef.current = nextTransactions;
+    adminDriverEntriesRef.current = mergeDriverEntries(nextEntries, centralEntries);
     setTransactions(nextTransactions);
-    setDriverEntries(mergeDriverEntries(nextEntries, centralEntries));
+    setDriverEntries(adminDriverEntriesRef.current);
     announceAdminDataChanges({ source: "transactions", nextTransactions, nextDriverEntries: nextEntries });
   }, [announceAdminDataChanges, isAdmin]);
 
@@ -2506,6 +2579,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       .order("created_at", { ascending: false }));
     if (error) throw error;
     const nextDocuments = (data ?? []).map(normalizeDocumentRecord);
+    adminDocumentsRef.current = nextDocuments;
     setDocumentRecords(nextDocuments);
     announceAdminDataChanges({ source: "documents", nextDocuments });
   }, [announceAdminDataChanges, isAdmin]);
@@ -2515,10 +2589,206 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     const { data, error } = await listMaintenanceReports();
     if (error) throw error;
     const nextMaintenanceReports = (data ?? []).map(normalizeMaintenanceReportRecord);
+    adminMaintenanceReportsRef.current = nextMaintenanceReports;
     setMaintenanceReports(nextMaintenanceReports);
     announceAdminDataChanges({ source: "maintenance_reports", nextMaintenanceReports });
     return nextMaintenanceReports;
   }, [announceAdminDataChanges, isAdmin]);
+
+  const syncAdminRealtimeRecord = useCallback(async ({ table, payload } = {}) => {
+    if (!isAdmin || !supabase || !table) return;
+    const eventType = payload?.eventType ?? "";
+    const recordId = payload?.new?.id ?? payload?.old?.id ?? "";
+    if (!recordId) return adminRefreshDataRef.current?.();
+
+    if (table === "transactions") {
+      const result = eventType === "DELETE" ? { data: null, error: null } : await getTransactionRecord(recordId);
+      if (result.error) throw result.error;
+      const normalized = result.data ? normalizeTransactionRecord(result.data) : null;
+      const nextTransactions = adminTransactionsRef.current.filter((transaction) => transaction.id !== recordId);
+      if (normalized) nextTransactions.push(normalized);
+      nextTransactions.sort((left, right) => String(right.occurred_on ?? "").localeCompare(String(left.occurred_on ?? "")));
+      adminTransactionsRef.current = nextTransactions;
+      setTransactions(nextTransactions);
+      const nextEntries = mergeDriverEntries(adminDriverEntriesRef.current, transactionsToDriverEntries(nextTransactions));
+      adminDriverEntriesRef.current = nextEntries;
+      setDriverEntries(nextEntries);
+      announceAdminDataChanges({ source: "transactions", nextTransactions: normalized ? [normalized] : [{ id: recordId }], incremental: true, eventType });
+      return;
+    }
+
+    if (table === "driver_entries") {
+      const result = eventType === "DELETE" ? { data: null, error: null } : await getDriverEntryRecord({ id: recordId });
+      if (result.error) throw result.error;
+      const normalized = result.data ? normalizeDriverEntryRecord(result.data) : null;
+      const oldRow = payload?.old ?? {};
+      const rowKey = normalized?.driver_id && normalized?.entry_date
+        ? `${normalized.driver_id}:${normalized.entry_date}`
+        : oldRow.driver_id && oldRow.entry_date ? `${oldRow.driver_id}:${oldRow.entry_date}` : "";
+      const directEntries = adminDriverEntriesRef.current.filter((entry) => {
+        if (entry.id === recordId) return false;
+        return !rowKey || `${entry.driver_id ?? ""}:${entry.entry_date ?? ""}` !== rowKey;
+      });
+      if (normalized) directEntries.push(normalized);
+      const nextEntries = mergeDriverEntries(directEntries, transactionsToDriverEntries(adminTransactionsRef.current));
+      adminDriverEntriesRef.current = nextEntries;
+      setDriverEntries(nextEntries);
+      announceAdminDataChanges({ source: "driver_entries", nextDriverEntries: normalized ? [normalized] : [{ id: recordId }], incremental: true, eventType });
+      return;
+    }
+
+    if (table === "documents") {
+      const result = eventType === "DELETE" ? { data: null, error: null } : await getDocumentRecord({ id: recordId });
+      if (result.error) throw result.error;
+      const normalized = result.data ? normalizeDocumentRecord(result.data) : null;
+      const nextDocuments = adminDocumentsRef.current.filter((document) => document.id !== recordId);
+      if (normalized) nextDocuments.push(normalized);
+      nextDocuments.sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
+      adminDocumentsRef.current = nextDocuments;
+      setDocumentRecords(nextDocuments);
+      announceAdminDataChanges({ source: "documents", nextDocuments: normalized ? [normalized] : [{ id: recordId }], incremental: true, eventType });
+      return;
+    }
+
+    if (table === "maintenance_reports") {
+      const result = eventType === "DELETE" ? { data: null, error: null } : await getMaintenanceReportRecord(recordId);
+      if (result.error) throw result.error;
+      const normalized = result.data ? normalizeMaintenanceReportRecord(result.data) : null;
+      const nextReports = adminMaintenanceReportsRef.current.filter((report) => report.id !== recordId);
+      if (normalized) nextReports.push(normalized);
+      nextReports.sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
+      adminMaintenanceReportsRef.current = nextReports;
+      setMaintenanceReports(nextReports);
+      announceAdminDataChanges({ source: "maintenance_reports", nextMaintenanceReports: normalized ? [normalized] : [{ id: recordId }], incremental: true, eventType });
+    }
+  }, [announceAdminDataChanges, isAdmin]);
+
+  const refreshAdminRecentData = useCallback(async ({ since = "", periodDateKey = "" } = {}) => {
+    if (!isAdmin || !supabase) return;
+    const visiblePeriodDate = periodDateKey ? parseDriverDateKey(periodDateKey) : null;
+    const periodDate = visiblePeriodDate ?? new Date(reportYear, reportMonth, 1);
+    const periodStart = `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, "0")}-01`;
+    const nextPeriodDate = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 1);
+    const periodEnd = `${nextPeriodDate.getFullYear()}-${String(nextPeriodDate.getMonth() + 1).padStart(2, "0")}-01`;
+    const transactionQuery = () => supabase
+      .from("transactions")
+      .select("id, type, occurred_on, amount, driver_id, vehicle_plate, source_document_id, category, metadata, dedupe_key, created_at")
+      .gte("occurred_on", periodStart)
+      .lt("occurred_on", periodEnd)
+      .order("occurred_on", { ascending: false });
+    const entryQuery = () => supabase
+      .from("driver_entries")
+      .select("id, driver_id, vehicle_plate, entry_date, billing, billing_override, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at, updated_at")
+      .gte("entry_date", periodStart)
+      .lt("entry_date", periodEnd)
+      .order("entry_date", { ascending: false });
+    const documentPeriodQuery = () => supabase
+      .from("documents")
+      .select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, extracted_data, field_confidence, overall_confidence, document_date, status, created_at, updated_at")
+      .gte("document_date", periodStart)
+      .lt("document_date", periodEnd)
+      .order("created_at", { ascending: false });
+    const documentRecentQuery = () => supabase
+      .from("documents")
+      .select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, extracted_data, field_confidence, overall_confidence, document_date, status, created_at, updated_at")
+      .gte("updated_at", since || new Date(Date.now() - 15 * 60 * 1000).toISOString())
+      .order("updated_at", { ascending: false });
+    const maintenanceRecentQuery = () => supabase
+      .from("maintenance_reports")
+      .select("id, reporter_id, reporter_name, vehicle_plate, note, photo_path, photo_name, photo_mime_type, photo_size, status, created_at, updated_at")
+      .gte("updated_at", since || new Date(Date.now() - 15 * 60 * 1000).toISOString())
+      .order("created_at", { ascending: false });
+    const [transactionResult, entryResult, documentPeriodResult, documentRecentResult, maintenanceResult] = await Promise.all([
+      fetchAllSupabaseRows(transactionQuery),
+      fetchAllSupabaseRows(entryQuery),
+      fetchAllSupabaseRows(documentPeriodQuery),
+      fetchAllSupabaseRows(documentRecentQuery),
+      fetchAllSupabaseRows(maintenanceRecentQuery),
+    ]);
+    const failed = [transactionResult, entryResult, documentPeriodResult, documentRecentResult, maintenanceResult].find((result) => result.error);
+    if (failed?.error) throw failed.error;
+
+    const periodKey = periodStart.slice(0, 7);
+    const replacePeriodRows = (current, incoming, dateField) => {
+      const normalizedIncoming = incoming.map((row) => normalizeTransactionRecord(row));
+      const incomingIds = new Set(normalizedIncoming.map((row) => row.id));
+      return [...normalizedIncoming, ...current.filter((row) => String(row[dateField] ?? "").slice(0, 7) !== periodKey && !incomingIds.has(row.id))]
+        .sort((left, right) => String(right[dateField] ?? "").localeCompare(String(left[dateField] ?? "")));
+    };
+    const nextTransactions = replacePeriodRows(adminTransactionsRef.current, transactionResult.data ?? [], "occurred_on");
+    const normalizedEntries = (entryResult.data ?? []).map(normalizeDriverEntryRecord);
+    const entryIds = new Set(normalizedEntries.map((entry) => entry.id));
+    const nextDirectEntries = [...normalizedEntries, ...adminDriverEntriesRef.current.filter((entry) => String(entry.entry_date ?? "").slice(0, 7) !== periodKey && !entryIds.has(entry.id))];
+    const nextEntries = mergeDriverEntries(nextDirectEntries, transactionsToDriverEntries(nextTransactions));
+    const normalizedPeriodDocuments = (documentPeriodResult.data ?? []).map(normalizeDocumentRecord);
+    const normalizedRecentDocuments = (documentRecentResult.data ?? []).map(normalizeDocumentRecord);
+    const incomingDocuments = [...normalizedPeriodDocuments, ...normalizedRecentDocuments].reduce((unique, document) => {
+      if (document?.id && !unique.some((candidate) => candidate.id === document.id)) unique.push(document);
+      return unique;
+    }, []);
+    const incomingDocumentIds = new Set(incomingDocuments.map((document) => document.id));
+    const nextDocuments = [...incomingDocuments, ...adminDocumentsRef.current.filter((document) => String(document.document_date ?? "").slice(0, 7) !== periodKey && !incomingDocumentIds.has(document.id))]
+      .sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
+    const normalizedMaintenanceReports = (maintenanceResult.data ?? []).map(normalizeMaintenanceReportRecord);
+    const maintenanceIds = new Set(normalizedMaintenanceReports.map((report) => report.id));
+    const nextMaintenanceReports = [...normalizedMaintenanceReports, ...adminMaintenanceReportsRef.current.filter((report) => !maintenanceIds.has(report.id))]
+      .sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
+    adminTransactionsRef.current = nextTransactions;
+    adminDriverEntriesRef.current = nextEntries;
+    adminDocumentsRef.current = nextDocuments;
+    adminMaintenanceReportsRef.current = nextMaintenanceReports;
+    setTransactions(nextTransactions);
+    setDriverEntries(nextEntries);
+    setDocumentRecords(nextDocuments);
+    setMaintenanceReports(nextMaintenanceReports);
+    announceAdminDataChanges({ source: "transactions", nextTransactions, nextDriverEntries: nextEntries });
+    announceAdminDataChanges({ source: "documents", nextDocuments });
+    announceAdminDataChanges({ source: "maintenance_reports", nextMaintenanceReports });
+  }, [announceAdminDataChanges, isAdmin, reportMonth, reportYear]);
+
+  const refreshAdminData = useCallback(async ({ force = false, full = false, notifyUser = false } = {}) => {
+    if (!isAdmin || !supabase) return false;
+    const now = Date.now();
+    if (!force && now - adminLastFullRefreshAtRef.current < DATA_REFRESH_MIN_INTERVAL_MS) {
+      if (notifyUser) notify("Los datos ya se han actualizado recientemente.");
+      return false;
+    }
+    if (adminFullRefreshRef.current) return adminFullRefreshRef.current;
+    const previousSyncAt = adminLastFullRefreshAtRef.current;
+    adminLastFullRefreshAtRef.current = now;
+    setAdminSyncStatus("loading");
+    const fullRefresh = () => Promise.allSettled([
+      refreshTransactions(),
+      refreshDocuments(),
+      refreshMaintenanceReports(),
+      refreshDriverProfiles(),
+    ]).then((results) => {
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed) throw failed.reason;
+      return results;
+    });
+    const request = (full ? fullRefresh() : refreshAdminRecentData({ since: previousSyncAt ? new Date(previousSyncAt).toISOString() : "" }))
+      .then((result) => {
+        adminLastFullRefreshAtRef.current = Date.now();
+        setRealtimeTable("reconcile");
+        setRealtimeRevision((current) => current + 1);
+        setAdminSyncStatus("ready");
+        if (notifyUser) notify("Datos actualizados.");
+        return result ?? true;
+      })
+      .catch((error) => {
+        adminLastFullRefreshAtRef.current = 0;
+        setAdminSyncStatus("error");
+        if (notifyUser) notify(`No se han podido actualizar los datos: ${error.message}`);
+        return false;
+      })
+      .finally(() => {
+        adminFullRefreshRef.current = null;
+      });
+    adminFullRefreshRef.current = request;
+    return request;
+  }, [isAdmin, notify, refreshAdminRecentData, refreshDocuments, refreshDriverProfiles, refreshMaintenanceReports, refreshTransactions]);
+  adminRefreshDataRef.current = refreshAdminData;
 
   const saveAdminMaintenanceReport = useCallback(async ({ vehiclePlate, note = "", photoFile = null } = {}) => {
     if (!isAdmin || !session.user.id) throw new Error("Solo el administrador puede crear este aviso.");
@@ -2661,9 +2931,9 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       .select("id, driver_id, vehicle_plate, entry_date, billing, billing_override, cash_collected, tips, fuel_cost, fuel_liters, odometer_km, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at, updated_at")
       .single();
     if (error) throw error;
-    await refreshTransactions();
+    await refreshAdminRecentData({ periodDateKey: dateKey });
     return normalizeDriverEntryRecord(data);
-  }, [driverEntries, refreshTransactions, transactions]);
+  }, [driverEntries, refreshAdminRecentData, transactions]);
 
   const removeAdminDriverDocument = useCallback(async (document) => {
     if (!document?.id) throw new Error("No se ha encontrado el documento.");
@@ -2678,10 +2948,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     setDocumentRecords(cleaned.documents);
     setTransactions(cleaned.transactions);
     setDriverEntries(cleaned.entries);
-    await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
+    await refreshAdminRecentData({ periodDateKey: getDriverDocumentDateKey(document) });
     if (result?.storageError) notify("Documento eliminado; el archivo privado quedó pendiente de limpieza.");
     return true;
-  }, [documentRecords, driverEntries, notify, refreshDocuments, refreshTransactions, transactions]);
+  }, [documentRecords, driverEntries, notify, refreshAdminRecentData, transactions]);
 
   const reassignAdminDriverDocumentDate = useCallback(async ({ document, targetDate } = {}) => {
     if (!document?.id) throw new Error("No se ha encontrado el documento.");
@@ -2711,10 +2981,13 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       return { documentId: document.id, previousDate, targetDate, transactionsMoved: movedTransactions.filter((transaction) => transaction.source_document_id === document.id).length };
     }
     const result = await reassignDriverDocumentDate(document.id, targetDate);
-    await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
+    await refreshAdminRecentData({ periodDateKey: previousDate });
+    if (String(previousDate).slice(0, 7) !== String(targetDate).slice(0, 7)) {
+      await refreshAdminRecentData({ periodDateKey: targetDate });
+    }
     notify(`Documento asignado al ${formatDocumentDisplayDate(targetDate)}.`);
     return result;
-  }, [driverEntries, notify, refreshDocuments, refreshTransactions, transactions]);
+  }, [driverEntries, notify, refreshAdminRecentData, transactions]);
 
   useEffect(() => {
     if (!isAdmin || !supabase) {
@@ -2723,6 +2996,12 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       setDocumentRecords([]);
       setMaintenanceReports([]);
       setAdminNotifications([]);
+      setAdminSyncStatus("idle");
+      adminTransactionsRef.current = [];
+      adminDriverEntriesRef.current = [];
+      adminDocumentsRef.current = [];
+      adminMaintenanceReportsRef.current = [];
+      adminLastFullRefreshAtRef.current = 0;
       adminDataSnapshotRef.current = {
         transactionsReady: false,
         documentsReady: false,
@@ -2735,50 +3014,42 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       };
       return undefined;
     }
-    const refreshAll = () => Promise.allSettled([refreshTransactions(), refreshDocuments(), refreshMaintenanceReports(), refreshDriverProfiles()]);
-    void refreshAll();
+    void adminRefreshDataRef.current?.({ force: true, full: true });
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") void refreshAll();
+      if (document.visibilityState === "visible") void adminRefreshDataRef.current?.();
     };
-    const refreshTimer = window.setInterval(refreshWhenVisible, 15000);
     window.addEventListener("focus", refreshWhenVisible);
     document.addEventListener("visibilitychange", refreshWhenVisible);
     const unsubscribe = subscribeToAppChanges({
       userId: session.user.id,
       isAdmin: true,
-      onChange: ({ table }) => {
+      onChange: ({ table, payload }) => {
         setRealtimeRevision((current) => current + 1);
+        setRealtimeTable(table);
         if (table === "profiles") {
           Promise.allSettled([refreshDriverProfiles(), getProfile({ id: session.user.id }).then(({ data, error }) => {
             if (!error && data) onProfileChange(data);
           })]);
           return;
         }
-        if (table === "maintenance_reports") {
-          refreshMaintenanceReports().catch(() => undefined);
+        if (["driver_entries", "transactions", "documents", "maintenance_reports"].includes(table)) {
+          syncAdminRealtimeRecord({ table, payload }).catch(() => undefined);
           return;
         }
-        if (table === "documents") {
-          Promise.allSettled([refreshDocuments(), refreshTransactions()]);
-          return;
-        }
-        if (["driver_entries", "transactions"].includes(table)) {
-          refreshTransactions().catch(() => undefined);
-          return;
-        }
-        refreshAll();
       },
       onStatus: (status) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") notify("La conexión en tiempo real se está recuperando.");
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          notify("La conexión en tiempo real se está recuperando.");
+          void adminRefreshDataRef.current?.();
+        }
       },
     });
     return () => {
-      window.clearInterval(refreshTimer);
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       unsubscribe();
     };
-  }, [isAdmin, notify, onProfileChange, refreshDocuments, refreshDriverProfiles, refreshMaintenanceReports, refreshTransactions, session.user.id]);
+  }, [isAdmin, notify, onProfileChange, refreshDriverProfiles, session.user.id, syncAdminRealtimeRecord]);
 
   useEffect(() => {
     const onBottomNavigationClick = (event) => {
@@ -3058,7 +3329,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         const operations = operationsFromDocument({ category: savedDocument.category, fields: { ...fields, vehicle: vehiclePlate }, vehiclePlate, fileHash, fallbackDate: documentDate });
         const result = await confirmDocumentTransactions(uploaded.id, operations);
         if (result?.duplicate && !result?.created && operations.length > 0) throw new Error("Este documento ya estaba registrado y no se ha vuelto a sumar.");
-        await refreshTransactions();
+        await refreshAdminRecentData({ periodDateKey: documentDate });
         cloudSaved = true;
       } catch (error) {
         const duplicate = error?.code === "23505" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
@@ -3132,7 +3403,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         if (result?.duplicate && !result?.created) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
         const normalizedUploaded = normalizeDocumentRecord(uploaded);
         setDocumentRecords((current) => [normalizedUploaded, ...current.filter((document) => document.id !== normalizedUploaded.id)]);
-        await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
+        await refreshAdminRecentData({ periodDateKey: localInvoice.dateIso });
         return true;
       } catch (error) {
         const duplicate = error?.code === "23505" || error?.code === "DUPLICATE_DOCUMENT" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
@@ -3193,7 +3464,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         if (result?.duplicate && !result?.created && operations.length > 0) throw Object.assign(new Error("Este documento ya estaba registrado y no se ha vuelto a sumar."), { code: "DUPLICATE_DOCUMENT" });
         const normalizedUploaded = normalizeDocumentRecord(uploaded);
         setDocumentRecords((current) => [normalizedUploaded, ...current.filter((record) => record.id !== normalizedUploaded.id)]);
-        await Promise.allSettled([refreshTransactions(), refreshDocuments()]);
+        await refreshAdminRecentData({ periodDateKey: documentDate });
         cloudSaved = true;
       } else {
         if (operations.length > 0) {
@@ -3308,6 +3579,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
           {!compactDetailHeader && <div className="topbar-actions">
             {!isStandalone && <button className="install-app-button" onClick={installApplication} aria-label="Instalar SOBRE RUEDAS como aplicación" title="Instalar aplicación"><IconDownload size={17} /><span>Instalar app</span></button>}
             {!(activeNav === "Informes" && homeReportTab === "General") && <span className="date"><IconCalendar size={18} />28 jul 2026</span>}
+            {isAdmin && <button type="button" className={`topbar-refresh-button${adminSyncStatus === "loading" ? " is-loading" : ""}`} onClick={() => { void refreshAdminData({ notifyUser: true }); }} disabled={adminSyncStatus === "loading"} aria-label="Actualizar datos" title="Actualizar datos ahora"><IconRefresh size={16} /><span>{adminSyncStatus === "loading" ? "Actualizando…" : "Actualizar"}</span></button>}
             <button type="button" className={`topbar-route-button topbar-route-button--facturas${activeNav === "Facturas" ? " topbar-route-button--active" : ""}`} onClick={() => navigate(navItems[3])} aria-label="Abrir Facturas" aria-current={activeNav === "Facturas" ? "page" : undefined} title="Facturas"><IconFileInvoice size={14} /><span>Facturas</span>{unreadInvoiceCount > 0 && <i>{Math.min(unreadInvoiceCount, 99)}</i>}</button>
             <button className="bell-button" aria-label={`Notificaciones${unreadAdminNotifications.length ? ` · ${unreadAdminNotifications.length} nuevas` : ""}`} aria-expanded={notificationsOpen} onClick={() => { const nextOpen = !notificationsOpen; if (nextOpen) markAdminNotificationsSeen(adminNotifications); setNotificationsOpen(nextOpen); setTopbarMenuOpen(false); }}><IconBell size={17} />{unreadAdminNotifications.length > 0 && <i>{Math.min(unreadAdminNotifications.length, 99)}</i>}</button>
             <button className="topbar-menu-button" aria-label="Abrir accesos de gestión" aria-expanded={topbarMenuOpen} aria-controls="topbar-management-menu" onClick={() => { setTopbarMenuOpen((value) => !value); setNotificationsOpen(false); }} title="Accesos de gestión"><IconMenu2 size={18} /></button>
@@ -3356,10 +3628,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         </header>
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
-          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" realtimeRevision={realtimeRevision} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
+          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" realtimeRevision={realtimeRevision} realtimeTable={realtimeTable} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
           {activeNav === "Conductores" && <DriversView reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" realtimeRevision={realtimeRevision} reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" realtimeRevision={realtimeRevision} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" realtimeRevision={realtimeRevision} realtimeTable={realtimeTable} reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" realtimeRevision={realtimeRevision} realtimeTable={realtimeTable} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} notify={notify} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} onOpenMaintenanceReports={markMaintenanceReportNotificationsSeen} onRefreshMaintenanceReports={refreshMaintenanceReports} />}
@@ -3588,6 +3860,11 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const [driverComparisonRows, setDriverComparisonRows] = useState([]);
   const driverComparisonRequestRef = useRef(0);
   const [documentPreviews, setDocumentPreviews] = useState([]);
+  const driverFullRefreshRef = useRef(null);
+  const driverLastFullRefreshAtRef = useRef(0);
+  const driverEntriesRef = useRef(entries);
+  const driverDocumentsRef = useRef(documents);
+  const [driverSyncStatus, setDriverSyncStatus] = useState("idle");
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [file, setFile] = useState(null);
   const [fileCapturedAt, setFileCapturedAt] = useState(null);
@@ -3627,6 +3904,11 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profileVehiclePlate);
   const currentDriverWeek = getCurrentDriverWeekRange();
   const canEditSelectedDate = preview || isDriverDateInCurrentWeek(selectedDate);
+
+  useEffect(() => {
+    driverEntriesRef.current = entries;
+    driverDocumentsRef.current = documents;
+  }, [documents, entries]);
 
   useEffect(() => {
     circlePreviewUrlsRef.current = circlePreviewUrls;
@@ -3685,31 +3967,100 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       return undefined;
     }
     Promise.all([
-      fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false })),
+      fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at, updated_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false })),
       fetchAllSupabaseRows(() => supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false })),
     ]).then(([entryResult, documentResult]) => {
       if (!mounted) return;
       if (entryResult.error) setMessage(entryResult.error.message);
       if (documentResult.error) setMessage(documentResult.error.message);
-      setEntries((entryResult.data ?? []).map(normalizeDriverEntryRecord));
-      setDocuments((documentResult.data ?? []).map(normalizeDocumentRecord));
+      const nextEntries = (entryResult.data ?? []).map(normalizeDriverEntryRecord);
+      const nextDocuments = (documentResult.data ?? []).map(normalizeDocumentRecord);
+      driverEntriesRef.current = nextEntries;
+      driverDocumentsRef.current = nextDocuments;
+      if (!entryResult.error && !documentResult.error) driverLastFullRefreshAtRef.current = Date.now();
+      setEntries(nextEntries);
+      setDocuments(nextDocuments);
+      setDriverSyncStatus(entryResult.error || documentResult.error ? "error" : "ready");
       setDocumentsLoading(false);
-    }).catch((error) => { if (mounted) { setMessage(error.message); setDocumentsLoading(false); } });
+    }).catch((error) => { if (mounted) { setMessage(error.message); setDriverSyncStatus("error"); setDocumentsLoading(false); } });
     return () => { mounted = false; };
   }, [activeProfileId, canQueryDriverData]);
 
   const refreshDriverData = useCallback(async () => {
     if (!supabase || !canQueryDriverData) return;
     const [entryResult, documentResult] = await Promise.all([
-      fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false })),
+      fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at, updated_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false })),
       fetchAllSupabaseRows(() => supabase.from("documents").select("id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at").eq("owner_id", activeProfileId).order("created_at", { ascending: false })),
     ]);
     if (entryResult.error) throw entryResult.error;
     if (documentResult.error) throw documentResult.error;
-    setEntries((entryResult.data ?? []).map(normalizeDriverEntryRecord));
-    setDocuments((documentResult.data ?? []).map(normalizeDocumentRecord));
+    const nextEntries = (entryResult.data ?? []).map(normalizeDriverEntryRecord);
+    const nextDocuments = (documentResult.data ?? []).map(normalizeDocumentRecord);
+    driverEntriesRef.current = nextEntries;
+    driverDocumentsRef.current = nextDocuments;
+    driverLastFullRefreshAtRef.current = Date.now();
+    setEntries(nextEntries);
+    setDocuments(nextDocuments);
     setDocumentsLoading(false);
   }, [activeProfileId, canQueryDriverData]);
+
+  const refreshDriverRecentData = useCallback(async ({ since = "", periodDateKey = selectedDate } = {}) => {
+    if (!supabase || !canQueryDriverData) return;
+    const periodDate = parseDriverDateKey(periodDateKey) ?? new Date();
+    const periodStart = `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, "0")}-01`;
+    const nextPeriodDate = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 1);
+    const periodEnd = `${nextPeriodDate.getFullYear()}-${String(nextPeriodDate.getMonth() + 1).padStart(2, "0")}-01`;
+    const recentSince = since || new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const entryQuery = () => supabase
+      .from("driver_entries")
+      .select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at, updated_at")
+      .eq("driver_id", activeProfileId)
+      .gte("entry_date", periodStart)
+      .lt("entry_date", periodEnd)
+      .order("entry_date", { ascending: false });
+    const documentSelect = "id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at";
+    const documentPeriodQuery = () => supabase
+      .from("documents")
+      .select(documentSelect)
+      .eq("owner_id", activeProfileId)
+      .gte("document_date", periodStart)
+      .lt("document_date", periodEnd)
+      .order("created_at", { ascending: false });
+    const documentRecentQuery = () => supabase
+      .from("documents")
+      .select(documentSelect)
+      .eq("owner_id", activeProfileId)
+      .gte("updated_at", recentSince)
+      .order("updated_at", { ascending: false });
+    const [entryResult, documentPeriodResult, documentRecentResult] = await Promise.all([
+      fetchAllSupabaseRows(entryQuery),
+      fetchAllSupabaseRows(documentPeriodQuery),
+      fetchAllSupabaseRows(documentRecentQuery),
+    ]);
+    if (entryResult.error) throw entryResult.error;
+    if (documentPeriodResult.error) throw documentPeriodResult.error;
+    if (documentRecentResult.error) throw documentRecentResult.error;
+
+    const periodKey = periodStart.slice(0, 7);
+    const normalizedEntries = (entryResult.data ?? []).map(normalizeDriverEntryRecord);
+    const entryIds = new Set(normalizedEntries.map((entry) => entry.id));
+    const nextEntries = [...normalizedEntries, ...driverEntriesRef.current.filter((entry) => String(entry.entry_date ?? "").slice(0, 7) !== periodKey && !entryIds.has(entry.id))]
+      .sort((left, right) => String(right.entry_date ?? "").localeCompare(String(left.entry_date ?? "")));
+    const incomingDocuments = [...(documentPeriodResult.data ?? []), ...(documentRecentResult.data ?? [])]
+      .map(normalizeDocumentRecord)
+      .reduce((unique, document) => {
+        if (document?.id && !unique.some((candidate) => candidate.id === document.id)) unique.push(document);
+        return unique;
+      }, []);
+    const incomingDocumentIds = new Set(incomingDocuments.map((document) => document.id));
+    const nextDocuments = [...incomingDocuments, ...driverDocumentsRef.current.filter((document) => String(document.document_date ?? "").slice(0, 7) !== periodKey && !incomingDocumentIds.has(document.id))]
+      .sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
+    driverEntriesRef.current = nextEntries;
+    driverDocumentsRef.current = nextDocuments;
+    setEntries(nextEntries);
+    setDocuments(nextDocuments);
+    setDocumentsLoading(false);
+  }, [activeProfileId, canQueryDriverData, selectedDate]);
 
   const removeDriverDocument = useCallback(async (document) => {
     if (!document?.id) throw new Error("No se ha encontrado el documento.");
@@ -3726,7 +4077,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       setDocuments(cleaned.documents);
       setEntries(cleaned.entries);
       setCircleMetricValues(cleaned.circleMetricValues);
-      await refreshDriverData().catch(() => undefined);
+      await refreshDriverRecentData({ periodDateKey: getDriverDocumentDateKey(document) }).catch(() => undefined);
       if (result?.storageError) setMessage("Los datos se han borrado, pero el archivo privado quedó pendiente de limpieza.");
     }
     const recordKey = getDriverDocumentCircleKey(document);
@@ -3741,7 +4092,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       setCircleUpload((current) => current.key === recordKey ? { key: recordKey, status: "idle", fileName: "" } : current);
     }
     return true;
-  }, [circleMetricValues, documents, entries, preview, refreshDriverData]);
+  }, [circleMetricValues, documents, entries, preview, refreshDriverRecentData]);
 
   const refreshDriverComparison = useCallback(async () => {
     const requestId = driverComparisonRequestRef.current + 1;
@@ -3762,6 +4113,84 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     if (requestId === driverComparisonRequestRef.current) setDriverComparisonRows(data ?? []);
   }, [canQueryDriverData, selectedDate]);
 
+  const syncDriverRealtimeRecord = useCallback(async ({ table, payload } = {}) => {
+    if (!supabase || !canQueryDriverData || !table) return;
+    const eventType = payload?.eventType ?? "";
+    const recordId = payload?.new?.id ?? payload?.old?.id ?? "";
+    if (table === "driver_daily_comparison") {
+      await refreshDriverComparison();
+      return;
+    }
+    if (!recordId) return;
+
+    if (table === "driver_entries") {
+      const result = eventType === "DELETE" ? { data: null, error: null } : await getDriverEntryRecord({ id: recordId, driverId: activeProfileId });
+      if (result.error) throw result.error;
+      const normalized = result.data ? normalizeDriverEntryRecord(result.data) : null;
+      const nextEntries = driverEntriesRef.current.filter((entry) => entry.id !== recordId);
+      if (normalized) nextEntries.push(normalized);
+      nextEntries.sort((left, right) => String(right.entry_date ?? "").localeCompare(String(left.entry_date ?? "")));
+      driverEntriesRef.current = nextEntries;
+      setEntries(nextEntries);
+      return;
+    }
+
+    if (table === "documents") {
+      const result = eventType === "DELETE" ? { data: null, error: null } : await getDocumentRecord({ id: recordId, ownerId: activeProfileId });
+      if (result.error) throw result.error;
+      const normalized = result.data ? normalizeDocumentRecord(result.data) : null;
+      const nextDocuments = driverDocumentsRef.current.filter((document) => document.id !== recordId);
+      if (normalized) nextDocuments.push(normalized);
+      nextDocuments.sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
+      driverDocumentsRef.current = nextDocuments;
+      setDocuments(nextDocuments);
+      setDocumentsLoading(false);
+      return;
+    }
+
+    if (table === "maintenance_reports") {
+      const result = eventType === "DELETE" ? { data: null, error: null } : await getMaintenanceReportRecord(recordId);
+      if (result.error) throw result.error;
+      const normalized = result.data ? normalizeMaintenanceReportRecord(result.data) : null;
+      setMaintenanceReports((current) => {
+        const nextReports = current.filter((report) => report.id !== recordId);
+        if (normalized) nextReports.push(normalized);
+        return nextReports.sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
+      });
+    }
+  }, [activeProfileId, canQueryDriverData, refreshDriverComparison]);
+
+  const requestDriverRefresh = useCallback(async ({ force = false, showError = false, notifyUser = false } = {}) => {
+    if (!supabase || !canQueryDriverData) return false;
+    const now = Date.now();
+    if (!force && now - driverLastFullRefreshAtRef.current < DATA_REFRESH_MIN_INTERVAL_MS) {
+      if (notifyUser) setMessage("Los datos ya se han actualizado recientemente.");
+      return false;
+    }
+    if (driverFullRefreshRef.current) return driverFullRefreshRef.current;
+    const previousSyncAt = driverLastFullRefreshAtRef.current;
+    setDriverSyncStatus("loading");
+    const request = (force ? refreshDriverData() : refreshDriverRecentData({ since: previousSyncAt ? new Date(previousSyncAt).toISOString() : "" }))
+      .then(() => refreshDriverComparison())
+      .then(() => {
+        driverLastFullRefreshAtRef.current = Date.now();
+        setDriverSyncStatus("ready");
+        if (notifyUser) setMessage("Datos actualizados.");
+        return true;
+      })
+      .catch((error) => {
+        driverLastFullRefreshAtRef.current = 0;
+        setDriverSyncStatus("error");
+        if (showError) setMessage(`No se han podido actualizar los datos: ${error.message}`);
+        return false;
+      })
+      .finally(() => {
+        driverFullRefreshRef.current = null;
+      });
+    driverFullRefreshRef.current = request;
+    return request;
+  }, [canQueryDriverData, refreshDriverComparison, refreshDriverData, refreshDriverRecentData]);
+
   useEffect(() => {
     let mounted = true;
     refreshDriverComparison().catch(() => {
@@ -3775,25 +4204,15 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   useEffect(() => {
     if (!supabase || !canQueryDriverData) return undefined;
     let mounted = true;
-    let refreshTimer = 0;
-    const queueRefresh = (showError = true) => {
-      window.clearTimeout(refreshTimer);
-      refreshTimer = window.setTimeout(() => {
-        refreshDriverData().then(() => refreshDriverComparison()).catch((error) => {
-          if (mounted && showError) setMessage(`No se han podido actualizar los datos: ${error.message}`);
-        });
-      }, 80);
-    };
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") queueRefresh(false);
+      if (document.visibilityState === "visible") void requestDriverRefresh();
     };
-    const refreshInterval = window.setInterval(() => queueRefresh(false), 30000);
     window.addEventListener("focus", refreshWhenVisible);
     document.addEventListener("visibilitychange", refreshWhenVisible);
     const unsubscribe = subscribeToAppChanges({
       userId: activeProfileId,
       isAdmin: preview,
-      onChange: ({ table }) => {
+      onChange: ({ table, payload }) => {
         if (table === "profiles" && !preview) {
           getProfile({ id: session.user.id }).then(({ data, error }) => {
             if (!mounted || error || !data) return;
@@ -3802,29 +4221,22 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
           }).catch(() => undefined);
           return;
         }
-        if (["driver_entries", "documents", "driver_daily_comparison"].includes(table)) queueRefresh();
-        if (table === "maintenance_reports") {
-          listMaintenanceReports({ vehiclePlate: profileVehiclePlate })
-            .then(({ data, error }) => {
-              if (mounted && !error) setMaintenanceReports((data ?? []).map(normalizeMaintenanceReportRecord));
-            })
-            .catch(() => undefined);
-        }
+        syncDriverRealtimeRecord({ table, payload }).catch((error) => {
+          if (mounted) setMessage(`No se han podido sincronizar los datos: ${error.message}`);
+        });
       },
       onStatus: (status) => {
         if (!mounted) return;
-        if (["SUBSCRIBED", "CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) queueRefresh(false);
+        if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) void requestDriverRefresh();
       },
     });
     return () => {
       mounted = false;
-      window.clearTimeout(refreshTimer);
-      window.clearInterval(refreshInterval);
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       unsubscribe();
     };
-  }, [activeProfileId, canQueryDriverData, onProfileChange, onSignOut, preview, profileVehiclePlate, refreshDriverComparison, refreshDriverData, session.user.id]);
+  }, [activeProfileId, canQueryDriverData, onProfileChange, onSignOut, preview, requestDriverRefresh, session.user.id, syncDriverRealtimeRecord]);
 
   useEffect(() => {
     const selectedEntry = entries.find((item) => String(item.entry_date) === selectedDate);
@@ -3899,12 +4311,19 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
 
   useEffect(() => {
     let cancelled = false;
-    setDocumentPreviews([]);
+    setDocumentPreviews((current) => selectedDayDocuments.map((document) => current.find((candidate) => candidate.id === document.id) ?? { ...document, signedUrl: "" }));
     if (!supabase || selectedDayDocuments.length === 0) return undefined;
     Promise.all(selectedDayDocuments.map(async (document) => {
       if (!document.file_path) return { ...document, signedUrl: "" };
-      const { data, error } = await supabase.storage.from("documents").createSignedUrl(document.file_path, 60 * 60);
-      return { ...document, signedUrl: data?.signedUrl ?? "", urlError: error?.message ?? "" };
+      const isImage = String(document.mime_type ?? "").startsWith("image/");
+      if (!isImage || !canTransformImage(document.mime_type)) return { ...document, signedUrl: "" };
+      const { signedUrl, error } = await createCachedStorageUrl({
+        bucket: "documents",
+        path: document.file_path,
+        expiresIn: 60 * 60,
+        transform: canTransformImage(document.mime_type) ? DOCUMENT_THUMBNAIL_TRANSFORM : null,
+      });
+      return { ...document, signedUrl, urlError: error?.message ?? "" };
     })).then((result) => {
       if (!cancelled) setDocumentPreviews(result);
     }).catch(() => {
@@ -3953,7 +4372,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       setEntries((current) => [localEntry, ...current.filter((candidate) => String(candidate.entry_date) !== dateKey)]);
       return localEntry;
     }
-    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at").single();
+    const { data, error } = await supabase.from("driver_entries").upsert(values, { onConflict: "driver_id,entry_date" }).select("id, driver_id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at, updated_at").single();
     if (error) throw error;
     const normalizedData = normalizeDriverEntryRecord(data);
     setEntries((current) => [normalizedData, ...current.filter((candidate) => candidate.id !== normalizedData.id && String(candidate.entry_date) !== dateKey)]);
@@ -4007,7 +4426,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
           // transient refresh failure must not turn a successful upload into
           // a misleading "not uploaded" error; the realtime/visibility
           // refresh will reconcile the view on the next opportunity.
-          await refreshDriverData().catch(() => undefined);
+          await refreshDriverRecentData({ periodDateKey: uploadDate }).catch(() => undefined);
         } catch (uploadError) {
           uploadMessage = `, pero el justificante no se ha podido subir: ${uploadError.message}`;
         }
@@ -4563,10 +4982,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
         setCircleMetricValues((current) => ({ ...current, [targetDate]: { ...(current[targetDate] ?? {}), consumption, consumptionUnit: fields.unit || "l/100 km" } }));
       }
       if (Object.keys(entryPatch).length > 0 && (!centralEconomic || !supabase)) await upsertDriverEntry(targetDate, entryPatch);
-      if (centralEconomic && supabase) {
-        const { data: refreshedEntries } = await fetchAllSupabaseRows(() => supabase.from("driver_entries").select("id, vehicle_plate, entry_date, fuel_cost, fuel_liters, odometer_km, billing, billing_override, cash_collected, tips, tolls, refunds, wash_expenses, other_expenses, notes, manual_overrides, created_at").eq("driver_id", activeProfileId).order("entry_date", { ascending: false }));
-        if (refreshedEntries) setEntries(refreshedEntries.map(normalizeDriverEntryRecord));
-      }
+      if (centralEconomic && supabase) await refreshDriverRecentData({ periodDateKey: targetDate }).catch(() => undefined);
       const normalizedDocument = normalizeDocumentRecord(savedDocument);
       setDocuments((current) => [normalizedDocument, ...current.filter((document) => document.id !== normalizedDocument.id)]);
       setCirclePreviewUrls((current) => ({ ...current, [recordKey]: URL.createObjectURL(file) }));
@@ -4661,6 +5077,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     onExitPreview={onExitPreview}
     onSignOut={onSignOut}
     onInstall={onInstall}
+    onRefresh={() => requestDriverRefresh({ notifyUser: true })}
+    refreshing={driverSyncStatus === "loading"}
     isStandalone={isStandalone}
     profile={profile}
     vehicle={vehicle}
@@ -4817,7 +5235,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
                 const label = document.category === "billing" ? "Facturación" : "Repostaje / consumo";
                 const content = isImage && document.signedUrl ? <img src={document.signedUrl} alt={`Foto de ${label} del ${formatDriverDateLong(selectedDate)}`} loading="lazy" /> : <IconFileInvoice size={22} />;
                 const deleteKey = getDriverDocumentCircleKey(document) || document.id;
-                return <article className="driver-day-document" key={document.id}><a href={document.signedUrl || undefined} target="_blank" rel="noreferrer" aria-label={`Abrir ${document.file_name}`}>{content}</a><span><strong>{label}</strong><small>{document.file_name}</small><em>{document.status === "approved" ? "Validado" : "Pendiente de revisión"}</em></span>{onDeleteDriverDocument && <button type="button" className="driver-day-document__delete" onClick={() => deleteUploadedDocument(document, deleteKey)} disabled={recordDeleteKey === deleteKey} aria-label={`Borrar foto ${document.file_name}`}>{recordDeleteKey === deleteKey ? "Borrando…" : "Borrar foto"}</button>}</article>;
+                return <article className="driver-day-document" key={document.id}><CachedDocumentLink document={document} className="driver-day-document__preview" aria-label={`Abrir ${document.file_name}`}>{content}</CachedDocumentLink><span><strong>{label}</strong><small>{document.file_name}</small><em>{document.status === "approved" ? "Validado" : "Pendiente de revisión"}</em></span>{onDeleteDriverDocument && <button type="button" className="driver-day-document__delete" onClick={() => deleteUploadedDocument(document, deleteKey)} disabled={recordDeleteKey === deleteKey} aria-label={`Borrar foto ${document.file_name}`}>{recordDeleteKey === deleteKey ? "Borrando…" : "Borrar foto"}</button>}</article>;
               })}
             </div>
           </div>
@@ -4883,7 +5301,7 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverCalendarDocuments = {}, driverDayDocumentsLoading = false, onDeleteDriverDocument, currentDriverWeek, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, onRefresh, refreshing = false, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverCalendarDocuments = {}, driverDayDocumentsLoading = false, onDeleteDriverDocument, currentDriverWeek, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 520;
   const kmChartMax = 45;
   const kmChartTicks = [0, 15, 20, 25, 30, 35, 40, 45];
@@ -5041,14 +5459,15 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const renderCalendarDocumentCard = (document, dateKey, keyPrefix = "calendar", labelOverride = "") => {
     const label = labelOverride || (getDriverDocumentKind(document) === "fuel" ? "Repostaje" : "Efectivo / facturación");
     const isImage = String(document.mime_type ?? "").startsWith("image/");
-    const canOpen = Boolean(document.signedUrl);
-    const previewContent = isImage && canOpen
+    const canOpen = Boolean(document.file_path);
+    const hasPreview = Boolean(document.signedUrl);
+    const previewContent = isImage && hasPreview
       ? <img src={document.signedUrl} alt={`Foto de ${label} del ${formatDriverDateLong(dateKey)}`} loading="lazy" />
-      : <span className="driver-mobile-calendar-document__file"><IconFileInvoice size={22} /><small>{canOpen ? "Abrir archivo" : "Preparando vista"}</small></span>;
+      : <span className="driver-mobile-calendar-document__file"><IconFileInvoice size={22} /><small>{canOpen ? (isImage ? "Abrir foto original" : "Abrir archivo") : "Preparando vista"}</small></span>;
     const deleteKey = `${keyPrefix}-${document.id}`;
     const canDelete = preview || isDriverDateInCurrentWeek(dateKey);
     return <article className="driver-mobile-calendar-document" key={document.id}>
-      {canOpen ? <a className="driver-mobile-calendar-document__preview" href={document.signedUrl} target="_blank" rel="noreferrer" aria-label={`Ver ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{previewContent}</a> : <span className="driver-mobile-calendar-document__preview" aria-label="Vista previa en preparación">{previewContent}</span>}
+      {canOpen ? <CachedDocumentLink document={document} className="driver-mobile-calendar-document__preview" aria-label={`Ver ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{previewContent}</CachedDocumentLink> : <span className="driver-mobile-calendar-document__preview" aria-label="Vista previa en preparación">{previewContent}</span>}
       <div className="driver-mobile-calendar-document__info"><strong>{label}</strong><span title={document.file_name || "Archivo original"}>{document.file_name || "Archivo original"}</span><small>{document.status === "approved" ? "Validado" : "Pendiente de revisión"}</small></div>
       {onDeleteDriverDocument && canDelete && <button type="button" className="driver-mobile-calendar-document__delete" onClick={() => deleteUploadedDocument(document, deleteKey)} disabled={recordDeleteKey === deleteKey} aria-label={`Borrar ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{recordDeleteKey === deleteKey ? "Borrando…" : "Borrar foto"}</button>}
     </article>;
@@ -5399,6 +5818,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       <header className="driver-mobile-topbar">
         {preview && <button type="button" className="driver-mobile-topbar__back" onClick={onExitPreview} aria-label="Volver a administración" title="Volver a administración"><IconChevronLeft size={24} /></button>}
         <button type="button" className="driver-mobile-topbar__title" onClick={() => { setDriverMenuOpen((current) => !current); setDriverNoticeOpen(false); }} aria-label={`Abrir opciones de ${profile.full_name}`} aria-haspopup="menu" aria-expanded={driverMenuOpen} aria-controls="driver-mobile-options"><span className="driver-mobile-topbar__avatar" aria-hidden="true">{driverAvatarPath ? <img src={driverAvatarPath} alt="" /> : <span>{driverAvatarInitials}</span>}</span><span className="driver-mobile-topbar__identity"><strong>{profile.full_name.toUpperCase()}</strong><span className="driver-mobile-topbar__vehicle"><VehiclePlateLabel vehicleOrPlate={vehicle?.plate ?? profileVehiclePlate} className="driver-mobile-topbar__plate" />{vehicle?.owner?.dni && <small>{String(vehicle.owner.dni).replaceAll("-", "")}</small>}</span></span></button>
+        {!preview && <button type="button" className={`driver-mobile-topbar__refresh${refreshing ? " is-loading" : ""}`} onClick={() => void onRefresh?.()} disabled={refreshing} aria-label="Actualizar datos" title="Actualizar datos ahora"><IconRefresh size={19} /></button>}
         {driverMenuOpen && <aside id="driver-mobile-options" className="driver-mobile-topbar__popover driver-mobile-topbar__popover--menu" aria-label="Menú del conductor" role="menu">
           <button type="button" role="menuitem" onClick={() => scrollTo("home", homeRef)}><IconHome size={16} />Inicio</button>
           <button type="button" role="menuitem" onClick={() => scrollTo("history", historyRef)}><IconHistory size={16} />Historial semanal</button>
@@ -6440,7 +6860,7 @@ function AlexCommissionReportPanel({ report, periodLabel, archivedReports = [], 
   </section>;
 }
 
-function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "", realtimeRevision = 0, onSaveDriverDay, onDeleteDriverDocument, onReassignDriverDocumentDate }) {
+function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "", realtimeRevision = 0, realtimeTable = "", onSaveDriverDay, onDeleteDriverDocument, onReassignDriverDocumentDate }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;
@@ -6466,6 +6886,8 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   const [commissionReportMessage, setCommissionReportMessage] = useState("");
   const [billingDriverKey, setBillingDriverKey] = useState("");
   const [billingVehiclePlate, setBillingVehiclePlate] = useState("");
+  const periodFinancialsPeriodRef = useRef("");
+  const commissionReportsPeriodRef = useRef("");
   useEffect(() => {
     setSelectedChartBar("");
   }, [chartMetric, reportMonth, reportYear]);
@@ -6523,19 +6945,25 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   useEffect(() => {
     let mounted = true;
     if (!supabase) return undefined;
+    const shouldRefresh = !realtimeTable || ["driver_period_financials", "manual"].includes(realtimeTable) || periodFinancialsPeriodRef.current !== periodStart;
+    if (!shouldRefresh) return undefined;
+    periodFinancialsPeriodRef.current = periodStart;
     listDriverPeriodFinancials(periodStart)
       .then(({ data, error }) => { if (mounted && !error) setPeriodFinancials(data ?? []); })
       .catch(() => { if (mounted) setPeriodFinancials([]); });
     return () => { mounted = false; };
-  }, [periodStart, realtimeRevision]);
+  }, [periodStart, realtimeRevision, realtimeTable]);
   useEffect(() => {
     let mounted = true;
     if (!supabase) return undefined;
-    listCommissionReports()
+    const shouldRefresh = !realtimeTable || ["commission_reports", "manual"].includes(realtimeTable) || commissionReportsPeriodRef.current !== periodStart;
+    if (!shouldRefresh) return undefined;
+    commissionReportsPeriodRef.current = periodStart;
+    listCommissionReports({ periodStart })
       .then(({ data, error }) => { if (mounted && !error) setCommissionReports(data ?? []); })
       .catch(() => { if (mounted) setCommissionReports([]); });
     return () => { mounted = false; };
-  }, [realtimeRevision]);
+  }, [realtimeRevision, realtimeTable]);
   useEffect(() => {
     if (!billingDriverKey) return undefined;
     const animationFrame = window.requestAnimationFrame(() => {
@@ -8029,6 +8457,8 @@ function MaintenanceSearch({ query, open, suggestions, onQueryChange, onOpenChan
 
 function MaintenanceReportPhoto({ report }) {
   const [state, setState] = useState({ status: "loading", url: "", message: "" });
+  const [originalUrl, setOriginalUrl] = useState("");
+  const [opening, setOpening] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -8037,15 +8467,42 @@ function MaintenanceReportPhoto({ report }) {
       return undefined;
     }
     setState({ status: "loading", url: "", message: "" });
-    createMaintenanceReportPhotoUrl(report.photoPath, 15 * 60)
+    setOriginalUrl("");
+    if (!canTransformImage(report.photoMimeType)) {
+      setState({ status: "unpreviewable", url: "", message: "Vista previa no disponible." });
+      return () => { active = false; };
+    }
+    createMaintenanceReportPhotoUrl(report.photoPath, 60 * 60, { thumbnail: true })
       .then((url) => { if (active) setState(url ? { status: "ready", url, message: "" } : { status: "error", url: "", message: "Foto no disponible." }); })
       .catch((error) => { if (active) setState({ status: "error", url: "", message: error.message || "No se ha podido abrir la foto." }); });
     return () => { active = false; };
-  }, [report?.photoPath]);
+  }, [report?.photoMimeType, report?.photoPath]);
+
+  const openOriginal = async (event) => {
+    if (originalUrl || !report?.photoPath) return;
+    event.preventDefault();
+    if (opening) return;
+    const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
+    if (!popup) return;
+    setOpening(true);
+    try {
+      const url = await createMaintenanceReportPhotoUrl(report.photoPath, 10 * 60);
+      if (!url) throw new Error("Foto no disponible.");
+      setOriginalUrl(url);
+      popup.location.href = url;
+    } catch {
+      popup.close();
+    } finally {
+      setOpening(false);
+    }
+  };
 
   if (state.status === "loading") return <span className="maintenance-report-photo maintenance-report-photo--loading">Cargando foto…</span>;
-  if (state.status !== "ready") return <span className="maintenance-report-photo maintenance-report-photo--error">{state.message || "Sin foto"}</span>;
-  return <a className="maintenance-report-photo" href={state.url} target="_blank" rel="noreferrer" aria-label={`Abrir foto de la incidencia ${report.photoName || ""}`}><img src={state.url} alt={`Foto de incidencia de ${report.vehiclePlate}`} loading="lazy" /><span><IconCamera size={14} />Abrir foto</span></a>;
+  if (state.status !== "ready") {
+    if (report?.photoPath) return <a className="maintenance-report-photo maintenance-report-photo--error" href={originalUrl || undefined} target="_blank" rel="noreferrer" aria-label={`Abrir foto original de la incidencia ${report.photoName || ""}`} onClick={openOriginal} aria-busy={opening || undefined}><IconCamera size={14} />{opening ? "Abriendo foto…" : "Abrir foto original"}</a>;
+    return <span className="maintenance-report-photo maintenance-report-photo--error">{state.message || "Sin foto"}</span>;
+  }
+  return <a className="maintenance-report-photo" href={originalUrl || undefined} target="_blank" rel="noreferrer" aria-label={`Abrir foto de la incidencia ${report.photoName || ""}`} onClick={openOriginal} aria-busy={opening || undefined}><img src={state.url} alt={`Foto de incidencia de ${report.vehiclePlate}`} loading="lazy" /><span><IconCamera size={14} />Abrir foto original</span></a>;
 }
 
 function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], onClose, onSave, onMarkReviewed, isRefreshing = false, refreshError = "" }) {
@@ -8861,29 +9318,61 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
   );
 }
 
+function CachedDocumentLink({ document, className = "", children, ariaLabel = "Abrir documento" }) {
+  const [originalUrl, setOriginalUrl] = useState("");
+  const [opening, setOpening] = useState(false);
+  const filePath = document?.file_path ?? document?.filePath ?? "";
+  const openOriginal = async (event) => {
+    if (originalUrl || !filePath) return;
+    event.preventDefault();
+    if (opening) return;
+    const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
+    if (!popup) return;
+    setOpening(true);
+    try {
+      const { signedUrl, error } = await createCachedStorageUrl({ bucket: "documents", path: filePath, expiresIn: 10 * 60 });
+      if (error || !signedUrl) throw error ?? new Error("No se ha podido abrir el documento.");
+      setOriginalUrl(signedUrl);
+      popup.location.href = signedUrl;
+    } catch {
+      popup.close();
+    } finally {
+      setOpening(false);
+    }
+  };
+  return <a className={className} href={originalUrl || undefined} target="_blank" rel="noreferrer" aria-label={ariaLabel} onClick={openOriginal} aria-busy={opening || undefined}>{children}</a>;
+}
+
 function PrivateDocumentAttachment({ item }) {
   const [state, setState] = useState({ status: "loading", url: "", message: "" });
+  const isImage = String(item.mimeType ?? "").startsWith("image/");
+  const canPreviewImage = isImage && canTransformImage(item.mimeType);
   useEffect(() => {
     let active = true;
-    if (!supabase || !item.filePath) {
+    if (!canPreviewImage || !supabase || !item.filePath) {
+      if (!isImage) return undefined;
+      if (!canPreviewImage) return undefined;
       setState({ status: "error", url: "", message: "El justificante no está disponible." });
       return undefined;
     }
-    supabase.storage.from("documents").createSignedUrl(item.filePath, 10 * 60)
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error || !data?.signedUrl) setState({ status: "error", url: "", message: error?.message || "No se ha podido abrir el justificante." });
-        else setState({ status: "ready", url: data.signedUrl, message: "" });
-      })
-      .catch((error) => { if (active) setState({ status: "error", url: "", message: error.message || "No se ha podido abrir el justificante." }); });
+    createCachedStorageUrl({
+      bucket: "documents",
+      path: item.filePath,
+      expiresIn: 60 * 60,
+      transform: canTransformImage(item.mimeType) ? DOCUMENT_THUMBNAIL_TRANSFORM : null,
+    }).then(({ signedUrl, error }) => {
+      if (!active) return;
+      if (error || !signedUrl) setState({ status: "error", url: "", message: error?.message || "No se ha podido abrir el justificante." });
+      else setState({ status: "ready", url: signedUrl, message: "" });
+    }).catch((error) => { if (active) setState({ status: "error", url: "", message: error.message || "No se ha podido abrir el justificante." }); });
     return () => { active = false; };
-  }, [item.filePath]);
+  }, [canPreviewImage, isImage, item.filePath]);
 
-  if (state.status === "loading") return <div className="invoice-private-document invoice-private-document--loading" role="status"><IconSparkles size={18} /><span><strong>Preparando justificante privado</strong><small>{item.fileName || "Documento del conductor"}</small></span></div>;
+  if (!isImage) return <div className="invoice-private-document"><IconFileInvoice size={20} /><span><strong>Justificante original archivado</strong><small>{item.fileName || "Documento PDF"}</small></span><CachedDocumentLink document={item} ariaLabel="Abrir documento">Abrir documento</CachedDocumentLink></div>;
+  if (!canPreviewImage) return <div className="invoice-private-document"><IconFileInvoice size={20} /><span><strong>Vista previa no disponible</strong><small>{item.fileName || "Imagen original"}</small></span><CachedDocumentLink document={item} ariaLabel="Abrir imagen original">Abrir original</CachedDocumentLink></div>;
+  if (state.status === "loading") return <div className="invoice-private-document invoice-private-document--loading" role="status"><IconSparkles size={18} /><span><strong>Preparando miniatura privada</strong><small>{item.fileName || "Documento del conductor"}</small></span></div>;
   if (state.status === "error") return <div className="invoice-private-document invoice-private-document--error" role="alert"><IconAlertTriangle size={18} /><span><strong>No se ha podido mostrar el justificante</strong><small>{state.message}</small></span></div>;
-  const isImage = String(item.mimeType ?? "").startsWith("image/");
-  if (isImage) return <figure className="invoice-document-photo invoice-document-photo--private"><a href={state.url} target="_blank" rel="noreferrer" aria-label={`Abrir justificante original ${item.fileName || ""}`}><img src={state.url} alt={`Ticket original de ${item.provider} para ${item.plate}, ${item.date}`} /></a><figcaption><span>Justificante original archivado</span><a href={state.url} target="_blank" rel="noreferrer">Abrir a tamaño completo</a></figcaption></figure>;
-  return <div className="invoice-private-document"><IconFileInvoice size={20} /><span><strong>Justificante original archivado</strong><small>{item.fileName || "Documento PDF"}</small></span><a href={state.url} target="_blank" rel="noreferrer">Abrir documento</a></div>;
+  if (isImage) return <figure className="invoice-document-photo invoice-document-photo--private"><CachedDocumentLink document={item} ariaLabel={`Abrir justificante original ${item.fileName || ""}`}><img src={state.url} alt={`Ticket original de ${item.provider} para ${item.plate}, ${item.date}`} /></CachedDocumentLink><figcaption><span>Miniatura optimizada · original privado</span><CachedDocumentLink document={item}>Abrir a tamaño completo</CachedDocumentLink></figcaption></figure>;
 }
 
 function DriverBillingMonthTick({ x, y, payload }) {
