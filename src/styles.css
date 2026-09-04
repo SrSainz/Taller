@@ -9645,3 +9645,180 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
     font-size: 8px;
   }
 }
+
+/* Acceso directo a los justificantes de efectivo desde cada día del calendario. */
+.driver-mobile-week-table__cash-cell {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 39px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 2px 0 13px;
+  overflow: visible !important;
+  white-space: normal !important;
+}
+.driver-mobile-week-table__cash-cell > .driver-mobile-week-table__amount-trigger,
+.driver-mobile-week-table__cash-cell > .driver-mobile-week-table__amount-readonly,
+.driver-mobile-week-table__cash-cell > .driver-mobile-week-table__amount-editor {
+  min-width: 0;
+  max-width: 100%;
+}
+.driver-mobile-week-table__cash-cell > .driver-mobile-week-table__amount-trigger {
+  min-height: 24px;
+  padding: 0;
+}
+.driver-mobile-week-table__cash-cell > .driver-mobile-week-table__amount-readonly {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+.driver-mobile-week-table__cash-documents {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #9db9e0;
+  border-radius: 50%;
+  background: #f5f9ff;
+  color: #2c6de9;
+  box-shadow: 0 1px 3px rgba(16, 45, 88, .18);
+  cursor: pointer;
+  overflow: visible;
+}
+.driver-mobile-week-table__cash-documents:hover,
+.driver-mobile-week-table__cash-documents:focus-visible {
+  border-color: #2c6de9;
+  background: #e8f1ff;
+  outline: 2px solid rgba(44, 109, 233, .24);
+  outline-offset: 1px;
+}
+.driver-mobile-week-table__cash-documents b {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 10px;
+  height: 10px;
+  display: grid;
+  place-items: center;
+  padding: 0 2px;
+  border: 1px solid #fff;
+  border-radius: 999px;
+  background: #df4538;
+  color: #fff;
+  font-size: 7px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* La cámara abre una ventana de consulta para no sacar al conductor del calendario. */
+.driver-mobile-calendar-document-dialog {
+  position: fixed;
+  z-index: 130;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(5, 22, 47, .58);
+}
+.driver-mobile-calendar-document-dialog__panel {
+  width: min(540px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid #d7e2ef;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(3, 24, 55, .3);
+}
+.driver-mobile-calendar-document-dialog__panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.driver-mobile-calendar-document-dialog__panel > header > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.driver-mobile-calendar-document-dialog__panel > header span {
+  color: #247f76;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.driver-mobile-calendar-document-dialog__panel > header h2 {
+  margin: 0;
+  color: #173661;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.12;
+}
+.driver-mobile-calendar-document-dialog__panel > header small {
+  color: #63758c;
+  font-size: 9px;
+  line-height: 1.2;
+}
+.driver-mobile-calendar-document-dialog__panel > header > button {
+  flex: 0 0 auto;
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #d4deeb;
+  border-radius: 9px;
+  background: #f8fbff;
+  color: #173661;
+  cursor: pointer;
+}
+.driver-mobile-calendar-document-dialog__panel > header > button:hover,
+.driver-mobile-calendar-document-dialog__panel > header > button:focus-visible {
+  border-color: #247f76;
+  outline: 2px solid rgba(36, 127, 118, .2);
+  outline-offset: 1px;
+}
+.driver-mobile-calendar-document-dialog__empty {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0;
+  border: 1px dashed #d4deeb;
+  border-radius: 10px;
+  color: #78869d;
+  font-size: 10px;
+  font-weight: 750;
+  text-align: center;
+}
+.driver-mobile-calendar-document-dialog__panel .driver-mobile-calendar-documents__list {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 520px) {
+  .driver-mobile-week-table__cash-documents {
+    left: 1px;
+    width: 17px;
+    height: 17px;
+  }
+  .driver-mobile-calendar-document-dialog {
+    align-items: end;
+    padding: 0;
+  }
+  .driver-mobile-calendar-document-dialog__panel {
+    width: 100%;
+    max-height: calc(100dvh - 8px);
+    padding: 13px 10px calc(13px + env(safe-area-inset-bottom));
+    border-radius: 18px 18px 0 0;
+  }
+}

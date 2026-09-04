@@ -3859,7 +3859,19 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const calendarDays = useMemo(() => getDriverCalendarDays(driverPeriodDate, 13, -6), [selectedDate]);
   const selectedDayEntry = useMemo(() => entries.find((item) => String(item.entry_date) === selectedDate) ?? null, [entries, selectedDate]);
   const selectedDayDocuments = useMemo(() => documents.filter((document) => getDriverDocumentDateKey(document) === selectedDate), [documents, selectedDate]);
-  const selectedDayDocumentViews = useMemo(() => selectedDayDocuments.map((document) => documentPreviews.find((preview) => preview.id === document.id) ?? document), [documentPreviews, selectedDayDocuments]);
+  const selectedDayDocumentViews = useMemo(() => selectedDayDocuments.map((document) => {
+    const preview = documentPreviews.find((candidate) => candidate.id === document.id);
+    if (preview) return preview;
+    const circleKey = getDriverDocumentCircleKey(document);
+    return circleKey && circlePreviewUrls[circleKey] ? { ...document, signedUrl: circlePreviewUrls[circleKey] } : document;
+  }), [circlePreviewUrls, documentPreviews, selectedDayDocuments]);
+  const driverCalendarDocuments = useMemo(() => documents.reduce((documentsByDate, document) => {
+    if (getDriverDocumentKind(document) !== "billing") return documentsByDate;
+    const dateKey = getDriverDocumentDateKey(document);
+    if (!dateKey) return documentsByDate;
+    documentsByDate[dateKey] = [...(documentsByDate[dateKey] ?? []), document];
+    return documentsByDate;
+  }, {}), [documents]);
   const driverBillingStatsByDate = useMemo(() => getDriverBillingStatsByDate(documents, activeProfileId, entries), [documents, activeProfileId, entries]);
 
   useEffect(() => {
@@ -4674,6 +4686,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     otherDriversKmPerConnectionHourAverage={otherDriversKmPerConnectionHourAverage}
     dailyPhotoRecords={dailyPhotoRecords}
     driverDayDocuments={selectedDayDocumentViews}
+    driverCalendarDocuments={driverCalendarDocuments}
     driverDayDocumentsLoading={documentsLoading}
     onDeleteDriverDocument={removeDriverDocument}
     currentDriverWeek={currentDriverWeek}
@@ -4869,7 +4882,7 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverDayDocumentsLoading = false, onDeleteDriverDocument, currentDriverWeek, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverCalendarDocuments = {}, driverDayDocumentsLoading = false, onDeleteDriverDocument, currentDriverWeek, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 520;
   const kmChartMax = 45;
   const kmChartTicks = [0, 15, 20, 25, 30, 35, 40, 45];
@@ -4902,6 +4915,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const [tipsBreakdownOpen, setTipsBreakdownOpen] = useState(false);
   const [recordDeleteKey, setRecordDeleteKey] = useState("");
   const [recordDeleteError, setRecordDeleteError] = useState("");
+  const [cashDocumentDialogDate, setCashDocumentDialogDate] = useState("");
   const maintenanceNoteInputRef = useRef(null);
   const maintenanceNotePhotoInputRef = useRef(null);
   const driverAvatarPath = getDriverAvatarPath(profile.full_name);
@@ -4959,9 +4973,45 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     const kind = getDriverDocumentKind(document);
     return kind === "billing" || kind === "fuel";
   });
+  const cashDocumentDialogDocuments = cashDocumentDialogDate === selectedDate
+    ? driverDayDocuments.filter((document) => getDriverDocumentKind(document) === "billing" && getDriverDocumentDateKey(document) === cashDocumentDialogDate)
+    : [];
+  const cashDocumentDialogExpectedDocuments = driverCalendarDocuments[cashDocumentDialogDate] ?? [];
+  const cashDocumentDialogLoading = driverDayDocumentsLoading || (cashDocumentDialogExpectedDocuments.length > 0 && cashDocumentDialogDocuments.length === 0);
+  const openCashDocumentDialog = (dateKey) => {
+    setSelectedDate(dateKey);
+    setCashDocumentDialogDate(dateKey);
+  };
+  const closeCashDocumentDialog = () => setCashDocumentDialogDate("");
+  const renderCalendarDocumentCard = (document, dateKey, keyPrefix = "calendar") => {
+    const label = "Efectivo / facturación";
+    const isImage = String(document.mime_type ?? "").startsWith("image/");
+    const canOpen = Boolean(document.signedUrl);
+    const previewContent = isImage && canOpen
+      ? <img src={document.signedUrl} alt={`Foto de ${label} del ${formatDriverDateLong(dateKey)}`} loading="lazy" />
+      : <span className="driver-mobile-calendar-document__file"><IconFileInvoice size={22} /><small>{canOpen ? "Abrir archivo" : "Preparando vista"}</small></span>;
+    const deleteKey = `${keyPrefix}-${document.id}`;
+    const canDelete = preview || isDriverDateInCurrentWeek(dateKey);
+    return <article className="driver-mobile-calendar-document" key={document.id}>
+      {canOpen ? <a className="driver-mobile-calendar-document__preview" href={document.signedUrl} target="_blank" rel="noreferrer" aria-label={`Ver ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{previewContent}</a> : <span className="driver-mobile-calendar-document__preview" aria-label="Vista previa en preparación">{previewContent}</span>}
+      <div className="driver-mobile-calendar-document__info"><strong>{label}</strong><span title={document.file_name || "Archivo original"}>{document.file_name || "Archivo original"}</span><small>{document.status === "approved" ? "Validado" : "Pendiente de revisión"}</small></div>
+      {onDeleteDriverDocument && canDelete && <button type="button" className="driver-mobile-calendar-document__delete" onClick={() => deleteUploadedDocument(document, deleteKey)} disabled={recordDeleteKey === deleteKey} aria-label={`Borrar ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{recordDeleteKey === deleteKey ? "Borrando…" : "Borrar foto"}</button>}
+    </article>;
+  };
   useEffect(() => {
     setActiveDriverChartTooltip("");
   }, [expandedPreviewMetric]);
+  useEffect(() => {
+    if (!cashDocumentDialogDate) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") closeCashDocumentDialog(); };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [cashDocumentDialogDate]);
   useEffect(() => {
     if (!expandedPreviewMetric) return undefined;
     const handleEscape = (event) => { if (event.key === "Escape") setExpandedPreviewMetric(""); };
@@ -5140,6 +5190,20 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     const displayedValue = hasDraft ? weeklyDrafts[draftKey] : formatWeeklyCellAmount(value, row.key);
     if (weeklyEditKey !== draftKey || !isEditorHost) return <button type="button" className="driver-mobile-week-table__amount-trigger" aria-label={`Editar ${row.label} del ${dateKey} con una pulsación breve`} title="Pulsa y suelta antes de 1 segundo para editar" onPointerDown={(event) => { event.stopPropagation(); startWeeklyPress(draftKey, value, row.key, dateKey, event); }} onPointerMove={(event) => { event.stopPropagation(); moveWeeklyPress(event); }} onPointerUp={(event) => finishWeeklyPress(draftKey, value, row.key, dateKey, event)} onPointerCancel={(event) => { event.stopPropagation(); clearWeeklyPress(); }} onPointerLeave={(event) => { event.stopPropagation(); clearWeeklyPress(); }} onContextMenu={(event) => event.preventDefault()} onKeyDown={(event) => { if (event.key !== "Enter" && event.key !== " ") return; event.preventDefault(); openWeeklyEditor(draftKey, value, row.key, dateKey); }}>{displayedValue}</button>;
     return <span className="driver-mobile-week-table__amount-editor"><input autoFocus className="driver-mobile-week-table__amount-input" type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" value={displayedValue} aria-label={`${row.label} del ${dateKey}`} placeholder="0,00" onFocus={(event) => event.currentTarget.select()} onPointerDown={(event) => event.stopPropagation()} onPointerMove={(event) => event.stopPropagation()} onPointerUp={(event) => { event.stopPropagation(); event.preventDefault(); }} onChange={(event) => setWeeklyDrafts((current) => ({ ...current, [draftKey]: event.target.value }))} onBlur={async () => { const nextValue = Object.hasOwn(weeklyDrafts, draftKey) ? weeklyDrafts[draftKey] : displayedValue; await saveWeeklyAmount(dateKey, row.key, nextValue); setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); setWeeklyEditKey((current) => current === draftKey ? "" : current); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setWeeklyDrafts((current) => { const next = { ...current }; delete next[draftKey]; return next; }); setWeeklyEditKey(""); event.currentTarget.blur(); } }} /><b aria-hidden="true">€</b></span>;
+  };
+  const weeklyCellWithDocuments = (row, value, dateKey, isEditorHost = false) => {
+    const amount = weeklyCell(row, value, dateKey, isEditorHost);
+    if (row.key !== "cash") return amount;
+    const documents = driverCalendarDocuments[dateKey] ?? [];
+    if (documents.length === 0) return amount;
+    const countLabel = `${documents.length} ${documents.length === 1 ? "foto o archivo" : "fotos o archivos"}`;
+    return <div className="driver-mobile-week-table__cash-cell">
+      {amount}
+      <button type="button" className="driver-mobile-week-table__cash-documents" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); openCashDocumentDialog(dateKey); }} aria-label={`Ver ${countLabel} de efectivo del ${formatDriverDateLong(dateKey)}`} title={`Ver ${countLabel} de efectivo`}>
+        <IconCamera size={12} aria-hidden="true" />
+        {documents.length > 1 && <b aria-hidden="true">{documents.length}</b>}
+      </button>
+    </div>;
   };
   const completeWeekSwipe = () => {
     const direction = weekSwipeDirectionRef.current;
@@ -5335,7 +5399,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
         <section ref={historyRef} className="driver-mobile-section driver-mobile-section--history" aria-labelledby="driver-mobile-week-title">
           <div ref={weekSwipeViewportRef} className={`driver-mobile-week-swipe-wrap${weekSwipeActive ? " is-dragging" : ""}`} role="region" aria-label="Semana desplazable" onPointerDown={handleWeekPointerDown} onPointerMove={handleWeekPointerMove} onPointerUp={handleWeekPointerEnd} onPointerCancel={handleWeekPointerEnd} onClickCapture={handleWeekClickCapture}>
             <div className={`driver-mobile-week-track${weekSwipeTransition ? " is-animating" : ""}`} onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "transform") completeWeekSwipe(); }} style={{ transform: `translate3d(calc(-33.333333% + ${weekSwipeOffset}px), 0, 0)` }}>
-              {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={`driver-mobile-week-table__row--${row.key}${row.key === "total" ? " is-total" : ""}`} key={`${page.key}-${row.key}`}><th className={`driver-mobile-week-table__label driver-mobile-week-table__label--${row.key}`} scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{weeklyCell(row, value, page.days[index].key, page.offset === 0)}</td>)}</tr>)}</tbody></table></div></div>)}
+              {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={`driver-mobile-week-table__row--${row.key}${row.key === "total" ? " is-total" : ""}`} key={`${page.key}-${row.key}`}><th className={`driver-mobile-week-table__label driver-mobile-week-table__label--${row.key}`} scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{weeklyCellWithDocuments(row, value, page.days[index].key, page.offset === 0)}</td>)}</tr>)}</tbody></table></div></div>)}
             </div>
           </div>
           <header className="driver-mobile-section__heading driver-mobile-section__heading--week">
@@ -5352,29 +5416,24 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
             <div className="driver-mobile-week-actions"><button type="button" aria-label="Semana anterior" onClick={() => shiftDriverWeek(-1)}><IconChevronLeft size={16} /></button><button type="button" aria-label="Semana siguiente" onClick={() => shiftDriverWeek(1)}><IconChevronRight size={16} /></button></div>
           </header>
           <div className="driver-mobile-period-control" ref={periodPickerRef}><button type="button" className="driver-mobile-period-trigger" aria-label="Seleccionar mes" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "month"} onClick={() => { setWeekPickerOpen(false); setPeriodPickerOpen((current) => current === "month" ? "" : "month"); }}><span>{reportMonths[driverPeriodMonth]}</span><IconChevronDown size={14} /></button><button type="button" className="driver-mobile-period-year" aria-label="Seleccionar año" aria-haspopup="listbox" aria-expanded={periodPickerOpen === "year"} onClick={() => { setWeekPickerOpen(false); setPeriodPickerOpen((current) => current === "year" ? "" : "year"); }}>{driverPeriodYear}</button>{periodPickerOpen === "month" && <div className="driver-period-picker__menu driver-mobile-period-menu" role="listbox" aria-label="Meses disponibles">{reportMonths.map((monthLabel, monthIndex) => <button type="button" role="option" aria-selected={driverPeriodMonth === monthIndex} ref={driverPeriodMonth === monthIndex ? periodPickerOptionRef : undefined} className={driverPeriodMonth === monthIndex ? "is-selected" : ""} onClick={() => selectDriverPeriod(driverPeriodYear, monthIndex)} key={monthLabel}>{monthLabel}</button>)}</div>}{periodPickerOpen === "year" && <div className="driver-period-picker__menu driver-period-picker__menu--years driver-mobile-period-menu" role="listbox" aria-label="Años disponibles">{driverPeriodYears.map((yearOption) => <button type="button" role="option" aria-selected={driverPeriodYear === yearOption} ref={driverPeriodYear === yearOption ? periodPickerOptionRef : undefined} className={driverPeriodYear === yearOption ? "is-selected" : ""} onClick={() => selectDriverPeriod(yearOption, driverPeriodMonth)} key={yearOption}>{yearOption}</button>)}</div>}</div>
-          <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={`driver-mobile-week-table__row--${row.key}${row.key === "total" ? " is-total" : ""}`} key={row.key}><th className={`driver-mobile-week-table__label driver-mobile-week-table__label--${row.key}`} scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{weeklyCell(row, value, driverWeekDays[index].key, true)}</td>)}</tr>)}</tbody></table></div>
+          <div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{driverWeekDays.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{weeklyRows.map((row) => <tr className={`driver-mobile-week-table__row--${row.key}${row.key === "total" ? " is-total" : ""}`} key={row.key}><th className={`driver-mobile-week-table__label driver-mobile-week-table__label--${row.key}`} scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${row.key}-${driverWeekDays[index].key}`}>{weeklyCellWithDocuments(row, value, driverWeekDays[index].key, true)}</td>)}</tr>)}</tbody></table></div>
           <section className="driver-mobile-calendar-documents" aria-labelledby="driver-mobile-calendar-documents-title" aria-live="polite">
             <header>
               <div><span>JUSTIFICANTES DEL DÍA</span><strong id="driver-mobile-calendar-documents-title">{formatDriverDateLong(selectedDate)}</strong></div>
               <b>{driverDayDocumentsLoading ? "…" : `${calendarDocuments.length} ${calendarDocuments.length === 1 ? "archivo" : "archivos"}`}</b>
             </header>
-            {driverDayDocumentsLoading ? <p className="driver-mobile-calendar-documents__empty">Buscando fotos y archivos del día…</p> : calendarDocuments.length === 0 ? <p className="driver-mobile-calendar-documents__empty"><IconCamera size={16} />Sin fotos de efectivo o repostaje para este día.</p> : <div className="driver-mobile-calendar-documents__list">
-              {calendarDocuments.map((document) => {
-                const kind = getDriverDocumentKind(document);
-                const label = kind === "billing" ? "Efectivo / facturación" : "Repostaje";
-                const isImage = String(document.mime_type ?? "").startsWith("image/");
-                const canOpen = Boolean(document.signedUrl);
-                const previewContent = isImage && canOpen ? <img src={document.signedUrl} alt={`Foto de ${label} del ${formatDriverDateLong(selectedDate)}`} loading="lazy" /> : <span className="driver-mobile-calendar-document__file"><IconFileInvoice size={22} /><small>{canOpen ? "Abrir archivo" : "Archivo archivado"}</small></span>;
-                const deleteKey = `calendar-${document.id}`;
-                return <article className="driver-mobile-calendar-document" key={document.id}>
-                  {canOpen ? <a className="driver-mobile-calendar-document__preview" href={document.signedUrl} target="_blank" rel="noreferrer" aria-label={`Ver ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{previewContent}</a> : <span className="driver-mobile-calendar-document__preview" aria-label="Vista previa no disponible">{previewContent}</span>}
-                  <div className="driver-mobile-calendar-document__info"><strong>{label}</strong><span title={document.file_name || "Archivo original"}>{document.file_name || "Archivo original"}</span><small>{document.status === "approved" ? "Validado" : "Pendiente de revisión"}</small></div>
-                  {onDeleteDriverDocument && (preview || canEditSelectedDate) && <button type="button" className="driver-mobile-calendar-document__delete" onClick={() => deleteUploadedDocument(document, deleteKey)} disabled={recordDeleteKey === deleteKey} aria-label={`Borrar ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{recordDeleteKey === deleteKey ? "Borrando…" : "Borrar foto"}</button>}
-                </article>;
-              })}
-            </div>}
+            {driverDayDocumentsLoading ? <p className="driver-mobile-calendar-documents__empty">Buscando fotos y archivos del día…</p> : calendarDocuments.length === 0 ? <p className="driver-mobile-calendar-documents__empty"><IconCamera size={16} />Sin fotos de efectivo o repostaje para este día.</p> : <div className="driver-mobile-calendar-documents__list">{calendarDocuments.map((document) => renderCalendarDocumentCard(document, selectedDate))}</div>}
           </section>
         </section>
+        {cashDocumentDialogDate && <div className="driver-mobile-calendar-document-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-calendar-document-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCashDocumentDialog(); }}>
+          <section className="driver-mobile-calendar-document-dialog__panel">
+            <header>
+              <div><span>FOTOS DEL CALENDARIO</span><h2 id="driver-mobile-calendar-document-dialog-title">Efectivo · {formatDriverDateLong(cashDocumentDialogDate)}</h2><small>Justificantes de facturación de este día</small></div>
+              <button type="button" aria-label="Cerrar fotos de efectivo" onClick={closeCashDocumentDialog}><IconX size={18} /></button>
+            </header>
+            {cashDocumentDialogLoading ? <p className="driver-mobile-calendar-document-dialog__empty"><IconCamera size={18} />Preparando las fotos y archivos de efectivo…</p> : cashDocumentDialogDocuments.length === 0 ? <p className="driver-mobile-calendar-document-dialog__empty"><IconCamera size={18} />No hay fotos o archivos de efectivo para este día.</p> : <div className="driver-mobile-calendar-documents__list">{cashDocumentDialogDocuments.map((document) => renderCalendarDocumentCard(document, cashDocumentDialogDate, "cash-dialog"))}</div>}
+          </section>
+        </div>}
         {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview || !canEditSelectedDate}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" min={preview ? undefined : currentDriverWeek.startDateKey} max={preview ? undefined : currentDriverWeek.endDateKey} value={entry.entryDate} onChange={(event) => { setEntryDateWasEdited(true); setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Precio neto<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Reembolsos<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.refunds} onChange={(event) => updateEntry("refunds", event.target.value)} /><i>€</i></label><label>Lavados<input type="number" min="0" step="0.01" value={entry.washExpenses} onChange={(event) => updateEntry("washExpenses", event.target.value)} /><i>€</i></label><label>Varios<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input readOnly={!preview} type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea readOnly={!preview} rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, reembolso u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" onChange={(event) => { const nextFile = event.target.files?.[0] ?? null; setFile(nextFile); setFileCapturedAt(nextFile ? new Date().toISOString() : null); }} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview || !canEditSelectedDate}>{preview ? "Solo lectura" : !canEditSelectedDate ? "Semana cerrada" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
         {expandedPreviewMetric && (
           <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}>
