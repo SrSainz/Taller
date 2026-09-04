@@ -1,9 +1,10 @@
 import { canonicalizeVehiclePlate } from "./vehicleRegistry.js";
 
-// Importes mensuales fijos que se muestran en la facturación por conductor
-// dentro del detalle de Neto. No sustituyen los documentos ni las operaciones
-// diarias del ledger; solo definen el fijo mensual de este resumen.
-export const netMonthlyFixedBillingByDriver = Object.freeze({
+// Importes mensuales fijos de nómina que se muestran en el detalle de Neto
+// cuando todavía no hay una nómina documental o guardada para el periodo.
+// La facturación del conductor procede siempre de los documentos y del ledger
+// diario compartido con Conductores; estos importes no deben sustituirla.
+export const netMonthlyFixedPayrollByDriver = Object.freeze({
   alex: 1323.72,
   amin: 1323.72,
   andres: 1323.72,
@@ -24,10 +25,10 @@ const getDriverKey = (driver = "") => String(driver)
   .replace(/[\u0300-\u036f]/g, "")
   .split(/\s+/)[0];
 
-export const getNetMonthlyFixedBilling = (driver) => {
+export const getNetMonthlyFixedPayroll = (driver) => {
   const key = getDriverKey(driver);
-  return Object.prototype.hasOwnProperty.call(netMonthlyFixedBillingByDriver, key)
-    ? netMonthlyFixedBillingByDriver[key]
+  return Object.prototype.hasOwnProperty.call(netMonthlyFixedPayrollByDriver, key)
+    ? netMonthlyFixedPayrollByDriver[key]
     : null;
 };
 

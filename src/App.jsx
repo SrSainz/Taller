@@ -85,7 +85,7 @@ import { tirsoBillingByPeriod } from "./data/tirsoBillingSummary";
 import { additionalHistoricalBillingSources } from "./data/additionalHistoricalBillingSummary";
 import { getImportedTipsByPeriod } from "./data/driverTipsSummary";
 import { getImportedPayrollForPeriod } from "./data/driverPayrollSummary";
-import { getNetMonthlyFixedBilling, getNetMonthlyFixedInsurance } from "./data/netMonthlyBilling";
+import { getNetMonthlyFixedInsurance, getNetMonthlyFixedPayroll } from "./data/netMonthlyBilling";
 import { averagePositive, buildDriverWeeklyComparison, parseConnectionHours } from "./driverWeeklyComparison";
 import { GESTORIA_MONTHLY_FIXED_AMOUNT, gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
@@ -743,7 +743,8 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
   const periodPayrollFor = (row, driverIndex) => {
     const stored = periodFinancials.find((item) => item.driver_id && row.driverId && item.driver_id === row.driverId && item.period_start === periodStart);
     const importedPayroll = getImportedPayrollForPeriod(row.driver, reportYear, reportMonth);
-    return Number(stored?.payroll ?? (importedPayroll > 0 ? importedPayroll : undefined) ?? netPayrollAmounts[vehicle.plate]?.[driverIndex] ?? 0) || 0;
+    const fixedPayroll = getNetMonthlyFixedPayroll(row.driver);
+    return Number(stored?.payroll ?? (importedPayroll > 0 ? importedPayroll : undefined) ?? fixedPayroll ?? netPayrollAmounts[vehicle.plate]?.[driverIndex] ?? 0) || 0;
   };
   const fuelBreakdown = vehicleDrivers.map((driver, driverIndex) => {
     const profile = vehicle.driverProfiles?.[driverIndex];
@@ -1668,25 +1669,22 @@ const getNetDriverRowsForVehicle = ({ vehicle, billingRows = [], historicalBilli
     : historicalDriverNamesByPlate[vehicle.plate] ?? vehicle.drivers.slice(0, 2);
   const currentDriverRows = driverNames.map((driver, index) => {
     const driverKey = getImportedDriverKey(driver);
-    const liveRow = billingRows.find((row) => row.plate === vehicle.plate && getImportedDriverKey(row.driver) === driverKey && row.billingSource === "ledger");
+    // Neto y Conductores deben leer el mismo importe: tanto una captura
+    // proyectada al ledger como un importe documental válido son facturación,
+    // mientras que una fila "none" representa ausencia de datos.
+    const liveRow = billingRows.find((row) => row.plate === vehicle.plate && getImportedDriverKey(row.driver) === driverKey && row.billingSource !== "none");
     const historicalRow = historicalBillingRows.find((row) => getImportedDriverKey(row.driver) === driverKey);
     const profile = vehicle.driverProfiles?.find((candidate) => getImportedDriverKey(candidate.full_name) === driverKey);
     if (liveRow) return { ...liveRow, plate: vehicle.plate, model: vehicle.model };
     if (historicalRow) return { ...historicalRow, driverId: profile?.id ?? historicalRow.driverId, plate: vehicle.plate, model: vehicle.model };
     return { key: `${vehicle.plate}-${driver}-${index}`, driver, driverId: profile?.id ?? "", plate: vehicle.plate, model: vehicle.model, trips: 0, revenue: 0, entries: [], billingSource: "none" };
   });
-  const fixedMonthlyDriverRows = currentDriverRows.map((row) => {
-    const fixedRevenue = getNetMonthlyFixedBilling(row.driver);
-    return fixedRevenue == null
-      ? row
-      : { ...row, revenue: fixedRevenue, billingSource: "fixed-monthly" };
-  });
-  if (!includeHistoricalDrivers) return fixedMonthlyDriverRows;
-  const knownDriverKeys = new Set(fixedMonthlyDriverRows.map((row) => getImportedDriverKey(row.driver)));
+  if (!includeHistoricalDrivers) return currentDriverRows;
+  const knownDriverKeys = new Set(currentDriverRows.map((row) => getImportedDriverKey(row.driver)));
   const additionalDriverRows = historicalBillingRows
     .filter((row) => row.isHistoricalOnly && row.plate === vehicle.plate && !row.missingVehicle && !knownDriverKeys.has(getImportedDriverKey(row.driver)))
     .map((row) => ({ ...row, driverId: "", plate: vehicle.plate, model: vehicle.model, billingSource: "document" }));
-  return [...fixedMonthlyDriverRows, ...additionalDriverRows];
+  return [...currentDriverRows, ...additionalDriverRows];
 };
 
 const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transactions = []) => {
