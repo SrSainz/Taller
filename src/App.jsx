@@ -3866,7 +3866,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     return circleKey && circlePreviewUrls[circleKey] ? { ...document, signedUrl: circlePreviewUrls[circleKey] } : document;
   }), [circlePreviewUrls, documentPreviews, selectedDayDocuments]);
   const driverCalendarDocuments = useMemo(() => documents.reduce((documentsByDate, document) => {
-    if (getDriverDocumentKind(document) !== "billing") return documentsByDate;
+    const kind = getDriverDocumentKind(document);
+    if (kind !== "billing" && kind !== "fuel") return documentsByDate;
     const dateKey = getDriverDocumentDateKey(document);
     if (!dateKey) return documentsByDate;
     documentsByDate[dateKey] = [...(documentsByDate[dateKey] ?? []), document];
@@ -4916,6 +4917,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const [recordDeleteKey, setRecordDeleteKey] = useState("");
   const [recordDeleteError, setRecordDeleteError] = useState("");
   const [cashDocumentDialogDate, setCashDocumentDialogDate] = useState("");
+  const [fuelDocumentDialogDate, setFuelDocumentDialogDate] = useState("");
   const maintenanceNoteInputRef = useRef(null);
   const maintenanceNotePhotoInputRef = useRef(null);
   const driverAvatarPath = getDriverAvatarPath(profile.full_name);
@@ -4996,15 +4998,27 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const cashDocumentDialogDocuments = cashDocumentDialogDate === selectedDate
     ? driverDayDocuments.filter((document) => getDriverDocumentKind(document) === "billing" && getDriverDocumentDateKey(document) === cashDocumentDialogDate)
     : [];
-  const cashDocumentDialogExpectedDocuments = driverCalendarDocuments[cashDocumentDialogDate] ?? [];
+  const cashDocumentDialogExpectedDocuments = (driverCalendarDocuments[cashDocumentDialogDate] ?? []).filter((document) => getDriverDocumentKind(document) === "billing");
   const cashDocumentDialogLoading = driverDayDocumentsLoading || (cashDocumentDialogExpectedDocuments.length > 0 && cashDocumentDialogDocuments.length === 0);
+  const fuelDocumentDialogDocuments = fuelDocumentDialogDate === selectedDate
+    ? driverDayDocuments.filter((document) => getDriverDocumentKind(document) === "fuel" && getDriverDocumentDateKey(document) === fuelDocumentDialogDate)
+    : [];
+  const fuelDocumentDialogExpectedDocuments = (driverCalendarDocuments[fuelDocumentDialogDate] ?? []).filter((document) => getDriverDocumentKind(document) === "fuel");
+  const fuelDocumentDialogLoading = driverDayDocumentsLoading || (fuelDocumentDialogExpectedDocuments.length > 0 && fuelDocumentDialogDocuments.length === 0);
   const openCashDocumentDialog = (dateKey) => {
     setSelectedDate(dateKey);
+    setFuelDocumentDialogDate("");
     setCashDocumentDialogDate(dateKey);
   };
   const closeCashDocumentDialog = () => setCashDocumentDialogDate("");
-  const renderCalendarDocumentCard = (document, dateKey, keyPrefix = "calendar") => {
-    const label = "Efectivo / facturación";
+  const openFuelDocumentDialog = (dateKey) => {
+    setSelectedDate(dateKey);
+    setCashDocumentDialogDate("");
+    setFuelDocumentDialogDate(dateKey);
+  };
+  const closeFuelDocumentDialog = () => setFuelDocumentDialogDate("");
+  const renderCalendarDocumentCard = (document, dateKey, keyPrefix = "calendar", labelOverride = "") => {
+    const label = labelOverride || (getDriverDocumentKind(document) === "fuel" ? "Repostaje" : "Efectivo / facturación");
     const isImage = String(document.mime_type ?? "").startsWith("image/");
     const canOpen = Boolean(document.signedUrl);
     const previewContent = isImage && canOpen
@@ -5022,8 +5036,12 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     setActiveDriverChartTooltip("");
   }, [expandedPreviewMetric]);
   useEffect(() => {
-    if (!cashDocumentDialogDate) return undefined;
-    const closeOnEscape = (event) => { if (event.key === "Escape") closeCashDocumentDialog(); };
+    if (!cashDocumentDialogDate && !fuelDocumentDialogDate) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape") return;
+      if (cashDocumentDialogDate) closeCashDocumentDialog();
+      if (fuelDocumentDialogDate) closeFuelDocumentDialog();
+    };
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
@@ -5031,7 +5049,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [cashDocumentDialogDate]);
+  }, [cashDocumentDialogDate, fuelDocumentDialogDate]);
   useEffect(() => {
     if (!expandedPreviewMetric) return undefined;
     const handleEscape = (event) => { if (event.key === "Escape") setExpandedPreviewMetric(""); };
@@ -5213,13 +5231,16 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   };
   const weeklyCellWithDocuments = (row, value, dateKey, isEditorHost = false) => {
     const amount = weeklyCell(row, value, dateKey, isEditorHost);
-    if (row.key !== "cash") return amount;
-    const documents = driverCalendarDocuments[dateKey] ?? [];
+    const documentKind = row.key === "cash" ? "billing" : row.key === "fuel" ? "fuel" : "";
+    if (!documentKind) return amount;
+    const documents = (driverCalendarDocuments[dateKey] ?? []).filter((document) => getDriverDocumentKind(document) === documentKind);
     if (documents.length === 0) return amount;
     const countLabel = `${documents.length} ${documents.length === 1 ? "foto o archivo" : "fotos o archivos"}`;
+    const isFuel = documentKind === "fuel";
+    const documentLabel = isFuel ? "repostaje" : "efectivo";
     return <div className="driver-mobile-week-table__cash-cell">
       {amount}
-      <button type="button" className="driver-mobile-week-table__cash-documents" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); openCashDocumentDialog(dateKey); }} aria-label={`Ver ${countLabel} de efectivo del ${formatDriverDateLong(dateKey)}`} title={`Ver ${countLabel} de efectivo`}>
+      <button type="button" className="driver-mobile-week-table__cash-documents" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); (isFuel ? openFuelDocumentDialog : openCashDocumentDialog)(dateKey); }} aria-label={`Ver ${countLabel} de ${documentLabel} del ${formatDriverDateLong(dateKey)}`} title={`Ver ${countLabel} de ${documentLabel}`}>
         <IconCamera size={12} aria-hidden="true" />
         {documents.length > 1 && <b aria-hidden="true">{documents.length}</b>}
       </button>
@@ -5402,7 +5423,6 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               const statusLabel = isUploading ? "Guardando…" : isAttached ? "Justificante archivado" : "Sin adjunto";
               return <div className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key}>
                 <button type="button" className="driver-mobile-record-card__upload" onClick={() => openCirclePicker(key)} disabled={isUploading || (!preview && !canEditSelectedDate)} aria-label={`${label}: ${statusLabel}`} title={!preview && !canEditSelectedDate ? DRIVER_CURRENT_WEEK_ONLY_MESSAGE : `Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>
-                {isAttached && document?.id && onDeleteDriverDocument && (preview || canEditSelectedDate) && <button type="button" className="driver-mobile-record-card__delete" onClick={() => deleteUploadedDocument(document, key)} disabled={recordDeleteKey === key} aria-label={`Borrar foto de ${label.toLowerCase()}`}>{recordDeleteKey === key ? "Borrando…" : "Borrar foto"}</button>}
               </div>;
             })}
           </div>
@@ -5446,15 +5466,24 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
             {driverDayDocumentsLoading ? <p className="driver-mobile-calendar-documents__empty">Buscando fotos y archivos del día…</p> : calendarDocuments.length === 0 ? <p className="driver-mobile-calendar-documents__empty"><IconCamera size={16} />Sin fotos de efectivo o repostaje para este día.</p> : <div className="driver-mobile-calendar-documents__list">{calendarDocuments.map((document) => renderCalendarDocumentCard(document, selectedDate))}</div>}
           </section>
         </section>
-        {cashDocumentDialogDate && <div className="driver-mobile-calendar-document-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-calendar-document-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCashDocumentDialog(); }}>
-          <section className="driver-mobile-calendar-document-dialog__panel">
-            <header>
-              <div><span>FOTOS DEL CALENDARIO</span><h2 id="driver-mobile-calendar-document-dialog-title">Efectivo · {formatDriverDateLong(cashDocumentDialogDate)}</h2><small>Justificantes de facturación de este día</small></div>
-              <button type="button" aria-label="Cerrar fotos de efectivo" onClick={closeCashDocumentDialog}><IconX size={18} /></button>
-            </header>
-            {cashDocumentDialogLoading ? <p className="driver-mobile-calendar-document-dialog__empty"><IconCamera size={18} />Preparando las fotos y archivos de efectivo…</p> : cashDocumentDialogDocuments.length === 0 ? <p className="driver-mobile-calendar-document-dialog__empty"><IconCamera size={18} />No hay fotos o archivos de efectivo para este día.</p> : <div className="driver-mobile-calendar-documents__list">{cashDocumentDialogDocuments.map((document) => renderCalendarDocumentCard(document, cashDocumentDialogDate, "cash-dialog"))}</div>}
-          </section>
-        </div>}
+         {cashDocumentDialogDate && <div className="driver-mobile-calendar-document-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-calendar-document-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCashDocumentDialog(); }}>
+           <section className="driver-mobile-calendar-document-dialog__panel">
+             <header>
+               <div><span>FOTOS DEL CALENDARIO</span><h2 id="driver-mobile-calendar-document-dialog-title">Efectivo · {formatDriverDateLong(cashDocumentDialogDate)}</h2><small>Justificantes de facturación de este día</small></div>
+               <button type="button" aria-label="Cerrar fotos de efectivo" onClick={closeCashDocumentDialog}><IconX size={18} /></button>
+             </header>
+             {cashDocumentDialogLoading ? <p className="driver-mobile-calendar-document-dialog__empty"><IconCamera size={18} />Preparando las fotos y archivos de efectivo…</p> : cashDocumentDialogDocuments.length === 0 ? <p className="driver-mobile-calendar-document-dialog__empty"><IconCamera size={18} />No hay fotos o archivos de efectivo para este día.</p> : <div className="driver-mobile-calendar-documents__list">{cashDocumentDialogDocuments.map((document) => renderCalendarDocumentCard(document, cashDocumentDialogDate, "cash-dialog"))}</div>}
+           </section>
+         </div>}
+         {fuelDocumentDialogDate && <div className="driver-mobile-calendar-document-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-fuel-document-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) closeFuelDocumentDialog(); }}>
+           <section className="driver-mobile-calendar-document-dialog__panel">
+             <header>
+               <div><span>FOTOS DEL CALENDARIO</span><h2 id="driver-mobile-fuel-document-dialog-title">Repostaje · {formatDriverDateLong(fuelDocumentDialogDate)}</h2><small>Justificantes de repostaje de este día</small></div>
+               <button type="button" aria-label="Cerrar fotos de repostaje" onClick={closeFuelDocumentDialog}><IconX size={18} /></button>
+             </header>
+             {fuelDocumentDialogLoading ? <p className="driver-mobile-calendar-document-dialog__empty"><IconCamera size={18} />Preparando las fotos y archivos de repostaje…</p> : fuelDocumentDialogDocuments.length === 0 ? <p className="driver-mobile-calendar-document-dialog__empty"><IconCamera size={18} />No hay fotos o archivos de repostaje para este día.</p> : <div className="driver-mobile-calendar-documents__list">{fuelDocumentDialogDocuments.map((document) => renderCalendarDocumentCard(document, fuelDocumentDialogDate, "fuel-dialog", "Repostaje"))}</div>}
+           </section>
+         </div>}
         {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview || !canEditSelectedDate}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" min={preview ? undefined : currentDriverWeek.startDateKey} max={preview ? undefined : currentDriverWeek.endDateKey} value={entry.entryDate} onChange={(event) => { setEntryDateWasEdited(true); setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Precio neto<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Reembolsos<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.refunds} onChange={(event) => updateEntry("refunds", event.target.value)} /><i>€</i></label><label>Lavados<input type="number" min="0" step="0.01" value={entry.washExpenses} onChange={(event) => updateEntry("washExpenses", event.target.value)} /><i>€</i></label><label>Varios<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input readOnly={!preview} type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea readOnly={!preview} rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, reembolso u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" onChange={(event) => { const nextFile = event.target.files?.[0] ?? null; setFile(nextFile); setFileCapturedAt(nextFile ? new Date().toISOString() : null); }} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview || !canEditSelectedDate}>{preview ? "Solo lectura" : !canEditSelectedDate ? "Semana cerrada" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
         {expandedPreviewMetric && (
           <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}>
