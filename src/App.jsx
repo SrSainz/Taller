@@ -4918,6 +4918,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const [recordDeleteError, setRecordDeleteError] = useState("");
   const [cashDocumentDialogDate, setCashDocumentDialogDate] = useState("");
   const [fuelDocumentDialogDate, setFuelDocumentDialogDate] = useState("");
+  const documentDialogCloseTimerRef = useRef(null);
   const maintenanceNoteInputRef = useRef(null);
   const maintenanceNotePhotoInputRef = useRef(null);
   const driverAvatarPath = getDriverAvatarPath(profile.full_name);
@@ -5005,18 +5006,38 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     : [];
   const fuelDocumentDialogExpectedDocuments = (driverCalendarDocuments[fuelDocumentDialogDate] ?? []).filter((document) => getDriverDocumentKind(document) === "fuel");
   const fuelDocumentDialogLoading = driverDayDocumentsLoading || (fuelDocumentDialogExpectedDocuments.length > 0 && fuelDocumentDialogDocuments.length === 0);
+  const clearDocumentDialogCloseTimer = () => {
+    if (documentDialogCloseTimerRef.current) window.clearTimeout(documentDialogCloseTimerRef.current);
+    documentDialogCloseTimerRef.current = null;
+  };
+  const closeCashDocumentDialog = () => {
+    clearDocumentDialogCloseTimer();
+    setCashDocumentDialogDate("");
+  };
+  const closeFuelDocumentDialog = () => {
+    clearDocumentDialogCloseTimer();
+    setFuelDocumentDialogDate("");
+  };
+  const scheduleDocumentDialogClose = (kind) => {
+    clearDocumentDialogCloseTimer();
+    documentDialogCloseTimerRef.current = window.setTimeout(() => {
+      documentDialogCloseTimerRef.current = null;
+      if (kind === "fuel") closeFuelDocumentDialog();
+      else closeCashDocumentDialog();
+    }, 3000);
+  };
   const openCashDocumentDialog = (dateKey) => {
     setSelectedDate(dateKey);
     setFuelDocumentDialogDate("");
     setCashDocumentDialogDate(dateKey);
+    scheduleDocumentDialogClose("cash");
   };
-  const closeCashDocumentDialog = () => setCashDocumentDialogDate("");
   const openFuelDocumentDialog = (dateKey) => {
     setSelectedDate(dateKey);
     setCashDocumentDialogDate("");
     setFuelDocumentDialogDate(dateKey);
+    scheduleDocumentDialogClose("fuel");
   };
-  const closeFuelDocumentDialog = () => setFuelDocumentDialogDate("");
   const renderCalendarDocumentCard = (document, dateKey, keyPrefix = "calendar", labelOverride = "") => {
     const label = labelOverride || (getDriverDocumentKind(document) === "fuel" ? "Repostaje" : "Efectivo / facturación");
     const isImage = String(document.mime_type ?? "").startsWith("image/");
@@ -5035,6 +5056,9 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   useEffect(() => {
     setActiveDriverChartTooltip("");
   }, [expandedPreviewMetric]);
+  useEffect(() => () => {
+    if (documentDialogCloseTimerRef.current) window.clearTimeout(documentDialogCloseTimerRef.current);
+  }, []);
   useEffect(() => {
     if (!cashDocumentDialogDate && !fuelDocumentDialogDate) return undefined;
     const closeOnEscape = (event) => {
