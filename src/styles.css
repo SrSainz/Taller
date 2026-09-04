@@ -4712,6 +4712,24 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .driver-mobile-maintenance-note__photo-status { min-width: 0; display: flex; align-items: center; gap: 5px; color: #8b661c; font-size: 8px; line-height: 1.25; }
 .driver-mobile-maintenance-note__photo-status > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .driver-mobile-maintenance-note__photo-status > button { width: 20px; height: 20px; display: grid; place-items: center; flex: 0 0 auto; padding: 0; border: 1px solid #e5c879; border-radius: 5px; background: #fff; color: #9a5d04; cursor: pointer; }
+.driver-mobile-maintenance-history { width: 100%; display: grid; gap: 7px; margin: 0 0 10px; padding: 9px; border: 1px solid #efc267; border-radius: 9px; background: #fffaf0; }
+.driver-mobile-maintenance-history__header { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.driver-mobile-maintenance-history__header > div { min-width: 0; display: grid; gap: 2px; }
+.driver-mobile-maintenance-history__header strong { color: #5f430f; font-size: 10px; font-weight: 950; letter-spacing: .04em; }
+.driver-mobile-maintenance-history__header span { overflow: hidden; color: #8c6b2a; font-size: 8px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-maintenance-history__header > b { min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 5px; border-radius: 999px; background: #d88916; color: #fff; font-size: 9px; line-height: 1; }
+.driver-mobile-maintenance-history__list { display: grid; gap: 6px; max-height: 300px; overflow-y: auto; }
+.driver-mobile-maintenance-history__item { display: grid; gap: 5px; min-width: 0; padding: 8px; border: 1px solid #f1dfb5; border-left: 3px solid #e2a12a; border-radius: 7px; background: #fff; }
+.driver-mobile-maintenance-history__item--reviewed, .driver-mobile-maintenance-history__item--resolved { border-left-color: #7ba695; }
+.driver-mobile-maintenance-history__item > header { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 7px; }
+.driver-mobile-maintenance-history__item > header > div { min-width: 0; display: grid; gap: 1px; }
+.driver-mobile-maintenance-history__item > header strong { overflow: hidden; color: #3d3422; font-size: 10px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.driver-mobile-maintenance-history__item > header time { color: #8c8066; font-size: 8px; line-height: 1.25; }
+.driver-mobile-maintenance-history__item > header > span { flex: 0 0 auto; color: #7d6b4b; font-size: 7px; font-weight: 850; text-transform: uppercase; }
+.driver-mobile-maintenance-history__item > p { margin: 0; color: #51472f; font-size: 10px; line-height: 1.35; white-space: pre-wrap; }
+.driver-mobile-maintenance-history__item .maintenance-report-photo { width: max-content; max-width: 100%; gap: 3px; font-size: 8px; }
+.driver-mobile-maintenance-history__item .maintenance-report-photo img { width: min(100%, 150px); height: 86px; }
+.driver-mobile-maintenance-history__empty { margin: 0; color: #806d4e; font-size: 9px; line-height: 1.35; }
 .driver-mobile-maintenance-note__camera { border-color: #e1a83e !important; background: #fff5db !important; color: #925b06 !important; }
 .driver-mobile-maintenance-note__camera:hover, .driver-mobile-maintenance-note__camera:focus-visible { border-color: #c98611 !important; background: #ffedbc !important; outline: 0; }
 .driver-app--preview .driver-mobile-month-summary__tips-layout { align-items: center; }

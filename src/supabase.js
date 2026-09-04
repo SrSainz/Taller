@@ -66,16 +66,19 @@ const appRealtimeTables = ({ userId, isAdmin }) => {
     // This table contains only daily totals/counts, never another driver's
     // identity or raw document data.
     { table: "driver_daily_comparison" },
-    { table: "maintenance_reports", filter: `reporter_id=eq.${userId}` },
+    // RLS narrows this stream to the driver's assigned vehicle, so both
+    // drivers receive the history without exposing notices from other cars.
+    { table: "maintenance_reports" },
   ];
 };
 
 /**
  * Subscribe to the tables that can change a visible app screen. Postgres
  * Changes still respects each table's RLS policies, so a driver only receives
- * events for their own records while the administrator receives the fleet
- * stream. The caller owns the refresh strategy and must dispose the returned
- * channel when its screen unmounts.
+ * events for their own records plus the maintenance history of their assigned
+ * vehicle while the administrator receives the fleet stream. The caller owns
+ * the refresh strategy and must dispose the returned channel when its screen
+ * unmounts.
  */
 export const subscribeToAppChanges = ({ userId, isAdmin = false, onChange, onStatus } = {}) => {
   if (!supabase || !userId) return () => {};
@@ -114,7 +117,7 @@ const safeFileName = (value = "documento") => String(value)
   .slice(0, 100) || "documento";
 
 const documentRecordColumns = "id, owner_id, category, vehicle_plate, file_path, file_name, mime_type, file_size, file_hash, document_date, extracted_data, field_confidence, overall_confidence, status, created_at, updated_at";
-const maintenanceReportColumns = "id, reporter_id, vehicle_plate, note, photo_path, photo_name, photo_mime_type, photo_size, status, created_at, updated_at";
+const maintenanceReportColumns = "id, reporter_id, reporter_name, vehicle_plate, note, photo_path, photo_name, photo_mime_type, photo_size, status, created_at, updated_at";
 const driverDailyComparisonColumns = "entry_date, total_km, drivers_with_km, total_consumption, drivers_with_consumption, total_km_per_connection_hour, drivers_with_km_per_connection_hour, updated_at";
 
 export const listDriverDailyComparisons = async ({ startDate = "", endDate = "" } = {}) => {

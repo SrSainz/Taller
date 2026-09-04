@@ -94,7 +94,7 @@ import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverC
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getCurrentDriverWeekRange, isDriverDateInCurrentWeek } from "./driverEditWindow";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
-import { getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
+import { getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -1360,7 +1360,7 @@ const buildAdminDataActivities = ({ transactions = [], documents = [], driverEnt
   maintenanceReports.forEach((report) => {
     if (report.status !== "pending") return;
     const plate = report.vehiclePlate || report.vehicle_plate || "Vehículo sin asignar";
-    const reporter = driverNames.get(report.reporterId || report.reporter_id) || "Conductor";
+    const reporter = getMaintenanceReportReporterName(report, { fallbackDriverNames: [driverNames.get(report.reporterId || report.reporter_id)] });
     const createdAt = getMaintenanceReportRecordedAt(report);
     add({
       key: `maintenance-report:${report.id}`,
@@ -3646,7 +3646,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       setMaintenanceReports([]);
       return undefined;
     }
-    listMaintenanceReports({ vehiclePlate: profileVehiclePlate, reporterId: activeProfileId })
+    listMaintenanceReports({ vehiclePlate: profileVehiclePlate })
       .then(({ data, error }) => {
         if (!mounted) return;
         if (error) {
@@ -3655,7 +3655,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
         }
         const nextReports = (data ?? []).map(normalizeMaintenanceReportRecord);
         setMaintenanceReports(nextReports);
-        const latestNote = nextReports.find((report) => report.note)?.note ?? "";
+        const latestNote = nextReports.find((report) => String(report.reporterId || report.reporter_id) === String(activeProfileId) && report.note)?.note ?? "";
         if (latestNote) setMaintenanceNote(latestNote);
       })
       .catch((error) => { if (mounted) setMessage(`No se han podido cargar los avisos de mantenimiento: ${error.message}`); });
@@ -3804,7 +3804,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
         }
         if (["driver_entries", "documents", "driver_daily_comparison"].includes(table)) queueRefresh();
         if (table === "maintenance_reports") {
-          listMaintenanceReports({ vehiclePlate: profileVehiclePlate, reporterId: activeProfileId })
+          listMaintenanceReports({ vehiclePlate: profileVehiclePlate })
             .then(({ data, error }) => {
               if (mounted && !error) setMaintenanceReports((data ?? []).map(normalizeMaintenanceReportRecord));
             })
@@ -4920,6 +4920,26 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const maintenanceNotePhotoInputRef = useRef(null);
   const driverAvatarPath = getDriverAvatarPath(profile.full_name);
   const driverAvatarInitials = String(profile.full_name ?? "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
+  const maintenanceHistoryDrivers = (vehicle?.drivers ?? []).filter(Boolean).join(" · ") || profile.full_name || "Conductores del coche";
+  const sortedMaintenanceReports = sortMaintenanceReportsByRecordedAt(maintenanceReports);
+  const renderMaintenanceHistory = () => <section id="driver-maintenance-history" className="driver-mobile-maintenance-history" aria-label={`Histórico de mantenimiento de ${vehicle?.plate ?? "este coche"}`}>
+    <header className="driver-mobile-maintenance-history__header">
+      <div><strong>HISTÓRICO DEL COCHE</strong><span>{maintenanceHistoryDrivers}</span></div>
+      <b>{maintenanceReports.length}</b>
+    </header>
+    {sortedMaintenanceReports.length === 0
+      ? <p className="driver-mobile-maintenance-history__empty">Todavía no hay avisos guardados para este coche.</p>
+      : <div className="driver-mobile-maintenance-history__list">{sortedMaintenanceReports.map((report, index) => {
+        const recordedAt = getMaintenanceReportRecordedAt(report);
+        const reportPhotoPath = report.photoPath ?? report.photo_path ?? "";
+        const reporterName = getMaintenanceReportReporterName(report, { currentDriverId: profile.id, currentDriverName: profile.full_name, fallbackDriverNames: vehicle?.drivers ?? [profile.full_name] });
+        return <article className={`driver-mobile-maintenance-history__item driver-mobile-maintenance-history__item--${report.status}`} key={report.id || `${recordedAt}-${index}`}>
+          <header><div><strong>{reporterName}</strong><time dateTime={recordedAt}>Registrado el {formatMaintenanceReportDate(recordedAt)}</time></div><span>{getMaintenanceReportStatusLabel(report.status)}</span></header>
+          <p>{getMaintenanceReportDisplayMessage(report)}</p>
+          {reportPhotoPath && <MaintenanceReportPhoto report={report} />}
+        </article>;
+      })}</div>}
+  </section>;
   const referenceLabels = {
     consumption: { title: "Ejemplo de consumo", caption: "Historial del vehículo", alt: "Ejemplo de historial de consumo del vehículo" },
     billing: { title: "Ejemplo de facturación", caption: "Resumen semanal", alt: "Ejemplo de resumen semanal de facturación" },
@@ -5360,7 +5380,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
                       <strong>{formatCurrency(periodSummary.monthlyTips)}</strong>
                     </button>
                   </div>
-                  <button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNotePhoto(null); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span>{maintenanceReports.length > 0 && <b className="driver-mobile-maintenance-note__count">{maintenanceReports.length}</b>}</button>
+                   <button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note driver-maintenance-history" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNotePhoto(null); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span>{maintenanceReports.length > 0 && <b className="driver-mobile-maintenance-note__count">{maintenanceReports.length}</b>}</button>
                 </div>
                 {tipsBreakdownOpen && <section id="driver-monthly-tips-breakdown" className="driver-mobile-tips-breakdown" aria-label={`Desglose diario de propinas de ${periodSummary.monthLabel}`}>
                   <header><strong>DESGLOSE DIARIO</strong><button type="button" aria-label="Cerrar desglose de propinas" onClick={() => setTipsBreakdownOpen(false)}><IconX size={14} /></button></header>
@@ -5371,8 +5391,9 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               </div>
             </div>
           </article>
-        </section>
-        <section ref={statsRef} className="driver-mobile-section driver-mobile-section--today" aria-label="Registros diarios">
+         </section>
+         {maintenanceNoteOpen && renderMaintenanceHistory()}
+         <section ref={statsRef} className="driver-mobile-section driver-mobile-section--today" aria-label="Registros diarios">
           {!preview && !canEditSelectedDate && <div className="driver-mobile-read-only-notice" role="status"><strong>PERIODO EN SOLO LECTURA</strong><span>Las semanas y meses anteriores solo se pueden consultar. Los cambios están disponibles en la semana en curso.</span></div>}
           <div className="driver-mobile-record-grid">
             {dailyPhotoRecords.map(({ key, label, image, hasAttachment, document, Icon: RecordIcon, alt }) => {
@@ -8062,7 +8083,7 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
       </header>
       <div className="maintenance-reports-dialog__list" aria-live="polite">
         {sortedReports.length === 0 && <div className="empty-state maintenance-reports-dialog__empty"><IconHistory size={23} /><strong>Histórico disponible</strong><span>No hay avisos archivados para este coche todavía.</span><small>Cuando un conductor escriba una incidencia, quedará guardada aquí con todo su texto y la fecha y hora de registro.</small></div>}
-        {sortedReports.map((report, index) => { const recordedAt = getMaintenanceReportRecordedAt(report); const reportNote = getMaintenanceReportNote(report); const reportPhotoPath = report.photoPath ?? report.photo_path ?? ""; const reporterId = report.reporterId ?? report.reporter_id ?? report.reporterID ?? ""; const reporterName = driverNames.get(String(reporterId)) || report.reporterName || report.reporter_name || report.driverName || report.driver_name || "Administrador"; return <article className={`maintenance-report-card maintenance-report-card--${report.status}`} data-report-id={report.id} data-recorded-at={recordedAt} key={report.id || `${recordedAt}-${index}`}>
+        {sortedReports.map((report, index) => { const recordedAt = getMaintenanceReportRecordedAt(report); const reportNote = getMaintenanceReportNote(report); const reportPhotoPath = report.photoPath ?? report.photo_path ?? ""; const reporterId = report.reporterId ?? report.reporter_id ?? report.reporterID ?? ""; const reporterName = getMaintenanceReportReporterName(report, { fallbackDriverNames: [driverNames.get(String(reporterId)), "Administrador"] }); return <article className={`maintenance-report-card maintenance-report-card--${report.status}`} data-report-id={report.id} data-recorded-at={recordedAt} key={report.id || `${recordedAt}-${index}`}>
           <header><div><span className="maintenance-report-card__recorded-label">Registrado por</span><strong>{reporterName}</strong><time dateTime={recordedAt}>Registrado el {formatMaintenanceReportDate(recordedAt)}</time></div><StatusBadge status={getMaintenanceReportStatusLabel(report.status)} /></header>
           <div className="maintenance-report-card__message"><small>{reportNote ? "Texto completo del aviso" : reportPhotoPath ? "Aviso sin texto · fotografía adjunta" : "Aviso sin texto"}</small><p>{getMaintenanceReportDisplayMessage(report)}</p></div>
           {reportPhotoPath && <MaintenanceReportPhoto report={report} />}

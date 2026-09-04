@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
+import { getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
 
 test("conserva la fecha original del aviso aunque después se revise", () => {
   const report = {
@@ -54,4 +54,13 @@ test("mantiene visible un aviso que solo contiene una fotografía", () => {
 
 test("recupera el texto del aviso aunque venga con una clave descriptiva heredada", () => {
   assert.equal(getMaintenanceReportNote({ description: "Revisar puerta trasera" }), "Revisar puerta trasera");
+});
+
+test("conserva el nombre histórico del conductor aunque el perfil cambie", () => {
+  assert.equal(getMaintenanceReportReporterName({ reporter_name: "Tirso" }, { currentDriverName: "Otro conductor" }), "Tirso");
+});
+
+test("usa el nombre de la sesión solo como respaldo para el autor actual", () => {
+  assert.equal(getMaintenanceReportReporterName({ reporter_id: "driver-1" }, { currentDriverId: "driver-1", currentDriverName: "Alex" }), "Alex");
+  assert.equal(getMaintenanceReportReporterName({ reporter_id: "driver-2" }, { currentDriverId: "driver-1", currentDriverName: "Alex", fallbackDriverNames: ["Tirso"] }), "Tirso");
 });

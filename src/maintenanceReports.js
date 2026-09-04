@@ -36,6 +36,24 @@ export const getMaintenanceReportNote = (report = {}) => getFirstNonEmptyValue(
   report.text,
 ).toString().trim();
 
+export const getMaintenanceReportReporterName = (report = {}, { currentDriverId = "", currentDriverName = "", fallbackDriverNames = [] } = {}) => {
+  const storedName = getFirstNonEmptyValue(
+    report.reporterName,
+    report.reporter_name,
+    report.driverName,
+    report.driver_name,
+  ).toString().trim();
+  if (storedName) return storedName;
+
+  const reporterId = getFirstNonEmptyValue(report.reporterId, report.reporter_id);
+  if (reporterId && currentDriverId && String(reporterId) === String(currentDriverId) && String(currentDriverName).trim()) {
+    return String(currentDriverName).trim();
+  }
+
+  const fallback = (fallbackDriverNames ?? []).find((name) => String(name ?? "").trim());
+  return String(fallback ?? "Conductor").trim() || "Conductor";
+};
+
 export const getMaintenanceReportDisplayMessage = (report = {}) => {
   const note = getMaintenanceReportNote(report);
   if (note) return note;
