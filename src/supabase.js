@@ -224,7 +224,11 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
   const existingDocument = await findDocumentByHash(ownerId, resolvedFileHash);
   if (existingDocument) return refreshPendingDocument(existingDocument, documentValues);
 
-  const path = `${ownerId}/${category}/${randomUploadToken()}-${safeFileName(file.name)}`;
+  // The date is part of the private object path so Storage policies can apply
+  // the same current-week rule as the documents and ledger tables before the
+  // document row exists.
+  const safeDocumentDate = /^\d{4}-\d{2}-\d{2}$/.test(String(documentDate ?? "")) ? String(documentDate) : "undated";
+  const path = `${ownerId}/${category}/${safeDocumentDate}/${randomUploadToken()}-${safeFileName(file.name)}`;
   const { error: uploadError } = await supabase.storage
     .from("documents")
     .upload(path, file, { contentType: mimeType, upsert: false });
