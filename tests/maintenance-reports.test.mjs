@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
+import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
 
 test("conserva la fecha original del aviso aunque después se revise", () => {
   const report = {
@@ -54,6 +54,17 @@ test("mantiene visible un aviso que solo contiene una fotografía", () => {
 
 test("recupera el texto del aviso aunque venga con una clave descriptiva heredada", () => {
   assert.equal(getMaintenanceReportNote({ description: "Revisar puerta trasera" }), "Revisar puerta trasera");
+});
+
+test("solo repone en el formulario el aviso pendiente más reciente del conductor", () => {
+  assert.equal(getLatestPendingMaintenanceNote([
+    { id: "reviewed", reporter_id: "driver-1", note: "Aviso ya visto", status: "reviewed", created_at: "2026-09-03T09:00:00.000Z" },
+    { id: "pending", reporter_id: "driver-1", note: "Revisar neumáticos", status: "pending", created_at: "2026-09-04T09:00:00.000Z" },
+    { id: "other-driver", reporter_id: "driver-2", note: "Otro aviso", status: "pending", created_at: "2026-09-04T10:00:00.000Z" },
+  ], "driver-1"), "Revisar neumáticos");
+  assert.equal(getLatestPendingMaintenanceNote([
+    { id: "reviewed", reporter_id: "driver-1", note: "Aviso ya visto", status: "reviewed", created_at: "2026-09-03T09:00:00.000Z" },
+  ], "driver-1"), "");
 });
 
 test("conserva el nombre histórico del conductor aunque el perfil cambie", () => {

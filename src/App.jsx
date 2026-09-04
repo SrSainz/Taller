@@ -94,7 +94,7 @@ import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverC
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getCurrentDriverWeekRange, isDriverDateInCurrentWeek } from "./driverEditWindow";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
-import { getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
+import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -3872,6 +3872,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const driverLastFullRefreshAtRef = useRef(0);
   const driverEntriesRef = useRef(entries);
   const driverDocumentsRef = useRef(documents);
+  const driverMaintenanceReportsRef = useRef([]);
   const [driverSyncStatus, setDriverSyncStatus] = useState("idle");
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [file, setFile] = useState(null);
@@ -3903,7 +3904,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const [circleMetricValues, setCircleMetricValues] = useState({});
   const [weeklyManualValues, setWeeklyManualValues] = useState(() => loadDriverWeeklyManualValues(activeProfileId));
   const profileVehiclePlate = canonicalizeVehiclePlate(profile.vehicle_plate);
-  const [maintenanceNote, setMaintenanceNote] = useState(() => loadDriverMaintenanceNote(profileVehiclePlate || activeProfileId));
+  const [maintenanceNote, setMaintenanceNote] = useState(() => supabase ? "" : loadDriverMaintenanceNote(profileVehiclePlate || activeProfileId));
   const [maintenanceReports, setMaintenanceReports] = useState([]);
   const [maintenanceReportSaving, setMaintenanceReportSaving] = useState(false);
   const circleFileInputRef = useRef(null);
@@ -3927,30 +3928,46 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   }, [activeProfileId]);
 
   useEffect(() => {
+    if (supabase && canQueryDriverData && profileVehiclePlate) {
+      setMaintenanceNote("");
+      return;
+    }
     setMaintenanceNote(loadDriverMaintenanceNote(profileVehiclePlate || activeProfileId));
-  }, [activeProfileId, profileVehiclePlate]);
+  }, [activeProfileId, canQueryDriverData, profileVehiclePlate]);
+
+  const refreshDriverMaintenanceReports = useCallback(async ({ since = "" } = {}) => {
+    if (!supabase || !activeProfileId || !profileVehiclePlate || !canQueryDriverData) {
+      driverMaintenanceReportsRef.current = [];
+      setMaintenanceReports([]);
+      return [];
+    }
+    const { data, error } = await listMaintenanceReports({ vehiclePlate: profileVehiclePlate, updatedSince: since });
+    if (error) throw error;
+    const incomingReports = (data ?? []).map(normalizeMaintenanceReportRecord);
+    const incomingIds = new Set(incomingReports.map((report) => report.id));
+    const nextReports = since
+      ? [...incomingReports, ...driverMaintenanceReportsRef.current.filter((report) => !incomingIds.has(report.id))]
+      : incomingReports;
+    nextReports.sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
+    driverMaintenanceReportsRef.current = nextReports;
+    setMaintenanceReports(nextReports);
+    const latestNote = getLatestPendingMaintenanceNote(nextReports, activeProfileId);
+    setMaintenanceNote(latestNote);
+    saveDriverMaintenanceNote(profileVehiclePlate || activeProfileId, latestNote);
+    return nextReports;
+  }, [activeProfileId, canQueryDriverData, profileVehiclePlate]);
 
   useEffect(() => {
     let mounted = true;
     if (!supabase || !activeProfileId || !profileVehiclePlate || !canQueryDriverData) {
+      driverMaintenanceReportsRef.current = [];
       setMaintenanceReports([]);
       return undefined;
     }
-    listMaintenanceReports({ vehiclePlate: profileVehiclePlate })
-      .then(({ data, error }) => {
-        if (!mounted) return;
-        if (error) {
-          setMessage(error.message);
-          return;
-        }
-        const nextReports = (data ?? []).map(normalizeMaintenanceReportRecord);
-        setMaintenanceReports(nextReports);
-        const latestNote = nextReports.find((report) => String(report.reporterId || report.reporter_id) === String(activeProfileId) && report.note)?.note ?? "";
-        if (latestNote) setMaintenanceNote(latestNote);
-      })
+    refreshDriverMaintenanceReports()
       .catch((error) => { if (mounted) setMessage(`No se han podido cargar los avisos de mantenimiento: ${error.message}`); });
     return () => { mounted = false; };
-  }, [activeProfileId, profileVehiclePlate, canQueryDriverData]);
+  }, [activeProfileId, canQueryDriverData, profileVehiclePlate, refreshDriverMaintenanceReports]);
 
   useEffect(() => {
     if (!activeProfileId || typeof window === "undefined") return;
@@ -4010,7 +4027,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     setEntries(nextEntries);
     setDocuments(nextDocuments);
     setDocumentsLoading(false);
-  }, [activeProfileId, canQueryDriverData]);
+    await refreshDriverMaintenanceReports();
+  }, [activeProfileId, canQueryDriverData, refreshDriverMaintenanceReports]);
 
   const refreshDriverRecentData = useCallback(async ({ since = "", periodDateKey = selectedDate } = {}) => {
     if (!supabase || !canQueryDriverData) return;
@@ -4068,7 +4086,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     setEntries(nextEntries);
     setDocuments(nextDocuments);
     setDocumentsLoading(false);
-  }, [activeProfileId, canQueryDriverData, selectedDate]);
+    await refreshDriverMaintenanceReports({ since: recentSince });
+  }, [activeProfileId, canQueryDriverData, refreshDriverMaintenanceReports, selectedDate]);
 
   const removeDriverDocument = useCallback(async (document) => {
     if (!document?.id) throw new Error("No se ha encontrado el documento.");
@@ -4160,13 +4179,19 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       const result = eventType === "DELETE" ? { data: null, error: null } : await getMaintenanceReportRecord(recordId);
       if (result.error) throw result.error;
       const normalized = result.data ? normalizeMaintenanceReportRecord(result.data) : null;
-      setMaintenanceReports((current) => {
-        const nextReports = current.filter((report) => report.id !== recordId);
-        if (normalized) nextReports.push(normalized);
-        return nextReports.sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
-      });
+      const previousReport = driverMaintenanceReportsRef.current.find((report) => String(report.id) === String(recordId));
+      const nextReports = driverMaintenanceReportsRef.current.filter((report) => report.id !== recordId);
+      if (normalized) nextReports.push(normalized);
+      nextReports.sort((left, right) => String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
+      driverMaintenanceReportsRef.current = nextReports;
+      setMaintenanceReports(nextReports);
+      const reportBelongsToCurrentDriver = (report) => String(report?.reporterId ?? report?.reporter_id ?? "") === String(activeProfileId);
+      if (previousReport?.status === "pending" && normalized && normalized.status !== "pending" && reportBelongsToCurrentDriver(normalized)) {
+        setMaintenanceNote("");
+        saveDriverMaintenanceNote(profileVehiclePlate || activeProfileId, "");
+      }
     }
-  }, [activeProfileId, canQueryDriverData, refreshDriverComparison]);
+  }, [activeProfileId, canQueryDriverData, profileVehiclePlate, refreshDriverComparison]);
 
   const requestDriverRefresh = useCallback(async ({ force = false, showError = false, notifyUser = false } = {}) => {
     if (!supabase || !canQueryDriverData) return false;
@@ -5052,7 +5077,9 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       }
       const saved = await createMaintenanceReport({ reporterId: activeProfileId, vehiclePlate: profileVehiclePlate, note: nextNote, photoFile });
       const normalizedReport = normalizeMaintenanceReportRecord(saved);
-      setMaintenanceReports((current) => [normalizedReport, ...current.filter((report) => report.id !== normalizedReport.id)]);
+      const nextReports = [normalizedReport, ...driverMaintenanceReportsRef.current.filter((report) => report.id !== normalizedReport.id)];
+      driverMaintenanceReportsRef.current = nextReports;
+      setMaintenanceReports(nextReports);
       if (nextNote) {
         setMaintenanceNote(nextNote);
         saveDriverMaintenanceNote(profileVehiclePlate || activeProfileId, nextNote);
@@ -5765,9 +5792,9 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   useEffect(() => () => window.clearTimeout(weekSwipeTimerRef.current), []);
 
   useEffect(() => {
-    if (!maintenanceNoteOpen) {
+    if (!maintenanceNoteOpen || !maintenanceNote) {
       setMaintenanceNoteDraft(maintenanceNote ?? "");
-      setMaintenanceNotePhoto(null);
+      if (!maintenanceNoteOpen) setMaintenanceNotePhoto(null);
     }
   }, [maintenanceNote, maintenanceNoteOpen]);
 

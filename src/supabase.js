@@ -364,7 +364,7 @@ export const deleteDocumentRecord = async (document) => {
   return { ...(data ?? {}), deleted: true, storageError: storageError?.message || "" };
 };
 
-export const listMaintenanceReports = async ({ vehiclePlate = "", reporterId = "", limit = null } = {}) => {
+export const listMaintenanceReports = async ({ vehiclePlate = "", reporterId = "", updatedSince = "", limit = null } = {}) => {
   if (!supabase) return { data: [], error: null };
   const queryFactory = () => {
     let query = supabase
@@ -373,6 +373,7 @@ export const listMaintenanceReports = async ({ vehiclePlate = "", reporterId = "
       .order("created_at", { ascending: false });
     if (vehiclePlate) query = query.eq("vehicle_plate", vehiclePlate);
     if (reporterId) query = query.eq("reporter_id", reporterId);
+    if (updatedSince) query = query.gte("updated_at", updatedSince);
     return Number.isFinite(Number(limit)) && Number(limit) > 0 ? query.limit(Number(limit)) : query;
   };
   return Number.isFinite(Number(limit)) && Number(limit) > 0

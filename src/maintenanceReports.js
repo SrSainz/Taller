@@ -36,6 +36,17 @@ export const getMaintenanceReportNote = (report = {}) => getFirstNonEmptyValue(
   report.text,
 ).toString().trim();
 
+export const getLatestPendingMaintenanceNote = (reports = [], reporterId = "") => {
+  const currentReporterId = String(reporterId ?? "").trim();
+  if (!currentReporterId) return "";
+  const report = sortMaintenanceReportsByRecordedAt(reports).find((candidate) => {
+    const candidateReporterId = getFirstNonEmptyValue(candidate?.reporterId, candidate?.reporter_id);
+    const status = ["pending", "reviewed", "resolved"].includes(candidate?.status) ? candidate.status : "pending";
+    return String(candidateReporterId).trim() === currentReporterId && status === "pending" && getMaintenanceReportNote(candidate);
+  });
+  return report ? getMaintenanceReportNote(report) : "";
+};
+
 export const getMaintenanceReportReporterName = (report = {}, { currentDriverId = "", currentDriverName = "", fallbackDriverNames = [] } = {}) => {
   const storedName = getFirstNonEmptyValue(
     report.reporterName,
