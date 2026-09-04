@@ -1124,6 +1124,14 @@ const getDriverDocumentCircleKey = (document) => {
 };
 const driverDocumentKindLabels = Object.freeze({ billing: "Facturación", fuel: "Repostaje", mileage: "Kilómetros", consumption: "Consumo diario" });
 const getDriverDocumentKindLabel = (document) => driverDocumentKindLabels[getDriverDocumentKind(document)] ?? "Documento";
+const driverDocumentCircleLabels = Object.freeze({
+  billing: "Efectivo / facturación",
+  fuel: "Repostaje",
+  "daily-km": "Km diarios",
+  "total-km": "Km acumulados",
+  consumption: "Consumo",
+});
+const getDriverDocumentCircleLabel = (document) => driverDocumentCircleLabels[getDriverDocumentCircleKey(document)] ?? getDriverDocumentKindLabel(document);
 const getDriverDocumentFieldValue = (fields = {}, keys = []) => {
   for (const key of keys) {
     const candidate = fields?.[key];
@@ -5410,10 +5418,11 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       setRecordDeleteKey("");
     }
   };
-  const calendarDocuments = driverDayDocuments.filter((document) => {
-    const kind = getDriverDocumentKind(document);
-    return kind === "billing" || kind === "fuel";
-  });
+  // Los cinco botones circulares guardan documentos con la misma fecha del
+  // día seleccionado. La lista debe enseñar todas esas categorías, no solo
+  // las dos que también tienen acceso directo desde las filas de efectivo y
+  // repostaje del calendario.
+  const calendarDocuments = driverDayDocuments;
   const cashDocumentDialogDocuments = cashDocumentDialogDate === selectedDate
     ? driverDayDocuments.filter((document) => getDriverDocumentKind(document) === "billing" && getDriverDocumentDateKey(document) === cashDocumentDialogDate)
     : [];
@@ -5457,7 +5466,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     scheduleDocumentDialogClose("fuel");
   };
   const renderCalendarDocumentCard = (document, dateKey, keyPrefix = "calendar", labelOverride = "") => {
-    const label = labelOverride || (getDriverDocumentKind(document) === "fuel" ? "Repostaje" : "Efectivo / facturación");
+    const label = labelOverride || getDriverDocumentCircleLabel(document);
     const isImage = String(document.mime_type ?? "").startsWith("image/");
     const canOpen = Boolean(document.file_path);
     const hasPreview = Boolean(document.signedUrl);
@@ -5465,11 +5474,12 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       ? <img src={document.signedUrl} alt={`Foto de ${label} del ${formatDriverDateLong(dateKey)}`} loading="lazy" />
       : <span className="driver-mobile-calendar-document__file"><IconFileInvoice size={22} /><small>{canOpen ? (isImage ? "Abrir foto original" : "Abrir archivo") : "Preparando vista"}</small></span>;
     const deleteKey = `${keyPrefix}-${document.id}`;
-    const canDelete = preview || isDriverDateInCurrentWeek(dateKey);
+    const documentDateKey = getDriverDocumentDateKey(document) || dateKey;
+    const canDelete = preview || isDriverDateInCurrentWeek(documentDateKey);
     return <article className="driver-mobile-calendar-document" key={document.id}>
       {canOpen ? <CachedDocumentLink document={document} className="driver-mobile-calendar-document__preview" aria-label={`Ver ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{previewContent}</CachedDocumentLink> : <span className="driver-mobile-calendar-document__preview" aria-label="Vista previa en preparación">{previewContent}</span>}
       <div className="driver-mobile-calendar-document__info"><strong>{label}</strong><span title={document.file_name || "Archivo original"}>{document.file_name || "Archivo original"}</span><small>{document.status === "approved" ? "Validado" : "Pendiente de revisión"}</small></div>
-      {onDeleteDriverDocument && canDelete && <button type="button" className="driver-mobile-calendar-document__delete" onClick={() => deleteUploadedDocument(document, deleteKey)} disabled={recordDeleteKey === deleteKey} aria-label={`Borrar ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{recordDeleteKey === deleteKey ? "Borrando…" : "Borrar foto"}</button>}
+      {onDeleteDriverDocument && canDelete ? <button type="button" className="driver-mobile-calendar-document__delete" onClick={() => deleteUploadedDocument(document, deleteKey)} disabled={recordDeleteKey === deleteKey} aria-label={`Borrar ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{recordDeleteKey === deleteKey ? "Borrando…" : "Borrar foto"}</button> : !canDelete && <span className="driver-mobile-calendar-document__readonly">Solo lectura</span>}
     </article>;
   };
   useEffect(() => {
@@ -5907,7 +5917,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               <div><span>JUSTIFICANTES DEL DÍA</span><strong id="driver-mobile-calendar-documents-title">{formatDriverDateLong(selectedDate)}</strong></div>
               <b>{driverDayDocumentsLoading ? "…" : `${calendarDocuments.length} ${calendarDocuments.length === 1 ? "archivo" : "archivos"}`}</b>
             </header>
-            {driverDayDocumentsLoading ? <p className="driver-mobile-calendar-documents__empty">Buscando fotos y archivos del día…</p> : calendarDocuments.length === 0 ? <p className="driver-mobile-calendar-documents__empty"><IconCamera size={16} />Sin fotos de efectivo o repostaje para este día.</p> : <div className="driver-mobile-calendar-documents__list">{calendarDocuments.map((document) => renderCalendarDocumentCard(document, selectedDate))}</div>}
+            {driverDayDocumentsLoading ? <p className="driver-mobile-calendar-documents__empty">Buscando fotos y archivos del día…</p> : calendarDocuments.length === 0 ? <p className="driver-mobile-calendar-documents__empty"><IconCamera size={16} />Sin fotos ni justificantes para este día.</p> : <div className="driver-mobile-calendar-documents__list">{calendarDocuments.map((document) => renderCalendarDocumentCard(document, selectedDate))}</div>}
           </section>
         </section>
          {cashDocumentDialogDate && <div className="driver-mobile-calendar-document-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-calendar-document-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCashDocumentDialog(); }}>
@@ -9322,8 +9332,16 @@ function CachedDocumentLink({ document, className = "", children, ariaLabel = "A
   const [originalUrl, setOriginalUrl] = useState("");
   const [opening, setOpening] = useState(false);
   const filePath = document?.file_path ?? document?.filePath ?? "";
+  const directPreviewUrl = document?.signedUrl ?? "";
   const openOriginal = async (event) => {
-    if (originalUrl || !filePath) return;
+    if (originalUrl) return;
+    if (!filePath) {
+      if (!directPreviewUrl) return;
+      event.preventDefault();
+      const popup = window.open(directPreviewUrl, "_blank", "noopener,noreferrer");
+      if (!popup) return;
+      return;
+    }
     event.preventDefault();
     if (opening) return;
     const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
@@ -9340,7 +9358,7 @@ function CachedDocumentLink({ document, className = "", children, ariaLabel = "A
       setOpening(false);
     }
   };
-  return <a className={className} href={originalUrl || undefined} target="_blank" rel="noreferrer" aria-label={ariaLabel} onClick={openOriginal} aria-busy={opening || undefined}>{children}</a>;
+  return <a className={className} href={originalUrl || (!filePath ? directPreviewUrl || undefined : undefined)} target="_blank" rel="noreferrer" aria-label={ariaLabel} onClick={openOriginal} aria-busy={opening || undefined}>{children}</a>;
 }
 
 function PrivateDocumentAttachment({ item }) {

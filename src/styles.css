@@ -9615,6 +9615,18 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
   cursor: progress;
   opacity: .65;
 }
+.driver-mobile-calendar-document__readonly {
+  min-width: 0;
+  padding: 4px 5px;
+  border: 1px solid #dce3ec;
+  border-radius: 6px;
+  color: #78869d;
+  font-size: 7px;
+  font-weight: 850;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
 .driver-mobile-calendar-documents__empty {
   min-height: 30px;
   display: flex;
