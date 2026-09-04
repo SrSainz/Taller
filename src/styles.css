@@ -3177,6 +3177,16 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .maintenance-page .maintenance-pending-review-button.has-pending > b {
     background: #b32820;
   }
+  .maintenance-page .maintenance-pending-review-button > small {
+    max-width: 78px;
+    color: #8c6f36;
+    font-size: 7px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: .025em;
+    text-align: center;
+    text-transform: uppercase;
+  }
 }
 
 @media (max-width: 520px) {
@@ -4714,6 +4724,7 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .maintenance-pending-review-button > svg { width: 30px; height: 30px; padding: 5px; border-radius: 8px; background: #edaa2e; color: #fff; }
 .maintenance-pending-review-button > span { width: 100%; max-width: 150px; color: inherit; font-size: 10px; font-weight: 950; line-height: 1.22; letter-spacing: .06em; text-align: center; text-transform: uppercase; text-wrap: balance; }
 .maintenance-pending-review-button > b { min-width: 24px; height: 24px; display: grid; place-items: center; padding: 0 6px; border-radius: 999px; background: #d88513; color: #fff; font-size: 10px; line-height: 1; }
+.maintenance-pending-review-button > small { max-width: 100%; color: #8c6f36; font-size: 8px; font-weight: 900; line-height: 1; letter-spacing: .035em; text-align: center; text-transform: uppercase; }
 .maintenance-pending-review-button:not(.has-pending) { background: #fffaf0; border-color: #f0d59a; }
 
 /* Neto: la referencia elegida es una ficha oscura de flota, no un modal

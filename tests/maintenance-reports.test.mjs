@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
+import { getMaintenanceReportCounts, getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
 
 test("conserva la fecha original del aviso aunque después se revise", () => {
   const report = {
@@ -28,4 +28,13 @@ test("traduce el estado visible del historial", () => {
   assert.equal(getMaintenanceReportStatusLabel("reviewed"), "Revisado");
   assert.equal(getMaintenanceReportStatusLabel("resolved"), "Resuelto");
   assert.equal(getMaintenanceReportStatusLabel("otro"), "Pendiente");
+});
+
+test("cuenta el histórico completo aunque algunos avisos ya estén revisados", () => {
+  assert.deepEqual(getMaintenanceReportCounts([
+    { id: "pending", status: "pending" },
+    { id: "reviewed", status: "reviewed" },
+    { id: "resolved", status: "resolved" },
+    { id: "legacy", status: "estado-desconocido" },
+  ]), { total: 4, pending: 2, reviewed: 1, resolved: 1 });
 });

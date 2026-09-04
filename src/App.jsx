@@ -93,7 +93,7 @@ import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from 
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
-import { getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
+import { getMaintenanceReportCounts, getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
 const BILLING_COLOR = "#74b9f2";
 const MAINTENANCE_COLOR = "#f39c12";
@@ -7784,7 +7784,8 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   const photoInputRef = useRef(null);
   const driverNames = useMemo(() => new Map(driverProfiles.map((driver) => [driver.id, driver.full_name])), [driverProfiles]);
   const sortedReports = sortMaintenanceReportsByRecordedAt(reports);
-  const pendingCount = sortedReports.filter((report) => report.status === "pending").length;
+  const reportCounts = getMaintenanceReportCounts(sortedReports);
+  const pendingCount = reportCounts.pending;
 
   useEffect(() => {
     const closeOnEscape = (event) => { if (event.key === "Escape") onClose(); };
@@ -7850,13 +7851,13 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   return <div className="maintenance-reports-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title">
       <header className="maintenance-reports-dialog__header">
-        <div><span className="eyebrow">Avisos asociados a la matrícula</span><h2 id="maintenance-reports-dialog-title">Próxima revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></h2><p>{pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Los avisos quedan archivados para consultarlos cuando quieras, incluso después de revisarlos.</p></div>
+        <div><span className="eyebrow">Histórico de incidencias · {reportCounts.total} {reportCounts.total === 1 ? "aviso" : "avisos"}</span><h2 id="maintenance-reports-dialog-title">Próxima revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></h2><p>{pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Se conserva cada incidencia con la fecha y hora de registro para consultarla cuando quieras.</p></div>
         <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar avisos de mantenimiento"><IconX size={18} /></button>
       </header>
       <div className="maintenance-reports-dialog__list" aria-live="polite">
         {sortedReports.length === 0 && <div className="empty-state"><IconTool size={23} /><strong>Sin incidencias archivadas</strong><span>Los avisos de los conductores aparecerán aquí.</span></div>}
         {sortedReports.map((report) => { const recordedAt = getMaintenanceReportRecordedAt(report); return <article className={`maintenance-report-card maintenance-report-card--${report.status}`} data-report-id={report.id} key={report.id}>
-          <header><div><span className="maintenance-report-card__recorded-label">Registrado por</span><strong>{driverNames.get(report.reporterId) || "Administrador"}</strong><time dateTime={recordedAt}>Registrado el {formatMaintenanceReportDate(recordedAt)}</time></div><StatusBadge status={getMaintenanceReportStatusLabel(report.status)} /></header>
+          <header><div><span className="maintenance-report-card__recorded-label">Fecha y hora de registro</span><strong>{driverNames.get(report.reporterId) || "Administrador"}</strong><time dateTime={recordedAt}>Registrado el {formatMaintenanceReportDate(recordedAt)}</time></div><StatusBadge status={getMaintenanceReportStatusLabel(report.status)} /></header>
           {report.note && <div className="maintenance-report-card__message"><small>Aviso escrito por el conductor</small><p>{report.note}</p></div>}
           {report.photoPath && <MaintenanceReportPhoto report={report} />}
           {report.status === "pending" && <button type="button" className="maintenance-report-card__review" onClick={() => markReviewed(report)}><IconCheck size={14} />Marcar revisado</button>}
@@ -7877,7 +7878,7 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
 function formatMaintenanceReportDate(value) {
   const date = new Date(value);
   if (!value || Number.isNaN(date.getTime())) return "Fecha pendiente";
-  return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date).replace(".", "");
+  return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Europe/Madrid" }).format(date).replace(".", "");
 }
 
 function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed, onOpenMaintenanceReports }) {
@@ -8015,7 +8016,8 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
           const latest = [...vehicle.maintenance].sort((a, b) => getMaintenanceDateValue(b) - getMaintenanceDateValue(a))[0];
           const isActive = vehicle.plate === workshopVehicle.plate;
           const vehicleReports = maintenanceReports.filter((report) => report.vehiclePlate === vehicle.plate);
-          const pendingReports = vehicleReports.filter((report) => report.status === "pending").length;
+          const reportCounts = getMaintenanceReportCounts(vehicleReports);
+          const pendingReports = reportCounts.pending;
           return (
             <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}${pendingReports ? " has-pending" : ""}`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
               <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
@@ -8025,7 +8027,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
                 <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
                 <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
               </button>
-              <button type="button" className={`maintenance-pending-review-button${pendingReports ? " has-pending" : ""}`} onClick={() => openMaintenanceReports(vehicle.plate)} aria-label={`Abrir pendientes de revisión de ${vehicle.plate}${pendingReports ? `, ${pendingReports} pendientes` : ""}`}><IconAlertTriangle size={16} /><span>PENDIENTE DE REVISIÓN</span>{pendingReports > 0 && <b>{pendingReports}</b>}</button>
+              <button type="button" className={`maintenance-pending-review-button${pendingReports ? " has-pending" : ""}${reportCounts.total ? " has-history" : ""}`} onClick={() => openMaintenanceReports(vehicle.plate)} aria-label={`Abrir histórico de pendientes de revisión de ${vehicle.plate}${pendingReports ? `, ${pendingReports} pendientes` : ""}${reportCounts.total ? `, ${reportCounts.total} avisos registrados` : ""}`} title={reportCounts.total ? `${reportCounts.total} aviso${reportCounts.total === 1 ? "" : "s"} registrado${reportCounts.total === 1 ? "" : "s"}. Pulsa para consultar el histórico.` : "Abrir pendientes de revisión"}><IconAlertTriangle size={16} /><span>PENDIENTE DE REVISIÓN</span>{pendingReports > 0 ? <b>{pendingReports}</b> : reportCounts.total > 0 ? <small>Histórico {reportCounts.total}</small> : null}</button>
             </div>
           );
         })}
