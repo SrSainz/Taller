@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
+import { getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
 
 test("conserva la fecha original del aviso aunque después se revise", () => {
   const report = {
@@ -50,4 +50,8 @@ test("mantiene visible un aviso que solo contiene una fotografía", () => {
     "Sin texto escrito; se conservó la fotografía adjunta.",
   );
   assert.equal(getMaintenanceReportDisplayMessage({ note: "  Revisar neumáticos  " }), "Revisar neumáticos");
+});
+
+test("recupera el texto del aviso aunque venga con una clave descriptiva heredada", () => {
+  assert.equal(getMaintenanceReportNote({ description: "Revisar puerta trasera" }), "Revisar puerta trasera");
 });

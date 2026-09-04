@@ -1290,6 +1290,7 @@ const normalizeDriverProfileRecord = (driver = {}) => ({
 const normalizeMaintenanceReportRecord = (report = {}) => ({
   ...report,
   reporterId: report.reporterId ?? report.reporter_id ?? "",
+  reporterName: report.reporterName ?? report.reporter_name ?? report.driverName ?? report.driver_name ?? "",
   vehiclePlate: canonicalizeVehiclePlate(getMaintenanceReportVehiclePlate(report)),
   status: ["pending", "reviewed", "resolved"].includes(report.status) ? report.status : "pending",
   photoPath: report.photoPath ?? report.photo_path ?? "",
@@ -7920,7 +7921,15 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const photoInputRef = useRef(null);
-  const driverNames = useMemo(() => new Map(driverProfiles.map((driver) => [driver.id, driver.full_name])), [driverProfiles]);
+  const driverNames = useMemo(() => {
+    const names = new Map();
+    driverProfiles.forEach((driver) => {
+      const id = driver.id ?? driver.user_id ?? driver.userId;
+      const name = driver.full_name ?? driver.fullName ?? driver.name ?? "";
+      if (id && name) names.set(String(id), name);
+    });
+    return names;
+  }, [driverProfiles]);
   const sortedReports = sortMaintenanceReportsByRecordedAt(reports);
   const reportCounts = getMaintenanceReportCounts(sortedReports);
   const pendingCount = reportCounts.pending;
@@ -7994,8 +8003,8 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
       </header>
       <div className="maintenance-reports-dialog__list" aria-live="polite">
         {sortedReports.length === 0 && <div className="empty-state maintenance-reports-dialog__empty"><IconHistory size={23} /><strong>Histórico disponible</strong><span>No hay avisos archivados para este coche todavía.</span><small>Cuando un conductor escriba una incidencia, quedará guardada aquí con todo su texto y la fecha y hora de registro.</small></div>}
-        {sortedReports.map((report, index) => { const recordedAt = getMaintenanceReportRecordedAt(report); const reportNote = getMaintenanceReportNote(report); const reportPhotoPath = report.photoPath ?? report.photo_path ?? ""; return <article className={`maintenance-report-card maintenance-report-card--${report.status}`} data-report-id={report.id} data-recorded-at={recordedAt} key={report.id || `${recordedAt}-${index}`}>
-          <header><div><span className="maintenance-report-card__recorded-label">Fecha y hora de registro</span><strong>{driverNames.get(report.reporterId) || "Administrador"}</strong><time dateTime={recordedAt}>Registrado el {formatMaintenanceReportDate(recordedAt)}</time></div><StatusBadge status={getMaintenanceReportStatusLabel(report.status)} /></header>
+        {sortedReports.map((report, index) => { const recordedAt = getMaintenanceReportRecordedAt(report); const reportNote = getMaintenanceReportNote(report); const reportPhotoPath = report.photoPath ?? report.photo_path ?? ""; const reporterId = report.reporterId ?? report.reporter_id ?? report.reporterID ?? ""; const reporterName = driverNames.get(String(reporterId)) || report.reporterName || report.reporter_name || report.driverName || report.driver_name || "Administrador"; return <article className={`maintenance-report-card maintenance-report-card--${report.status}`} data-report-id={report.id} data-recorded-at={recordedAt} key={report.id || `${recordedAt}-${index}`}>
+          <header><div><span className="maintenance-report-card__recorded-label">Registrado por</span><strong>{reporterName}</strong><time dateTime={recordedAt}>Registrado el {formatMaintenanceReportDate(recordedAt)}</time></div><StatusBadge status={getMaintenanceReportStatusLabel(report.status)} /></header>
           <div className="maintenance-report-card__message"><small>{reportNote ? "Texto completo del aviso" : reportPhotoPath ? "Aviso sin texto · fotografía adjunta" : "Aviso sin texto"}</small><p>{getMaintenanceReportDisplayMessage(report)}</p></div>
           {reportPhotoPath && <MaintenanceReportPhoto report={report} />}
           {reportPhotoPath && report.photoName && <small className="maintenance-report-card__attachment">Archivo adjunto: {report.photoName}</small>}
@@ -8025,6 +8034,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
   const [reportsPlate, setReportsPlate] = useState("");
+  const [reportsDialogReports, setReportsDialogReports] = useState([]);
   const [reportsRefreshing, setReportsRefreshing] = useState(false);
   const [reportsRefreshError, setReportsRefreshError] = useState("");
   const longPressRef = useRef({ timer: null, triggered: false, startX: 0, startY: 0 });
@@ -8074,6 +8084,12 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [openConceptKey]);
+
+  useEffect(() => {
+    if (!reportsPlate || reportsRefreshing) return;
+    const nextReports = maintenanceReports.filter((report) => isMaintenanceReportForVehicle(report, reportsPlate));
+    setReportsDialogReports(nextReports);
+  }, [maintenanceReports, reportsPlate, reportsRefreshing]);
 
   useEffect(() => () => window.clearTimeout(longPressRef.current.timer), []);
 
@@ -8125,6 +8141,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
   const openMaintenanceReports = async (plate) => {
     const requestId = reportsRefreshRequestRef.current + 1;
     reportsRefreshRequestRef.current = requestId;
+    setReportsDialogReports(maintenanceReports.filter((report) => isMaintenanceReportForVehicle(report, plate)));
     setReportsPlate(plate);
     setReportsRefreshError("");
     onOpenMaintenanceReports?.(plate);
@@ -8133,7 +8150,12 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
       setReportsRefreshing(true);
       try {
         const refreshedReports = await onRefreshMaintenanceReports();
-        if (Array.isArray(refreshedReports)) latestReports = refreshedReports;
+        if (Array.isArray(refreshedReports)) {
+          latestReports = refreshedReports;
+          if (requestId === reportsRefreshRequestRef.current) {
+            setReportsDialogReports(refreshedReports.filter((report) => isMaintenanceReportForVehicle(report, plate)));
+          }
+        }
       } catch (error) {
         if (requestId === reportsRefreshRequestRef.current) setReportsRefreshError(error.message || "No se ha podido actualizar el histórico.");
       } finally {
@@ -8143,8 +8165,34 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
     if (requestId !== reportsRefreshRequestRef.current) return;
     const pendingReports = latestReports.filter((report) => isMaintenanceReportForVehicle(report, plate) && report.status === "pending");
     if (pendingReports.length && onMarkMaintenanceReportReviewed) {
-      void Promise.allSettled(pendingReports.map((report) => onMarkMaintenanceReportReviewed(report.id, "reviewed", { quiet: true })));
+      const pendingIds = new Set(pendingReports.map((report) => report.id));
+      void Promise.allSettled(pendingReports.map((report) => onMarkMaintenanceReportReviewed(report.id, "reviewed", { quiet: true }))).then((results) => {
+        if (requestId !== reportsRefreshRequestRef.current) return;
+        const reviewedReports = new Map(results
+          .filter((result) => result.status === "fulfilled" && result.value?.id)
+          .map((result) => [result.value.id, result.value]));
+        setReportsDialogReports((current) => current.map((report) => {
+          if (!pendingIds.has(report.id)) return report;
+          return reviewedReports.get(report.id) ?? { ...report, status: "reviewed" };
+        }));
+      });
     }
+  };
+
+  const handleMaintenanceReportReviewed = async (reportId, status = "reviewed") => {
+    const updated = await onMarkMaintenanceReportReviewed?.(reportId, status);
+    if (updated?.id) {
+      setReportsDialogReports((current) => current.map((report) => report.id === updated.id ? updated : report));
+    }
+    return updated;
+  };
+
+  const closeMaintenanceReports = () => {
+    reportsRefreshRequestRef.current += 1;
+    setReportsPlate("");
+    setReportsDialogReports([]);
+    setReportsRefreshing(false);
+    setReportsRefreshError("");
   };
 
   const handleMaintenanceInvoiceFile = (event) => {
@@ -8270,7 +8318,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
         </div>
         </div>
       </section>
-      {reportsPlate && <MaintenanceReportsDialog vehicle={vehicles.find((vehicle) => vehicle.plate === reportsPlate) ?? vehicles[0]} reports={maintenanceReports.filter((report) => isMaintenanceReportForVehicle(report, reportsPlate))} driverProfiles={driverProfiles} onClose={() => setReportsPlate("")} onSave={onSaveMaintenanceReport} onMarkReviewed={onMarkMaintenanceReportReviewed} isRefreshing={reportsRefreshing} refreshError={reportsRefreshError} />}
+      {reportsPlate && <MaintenanceReportsDialog vehicle={vehicles.find((vehicle) => vehicle.plate === reportsPlate) ?? vehicles[0]} reports={reportsDialogReports} driverProfiles={driverProfiles} onClose={closeMaintenanceReports} onSave={onSaveMaintenanceReport} onMarkReviewed={handleMaintenanceReportReviewed} isRefreshing={reportsRefreshing} refreshError={reportsRefreshError} />}
     </section>
   );
 }

@@ -29,7 +29,12 @@ export const isMaintenanceReportForVehicle = (report, vehiclePlate) => (
   === getMaintenanceReportPlateKey(vehiclePlate)
 );
 
-export const getMaintenanceReportNote = (report = {}) => String(report.note ?? "").trim();
+export const getMaintenanceReportNote = (report = {}) => getFirstNonEmptyValue(
+  report.note,
+  report.message,
+  report.description,
+  report.text,
+).toString().trim();
 
 export const getMaintenanceReportDisplayMessage = (report = {}) => {
   const note = getMaintenanceReportNote(report);
