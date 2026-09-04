@@ -3355,10 +3355,10 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         </header>
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
-          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" realtimeRevision={realtimeRevision} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
+          {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" realtimeRevision={realtimeRevision} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
           {activeNav === "Conductores" && <DriversView reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" realtimeRevision={realtimeRevision} reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
-          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" realtimeRevision={realtimeRevision} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" realtimeRevision={realtimeRevision} reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
+          {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" realtimeRevision={realtimeRevision} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} notify={notify} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} onOpenMaintenanceReports={markMaintenanceReportNotificationsSeen} onRefreshMaintenanceReports={refreshMaintenanceReports} />}
@@ -6306,7 +6306,7 @@ function AlexCommissionReportPanel({ report, periodLabel, archivedReports = [], 
   </section>;
 }
 
-function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "", realtimeRevision = 0 }) {
+function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "", realtimeRevision = 0, onSaveDriverDay, onDeleteDriverDocument, onReassignDriverDocumentDate }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;
@@ -6632,6 +6632,50 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       }),
     });
   };
+  const openBillingDayEditor = ({ row, vehicle, detail, dateKey, documents: dayDocuments = [], periodKilometres = 0 }) => {
+    if (!row || !vehicle || !detail || !dateKey || !onSaveDriverDay) return;
+    setModal({
+      type: "driver-day-edit",
+      item: {
+        mode: "billing",
+        dateKey,
+        driver: row.driver,
+        driverId: row.driverId,
+        vehiclePlate: row.plate,
+        detail: { ...detail, periodKilometres },
+        documents: dayDocuments,
+        onSave: (values) => onSaveDriverDay({
+          driverId: row.driverId,
+          vehiclePlate: row.plate,
+          dateKey,
+          mode: "billing",
+          amount: values.amount,
+          billingStats: values.billingStats,
+          notes: values.notes,
+        }),
+        onDeleteDocument: (document) => onDeleteDriverDocument?.(document),
+        documentDeleteLabel: "Borrar archivo",
+        onOpenDocument: (document) => setModal({
+          type: "driver-document",
+          item: buildDriverDocumentModalItem(document, { driver: row.driver, plate: row.plate, fallbackDate: dateKey }),
+        }),
+        onEditDocument: onReassignDriverDocumentDate
+          ? (document) => setModal({
+              type: "driver-document-date-edit",
+              item: {
+                document,
+                dateKey: getDriverDocumentDateKey(document) || dateKey,
+                driver: row.driver,
+                driverId: row.driverId,
+                vehiclePlate: row.plate,
+                onSave: ({ targetDate }) => onReassignDriverDocumentDate({ document, targetDate }),
+              },
+            })
+          : undefined,
+        onAddDocument: (file) => setModal({ type: "document-processing", category: "billing", source: "upload", file, selectedPlate: row.plate, defaultDate: dateKey, driverId: row.driverId, recordType: "billing" }),
+      },
+    });
+  };
   const hasChartData = true;
   const selectChartBar = (entry) => {
     const label = entry?.payload?.label ?? entry?.label;
@@ -6772,7 +6816,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
               onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }}
             />
             {selectedBillingVehicle ? <VehicleBillingSummary vehicle={selectedBillingVehicle} rows={selectedBillingVehicleRows} month={reportMonth} year={reportYear} /> : null}
-            {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} vehicle={selectedBillingDriverVehicle} month={reportMonth} year={reportYear} documents={documents} transactions={transactions} onOpenDocument={openBillingSourceDocument} onClose={() => setBillingDriverKey("")} /> : null}
+            {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} vehicle={selectedBillingDriverVehicle} month={reportMonth} year={reportYear} documents={documents} transactions={transactions} onOpenDocument={openBillingSourceDocument} onEditDay={openBillingDayEditor} onClose={() => setBillingDriverKey("")} /> : null}
 
           </section>
         </div>
@@ -6870,7 +6914,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
             onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }}
           />
           {selectedBillingVehicle ? <VehicleBillingSummary vehicle={selectedBillingVehicle} rows={selectedBillingVehicleRows} month={reportMonth} year={reportYear} /> : null}
-          {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} vehicle={selectedBillingDriverVehicle} month={reportMonth} year={reportYear} documents={documents} transactions={transactions} onOpenDocument={openBillingSourceDocument} onClose={() => setBillingDriverKey("")} /> : null}
+          {selectedBillingDriver ? <DriverBillingCalendar row={selectedBillingDriver} vehicle={selectedBillingDriverVehicle} month={reportMonth} year={reportYear} documents={documents} transactions={transactions} onOpenDocument={openBillingSourceDocument} onEditDay={openBillingDayEditor} onClose={() => setBillingDriverKey("")} /> : null}
           <FuelDriversReport vehicles={vehicles} selectedDriverKey={billingDriverKey} onSelectDriver={setBillingDriverKey} />
         </div>}
       </div>
@@ -7075,9 +7119,14 @@ function VehicleBillingSummary({ vehicle, rows, month, year }) {
   );
 }
 
-function DriverBillingCalendar({ row, vehicle, month, year, documents = [], transactions = [], onOpenDocument, onClose }) {
+function DriverBillingCalendar({ row, vehicle, month, year, documents = [], transactions = [], onOpenDocument, onEditDay, onClose }) {
   const calendarVehicle = vehicle ?? { plate: row.plate, model: row.model, drivers: [row.driver], fuelSchedule: [], monthlyFuel: [] };
   const calendarRows = getDriverCalendarRows(calendarVehicle, row, month, year, documents, transactions);
+  const firstActiveDay = calendarRows.find((day) => day.active)?.day ?? 1;
+  const [selectedDay, setSelectedDay] = useState(firstActiveDay);
+  useEffect(() => {
+    setSelectedDay((current) => calendarRows.some((day) => day.day === current) ? current : firstActiveDay);
+  }, [row.key, month, year, firstActiveDay]);
   const billingDays = new Map(calendarRows.filter((day) => day.billing > 0).map((day) => [day.day, day.billing]));
   const billingDocumentsByDay = new Map(calendarRows
     .map((day) => [day.day, day.documents.filter((document) => getDriverDocumentKind(document) === "billing")])
@@ -7088,6 +7137,10 @@ function DriverBillingCalendar({ row, vehicle, month, year, documents = [], tran
     ...Array.from({ length: leadingDays }, (_, index) => ({ key: `leading-${index}`, empty: true })),
     ...Array.from({ length: daysInMonth }, (_, index) => ({ key: `day-${index + 1}`, day: index + 1 })),
   ];
+  const selectedDayDetail = calendarRows.find((day) => day.day === selectedDay) ?? calendarRows[0] ?? null;
+  const selectedDateKey = selectedDayDetail ? `${year}-${String(month + 1).padStart(2, "0")}-${String(selectedDayDetail.day).padStart(2, "0")}` : "";
+  const selectedDayDocuments = selectedDayDetail?.documents?.filter((document) => getDriverDocumentKind(document) === "billing") ?? [];
+  const periodKilometres = calendarRows.reduce((sum, day) => sum + (Number(day.km) || 0), 0);
 
   return (
     <section className="content-card driver-billing-calendar" id="driver-billing-calendar" aria-labelledby="driver-billing-calendar-title">
@@ -7105,9 +7158,22 @@ function DriverBillingCalendar({ row, vehicle, month, year, documents = [], tran
           : (() => {
             const dayDocuments = billingDocumentsByDay.get(cell.day) ?? [];
             const hasBilling = billingDays.has(cell.day);
-            return <div className={`driver-billing-day${hasBilling ? " driver-billing-day--active" : ""}${dayDocuments.length ? " driver-billing-day--documented" : ""}`} role="gridcell" aria-label={`${cell.day} de ${reportMonths[month]}: ${hasBilling ? formatCurrency(billingDays.get(cell.day)) : "sin facturación"}${dayDocuments.length ? `, ${dayDocuments.length} foto${dayDocuments.length === 1 ? "" : "s"} original${dayDocuments.length === 1 ? "" : "es"}` : ""}`} key={cell.key}><span>{cell.day}</span>{hasBilling ? <strong>{formatCurrency(billingDays.get(cell.day))}</strong> : <small>—</small>}{dayDocuments.length > 0 && onOpenDocument && <div className="driver-billing-day__documents" aria-label={`Fotos originales de ${cell.day} de ${reportMonths[month]}`}>{dayDocuments.map((document, index) => <button type="button" key={document.id} onClick={(event) => { event.stopPropagation(); onOpenDocument(document); }} aria-label={`Abrir foto original de Facturación ${index + 1}`} title={`Abrir foto original · ${document.file_name || "Documento"}`}><IconCamera size={11} /><span aria-hidden="true">{dayDocuments.length > 1 ? index + 1 : "Foto"}</span></button>)}</div>}</div>;
+            const isSelected = selectedDay === cell.day;
+            const dayLabel = `${cell.day} de ${reportMonths[month]}: ${hasBilling ? formatCurrency(billingDays.get(cell.day)) : "sin facturación"}${dayDocuments.length ? `, ${dayDocuments.length} foto${dayDocuments.length === 1 ? "" : "s"} original${dayDocuments.length === 1 ? "" : "es"}` : ""}`;
+            return <div className={`driver-billing-day${hasBilling ? " driver-billing-day--active" : ""}${dayDocuments.length ? " driver-billing-day--documented" : ""}${isSelected ? " driver-billing-day--selected" : ""}`} role="gridcell" aria-label={dayLabel} key={cell.key}>
+              <button type="button" className="driver-billing-day__select" onClick={() => setSelectedDay(cell.day)} aria-pressed={isSelected} aria-label={`Seleccionar ${dayLabel}`}>
+                <span>{cell.day}</span>{hasBilling ? <strong>{formatCurrency(billingDays.get(cell.day))}</strong> : <small>—</small>}
+              </button>
+              {dayDocuments.length > 0 && onOpenDocument && <div className="driver-billing-day__documents" aria-label={`Fotos originales de ${cell.day} de ${reportMonths[month]}`}>{dayDocuments.map((document, index) => <button type="button" key={document.id} onClick={(event) => { event.stopPropagation(); onOpenDocument(document); }} aria-label={`Abrir foto original de Facturación ${index + 1}`} title={`Abrir foto original · ${document.file_name || "Documento"}`}><IconCamera size={11} /><span aria-hidden="true">{dayDocuments.length > 1 ? index + 1 : "Foto"}</span></button>)}</div>}
+            </div>;
           })())}
       </div>
+      {selectedDayDetail && <section className="driver-billing-calendar__selected-day" aria-label={`Día seleccionado ${formatDocumentDisplayDate(selectedDateKey)}`}>
+        <div><span>Día seleccionado</span><strong>{formatDocumentDisplayDate(selectedDateKey)}</strong></div>
+        <div><span>Facturación</span><strong>{formatCurrency(selectedDayDetail.billing)}</strong></div>
+        <div><span>Efectivo cobrado</span><strong>{formatCurrency(selectedDayDetail.billingStats?.cashCollected)}</strong></div>
+        {onEditDay && <button type="button" className="secondary-button" onClick={() => onEditDay({ row, vehicle: calendarVehicle, detail: selectedDayDetail, dateKey: selectedDateKey, documents: selectedDayDocuments, periodKilometres })}><IconFileInvoice size={14} />Editar día</button>}
+      </section>}
       <footer className="driver-billing-calendar__footer"><span><strong>{billingDays.size}</strong> días con facturación</span><span>Total del mes <strong>{formatCurrency(row.revenue)}</strong></span></footer>
     </section>
   );
