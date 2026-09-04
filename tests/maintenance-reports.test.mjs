@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMaintenanceReportCounts, getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
+import { getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportRecordedAt, getMaintenanceReportStatusLabel, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
 
 test("conserva la fecha original del aviso aunque después se revise", () => {
   const report = {
@@ -37,4 +37,17 @@ test("cuenta el histórico completo aunque algunos avisos ya estén revisados", 
     { id: "resolved", status: "resolved" },
     { id: "legacy", status: "estado-desconocido" },
   ]), { total: 4, pending: 2, reviewed: 1, resolved: 1 });
+});
+
+test("encuentra el histórico aunque la matrícula use otro formato", () => {
+  assert.equal(isMaintenanceReportForVehicle({ vehicle_plate: "5043MLC" }, "5043 MLC"), true);
+  assert.equal(isMaintenanceReportForVehicle({ vehiclePlate: "5750 MJV" }, "5754 MJV"), false);
+});
+
+test("mantiene visible un aviso que solo contiene una fotografía", () => {
+  assert.equal(
+    getMaintenanceReportDisplayMessage({ note: "", photo_path: "david/5043-mlc/incidencia.jpg" }),
+    "Sin texto escrito; se conservó la fotografía adjunta.",
+  );
+  assert.equal(getMaintenanceReportDisplayMessage({ note: "  Revisar neumáticos  " }), "Revisar neumáticos");
 });

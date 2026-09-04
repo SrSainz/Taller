@@ -4,7 +4,41 @@ const maintenanceReportStatuses = Object.freeze({
   resolved: "Resuelto",
 });
 
-export const getMaintenanceReportRecordedAt = (report = {}) => report.createdAt ?? report.created_at ?? "";
+const getFirstNonEmptyValue = (...values) => values.find((value) => String(value ?? "").trim()) ?? "";
+
+export const getMaintenanceReportRecordedAt = (report = {}) => getFirstNonEmptyValue(
+  report.createdAt,
+  report.created_at,
+  report.recordedAt,
+  report.recorded_at,
+);
+
+export const getMaintenanceReportVehiclePlate = (report = {}) => getFirstNonEmptyValue(
+  report.vehiclePlate,
+  report.vehicle_plate,
+);
+
+export const getMaintenanceReportPlateKey = (value = "") => String(value ?? "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLocaleUpperCase("es")
+  .replace(/[^A-Z0-9]/g, "");
+
+export const isMaintenanceReportForVehicle = (report, vehiclePlate) => (
+  getMaintenanceReportPlateKey(getMaintenanceReportVehiclePlate(report))
+  === getMaintenanceReportPlateKey(vehiclePlate)
+);
+
+export const getMaintenanceReportNote = (report = {}) => String(report.note ?? "").trim();
+
+export const getMaintenanceReportDisplayMessage = (report = {}) => {
+  const note = getMaintenanceReportNote(report);
+  if (note) return note;
+  const photoPath = getFirstNonEmptyValue(report.photoPath, report.photo_path);
+  return photoPath
+    ? "Sin texto escrito; se conservó la fotografía adjunta."
+    : "Sin texto escrito en este aviso.";
+};
 
 export const getMaintenanceReportCounts = (reports = []) => {
   const counts = { total: 0, pending: 0, reviewed: 0, resolved: 0 };
