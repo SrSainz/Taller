@@ -79,7 +79,7 @@ test("usa el nombre de la sesión solo como respaldo para el autor actual", () =
 
 test("abre el histórico como diálogo de viewport sin añadirlo al final de Mantenimiento", () => {
   const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
-  const stylesSource = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
+  const stylesSource = readFileSync(new URL("../src/maintenance-dialog.css", import.meta.url), "utf8");
 
   assert.match(appSource, /createPortal\(<div className="maintenance-reports-dialog-backdrop"/);
   assert.match(appSource, /document\.body\);/);
