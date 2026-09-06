@@ -2307,6 +2307,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   });
   const adminFullRefreshRef = useRef(null);
   const adminLastFullRefreshAtRef = useRef(0);
+  const adminLastRefreshAttemptRef = useRef(0);
   const adminTransactionsRef = useRef(transactions);
   const adminDriverEntriesRef = useRef(driverEntries);
   const adminDocumentsRef = useRef(documentRecords);
@@ -2757,13 +2758,13 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const refreshAdminData = useCallback(async ({ force = false, full = false, notifyUser = false } = {}) => {
     if (!isAdmin || !supabase) return false;
     const now = Date.now();
-    if (!force && now - adminLastFullRefreshAtRef.current < DATA_REFRESH_MIN_INTERVAL_MS) {
+    if (!force && now - Math.max(adminLastFullRefreshAtRef.current, adminLastRefreshAttemptRef.current) < DATA_REFRESH_MIN_INTERVAL_MS) {
       if (notifyUser) notify("Los datos ya se han actualizado recientemente.");
       return false;
     }
     if (adminFullRefreshRef.current) return adminFullRefreshRef.current;
     const previousSyncAt = adminLastFullRefreshAtRef.current;
-    adminLastFullRefreshAtRef.current = now;
+    adminLastRefreshAttemptRef.current = now;
     setAdminSyncStatus("loading");
     const fullRefresh = () => Promise.allSettled([
       refreshTransactions(),
@@ -2785,7 +2786,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         return result ?? true;
       })
       .catch((error) => {
-        adminLastFullRefreshAtRef.current = 0;
         setAdminSyncStatus("error");
         if (notifyUser) notify(`No se han podido actualizar los datos: ${error.message}`);
         return false;
@@ -3870,6 +3870,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const [documentPreviews, setDocumentPreviews] = useState([]);
   const driverFullRefreshRef = useRef(null);
   const driverLastFullRefreshAtRef = useRef(0);
+  const driverLastRefreshAttemptRef = useRef(0);
   const driverEntriesRef = useRef(entries);
   const driverDocumentsRef = useRef(documents);
   const driverMaintenanceReportsRef = useRef([]);
@@ -4196,12 +4197,13 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const requestDriverRefresh = useCallback(async ({ force = false, showError = false, notifyUser = false } = {}) => {
     if (!supabase || !canQueryDriverData) return false;
     const now = Date.now();
-    if (!force && now - driverLastFullRefreshAtRef.current < DATA_REFRESH_MIN_INTERVAL_MS) {
+    if (!force && now - Math.max(driverLastFullRefreshAtRef.current, driverLastRefreshAttemptRef.current) < DATA_REFRESH_MIN_INTERVAL_MS) {
       if (notifyUser) setMessage("Los datos ya se han actualizado recientemente.");
       return false;
     }
     if (driverFullRefreshRef.current) return driverFullRefreshRef.current;
     const previousSyncAt = driverLastFullRefreshAtRef.current;
+    driverLastRefreshAttemptRef.current = now;
     setDriverSyncStatus("loading");
     const request = (force ? refreshDriverData() : refreshDriverRecentData({ since: previousSyncAt ? new Date(previousSyncAt).toISOString() : "" }))
       .then(() => refreshDriverComparison())
@@ -4212,7 +4214,6 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
         return true;
       })
       .catch((error) => {
-        driverLastFullRefreshAtRef.current = 0;
         setDriverSyncStatus("error");
         if (showError) setMessage(`No se han podido actualizar los datos: ${error.message}`);
         return false;
@@ -4223,6 +4224,10 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     driverFullRefreshRef.current = request;
     return request;
   }, [canQueryDriverData, refreshDriverComparison, refreshDriverData, refreshDriverRecentData]);
+
+  // A calendar selection changes handlers, not the Realtime connection.
+  const driverSyncHandlersRef = useRef(null);
+  driverSyncHandlersRef.current = { requestDriverRefresh, syncDriverRealtimeRecord, onProfileChange, onSignOut };
 
   useEffect(() => {
     let mounted = true;
@@ -4238,7 +4243,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     if (!supabase || !canQueryDriverData) return undefined;
     let mounted = true;
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") void requestDriverRefresh();
+      if (document.visibilityState === "visible") void driverSyncHandlersRef.current.requestDriverRefresh();
     };
     window.addEventListener("focus", refreshWhenVisible);
     document.addEventListener("visibilitychange", refreshWhenVisible);
@@ -4249,18 +4254,18 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
         if (table === "profiles" && !preview) {
           getProfile({ id: session.user.id }).then(({ data, error }) => {
             if (!mounted || error || !data) return;
-            onProfileChange?.(data);
-            if (!data.active) onSignOut?.();
+            driverSyncHandlersRef.current.onProfileChange?.(data);
+            if (!data.active) driverSyncHandlersRef.current.onSignOut?.();
           }).catch(() => undefined);
           return;
         }
-        syncDriverRealtimeRecord({ table, payload }).catch((error) => {
+        driverSyncHandlersRef.current.syncDriverRealtimeRecord({ table, payload }).catch((error) => {
           if (mounted) setMessage(`No se han podido sincronizar los datos: ${error.message}`);
         });
       },
       onStatus: (status) => {
         if (!mounted) return;
-        if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) void requestDriverRefresh();
+        if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) void driverSyncHandlersRef.current.requestDriverRefresh();
       },
     });
     return () => {
@@ -4269,7 +4274,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       unsubscribe();
     };
-  }, [activeProfileId, canQueryDriverData, onProfileChange, onSignOut, preview, requestDriverRefresh, session.user.id, syncDriverRealtimeRecord]);
+  }, [activeProfileId, canQueryDriverData, preview, session.user.id]);
 
   useEffect(() => {
     const selectedEntry = entries.find((item) => String(item.entry_date) === selectedDate);
@@ -6068,7 +6073,11 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [], ad
   const longPressRef = useRef({ timer: null, key: "", triggered: false });
   const driverApplicationLink = getDriverApplicationLink();
 
+  const driversLastLoadRef = useRef(0);
+
   const loadDrivers = useCallback(async () => {
+    if (Date.now() - driversLastLoadRef.current < DATA_REFRESH_MIN_INTERVAL_MS) return;
+    driversLastLoadRef.current = Date.now();
     setLoading(true);
     try {
       const response = await invokeAdminUsers({ action: "list" });
@@ -8516,19 +8525,21 @@ function MaintenanceReportPhoto({ report }) {
   }, [report?.photoMimeType, report?.photoPath]);
 
   const openOriginal = async (event) => {
-    if (originalUrl || !report?.photoPath) return;
+    if (!report?.photoPath) return;
     event.preventDefault();
     if (opening) return;
-    const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
-    if (!popup) return;
+    const popup = window.open("about:blank", "_blank");
+    if (!popup) { window.alert("Permite abrir ventanas para ver el documento."); return; }
+    popup.opener = null;
     setOpening(true);
     try {
       const url = await createMaintenanceReportPhotoUrl(report.photoPath, 10 * 60);
       if (!url) throw new Error("Foto no disponible.");
       setOriginalUrl(url);
       popup.location.href = url;
-    } catch {
+    } catch (error) {
       popup.close();
+      window.alert(error.message || "No se ha podido abrir la foto.");
     } finally {
       setOpening(false);
     }
@@ -8807,8 +8818,11 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
           .map((result) => [result.value.id, result.value]));
         setReportsDialogReports((current) => current.map((report) => {
           if (!pendingIds.has(report.id)) return report;
-          return reviewedReports.get(report.id) ?? { ...report, status: "reviewed" };
+          return reviewedReports.get(report.id) ?? report;
         }));
+        if (results.some((result) => result.status === "rejected" || !result.value?.id)) {
+          setReportsRefreshError("Algún aviso no se ha podido marcar como visto. Sigue pendiente; vuelve a intentarlo.");
+        }
       });
     }
   };
@@ -9368,7 +9382,6 @@ function CachedDocumentLink({ document, className = "", children, ariaLabel = "A
   const filePath = document?.file_path ?? document?.filePath ?? "";
   const directPreviewUrl = document?.signedUrl ?? "";
   const openOriginal = async (event) => {
-    if (originalUrl) return;
     if (!filePath) {
       if (!directPreviewUrl) return;
       event.preventDefault();
@@ -9378,21 +9391,23 @@ function CachedDocumentLink({ document, className = "", children, ariaLabel = "A
     }
     event.preventDefault();
     if (opening) return;
-    const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
-    if (!popup) return;
+    const popup = window.open("about:blank", "_blank");
+    if (!popup) { window.alert("Permite abrir ventanas para ver el documento."); return; }
+    popup.opener = null;
     setOpening(true);
     try {
       const { signedUrl, error } = await createCachedStorageUrl({ bucket: "documents", path: filePath, expiresIn: 10 * 60 });
       if (error || !signedUrl) throw error ?? new Error("No se ha podido abrir el documento.");
       setOriginalUrl(signedUrl);
       popup.location.href = signedUrl;
-    } catch {
+    } catch (error) {
       popup.close();
+      window.alert(error.message || "No se ha podido abrir el documento.");
     } finally {
       setOpening(false);
     }
   };
-  return <a className={className} href={originalUrl || (!filePath ? directPreviewUrl || undefined : undefined)} target="_blank" rel="noreferrer" aria-label={ariaLabel} onClick={openOriginal} aria-busy={opening || undefined}>{children}</a>;
+  return <a className={className} href={originalUrl || (!filePath ? directPreviewUrl || "#" : "#")} target="_blank" rel="noreferrer" aria-label={ariaLabel} onClick={openOriginal} aria-busy={opening || undefined}>{children}</a>;
 }
 
 function PrivateDocumentAttachment({ item }) {
@@ -9423,7 +9438,7 @@ function PrivateDocumentAttachment({ item }) {
   if (!isImage) return <div className="invoice-private-document"><IconFileInvoice size={20} /><span><strong>Justificante original archivado</strong><small>{item.fileName || "Documento PDF"}</small></span><CachedDocumentLink document={item} ariaLabel="Abrir documento">Abrir documento</CachedDocumentLink></div>;
   if (!canPreviewImage) return <div className="invoice-private-document"><IconFileInvoice size={20} /><span><strong>Vista previa no disponible</strong><small>{item.fileName || "Imagen original"}</small></span><CachedDocumentLink document={item} ariaLabel="Abrir imagen original">Abrir original</CachedDocumentLink></div>;
   if (state.status === "loading") return <div className="invoice-private-document invoice-private-document--loading" role="status"><IconSparkles size={18} /><span><strong>Preparando miniatura privada</strong><small>{item.fileName || "Documento del conductor"}</small></span></div>;
-  if (state.status === "error") return <div className="invoice-private-document invoice-private-document--error" role="alert"><IconAlertTriangle size={18} /><span><strong>No se ha podido mostrar el justificante</strong><small>{state.message}</small></span></div>;
+  if (state.status === "error") return <div className="invoice-private-document"><IconFileInvoice size={20} /><span><strong>Original privado disponible</strong><small>Este archivo todavía no tiene miniatura.</small></span><CachedDocumentLink document={item}>Abrir original</CachedDocumentLink></div>;
   if (isImage) return <figure className="invoice-document-photo invoice-document-photo--private"><CachedDocumentLink document={item} ariaLabel={`Abrir justificante original ${item.fileName || ""}`}><img src={state.url} alt={`Ticket original de ${item.provider} para ${item.plate}, ${item.date}`} /></CachedDocumentLink><figcaption><span>Miniatura optimizada · original privado</span><CachedDocumentLink document={item}>Abrir a tamaño completo</CachedDocumentLink></figcaption></figure>;
 }
 
@@ -9609,9 +9624,11 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         throw sizeError;
       }
       setProgress(48);
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session?.access_token) throw new Error("Inicia sesión para analizar el documento.");
       const response = await fetch("/api/analyze-document", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${sessionData.session.access_token}` },
         body: JSON.stringify({ category, fileName: optimized.name, fileType: optimized.type || file.type, dataUrl }),
         signal: controller.signal,
       });

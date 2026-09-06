@@ -1,4 +1,4 @@
-const cacheName = "sobre-ruedas-shell-v18";
+const cacheName = "sobre-ruedas-shell-v19";
 const appShell = [
   "/",
   "/index.html",
@@ -67,7 +67,7 @@ self.addEventListener("notificationclick", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== cacheName).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key.startsWith("sobre-ruedas-shell-") && key !== cacheName).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
 });
@@ -78,13 +78,17 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Never persist authenticated responses in the public application shell.
+  if (url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(cacheName).then((cache) => cache.put("/index.html", copy));
+          if (response.ok && response.headers.get("content-type")?.includes("text/html")) {
+            const copy = response.clone();
+            caches.open(cacheName).then((cache) => cache.put("/index.html", copy));
+          }
           return response;
         })
         .catch(() => caches.match("/index.html")),
@@ -93,7 +97,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(request).then((cached) => fetch(request)
+    caches.match(request).then((cached) => (cached && url.pathname.startsWith("/assets/")) ? cached : fetch(request)
       .then((response) => {
         if (response.ok) caches.open(cacheName).then((cache) => cache.put(request, response.clone()));
         return response;

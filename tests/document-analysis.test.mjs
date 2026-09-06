@@ -99,14 +99,24 @@ test("acepta solo los formatos que el Storage y la IA pueden procesar", () => {
 test("devuelve un error controlado si el proveedor de IA no responde", async () => {
   const previousKey = process.env.OPENAI_API_KEY;
   const previousFetch = globalThis.fetch;
+  const previousUrl = process.env.VITE_SUPABASE_URL;
+  const previousPublicKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   process.env.OPENAI_API_KEY = "test-only-placeholder";
-  globalThis.fetch = async () => { throw Object.assign(new Error("network down"), { name: "TypeError" }); };
+  process.env.VITE_SUPABASE_URL = "https://auth.example.test";
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY = "mock";
+  globalThis.fetch = async (url) => {
+    if (url.endsWith("/auth/v1/user")) return Response.json({id:"test-user"});
+    if (url.includes("/rest/v1/profiles")) return Response.json([{active:true}]);
+    throw Object.assign(new Error("network down"), { name: "TypeError" });
+  };
   try {
-    const result = await invoke({ method: "POST", body: { category: "billing", fileName: "factura.jpg", dataUrl: "data:image/jpeg;base64,AA==" } });
+    const result = await invoke({ method: "POST", headers:{authorization:"Bearer mock"}, body: { category: "billing", fileName: "factura.jpg", dataUrl: "data:image/jpeg;base64,AA==" } });
     assert.equal(result.statusCode, 502);
     assert.equal(result.json.code, "AI_UNAVAILABLE");
   } finally {
     globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.VITE_SUPABASE_URL; else process.env.VITE_SUPABASE_URL = previousUrl;
+    if (previousPublicKey === undefined) delete process.env.VITE_SUPABASE_PUBLISHABLE_KEY; else process.env.VITE_SUPABASE_PUBLISHABLE_KEY = previousPublicKey;
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = previousKey;
   }

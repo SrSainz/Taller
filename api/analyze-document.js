@@ -1,4 +1,5 @@
 import { getVercelOidcToken } from "@vercel/oidc";
+import { requireActiveUser } from "./_require-active-user.js";
 
 const MAX_DATA_URL_BYTES = 4 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
@@ -197,6 +198,9 @@ export default async function handler(req, res) {
   if (Buffer.byteLength(dataUrl, "utf8") > MAX_DATA_URL_BYTES) {
     return json(res, 413, { code: "DOCUMENT_TOO_LARGE", message: "El documento preparado supera el límite de procesamiento." });
   }
+
+  const access = await requireActiveUser(req);
+  if (access.status) return json(res, access.status, { code:"AUTH_REQUIRED", message:access.message });
 
   const content = [{ type: "input_text", text: `${buildPrompt(category)} ${structuredExtractionAddendum}` }];
   const dataMimeType = dataUrlMatch[1].toLocaleLowerCase("es");

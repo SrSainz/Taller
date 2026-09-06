@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { getDocumentMimeType, validateDocumentFile } from "./documentAnalysis.js";
 import { hashDocumentFile } from "./transactions.js";
+import { createStorageThumbnail, thumbnailPath } from "./storageThumbnails.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
@@ -128,6 +129,9 @@ const driverDailyComparisonColumns = "entry_date, total_km, drivers_with_km, tot
 // includes the transform so a thumbnail and its original never get mixed.
 const storageUrlCache = new Map();
 const storageUrlSafetyWindowMs = 60 * 1000;
+supabase?.auth.onAuthStateChange((event) => {
+  if (event === "SIGNED_OUT") storageUrlCache.clear();
+});
 
 export const createCachedStorageUrl = async ({ bucket, path, expiresIn = 3600, transform = null } = {}) => {
   if (!supabase || !bucket || !path) return { signedUrl: "", error: new Error("Archivo no disponible.") };
@@ -137,17 +141,19 @@ export const createCachedStorageUrl = async ({ bucket, path, expiresIn = 3600, t
   const now = Date.now();
   const cached = storageUrlCache.get(cacheKey);
   if (cached?.promise) return cached.promise;
+  if (cached?.error && cached.expiresAt > now) return { signedUrl: "", error: cached.error };
   if (cached?.signedUrl && cached.expiresAt > now + storageUrlSafetyWindowMs) {
     return { signedUrl: cached.signedUrl, error: null };
   }
 
   const request = supabase.storage
     .from(bucket)
-    .createSignedUrl(path, normalizedExpiresIn, transform ? { transform } : undefined)
+    .createSignedUrl(transform ? thumbnailPath(path) : path, normalizedExpiresIn)
     .then(({ data, error }) => {
       if (error || !data?.signedUrl) {
-        storageUrlCache.delete(cacheKey);
-        return { signedUrl: "", error: error ?? new Error("No se ha podido firmar el archivo.") };
+        const failure = error ?? new Error("No se ha podido firmar el archivo.");
+        storageUrlCache.set(cacheKey, { error: failure, expiresAt: Date.now() + 60_000 });
+        return { signedUrl: "", error: failure };
       }
       storageUrlCache.set(cacheKey, {
         signedUrl: data.signedUrl,
@@ -156,7 +162,7 @@ export const createCachedStorageUrl = async ({ bucket, path, expiresIn = 3600, t
       return { signedUrl: data.signedUrl, error: null };
     })
     .catch((error) => {
-      storageUrlCache.delete(cacheKey);
+      storageUrlCache.set(cacheKey, { error, expiresAt: Date.now() + 60_000 });
       return { signedUrl: "", error };
     });
   storageUrlCache.set(cacheKey, { promise: request });
@@ -168,6 +174,15 @@ export const clearCachedStorageUrl = ({ bucket = "", path = "" } = {}) => {
   [...storageUrlCache.keys()].forEach((key) => {
     if (key.startsWith(prefix)) storageUrlCache.delete(key);
   });
+};
+
+const uploadStorageThumbnail = async (bucket, path, file) => {
+  const thumbnail = await createStorageThumbnail(file);
+  if (!thumbnail) return;
+  const { error } = await supabase.storage.from(bucket).upload(thumbnailPath(path), thumbnail, {
+    contentType: thumbnail.type, cacheControl: "86400", upsert: false,
+  });
+  if (!error) clearCachedStorageUrl({ bucket, path });
 };
 
 export const getTransactionRecord = async (id) => {
@@ -311,6 +326,8 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
     .upload(path, file, { contentType: mimeType, upsert: false });
   if (uploadError) throw uploadError;
 
+  await uploadStorageThumbnail("documents", path, file).catch(() => undefined);
+
   const { data, error } = await supabase
     .from("documents")
     .insert({
@@ -324,7 +341,7 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
     .single();
 
   if (error) {
-    await supabase.storage.from("documents").remove([path]);
+    await supabase.storage.from("documents").remove([path, thumbnailPath(path)]);
     if (resolvedFileHash && (error.code === "23505" || /file_hash|duplicad/i.test(error.message ?? ""))) {
       const racedDocument = await findDocumentByHash(ownerId, resolvedFileHash);
       if (racedDocument) return refreshPendingDocument(racedDocument, documentValues);
@@ -358,7 +375,8 @@ export const deleteDocumentRecord = async (document) => {
   let storageError = null;
   const filePath = document.file_path || data?.file_path || "";
   if (filePath) {
-    const result = await supabase.storage.from("documents").remove([filePath]);
+    const result = await supabase.storage.from("documents").remove([filePath, thumbnailPath(filePath)]);
+    clearCachedStorageUrl({ bucket: "documents", path: filePath });
     storageError = result.error ?? null;
   }
   return { ...(data ?? {}), deleted: true, storageError: storageError?.message || "" };
@@ -397,6 +415,7 @@ export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note =
       .from("maintenance-reports")
       .upload(photoPath, photoFile, { contentType: photoValidation.mimeType, upsert: false });
     if (uploadError) throw uploadError;
+    await uploadStorageThumbnail("maintenance-reports", photoPath, photoFile).catch(() => undefined);
   }
 
   const { data, error } = await supabase
@@ -416,7 +435,7 @@ export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note =
     .single();
 
   if (error) {
-    if (photoPath) await supabase.storage.from("maintenance-reports").remove([photoPath]);
+    if (photoPath) await supabase.storage.from("maintenance-reports").remove([photoPath, thumbnailPath(photoPath)]);
     throw error;
   }
   return data;
@@ -519,6 +538,7 @@ export const uploadCommissionReport = async ({ report, pdfBlob, createdBy }) => 
     .select("id, driver_id, vehicle_plate, period_start, period_end, driver_name, billing, commission_rate, commission_base, threshold_bonus, tips, tolls, total_benefit_month, payroll, total_to_collect, file_path, file_name, created_at, updated_at")
     .single();
   if (error) throw error;
+  clearCachedStorageUrl({ bucket: "commission-reports", path });
   return data;
 };
 
