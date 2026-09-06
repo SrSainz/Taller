@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "../src/maintenanceReports.js";
 
 test("conserva la fecha original del aviso aunque después se revise", () => {
@@ -74,4 +75,15 @@ test("conserva el nombre histórico del conductor aunque el perfil cambie", () =
 test("usa el nombre de la sesión solo como respaldo para el autor actual", () => {
   assert.equal(getMaintenanceReportReporterName({ reporter_id: "driver-1" }, { currentDriverId: "driver-1", currentDriverName: "Alex" }), "Alex");
   assert.equal(getMaintenanceReportReporterName({ reporter_id: "driver-2" }, { currentDriverId: "driver-1", currentDriverName: "Alex", fallbackDriverNames: ["Tirso"] }), "Tirso");
+});
+
+test("abre el histórico como diálogo de viewport sin añadirlo al final de Mantenimiento", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const stylesSource = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
+
+  assert.match(appSource, /createPortal\(<div className="maintenance-reports-dialog-backdrop"/);
+  assert.match(appSource, /document\.body\);/);
+  assert.match(appSource, /document\.body\.classList\.add\("viewport-dialog-open"\)/);
+  assert.match(appSource, /previouslyFocused\.focus\(\)/);
+  assert.match(stylesSource, /\.maintenance-reports-dialog-backdrop \{[^}]*position: fixed;[^}]*height: 100dvh;/s);
 });

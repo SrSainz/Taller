@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import {
   IconAlertTriangle,
   IconBrandUber,
@@ -8559,6 +8559,10 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const photoInputRef = useRef(null);
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const driverNames = useMemo(() => {
     const names = new Map();
     driverProfiles.forEach((driver) => {
@@ -8574,10 +8578,43 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   const vehicleDriverNames = (vehicle?.drivers ?? []).filter(Boolean).join(" · ") || "Conductores del coche";
 
   useEffect(() => {
-    const closeOnEscape = (event) => { if (event.key === "Escape") onClose(); };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+    const previouslyFocused = document.activeElement;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    document.body.classList.add("viewport-dialog-open");
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) document.body.style.paddingRight = `${scrollbarWidth}px`;
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current?.();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [...(dialogRef.current?.querySelectorAll('button:not([disabled]), textarea:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') ?? [])];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.classList.remove("viewport-dialog-open");
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.paddingRight = previousBodyPaddingRight;
+      if (previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) previouslyFocused.focus();
+    };
+  }, []);
 
   const choosePhoto = () => {
     const input = photoInputRef.current;
@@ -8634,11 +8671,11 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
     }
   };
 
-  return <div className="maintenance-reports-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title" data-maintenance-reports-dialog>
+  return createPortal(<div className="maintenance-reports-dialog-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section ref={dialogRef} className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title" aria-describedby="maintenance-reports-dialog-description" data-maintenance-reports-dialog>
       <header className="maintenance-reports-dialog__header">
-        <div><span className="eyebrow">Pendiente de revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></span><h2 id="maintenance-reports-dialog-title">Pendiente de mantenimiento</h2><p>{isRefreshing ? "Actualizando el histórico…" : pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Aquí se muestra lo mismo que registra el conductor: texto, foto, autor y fecha/hora original.</p>{refreshError && <small className="maintenance-reports-dialog__refresh-error" role="alert">No se ha podido actualizar ahora. Mostrando la última copia disponible.</small>}</div>
-        <button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar avisos de mantenimiento"><IconX size={18} /></button>
+        <div><span className="eyebrow">Pendiente de revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></span><h2 id="maintenance-reports-dialog-title">Pendiente de mantenimiento</h2><p id="maintenance-reports-dialog-description">{isRefreshing ? "Actualizando el histórico…" : pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Aquí se muestra lo mismo que registra el conductor: texto, foto, autor y fecha/hora original.</p>{refreshError && <small className="maintenance-reports-dialog__refresh-error" role="alert">No se ha podido actualizar ahora. Mostrando la última copia disponible.</small>}</div>
+        <button ref={closeButtonRef} type="button" className="icon-button" onClick={onClose} aria-label="Cerrar avisos de mantenimiento"><IconX size={18} /></button>
       </header>
       <form className="maintenance-reports-dialog__form" onSubmit={save}>
         <div><strong>Qué conviene hacer en la próxima revisión</strong><small>Consulta abajo los avisos del conductor o anota una intervención para este coche. También puedes añadir una foto.</small></div>
@@ -8665,7 +8702,7 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
         </div>
       </section>
     </section>
-  </div>;
+  </div>, document.body);
 }
 
 function formatMaintenanceReportDate(value) {
