@@ -85,6 +85,35 @@ passed
 
 final result: passed
 
+---
+
+# Design QA — retirada de textos en Pendiente de revisión (14 septiembre 2026)
+
+## Referencia e implementación
+
+- Referencia visual: `C:/Users/aiday/AppData/Local/Temp/codex-clipboard-ae7b7dd4-4cdf-4786-8e9b-bd3dba2432e4.png` (791 × 193 px).
+- Implementación publicada: `https://talleria-flota.vercel.app/?release=f9f02b8#/mantenimiento`.
+- Evidencia: captura browser-rendered de producción a 1535 × 734 px, escala 1, en Administración → Mantenimiento → 5043 MLC → Pendiente de revisión. El conector del navegador no expuso una ruta local persistente para esta captura.
+- Normalización: comparación focal del bloque superior; la referencia es un recorte y la evidencia muestra el diálogo completo.
+
+## Comparación visual
+
+- Se retiraron “Pendiente de mantenimiento”, el mensaje que comenzaba por “No hay avisos pendientes” y la introducción “Qué conviene hacer en la próxima revisión”.
+- El formulario comienza directamente con el campo de intervención y mantiene Foto, Guardar intervención y Cerrar.
+- El histórico conserva matrícula, conductores, contador, autor, fecha/hora, estado y texto completo.
+- Tipografía, colores, iconos y activos visuales permanecen sin cambios; el encabezado se compactó sin solapamientos ni recortes.
+
+## Verificación
+
+- Interacciones: apertura de Mantenimiento y del diálogo de 5043 MLC comprobadas en producción.
+- Accesibilidad: el título retirado visualmente se conserva como nombre oculto del diálogo y el cierre mantiene su etiqueta.
+- Consola: sin errores.
+- Pruebas: 79/79 superadas.
+- Compilación de producción: superada.
+- Hallazgos P0/P1/P2 pendientes: ninguno.
+
+final result: passed
+
 ## Iteracion actual: rediseño de NETO segun referencia de tarjetas deslizables
 
 - Source visual truth: `C:/Users/aiday/OneDrive/Escritorio/app david/.codex-remote-attachments/019fd3ce-9cc5-7010-89a4-15da8da4d73a/ac1a1557-d72a-48ec-8771-864aa6ba0930/1-Photo-1.jpg` (640 x 1280 px, referencia proporcionada por la persona usuaria).
