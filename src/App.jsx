@@ -8672,9 +8672,15 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
 
   return createPortal(<div className="maintenance-reports-dialog-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section ref={dialogRef} className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title" data-maintenance-reports-dialog>
-      <header className="maintenance-reports-dialog__header maintenance-reports-dialog__header--compact">
-        <h2 id="maintenance-reports-dialog-title" className="sr-only">Histórico de revisiones de <VehiclePlateLabel vehicleOrPlate={vehicle} /></h2>
-        <button ref={closeButtonRef} type="button" className="icon-button" onClick={onClose} aria-label="Cerrar avisos de mantenimiento"><IconX size={18} /></button>
+      <header className="maintenance-reports-dialog__header maintenance-reports-dialog__header--history">
+        <div className="maintenance-reports-dialog__header-title">
+          <h2 id="maintenance-reports-dialog-title">HISTÓRICO DEL COCHE<span className="sr-only"> <VehiclePlateLabel vehicleOrPlate={vehicle} /></span></h2>
+          <span>{vehicleDriverNames}</span>
+        </div>
+        <div className="maintenance-reports-dialog__header-actions">
+          <b aria-label={`${reportCounts.total} avisos registrados`}>{reportCounts.total}</b>
+          <button ref={closeButtonRef} type="button" className="icon-button" onClick={onClose} aria-label="Cerrar avisos de mantenimiento"><IconX size={18} /></button>
+        </div>
       </header>
       <form className="maintenance-reports-dialog__form" onSubmit={save}>
         <textarea value={note} onChange={(event) => setNote(event.target.value)} rows="3" placeholder="Escribe las intervenciones previstas para la próxima revisión…" aria-label="Intervenciones de la próxima revisión" />
@@ -8684,10 +8690,6 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
         <footer><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="maintenance-report-camera-button" onClick={choosePhoto} disabled={saving}><IconCamera size={16} />Foto</button><button type="submit" className="primary-button" disabled={saving}><IconCheck size={16} />{saving ? "Guardando…" : "Guardar intervención"}</button></footer>
       </form>
       <section className="maintenance-reports-dialog__history" aria-label={`Histórico del coche ${vehicle?.plate ?? ""}`}>
-        <header className="maintenance-reports-dialog__history-header">
-          <div><strong>HISTÓRICO DEL COCHE</strong><span>{vehicleDriverNames}</span></div>
-          <b>{reportCounts.total}</b>
-        </header>
         <div className="maintenance-reports-dialog__list" aria-live="polite">
           {sortedReports.length === 0 && <div className="empty-state maintenance-reports-dialog__empty"><IconHistory size={23} /><strong>Histórico disponible</strong><span>No hay avisos archivados para este coche todavía.</span><small>Cuando un conductor escriba una incidencia, quedará guardada aquí con todo su texto y la fecha y hora de registro.</small></div>}
           {sortedReports.map((report, index) => { const recordedAt = getMaintenanceReportRecordedAt(report); const reportNote = getMaintenanceReportNote(report); const reportPhotoPath = report.photoPath ?? report.photo_path ?? ""; const reporterId = report.reporterId ?? report.reporter_id ?? report.reporterID ?? ""; const reporterName = getMaintenanceReportReporterName(report, { fallbackDriverNames: [driverNames.get(String(reporterId)), ...((vehicle?.drivers ?? []).filter(Boolean)), "Administrador"] }); return <article className={`maintenance-report-card maintenance-report-card--${report.status}`} data-report-id={report.id} data-recorded-at={recordedAt} key={report.id || `${recordedAt}-${index}`}>

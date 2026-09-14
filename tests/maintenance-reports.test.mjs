@@ -87,5 +87,8 @@ test("abre el histórico como diálogo de viewport sin añadirlo al final de Man
   assert.match(appSource, /previouslyFocused\.focus\(\)/);
   assert.doesNotMatch(appSource, /<h2 id="maintenance-reports-dialog-title">Pendiente de mantenimiento<\/h2>/);
   assert.doesNotMatch(appSource, /Consulta abajo los avisos del conductor o anota una intervención/);
+  assert.match(appSource, /maintenance-reports-dialog__header--history[\s\S]*HISTÓRICO DEL COCHE[\s\S]*maintenance-reports-dialog__header-actions[\s\S]*Cerrar avisos de mantenimiento/);
+  assert.ok(appSource.indexOf("maintenance-reports-dialog__header--history") < appSource.indexOf('className="maintenance-reports-dialog__form"'));
+  assert.doesNotMatch(appSource, /<header className="maintenance-reports-dialog__history-header">/);
   assert.match(stylesSource, /\.maintenance-reports-dialog-backdrop \{[^}]*position: fixed;[^}]*height: 100dvh;/s);
 });
