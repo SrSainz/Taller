@@ -512,3 +512,37 @@ final result: passed
 - [x] Comparación visual anterior/posterior documentada.
 
 final result: passed
+
+## 14 de septiembre de 2026 — Actualizar igual a campana
+
+### Evidencia
+
+- Fuente visual: `C:/Users/aiday/AppData/Local/Temp/codex-clipboard-e1915382-f85a-4bb7-b03e-cd26ae93697f.png` (124 × 51 px), que muestra el control anterior con icono y texto.
+- Verdad de diseño: indicación expresa del usuario de que el control de actualización tenga exactamente el mismo tamaño que la campana.
+- Implementación browser-rendered: `design-qa-topbar-refresh-production.jpg` (266 × 74 px), capturada en producción en `https://talleria-flota.vercel.app/?release=f2ae213#/informes`.
+- Viewport de producción: 1536 × 734 CSS px, densidad del navegador no alterada. La comparación relevante se realiza dentro de una misma captura, donde Actualizar y campana aparecen juntos.
+- Medición DOM: Actualizar 30 × 30 CSS px; campana 30 × 30 CSS px. En los breakpoints ya definidos ambos comparten igualmente 34 × 34 px y 29 × 29 px.
+
+### Comparación y superficies de fidelidad
+
+- Tipografía: el texto visual “Actualizar” desaparece para conseguir la misma huella que la campana; “Actualizar datos” permanece como nombre accesible.
+- Espaciado y ritmo: ambos controles son cuadrados, están alineados verticalmente y usan la misma altura en la barra.
+- Color y tokens: se conserva el tratamiento oscuro existente de la barra y el mismo lenguaje visual de los controles vecinos.
+- Imágenes e iconos: se mantiene el icono vectorial de refresco, nítido y centrado; no se sustituyen recursos visuales.
+- Copy: no queda texto visible que ensanche el botón; la etiqueta accesible conserva el significado completo.
+
+### Verificación
+
+- `pnpm test`: 80/80 pruebas superadas.
+- `pnpm build`: superado.
+- Despliegue Vercel del commit `f2ae213`: estado `success`.
+- No se encontraron diferencias P0, P1 o P2 respecto al requisito de igualdad dimensional.
+
+### Checklist
+
+- [x] Actualizar y campana miden lo mismo en producción.
+- [x] Icono de refresco centrado y sin texto visible.
+- [x] Nombre accesible conservado.
+- [x] Breakpoints de escritorio, administración y móvil mantienen la igualdad.
+
+final result: passed
