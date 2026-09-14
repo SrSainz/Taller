@@ -85,5 +85,7 @@ test("abre el histórico como diálogo de viewport sin añadirlo al final de Man
   assert.match(appSource, /document\.body\);/);
   assert.match(appSource, /document\.body\.classList\.add\("viewport-dialog-open"\)/);
   assert.match(appSource, /previouslyFocused\.focus\(\)/);
+  assert.doesNotMatch(appSource, /<h2 id="maintenance-reports-dialog-title">Pendiente de mantenimiento<\/h2>/);
+  assert.doesNotMatch(appSource, /Consulta abajo los avisos del conductor o anota una intervención/);
   assert.match(stylesSource, /\.maintenance-reports-dialog-backdrop \{[^}]*position: fixed;[^}]*height: 100dvh;/s);
 });

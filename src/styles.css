@@ -5239,6 +5239,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .maintenance-reports-dialog__header p { margin: 0; color: #846b3b; font-size: 13px; line-height: 1.4; }
 .maintenance-reports-dialog__refresh-error { display: block; margin-top: 5px; color: #a23d2d; font-size: 12px; line-height: 1.35; }
 .maintenance-reports-dialog__header .icon-button { flex: 0 0 auto; border-color: #e7c77d; color: #8a610f; }
+.maintenance-reports-dialog__header--compact { align-items: center; justify-content: flex-end; padding: 8px 10px; }
 .maintenance-reports-dialog__history { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 .maintenance-reports-dialog__history-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 18px 8px; border-bottom: 1px solid #f0dfb4; background: #fffaf0; }
 .maintenance-reports-dialog__history-header > div { min-width: 0; display: grid; gap: 2px; }
@@ -5290,6 +5291,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
   .maintenance-reports-dialog-backdrop { place-items: center; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
   .maintenance-reports-dialog { width: 100%; max-height: calc(100dvh - 16px); border-radius: 15px; }
   .maintenance-reports-dialog__header { padding: 14px 13px 12px; }
+  .maintenance-reports-dialog__header--compact { padding: 7px 9px; }
   .maintenance-reports-dialog__header h2 { font-size: 16px; }
   .maintenance-reports-dialog__header p { font-size: 12px; }
   .maintenance-reports-dialog__list { padding: 11px 12px; }

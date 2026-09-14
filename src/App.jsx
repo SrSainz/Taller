@@ -8553,7 +8553,7 @@ function MaintenanceReportPhoto({ report }) {
   return <a className="maintenance-report-photo" href={originalUrl || undefined} target="_blank" rel="noreferrer" aria-label={`Abrir foto de la incidencia ${report.photoName || ""}`} onClick={openOriginal} aria-busy={opening || undefined}><img src={state.url} alt={`Foto de incidencia de ${report.vehiclePlate}`} loading="lazy" /><span><IconCamera size={14} />Abrir foto original</span></a>;
 }
 
-function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], onClose, onSave, onMarkReviewed, isRefreshing = false, refreshError = "" }) {
+function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], onClose, onSave, onMarkReviewed }) {
   const [note, setNote] = useState("");
   const [photo, setPhoto] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -8574,7 +8574,6 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   }, [driverProfiles]);
   const sortedReports = sortMaintenanceReportsByRecordedAt(reports);
   const reportCounts = getMaintenanceReportCounts(sortedReports);
-  const pendingCount = reportCounts.pending;
   const vehicleDriverNames = (vehicle?.drivers ?? []).filter(Boolean).join(" · ") || "Conductores del coche";
 
   useEffect(() => {
@@ -8672,13 +8671,12 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   };
 
   return createPortal(<div className="maintenance-reports-dialog-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section ref={dialogRef} className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title" aria-describedby="maintenance-reports-dialog-description" data-maintenance-reports-dialog>
-      <header className="maintenance-reports-dialog__header">
-        <div><span className="eyebrow">Pendiente de revisión · <VehiclePlateLabel vehicleOrPlate={vehicle} /></span><h2 id="maintenance-reports-dialog-title">Pendiente de mantenimiento</h2><p id="maintenance-reports-dialog-description">{isRefreshing ? "Actualizando el histórico…" : pendingCount ? `${pendingCount} aviso${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : "No hay avisos pendientes"}. Aquí se muestra lo mismo que registra el conductor: texto, foto, autor y fecha/hora original.</p>{refreshError && <small className="maintenance-reports-dialog__refresh-error" role="alert">No se ha podido actualizar ahora. Mostrando la última copia disponible.</small>}</div>
+    <section ref={dialogRef} className="maintenance-reports-dialog" role="dialog" aria-modal="true" aria-labelledby="maintenance-reports-dialog-title" data-maintenance-reports-dialog>
+      <header className="maintenance-reports-dialog__header maintenance-reports-dialog__header--compact">
+        <h2 id="maintenance-reports-dialog-title" className="sr-only">Histórico de revisiones de <VehiclePlateLabel vehicleOrPlate={vehicle} /></h2>
         <button ref={closeButtonRef} type="button" className="icon-button" onClick={onClose} aria-label="Cerrar avisos de mantenimiento"><IconX size={18} /></button>
       </header>
       <form className="maintenance-reports-dialog__form" onSubmit={save}>
-        <div><strong>Qué conviene hacer en la próxima revisión</strong><small>Consulta abajo los avisos del conductor o anota una intervención para este coche. También puedes añadir una foto.</small></div>
         <textarea value={note} onChange={(event) => setNote(event.target.value)} rows="3" placeholder="Escribe las intervenciones previstas para la próxima revisión…" aria-label="Intervenciones de la próxima revisión" />
         <input ref={photoInputRef} className="sr-only" type="file" accept="image/*" capture="environment" aria-label="Fotografiar incidencia desde Administración" onChange={handlePhoto} />
         {photo && <div className="maintenance-reports-dialog__selected-file"><IconCamera size={14} /><span>{photo.name}</span><button type="button" onClick={() => setPhoto(null)} aria-label="Quitar foto seleccionada"><IconX size={13} /></button></div>}
@@ -9003,7 +9001,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
         </div>
         </div>
       </section>
-      {reportsPlate && <MaintenanceReportsDialog vehicle={vehicles.find((vehicle) => vehicle.plate === reportsPlate) ?? vehicles[0]} reports={reportsDialogReports} driverProfiles={driverProfiles} onClose={closeMaintenanceReports} onSave={onSaveMaintenanceReport} onMarkReviewed={handleMaintenanceReportReviewed} isRefreshing={reportsRefreshing} refreshError={reportsRefreshError} />}
+      {reportsPlate && <MaintenanceReportsDialog vehicle={vehicles.find((vehicle) => vehicle.plate === reportsPlate) ?? vehicles[0]} reports={reportsDialogReports} driverProfiles={driverProfiles} onClose={closeMaintenanceReports} onSave={onSaveMaintenanceReport} onMarkReviewed={handleMaintenanceReportReviewed} />}
     </section>
   );
 }
