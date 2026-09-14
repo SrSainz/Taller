@@ -546,3 +546,37 @@ final result: passed
 - [x] Breakpoints de escritorio, administración y móvil mantienen la igualdad.
 
 final result: passed
+
+## 14 de septiembre de 2026 — Encabezado superior del histórico
+
+### Evidencia
+
+- Fuente visual: `C:/Users/aiday/AppData/Local/Temp/codex-clipboard-1105a7b2-1e2e-4c4a-a586-38a9be44f0b7.png` (882 × 63 px).
+- Verdad de diseño: “HISTÓRICO DEL COCHE” debe ser la primera zona del panel, sin una fila vacía encima, y la X debe quedar alineada a la derecha.
+- Implementación browser-rendered: `design-qa-maintenance-history-header-production.jpg` (724 × 330 px), capturada en la versión autenticada de producción `https://talleria-flota.vercel.app/?release=98dbda8#/mantenimiento`.
+- Viewport: 1038 × 671 CSS px, densidad del navegador sin alterar. El recorte conserva el borde superior completo del diálogo y su primer contenido.
+- Medición DOM: el encabezado es `firstElementChild` del diálogo; su borde superior comienza en 138,4 px y el diálogo en 137,6 px, diferencia correspondiente únicamente al borde de 1 px.
+
+### Comparación y superficies de fidelidad
+
+- Tipografía: título en mayúsculas y negrita; conductores en una segunda línea más ligera, conforme a la referencia.
+- Espaciado y ritmo: no existe ninguna fila ni bloque de contenido entre el borde superior del diálogo y el encabezado; el formulario empieza inmediatamente después.
+- Color y tokens: se conservan fondo crema, divisor dorado y contador naranja de la referencia.
+- Imágenes e iconos: no hay imágenes raster que reproducir; la X usa el icono existente de la biblioteca y mantiene nitidez.
+- Copy: se mantienen “HISTÓRICO DEL COCHE”, los nombres de los conductores y el contador real.
+- Comparación enfocada: la captura publicada muestra conjuntamente título, conductores, contador y X en la primera fila, sin espacio superior intermedio.
+
+### Interacciones verificadas
+
+- El botón PENDIENTE DE REVISIÓN abre el diálogo correcto de la matrícula 5043 MLC.
+- La X conserva el nombre accesible “Cerrar avisos de mantenimiento”.
+- El formulario y el histórico permanecen dentro del mismo diálogo y no pierden funcionalidad.
+- No quedan hallazgos P0, P1 o P2.
+
+### Verificación técnica
+
+- `pnpm test`: 80/80 pruebas superadas.
+- `pnpm build`: superado.
+- Vercel para `98dbda8`: estado `success`.
+
+final result: passed
