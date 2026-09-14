@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getCurrentDriverWeekRange, isDriverDateInCurrentWeek } from "../src/driverEditWindow.js";
+import { getCurrentDriverWeekRange, getDriverEditableWeekRange, isDriverDateInEditableWindow } from "../src/driverEditWindow.js";
 
-test("la ventana editable del conductor es la semana natural de lunes a domingo", () => {
+test("la ventana editable incluye la semana actual y la inmediatamente anterior", () => {
   const now = new Date("2026-09-04T10:00:00.000Z");
   assert.deepEqual(getCurrentDriverWeekRange(now), {
     todayDateKey: "2026-09-04",
@@ -11,10 +11,18 @@ test("la ventana editable del conductor es la semana natural de lunes a domingo"
     endDateKey: "2026-09-06",
     timeZone: "Europe/Madrid",
   });
-  assert.equal(isDriverDateInCurrentWeek("2026-08-31", now), true);
-  assert.equal(isDriverDateInCurrentWeek("2026-09-06", now), true);
-  assert.equal(isDriverDateInCurrentWeek("2026-08-30", now), false);
-  assert.equal(isDriverDateInCurrentWeek("2026-09-07", now), false);
+  assert.deepEqual(getDriverEditableWeekRange(now), {
+    todayDateKey: "2026-09-04",
+    startDateKey: "2026-08-24",
+    endDateKey: "2026-09-06",
+    timeZone: "Europe/Madrid",
+  });
+  assert.equal(isDriverDateInEditableWindow("2026-08-24", now), true);
+  assert.equal(isDriverDateInEditableWindow("2026-08-30", now), true);
+  assert.equal(isDriverDateInEditableWindow("2026-08-23", now), false);
+  assert.equal(isDriverDateInEditableWindow("2026-08-31", now), true);
+  assert.equal(isDriverDateInEditableWindow("2026-09-06", now), true);
+  assert.equal(isDriverDateInEditableWindow("2026-09-07", now), false);
 });
 
 test("la fecha se calcula con horario de Madrid al pasar la medianoche UTC", () => {
@@ -25,6 +33,8 @@ test("la fecha se calcula con horario de Madrid al pasar la medianoche UTC", () 
     endDateKey: "2026-09-13",
     timeZone: "Europe/Madrid",
   });
-  assert.equal(isDriverDateInCurrentWeek("2026-09-06", now), false);
-  assert.equal(isDriverDateInCurrentWeek("2026-09-07", now), true);
+  assert.equal(isDriverDateInEditableWindow("2026-08-31", now), true);
+  assert.equal(isDriverDateInEditableWindow("2026-09-06", now), true);
+  assert.equal(isDriverDateInEditableWindow("2026-08-30", now), false);
+  assert.equal(isDriverDateInEditableWindow("2026-09-07", now), true);
 });

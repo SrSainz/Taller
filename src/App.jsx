@@ -92,7 +92,7 @@ import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as get
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
-import { getCurrentDriverWeekRange, isDriverDateInCurrentWeek } from "./driverEditWindow";
+import { getDriverEditableWeekRange, isDriverDateInEditableWindow } from "./driverEditWindow";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
 import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
@@ -105,7 +105,7 @@ const INTRACOMMUNITY_VAT_RATE = 0.08;
 const DRIVER_EDITABLE_WEEKLY_ROWS = new Set(driverEditableWeeklyRowKeys);
 const ADMIN_EDITABLE_WEEKLY_ROWS = new Set(administratorEditableWeeklyRowKeys);
 const WEEKLY_EDIT_MAX_PRESS_MS = 1000;
-const DRIVER_CURRENT_WEEK_ONLY_MESSAGE = "Solo puedes modificar la semana en curso (de lunes a domingo). Las semanas y meses anteriores son de solo consulta.";
+const DRIVER_EDITABLE_WEEKS_MESSAGE = "Solo puedes modificar la semana en curso y la inmediatamente anterior (de lunes a domingo). Las fechas anteriores y futuras son de solo consulta.";
 const DATA_REFRESH_MIN_INTERVAL_MS = 60 * 1000;
 const DOCUMENT_THUMBNAIL_TRANSFORM = { width: 320, height: 240, resize: "contain", quality: 65 };
 const canTransformImage = (mimeType) => String(mimeType ?? "").startsWith("image/") && !["image/heic", "image/heif"].includes(String(mimeType ?? "").toLocaleLowerCase("es"));
@@ -3912,8 +3912,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const circleUploadKeyRef = useRef("");
   const circlePreviewUrlsRef = useRef({});
   const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profileVehiclePlate);
-  const currentDriverWeek = getCurrentDriverWeekRange();
-  const canEditSelectedDate = preview || isDriverDateInCurrentWeek(selectedDate);
+  const driverEditableWeek = getDriverEditableWeekRange();
+  const canEditSelectedDate = preview || isDriverDateInEditableWindow(selectedDate);
 
   useEffect(() => {
     driverEntriesRef.current = entries;
@@ -4092,8 +4092,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
 
   const removeDriverDocument = useCallback(async (document) => {
     if (!document?.id) throw new Error("No se ha encontrado el documento.");
-    if (!preview && !isDriverDateInCurrentWeek(getDriverDocumentDateKey(document))) {
-      throw new Error(DRIVER_CURRENT_WEEK_ONLY_MESSAGE);
+    if (!preview && !isDriverDateInEditableWindow(getDriverDocumentDateKey(document))) {
+      throw new Error(DRIVER_EDITABLE_WEEKS_MESSAGE);
     }
     const cleaned = removeDocumentLocalData({ document, documents, entries, circleMetricValues });
     if (!supabase) {
@@ -4377,7 +4377,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
 
   const updateEntry = (key, value) => setEntry((current) => ({ ...current, [key]: value }));
   const upsertDriverEntry = async (dateKey, patch = {}) => {
-    if (!preview && !isDriverDateInCurrentWeek(dateKey)) throw new Error(DRIVER_CURRENT_WEEK_ONLY_MESSAGE);
+    if (!preview && !isDriverDateInEditableWindow(dateKey)) throw new Error(DRIVER_EDITABLE_WEEKS_MESSAGE);
     const existing = entries.find((item) => String(item.entry_date) === dateKey) ?? {};
     const numberFor = (key) => {
       const value = patch[key] === undefined ? existing[key] : patch[key];
@@ -4420,8 +4420,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     event.preventDefault();
     setMessage("");
     if (preview) return setMessage("Estás viendo una vista previa. Solo el conductor puede guardar sus datos.");
-    if (!isDriverDateInCurrentWeek(entry.entryDate)) {
-      setMessage(DRIVER_CURRENT_WEEK_ONLY_MESSAGE);
+    if (!isDriverDateInEditableWindow(entry.entryDate)) {
+      setMessage(DRIVER_EDITABLE_WEEKS_MESSAGE);
       return;
     }
     setSaving(true);
@@ -4440,7 +4440,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
           intentionalDate: intentionalUploadDate,
         })
         : entry.entryDate;
-      if (!isDriverDateInCurrentWeek(uploadDate)) throw new Error(DRIVER_CURRENT_WEEK_ONLY_MESSAGE);
+      if (!isDriverDateInEditableWindow(uploadDate)) throw new Error(DRIVER_EDITABLE_WEEKS_MESSAGE);
       const data = await upsertDriverEntry(uploadDate, {
         wash_expenses: Number(entry.washExpenses) || 0,
         other_expenses: Number(entry.otherExpenses) || 0,
@@ -4810,8 +4810,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     billing: "/assets/driver-examples/photo-5.jpg",
   };
   const openCirclePicker = (recordKey) => {
-    if (!preview && !isDriverDateInCurrentWeek(selectedDate)) {
-      setMessage(DRIVER_CURRENT_WEEK_ONLY_MESSAGE);
+    if (!preview && !isDriverDateInEditableWindow(selectedDate)) {
+      setMessage(DRIVER_EDITABLE_WEEKS_MESSAGE);
       return;
     }
     circleUploadKeyRef.current = recordKey;
@@ -4833,9 +4833,9 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     const recordKey = circleUploadKeyRef.current;
     event.target.value = "";
     if (!file || !recordKey) return;
-    if (!preview && !isDriverDateInCurrentWeek(selectedDate)) {
+    if (!preview && !isDriverDateInEditableWindow(selectedDate)) {
       setCircleUpload({ key: recordKey, status: "error", fileName: file.name });
-      setMessage(DRIVER_CURRENT_WEEK_ONLY_MESSAGE);
+      setMessage(DRIVER_EDITABLE_WEEKS_MESSAGE);
       return;
     }
     const validation = validateDocumentFile(file, "upload");
@@ -4883,8 +4883,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       recordType: recordKey,
       intentionalDate: reviewDocument.dateWasEdited ? fields.date : "",
     });
-    if (!preview && !isDriverDateInCurrentWeek(targetDate)) {
-      const errorMessage = DRIVER_CURRENT_WEEK_ONLY_MESSAGE;
+    if (!preview && !isDriverDateInEditableWindow(targetDate)) {
+      const errorMessage = DRIVER_EDITABLE_WEEKS_MESSAGE;
       setCircleUpload({ key: recordKey, status: "error", fileName: file.name });
       setMessage(errorMessage);
       return { ok: false, message: errorMessage };
@@ -5046,8 +5046,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const saveWeeklyAmount = async (dateKey, rowKey, rawValue) => {
     const editableWeeklyRows = preview ? ADMIN_EDITABLE_WEEKLY_ROWS : DRIVER_EDITABLE_WEEKLY_ROWS;
     if (!editableWeeklyRows.has(rowKey)) return;
-    if (!preview && !isDriverDateInCurrentWeek(dateKey)) {
-      setMessage(DRIVER_CURRENT_WEEK_ONLY_MESSAGE);
+    if (!preview && !isDriverDateInEditableWindow(dateKey)) {
+      setMessage(DRIVER_EDITABLE_WEEKS_MESSAGE);
       return;
     }
     const amount = Math.max(0, Number(String(rawValue ?? "").replace(",", ".")) || 0);
@@ -5148,7 +5148,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     driverCalendarDocuments={driverCalendarDocuments}
     driverDayDocumentsLoading={documentsLoading}
     onDeleteDriverDocument={removeDriverDocument}
-    currentDriverWeek={currentDriverWeek}
+    currentDriverWeek={driverEditableWeek}
     canEditSelectedDate={canEditSelectedDate}
     driverReferenceImages={driverReferenceImages}
     averageConsumption={averageConsumption}
@@ -5507,7 +5507,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       : <span className="driver-mobile-calendar-document__file"><IconFileInvoice size={22} /><small>{canOpen ? (isImage ? "Abrir foto original" : "Abrir archivo") : "Preparando vista"}</small></span>;
     const deleteKey = `${keyPrefix}-${document.id}`;
     const documentDateKey = getDriverDocumentDateKey(document) || dateKey;
-    const canDelete = preview || isDriverDateInCurrentWeek(documentDateKey);
+    const canDelete = preview || isDriverDateInEditableWindow(documentDateKey);
     return <article className="driver-mobile-calendar-document" key={document.id}>
       {canOpen ? <CachedDocumentLink document={document} className="driver-mobile-calendar-document__preview" aria-label={`Ver ${label.toLowerCase()} ${document.file_name || "archivado"}`}>{previewContent}</CachedDocumentLink> : <span className="driver-mobile-calendar-document__preview" aria-label="Vista previa en preparación">{previewContent}</span>}
       <div className="driver-mobile-calendar-document__info"><strong>{label}</strong><span title={document.file_name || "Archivo original"}>{document.file_name || "Archivo original"}</span><small>{document.status === "approved" ? "Validado" : "Pendiente de revisión"}</small></div>
@@ -5592,7 +5592,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   };
   const openEntry = () => {
     if (!preview && !canEditSelectedDate) {
-      setMessage(DRIVER_CURRENT_WEEK_ONLY_MESSAGE);
+      setMessage(DRIVER_EDITABLE_WEEKS_MESSAGE);
       setDriverMenuOpen(false);
       return;
     }
@@ -5666,12 +5666,12 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     weeklyPressRef.current = { pointerId: null, startAt: 0, startX: 0, startY: 0, cancelled: false };
   };
   const openWeeklyEditor = (draftKey, value, rowKey = "", dateKey = "") => {
-    if ((rowKey && !editableWeeklyRows.has(rowKey)) || (!preview && !isDriverDateInCurrentWeek(dateKey))) return;
+    if ((rowKey && !editableWeeklyRows.has(rowKey)) || (!preview && !isDriverDateInEditableWindow(dateKey))) return;
     setWeeklyDrafts((current) => Object.hasOwn(current, draftKey) ? current : { ...current, [draftKey]: formatWeeklyAmount(value) });
     setWeeklyEditKey(draftKey);
   };
   const startWeeklyPress = (draftKey, value, rowKey, dateKey, event) => {
-    if (!editableWeeklyRows.has(rowKey) || (!preview && !isDriverDateInCurrentWeek(dateKey))) return;
+    if (!editableWeeklyRows.has(rowKey) || (!preview && !isDriverDateInEditableWindow(dateKey))) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     weeklyPressRef.current = { pointerId: event.pointerId, startAt: Date.now(), startX: event.clientX, startY: event.clientY, cancelled: false };
   };
@@ -5702,10 +5702,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     return () => document.removeEventListener("pointerdown", closeWeeklyEditorOutside, true);
   }, [weeklyEditKey]);
   const weeklyCell = (row, value, dateKey, isEditorHost = false) => {
-    const canEditDate = preview || isDriverDateInCurrentWeek(dateKey);
+    const canEditDate = preview || isDriverDateInEditableWindow(dateKey);
     if (!editableWeeklyRows.has(row.key) || !canEditDate) {
       const formattedValue = formatWeeklyCellAmount(value, row.key);
-      const readOnlyReason = canEditDate ? "Solo lectura" : DRIVER_CURRENT_WEEK_ONLY_MESSAGE;
+      const readOnlyReason = canEditDate ? "Solo lectura" : DRIVER_EDITABLE_WEEKS_MESSAGE;
       return <span className="driver-mobile-week-table__amount-readonly" title={readOnlyReason} aria-label={`${row.label} del ${dateKey}: ${formattedValue}. ${readOnlyReason}`}>{formattedValue}</span>;
     }
     const draftKey = `${dateKey}:${row.key}`;
@@ -5901,14 +5901,14 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
          </section>
          {maintenanceNoteOpen && renderMaintenanceHistory()}
          <section ref={statsRef} className="driver-mobile-section driver-mobile-section--today" aria-label="Registros diarios">
-          {!preview && !canEditSelectedDate && <div className="driver-mobile-read-only-notice" role="status"><strong>PERIODO EN SOLO LECTURA</strong><span>Las semanas y meses anteriores solo se pueden consultar. Los cambios están disponibles en la semana en curso.</span></div>}
+          {!preview && !canEditSelectedDate && <div className="driver-mobile-read-only-notice" role="status"><strong>PERIODO EN SOLO LECTURA</strong><span>Solo se puede modificar la semana en curso y la inmediatamente anterior.</span></div>}
           <div className="driver-mobile-record-grid">
             {dailyPhotoRecords.map(({ key, label, image, hasAttachment, document, Icon: RecordIcon, alt }) => {
               const isUploading = circleUpload.key === key && circleUpload.status === "uploading";
               const isAttached = hasAttachment || circleUpload.key === key && ["saved", "local"].includes(circleUpload.status);
               const statusLabel = isUploading ? "Guardando…" : isAttached ? "Justificante archivado" : "Sin adjunto";
               return <div className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key}>
-                <button type="button" className="driver-mobile-record-card__upload" onClick={() => openCirclePicker(key)} disabled={isUploading || (!preview && !canEditSelectedDate)} aria-label={`${label}: ${statusLabel}`} title={!preview && !canEditSelectedDate ? DRIVER_CURRENT_WEEK_ONLY_MESSAGE : `Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>
+                <button type="button" className="driver-mobile-record-card__upload" onClick={() => openCirclePicker(key)} disabled={isUploading || (!preview && !canEditSelectedDate)} aria-label={`${label}: ${statusLabel}`} title={!preview && !canEditSelectedDate ? DRIVER_EDITABLE_WEEKS_MESSAGE : `Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>
               </div>;
             })}
           </div>

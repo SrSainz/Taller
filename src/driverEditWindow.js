@@ -45,8 +45,24 @@ export const getCurrentDriverWeekRange = (now = new Date(), timeZone = "Europe/M
   };
 };
 
-export const isDriverDateInCurrentWeek = (dateKey, now = new Date(), timeZone = "Europe/Madrid") => {
+/**
+ * Drivers can edit the current natural week and the immediately preceding
+ * Monday-Sunday week. Older dates and future dates remain read-only.
+ */
+export const getDriverEditableWeekRange = (now = new Date(), timeZone = "Europe/Madrid") => {
+  const currentWeek = getCurrentDriverWeekRange(now, timeZone);
+  const start = dateKeyToUtcDate(currentWeek.startDateKey);
+  start.setUTCDate(start.getUTCDate() - 7);
+  return {
+    todayDateKey: currentWeek.todayDateKey,
+    startDateKey: utcDateToDateKey(start),
+    endDateKey: currentWeek.endDateKey,
+    timeZone,
+  };
+};
+
+export const isDriverDateInEditableWindow = (dateKey, now = new Date(), timeZone = "Europe/Madrid") => {
   if (!dateKeyToUtcDate(String(dateKey ?? ""))) return false;
-  const range = getCurrentDriverWeekRange(now, timeZone);
+  const range = getDriverEditableWeekRange(now, timeZone);
   return String(dateKey) >= range.startDateKey && String(dateKey) <= range.endDateKey;
 };
