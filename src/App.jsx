@@ -92,7 +92,7 @@ import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as get
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
-import { getDriverEditableWeekRange, isDriverDateInEditableWindow } from "./driverEditWindow";
+import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
 import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
@@ -105,7 +105,7 @@ const INTRACOMMUNITY_VAT_RATE = 0.08;
 const DRIVER_EDITABLE_WEEKLY_ROWS = new Set(driverEditableWeeklyRowKeys);
 const ADMIN_EDITABLE_WEEKLY_ROWS = new Set(administratorEditableWeeklyRowKeys);
 const WEEKLY_EDIT_MAX_PRESS_MS = 1000;
-const DRIVER_EDITABLE_WEEKS_MESSAGE = "Solo puedes modificar la semana en curso y la inmediatamente anterior (de lunes a domingo). Las fechas anteriores y futuras son de solo consulta.";
+const DRIVER_EDITABLE_MONTHS_MESSAGE = "Puedes modificar el mes en curso y el mes anterior completos. Los meses anteriores y las fechas futuras son de solo consulta.";
 const DATA_REFRESH_MIN_INTERVAL_MS = 60 * 1000;
 const DOCUMENT_THUMBNAIL_TRANSFORM = { width: 320, height: 240, resize: "contain", quality: 65 };
 const canTransformImage = (mimeType) => String(mimeType ?? "").startsWith("image/") && !["image/heic", "image/heif"].includes(String(mimeType ?? "").toLocaleLowerCase("es"));
@@ -3912,7 +3912,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const circleUploadKeyRef = useRef("");
   const circlePreviewUrlsRef = useRef({});
   const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profileVehiclePlate);
-  const driverEditableWeek = getDriverEditableWeekRange();
+  const driverEditableRange = getDriverEditableMonthRange();
   const canEditSelectedDate = preview || isDriverDateInEditableWindow(selectedDate);
 
   useEffect(() => {
@@ -4093,7 +4093,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const removeDriverDocument = useCallback(async (document) => {
     if (!document?.id) throw new Error("No se ha encontrado el documento.");
     if (!preview && !isDriverDateInEditableWindow(getDriverDocumentDateKey(document))) {
-      throw new Error(DRIVER_EDITABLE_WEEKS_MESSAGE);
+      throw new Error(DRIVER_EDITABLE_MONTHS_MESSAGE);
     }
     const cleaned = removeDocumentLocalData({ document, documents, entries, circleMetricValues });
     if (!supabase) {
@@ -4377,7 +4377,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
 
   const updateEntry = (key, value) => setEntry((current) => ({ ...current, [key]: value }));
   const upsertDriverEntry = async (dateKey, patch = {}) => {
-    if (!preview && !isDriverDateInEditableWindow(dateKey)) throw new Error(DRIVER_EDITABLE_WEEKS_MESSAGE);
+    if (!preview && !isDriverDateInEditableWindow(dateKey)) throw new Error(DRIVER_EDITABLE_MONTHS_MESSAGE);
     const existing = entries.find((item) => String(item.entry_date) === dateKey) ?? {};
     const numberFor = (key) => {
       const value = patch[key] === undefined ? existing[key] : patch[key];
@@ -4421,7 +4421,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     setMessage("");
     if (preview) return setMessage("Estás viendo una vista previa. Solo el conductor puede guardar sus datos.");
     if (!isDriverDateInEditableWindow(entry.entryDate)) {
-      setMessage(DRIVER_EDITABLE_WEEKS_MESSAGE);
+      setMessage(DRIVER_EDITABLE_MONTHS_MESSAGE);
       return;
     }
     setSaving(true);
@@ -4440,7 +4440,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
           intentionalDate: intentionalUploadDate,
         })
         : entry.entryDate;
-      if (!isDriverDateInEditableWindow(uploadDate)) throw new Error(DRIVER_EDITABLE_WEEKS_MESSAGE);
+      if (!isDriverDateInEditableWindow(uploadDate)) throw new Error(DRIVER_EDITABLE_MONTHS_MESSAGE);
       const data = await upsertDriverEntry(uploadDate, {
         wash_expenses: Number(entry.washExpenses) || 0,
         other_expenses: Number(entry.otherExpenses) || 0,
@@ -4811,7 +4811,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   };
   const openCirclePicker = (recordKey) => {
     if (!preview && !isDriverDateInEditableWindow(selectedDate)) {
-      setMessage(DRIVER_EDITABLE_WEEKS_MESSAGE);
+      setMessage(DRIVER_EDITABLE_MONTHS_MESSAGE);
       return;
     }
     circleUploadKeyRef.current = recordKey;
@@ -4835,7 +4835,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     if (!file || !recordKey) return;
     if (!preview && !isDriverDateInEditableWindow(selectedDate)) {
       setCircleUpload({ key: recordKey, status: "error", fileName: file.name });
-      setMessage(DRIVER_EDITABLE_WEEKS_MESSAGE);
+      setMessage(DRIVER_EDITABLE_MONTHS_MESSAGE);
       return;
     }
     const validation = validateDocumentFile(file, "upload");
@@ -4884,7 +4884,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       intentionalDate: reviewDocument.dateWasEdited ? fields.date : "",
     });
     if (!preview && !isDriverDateInEditableWindow(targetDate)) {
-      const errorMessage = DRIVER_EDITABLE_WEEKS_MESSAGE;
+      const errorMessage = DRIVER_EDITABLE_MONTHS_MESSAGE;
       setCircleUpload({ key: recordKey, status: "error", fileName: file.name });
       setMessage(errorMessage);
       return { ok: false, message: errorMessage };
@@ -5047,7 +5047,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     const editableWeeklyRows = preview ? ADMIN_EDITABLE_WEEKLY_ROWS : DRIVER_EDITABLE_WEEKLY_ROWS;
     if (!editableWeeklyRows.has(rowKey)) return;
     if (!preview && !isDriverDateInEditableWindow(dateKey)) {
-      setMessage(DRIVER_EDITABLE_WEEKS_MESSAGE);
+      setMessage(DRIVER_EDITABLE_MONTHS_MESSAGE);
       return;
     }
     const amount = Math.max(0, Number(String(rawValue ?? "").replace(",", ".")) || 0);
@@ -5148,7 +5148,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     driverCalendarDocuments={driverCalendarDocuments}
     driverDayDocumentsLoading={documentsLoading}
     onDeleteDriverDocument={removeDriverDocument}
-    currentDriverWeek={driverEditableWeek}
+    driverEditableRange={driverEditableRange}
     canEditSelectedDate={canEditSelectedDate}
     driverReferenceImages={driverReferenceImages}
     averageConsumption={averageConsumption}
@@ -5341,7 +5341,7 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, onRefresh, refreshing = false, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverCalendarDocuments = {}, driverDayDocumentsLoading = false, onDeleteDriverDocument, currentDriverWeek, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, onRefresh, refreshing = false, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverCalendarDocuments = {}, driverDayDocumentsLoading = false, onDeleteDriverDocument, driverEditableRange, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 520;
   const kmChartMax = 45;
   const kmChartTicks = [0, 15, 20, 25, 30, 35, 40, 45];
@@ -5592,7 +5592,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   };
   const openEntry = () => {
     if (!preview && !canEditSelectedDate) {
-      setMessage(DRIVER_EDITABLE_WEEKS_MESSAGE);
+      setMessage(DRIVER_EDITABLE_MONTHS_MESSAGE);
       setDriverMenuOpen(false);
       return;
     }
@@ -5705,7 +5705,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     const canEditDate = preview || isDriverDateInEditableWindow(dateKey);
     if (!editableWeeklyRows.has(row.key) || !canEditDate) {
       const formattedValue = formatWeeklyCellAmount(value, row.key);
-      const readOnlyReason = canEditDate ? "Solo lectura" : DRIVER_EDITABLE_WEEKS_MESSAGE;
+      const readOnlyReason = canEditDate ? "Solo lectura" : DRIVER_EDITABLE_MONTHS_MESSAGE;
       return <span className="driver-mobile-week-table__amount-readonly" title={readOnlyReason} aria-label={`${row.label} del ${dateKey}: ${formattedValue}. ${readOnlyReason}`}>{formattedValue}</span>;
     }
     const draftKey = `${dateKey}:${row.key}`;
@@ -5901,14 +5901,14 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
          </section>
          {maintenanceNoteOpen && renderMaintenanceHistory()}
          <section ref={statsRef} className="driver-mobile-section driver-mobile-section--today" aria-label="Registros diarios">
-          {!preview && !canEditSelectedDate && <div className="driver-mobile-read-only-notice" role="status"><strong>PERIODO EN SOLO LECTURA</strong><span>Solo se puede modificar la semana en curso y la inmediatamente anterior.</span></div>}
+          {!preview && !canEditSelectedDate && <div className="driver-mobile-read-only-notice" role="status"><strong>PERIODO EN SOLO LECTURA</strong><span>Solo se pueden modificar el mes en curso y el mes anterior completos.</span></div>}
           <div className="driver-mobile-record-grid">
             {dailyPhotoRecords.map(({ key, label, image, hasAttachment, document, Icon: RecordIcon, alt }) => {
               const isUploading = circleUpload.key === key && circleUpload.status === "uploading";
               const isAttached = hasAttachment || circleUpload.key === key && ["saved", "local"].includes(circleUpload.status);
               const statusLabel = isUploading ? "Guardando…" : isAttached ? "Justificante archivado" : "Sin adjunto";
               return <div className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key}>
-                <button type="button" className="driver-mobile-record-card__upload" onClick={() => openCirclePicker(key)} disabled={isUploading || (!preview && !canEditSelectedDate)} aria-label={`${label}: ${statusLabel}`} title={!preview && !canEditSelectedDate ? DRIVER_EDITABLE_WEEKS_MESSAGE : `Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>
+                <button type="button" className="driver-mobile-record-card__upload" onClick={() => openCirclePicker(key)} disabled={isUploading || (!preview && !canEditSelectedDate)} aria-label={`${label}: ${statusLabel}`} title={!preview && !canEditSelectedDate ? DRIVER_EDITABLE_MONTHS_MESSAGE : `Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>
               </div>;
             })}
           </div>
@@ -5970,7 +5970,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
              {fuelDocumentDialogLoading ? <p className="driver-mobile-calendar-document-dialog__empty"><IconCamera size={18} />Preparando las fotos y archivos de repostaje…</p> : fuelDocumentDialogDocuments.length === 0 ? <p className="driver-mobile-calendar-document-dialog__empty"><IconCamera size={18} />No hay fotos o archivos de repostaje para este día.</p> : <div className="driver-mobile-calendar-documents__list">{fuelDocumentDialogDocuments.map((document) => renderCalendarDocumentCard(document, fuelDocumentDialogDate, "fuel-dialog", "Repostaje"))}</div>}
            </section>
          </div>}
-        {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview || !canEditSelectedDate}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" min={preview ? undefined : currentDriverWeek.startDateKey} max={preview ? undefined : currentDriverWeek.endDateKey} value={entry.entryDate} onChange={(event) => { setEntryDateWasEdited(true); setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Precio neto<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Reembolsos<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.refunds} onChange={(event) => updateEntry("refunds", event.target.value)} /><i>€</i></label><label>Lavados<input type="number" min="0" step="0.01" value={entry.washExpenses} onChange={(event) => updateEntry("washExpenses", event.target.value)} /><i>€</i></label><label>Varios<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input readOnly={!preview} type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea readOnly={!preview} rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, reembolso u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" onChange={(event) => { const nextFile = event.target.files?.[0] ?? null; setFile(nextFile); setFileCapturedAt(nextFile ? new Date().toISOString() : null); }} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview || !canEditSelectedDate}>{preview ? "Solo lectura" : !canEditSelectedDate ? "Semana cerrada" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
+        {entryFormOpen && <section ref={entryRef} className="driver-mobile-entry" aria-labelledby="driver-mobile-entry-title"><header><div><span>REGISTRO DIARIO</span><h2 id="driver-mobile-entry-title">Datos del servicio</h2></div><button type="button" aria-label="Cerrar registro diario" onClick={() => setEntryFormOpen(false)}><IconX size={17} /></button></header><form onSubmit={saveEntry}><fieldset disabled={preview || !canEditSelectedDate}><div className="driver-mobile-entry-grid"><label>Fecha<input type="date" min={preview ? undefined : driverEditableRange.startDateKey} max={preview ? undefined : driverEditableRange.endDateKey} value={entry.entryDate} onChange={(event) => { setEntryDateWasEdited(true); setSelectedDate(event.target.value); updateEntry("entryDate", event.target.value); }} required /></label><label>Precio neto<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.billing} onChange={(event) => updateEntry("billing", event.target.value)} /><i>€</i></label><label>Efectivo cobrado<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.cashCollected} onChange={(event) => updateEntry("cashCollected", event.target.value)} /><i>€</i></label><label>Gasolina<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelCost} onChange={(event) => updateEntry("fuelCost", event.target.value)} /><i>€</i></label><label>Litros repostados<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.fuelLiters} onChange={(event) => updateEntry("fuelLiters", event.target.value)} /><i>L</i></label><label>Propinas<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.tips} onChange={(event) => updateEntry("tips", event.target.value)} /><i>€</i></label><label>Reembolsos<input readOnly={!preview} type="number" min="0" step="0.01" value={entry.refunds} onChange={(event) => updateEntry("refunds", event.target.value)} /><i>€</i></label><label>Lavados<input type="number" min="0" step="0.01" value={entry.washExpenses} onChange={(event) => updateEntry("washExpenses", event.target.value)} /><i>€</i></label><label>Varios<input type="number" min="0" step="0.01" value={entry.otherExpenses} onChange={(event) => updateEntry("otherExpenses", event.target.value)} /><i>€</i></label><label>Kilometraje del día<input readOnly={!preview} type="number" min="0" step="1" value={entry.odometerKm} onChange={(event) => updateEntry("odometerKm", event.target.value)} /><i>km</i></label><output><span>Kilómetros totales</span><strong>{formatKm(vehicle?.odometer ?? 0)}</strong></output><label className="driver-mobile-entry-grid__wide">Nota<textarea readOnly={!preview} rows="2" value={entry.notes} onChange={(event) => updateEntry("notes", event.target.value)} placeholder="Lavado, reembolso u otro gasto imputable" /></label></div><label className="driver-mobile-file"><IconUpload size={17} /><span>{file ? file.name : "Adjuntar justificante"}<small>JPG, PNG, WEBP o PDF · máximo 12 MB</small></span><input type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" onChange={(event) => { const nextFile = event.target.files?.[0] ?? null; setFile(nextFile); setFileCapturedAt(nextFile ? new Date().toISOString() : null); }} /></label><footer><span role="status">{message}</span><button className="primary-button" type="submit" disabled={saving || preview || !canEditSelectedDate}>{preview ? "Solo lectura" : !canEditSelectedDate ? "Periodo cerrado" : saving ? "Guardando…" : "Guardar registro"}<IconCheck size={16} /></button></footer></fieldset></form></section>}
         {expandedPreviewMetric && (
           <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}>
             <div className="driver-mobile-chart-dialog__panel">
