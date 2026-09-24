@@ -4553,6 +4553,9 @@ body:has(.driver-mobile-app) { background: #e8edf5; }
 .net-detail-card__driver-billing { margin: 0 10px 8px; overflow: hidden; border: 1px solid #cfe1d5; border-radius: 10px; background: #f7fbf7; }
 .net-detail-card__driver-billing > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 9px; border-bottom: 1px solid #dcebe0; color: #286a43; font-size: 9px; letter-spacing: .04em; }
 .net-detail-card__driver-billing-rows { display: grid; }
+.net-detail-card__driver-link { min-width: 0; padding: 0; border: 0; border-radius: 7px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.net-detail-card__driver-link:hover { background: rgba(20, 117, 77, .08); }
+.net-detail-card__driver-link:focus-visible { outline: 2px solid #1c86d1; outline-offset: 2px; }
 .net-detail-card__driver-billing-rows > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 9px; border-bottom: 1px solid #e3eee6; }
 .net-detail-card__driver-billing-rows > div:last-child { border-bottom: 0; }
 .net-detail-card__driver-billing-rows > div > span { min-width: 0; display: grid; gap: 2px; }

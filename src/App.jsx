@@ -93,6 +93,7 @@ import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from 
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
+import { findDriverNavigationRow } from "./driverNavigation";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
 import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
@@ -2305,6 +2306,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     driverEntries: new Map(),
     maintenanceReportIds: new Set(),
   });
+  const [driverNavigationTarget, setDriverNavigationTarget] = useState(null);
   const adminFullRefreshRef = useRef(null);
   const adminLastFullRefreshAtRef = useRef(0);
   const adminLastRefreshAttemptRef = useRef(0);
@@ -3568,6 +3570,17 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     navigate(activity?.target === "Conductores" ? conductorNavItem : navItems[1]);
   };
 
+  const openDriverFromNet = (row) => {
+    if (!row) return;
+    setDriverNavigationTarget({
+      driverId: row.driverId || "",
+      driver: row.driver || "",
+      plate: canonicalizeVehiclePlate(row.plate),
+      requestId: Date.now(),
+    });
+    navigate(conductorNavItem);
+  };
+
   const markMaintenanceReportNotificationsSeen = useCallback((plate) => {
     markAdminNotificationsSeen(adminNotifications.filter((activity) => activity.target === "Mantenimiento" && activity.plate === plate));
   }, [adminNotifications, markAdminNotificationsSeen]);
@@ -3638,8 +3651,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
 
         <div className={`page-scroll${activeNav === "Informes" && homeReportTab === "General" ? " page-scroll--dashboard" : ""}`}>
           {activeNav === "Vehículos" && <FuelView key="vehiculos" mode="vehicles" realtimeRevision={realtimeRevision} realtimeTable={realtimeTable} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={selectVehicle} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} filtered={filtered} filter={filter} query={query} selectedDrivers={selectedDrivers} setFilter={setFilter} setQuery={setQuery} selectVehicle={selectVehicle} selectDriver={selectDriver} openWorkshop={openWorkshop} />}
-          {activeNav === "Conductores" && <DriversView reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
-          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" realtimeRevision={realtimeRevision} realtimeTable={realtimeTable} reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
+          {activeNav === "Conductores" && <DriversView navigationTarget={driverNavigationTarget} onNavigationTargetConsumed={() => setDriverNavigationTarget(null)} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} vehicles={vehicles} driverEntries={driverEntries} transactions={transactions} documents={documentRecords} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
+          {activeNav === "Informes" && <FuelView key="informes" initialTab="General" realtimeRevision={realtimeRevision} realtimeTable={realtimeTable} reportTab={homeReportTab} onReportTabChange={setHomeReportTab} chartMetric={homeChartMetric} onChartMetricChange={setHomeChartMetric} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} onOpenDriver={openDriverFromNet} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" realtimeRevision={realtimeRevision} realtimeTable={realtimeTable} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
@@ -6576,7 +6589,7 @@ function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }
   );
 }
 
-function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBillingRows = [], periodKey, periodLabel, reportMonth, reportYear, onSelectMonth, onSelectYear, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onSaveBreakdown, onClose }) {
+function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBillingRows = [], periodKey, periodLabel, reportMonth, reportYear, onSelectMonth, onSelectYear, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onSaveBreakdown, onOpenDriver, onClose }) {
   const closeButtonRef = useRef(null);
   const breakdownAmountRef = useRef(null);
   const breakdownPressTimerRef = useRef(null);
@@ -6784,10 +6797,10 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
       <header><strong>FACTURACIÓN POR CONDUCTOR</strong><strong>IMPORTE</strong></header>
       <div className="net-detail-card__driver-billing-rows">
         {driverRows.map((row) => <div key={row.key}>
-          <span className="net-detail-card__driver-identity">
+          <button type="button" className="net-detail-card__driver-identity net-detail-card__driver-link" onClick={() => onOpenDriver?.(row)} aria-label={`Abrir ficha de ${row.driver} en Conductores`}>
             <span className="net-detail-card__driver-avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span>
             <strong className="net-detail-card__driver-name">{row.driver}</strong>
-          </span>
+          </button>
           <strong className="net-detail-card__driver-amount">{formatCurrency(row.revenue)}</strong>
         </div>)}
       </div>
@@ -6849,7 +6862,7 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
                   <div className="net-detail-card__collapsed-finance" aria-label={`Facturación, gastos y neto de ${vehicle.plate}`}>
                     <div className={`net-detail-card__collapsed-net${net < 0 ? " net-detail-card__collapsed-net--negative" : ""}`}><span>NETO</span><strong>{formatCurrency(net)}</strong></div>
                     <div className="net-detail-card__collapsed-drivers" aria-label={`Conductores y facturación de ${vehicle.plate}`}>
-                      {driverRows.map((row) => <div key={row.key}><span className="net-detail-card__driver-identity"><span className="net-detail-card__driver-avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="net-detail-card__driver-name">{row.driver}</span></span><strong className="net-detail-card__driver-amount">{formatCurrency(row.revenue)}</strong></div>)}
+                      {driverRows.map((row) => <div key={row.key}><button type="button" className="net-detail-card__driver-identity net-detail-card__driver-link" onClick={(event) => { event.stopPropagation(); onOpenDriver?.(row); }} onKeyDown={(event) => event.stopPropagation()} aria-label={`Abrir ficha de ${row.driver} en Conductores`}><span className="net-detail-card__driver-avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="net-detail-card__driver-name">{row.driver}</span></button><strong className="net-detail-card__driver-amount">{formatCurrency(row.revenue)}</strong></div>)}
                     </div>
                     <div className="net-detail-card__collapsed-line net-detail-card__collapsed-line--billing"><span>FACTURACIÓN</span><strong>{formatCurrency(revenue)}</strong></div>
                     <div className="net-detail-card__collapsed-line net-detail-card__collapsed-line--expenses"><span>GASTOS</span><strong>{formatCurrency(totalExpenses)}</strong></div>
@@ -6907,7 +6920,7 @@ function AlexCommissionReportPanel({ report, periodLabel, archivedReports = [], 
   </section>;
 }
 
-function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "", realtimeRevision = 0, realtimeTable = "", onSaveDriverDay, onDeleteDriverDocument, onReassignDriverDocumentDate }) {
+function FuelView({ vehicles, driverEntries = [], transactions = [], documents = [], selected, onSelectVehicle, onNavigate, onOpenDriver, setModal, initialTab = "General", reportTab: controlledReportTab, onReportTabChange, chartMetric: controlledChartMetric, onChartMetricChange, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, mode = "reports", filtered, filter, query, selectedDrivers, setFilter, setQuery, selectVehicle, selectDriver, openWorkshop, adminUserId = "", realtimeRevision = 0, realtimeTable = "", onSaveDriverDay, onDeleteDriverDocument, onReassignDriverDocumentDate }) {
   const [internalReportTab, setInternalReportTab] = useState(initialTab);
   const reportTab = controlledReportTab ?? internalReportTab;
   const setReportTab = onReportTabChange ?? setInternalReportTab;
@@ -7494,7 +7507,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
-              {netDetailOpen && <NetDetailModal details={netVehicleDetails} historicalBillingRows={historicalBillingRows} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} reportMonth={reportMonth} reportYear={reportYear} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onSaveBreakdown={(breakdown) => setManualNetBreakdowns((current) => { const next = current.filter((candidate) => !(candidate.periodKey === netPeriodKey && candidate.plate === breakdown.plate && candidate.expenseKey === breakdown.expenseKey && candidate.breakdownKey === breakdown.breakdownKey)); return [...next, { ...breakdown, id: `breakdown-${Date.now()}-${current.length}`, periodKey: netPeriodKey }]; })} onClose={() => setNetDetailOpen(false)} />}
+              {netDetailOpen && <NetDetailModal details={netVehicleDetails} historicalBillingRows={historicalBillingRows} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} reportMonth={reportMonth} reportYear={reportYear} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onSaveBreakdown={(breakdown) => setManualNetBreakdowns((current) => { const next = current.filter((candidate) => !(candidate.periodKey === netPeriodKey && candidate.plate === breakdown.plate && candidate.expenseKey === breakdown.expenseKey && candidate.breakdownKey === breakdown.breakdownKey)); return [...next, { ...breakdown, id: `breakdown-${Date.now()}-${current.length}`, periodKey: netPeriodKey }]; })} onOpenDriver={(row) => { setNetDetailOpen(false); onOpenDriver?.(row); }} onClose={() => setNetDetailOpen(false)} />}
             </div>
           </>
         )}
@@ -7800,7 +7813,7 @@ function FuelDriversReport({ vehicles, selectedDriverKey, onSelectDriver }) {
   );
 }
 
-function DriversView({ vehicles, driverEntries = [], transactions = [], documents = [], setModal, onSaveDriverDay, onDeleteDriverDocument, onReassignDriverDocumentDate, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange }) {
+function DriversView({ vehicles, driverEntries = [], transactions = [], documents = [], setModal, onSaveDriverDay, onDeleteDriverDocument, onReassignDriverDocumentDate, navigationTarget = null, onNavigationTargetConsumed, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange }) {
   const [internalReportMonth, setInternalReportMonth] = useState(() => new Date().getMonth());
   const [internalReportYear, setInternalReportYear] = useState(() => new Date().getFullYear());
   const reportMonth = controlledReportMonth ?? internalReportMonth;
@@ -7986,6 +7999,14 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       },
     });
   };
+  useEffect(() => {
+    const row = findDriverNavigationRow(driverRows, navigationTarget);
+    if (!row) return;
+    setSelectedDriverKey(row.key);
+    const nextCalendarRows = getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear, documents, transactions);
+    setSelectedDay(nextCalendarRows.find((calendarRow) => calendarRow.active)?.day ?? 1);
+    onNavigationTargetConsumed?.();
+  }, [navigationTarget?.requestId, driverRows, documents, transactions, reportMonth, reportYear, onNavigationTargetConsumed]);
   const openDriverSourceDocument = (document) => {
     const fallbackDate = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
     setModal({
