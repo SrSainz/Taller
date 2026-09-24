@@ -2989,6 +2989,172 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .maintenance-page .maintenance-event-invoice > .maintenance-event-document-delete strong { font-size: 6px; }
 }
 
+/* Conductores: identidad visual y métricas agrupadas a la derecha. */
+.driver-list-card {
+  grid-template-columns: minmax(0, 1fr) minmax(172px, max-content) minmax(142px, max-content);
+  column-gap: 16px;
+}
+.driver-list-card__identity {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.driver-list-card__avatar {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid #c9ded4;
+  border-radius: 50%;
+  background: #eef5f1;
+  color: var(--green-800);
+  font-size: 13px;
+  font-weight: 900;
+}
+.driver-list-card__avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.driver-list-card__identity-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.driver-list-card__identity-copy > strong {
+  overflow: visible;
+  font-size: 13.6px;
+  font-weight: 800;
+  white-space: normal;
+}
+.driver-list-card__identity-copy > .driver-list-card__plate {
+  display: inline-flex;
+  overflow: visible;
+  color: var(--text);
+  font-size: 11px;
+  text-overflow: clip;
+  white-space: normal;
+}
+.driver-list-card__metric {
+  width: 100%;
+  justify-self: end;
+}
+
+/* Las tarjetas del día se amplían sobre la vista, sin desplazar el calendario. */
+.driver-day-panel:not(.driver-day-panel--expanded) { cursor: zoom-in; }
+.driver-day-panel__heading-button {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.driver-day-panel-overlay {
+  position: fixed;
+  z-index: 150;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(5, 17, 29, .56);
+  backdrop-filter: blur(2px);
+}
+.driver-day-panel-overlay__surface {
+  width: min(920px, 76vw);
+  height: 52vh;
+  min-height: 360px;
+  max-height: 640px;
+}
+.driver-day-panel--expanded {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(3, 19, 31, .34);
+}
+.driver-day-panel--expanded > header {
+  min-height: 62px;
+  flex: 0 0 auto;
+  padding: 13px 16px;
+}
+.driver-day-panel--expanded .driver-day-panel__heading-button strong { font-size: 21px; }
+.driver-day-panel__expanded-close {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .82);
+  color: inherit;
+  cursor: pointer;
+}
+.driver-day-panel--expanded .driver-day-panel__metrics {
+  flex: 1 1 auto;
+  align-content: stretch;
+}
+.driver-day-panel--expanded .driver-day-panel__metrics > span {
+  justify-content: center;
+  padding: 18px;
+}
+.driver-day-panel--expanded .driver-day-panel__metrics small {
+  font-size: 13px;
+  font-weight: 750;
+}
+.driver-day-panel--expanded .driver-day-panel__metrics strong {
+  font-size: clamp(24px, 3vw, 38px);
+  line-height: 1.05;
+}
+.driver-day-panel--expanded .driver-day-fuel-list {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 12px 16px;
+}
+
+@media (max-width: 720px) {
+  .driver-list-card {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    column-gap: 5px;
+    overflow: hidden;
+  }
+  .driver-list-card__identity { gap: 7px; }
+  .driver-list-card__avatar {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+  .driver-list-card__identity-copy > strong { font-size: 11.2px; }
+  .driver-list-card__identity-copy > .driver-list-card__plate { font-size: 8.5px; }
+  .driver-list-card__metric { width: auto; min-width: 0; padding-left: 5px; }
+  .driver-list-card__metric--billing strong { font-size: 18px; }
+  .driver-list-card__metric--fuel strong { font-size: 16px; }
+  .driver-day-panel-overlay { padding: 10px; }
+  .driver-day-panel-overlay__surface {
+    width: calc(100vw - 20px);
+    height: 52dvh;
+    min-height: 320px;
+    max-height: none;
+  }
+  .driver-day-panel--expanded .driver-day-panel__metrics > span { padding: 10px; }
+  .driver-day-panel--expanded .driver-day-panel__metrics small { font-size: 10px; }
+  .driver-day-panel--expanded .driver-day-panel__metrics strong { font-size: clamp(18px, 6vw, 28px); }
+}
+
 /* Mantenimiento móvil: las cinco tarjetas ocupan el hueco completo entre las
    barras fija superior e inferior. El aviso queda integrado en el lateral de
    cada tarjeta y cambia a rojo mientras existan incidencias sin consultar. */

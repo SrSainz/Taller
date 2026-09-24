@@ -85,6 +85,29 @@ passed
 
 final result: passed
 
+## Conductores · fotos, nombres y columnas monetarias (2026-09-24)
+
+- Fuente: `C:/Users/aiday/AppData/Local/Temp/codex-clipboard-5009b02f-f69d-45bc-8d53-36c9a6cdc84f.png`.
+- Implementación: `C:/Users/aiday/OneDrive/Escritorio/app david/design-qa-drivers-row-desktop.png`.
+- Viewport y estado: 1886 × 873 px; Administración > Conductores, seis filas visibles y calendario cerrado.
+
+### Comparación completa y focalizada
+
+- Se conserva la jerarquía de la referencia: resúmenes superiores, seis conductores y dos columnas monetarias a la derecha.
+- Cada fila muestra la fotografía circular real antes del nombre y mantiene la matrícula debajo.
+- El nombre pasa de 17 px a 13,6 px, una reducción exacta del 20 %.
+- Facturación azul y Consumo rojo quedan agrupados a la derecha con una separación de 16 px; mantienen alineación por fila, colores e importes.
+- La adaptación móvil usa columnas automáticas y permite que la identidad absorba el espacio restante sin expulsar los importes.
+
+### Historial de iteración
+
+1. Se detectó demasiado espacio vacío entre la identidad y las métricas, además de la ausencia de avatar.
+2. Se añadió la foto, se redujo el nombre al 80 % y se agruparon las métricas a la derecha.
+3. Se eliminó el ancho forzado de las métricas en móvil para evitar desbordamientos.
+4. Comparación final conjunta sin incidencias P0, P1 o P2.
+
+final result: passed
+
 ---
 
 # Design QA — retirada de textos en Pendiente de revisión (14 septiembre 2026)

@@ -1,0 +1,24 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+const app = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+const css = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+
+test("daily driver panels expand in a dismissible viewport overlay", () => {
+  assert.match(app, /const \[expandedDayPanel, setExpandedDayPanel\] = useState\(""\)/);
+  assert.match(app, /renderDayPanel\("billing"\)/);
+  assert.match(app, /renderDayPanel\("fuel"\)/);
+  assert.match(app, /renderDayPanel\("mileage"\)/);
+  assert.match(app, /event\.target === event\.currentTarget/);
+  assert.match(app, /event\.key === "Escape"/);
+  assert.match(app, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(css, /\.driver-day-panel-overlay__surface\s*\{[^}]*height:\s*52vh/s);
+});
+
+test("driver rows include photos, smaller names and right-grouped metrics", () => {
+  assert.match(app, /driver-list-card__avatar/);
+  assert.match(app, /getDriverAvatarPath\(row\.driver\)/);
+  assert.match(css, /\.driver-list-card__identity-copy > strong\s*\{[^}]*font-size:\s*13\.6px/s);
+  assert.match(css, /grid-template-columns:\s*minmax\(0, 1fr\) minmax\(172px, max-content\) minmax\(142px, max-content\)/);
+});

@@ -7822,6 +7822,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const setReportYear = onReportYearChange ?? setInternalReportYear;
   const [selectedDriverKey, setSelectedDriverKey] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
+  const [expandedDayPanel, setExpandedDayPanel] = useState("");
   const [calendarSwipeOffset, setCalendarSwipeOffset] = useState(0);
   const [calendarSwipeTransition, setCalendarSwipeTransition] = useState(false);
   const driverGridRef = useRef(null);
@@ -7887,6 +7888,24 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       ? current
       : calendarRows.find((row) => row.active)?.day ?? 1);
   }, [selectedDriver?.key, reportMonth, reportYear]);
+
+  useEffect(() => {
+    setExpandedDayPanel("");
+  }, [selectedDriver?.key, selectedDay, reportMonth, reportYear]);
+
+  useEffect(() => {
+    if (!expandedDayPanel) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setExpandedDayPanel("");
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [expandedDayPanel]);
 
   useEffect(() => () => {
     if (swipeResetTimer.current) window.clearTimeout(swipeResetTimer.current);
@@ -8058,6 +8077,35 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       },
     });
   };
+  const renderDayPanel = (mode, expanded = false) => {
+    const panelClass = mode === "billing" ? "billing" : mode === "fuel" ? "fuel" : "mileage";
+    const label = mode === "billing" ? "Facturación" : mode === "fuel" ? "Repostaje" : "Kilómetros";
+    const PanelIcon = mode === "billing" ? IconFileInvoice : mode === "fuel" ? IconGasStation : IconGauge;
+    const panelDocuments = mode === "billing" ? selectedDayBillingDocuments : mode === "fuel" ? selectedDayFuelDocuments : selectedDayMileageDocuments;
+    const expandPanel = () => setExpandedDayPanel(mode);
+    return <article className={`driver-day-panel driver-day-panel--${panelClass}${expanded ? " driver-day-panel--expanded" : ""}`} onClick={expanded ? undefined : (event) => { if (!event.target.closest("button")) expandPanel(); }} data-panel={mode}>
+      <header>
+        <button type="button" className="driver-day-panel__heading-button" onClick={expanded ? () => openDayEditor(mode) : expandPanel} aria-label={expanded ? `Editar ${label} del día` : `Ampliar ${label} del día`}><PanelIcon size={17} /><strong>{label}</strong></button>
+        <DriverDayDocumentButtons compact documents={panelDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor(mode)} onEditDocument={openDriverDocumentDateEditor} />
+        {expanded && <button type="button" className="driver-day-panel__expanded-close" onClick={() => setExpandedDayPanel("")} aria-label={`Cerrar ${label} ampliado`} autoFocus><IconX size={19} /></button>}
+      </header>
+      {mode === "billing" && <div className="driver-day-panel__metrics driver-day-panel__metrics--billing">
+        <span><small>Conexión</small><strong>{selectedBillingStats.connection || "—"}</strong></span>
+        <span><small>Viajes</small><strong>{selectedBillingStats.trips}</strong></span>
+        <span><small>Puntos</small><strong>{selectedBillingStats.points}</strong></span>
+        <span><small>Precio neto</small><strong>{formatCurrency(selectedBillingStats.netAmount)}</strong></span>
+        <span><small>Propina</small><strong>{formatCurrency(selectedBillingStats.tips)}</strong></span>
+        <span><small>Ganancias totales</small><strong>{formatCurrency(selectedBillingStats.total)}</strong></span>
+        <span><small>Reembolsos</small><strong>{formatCurrency(selectedBillingStats.refunds)}</strong></span>
+        <span><small>Efectivo cobrado</small><strong>{formatCurrency(selectedBillingStats.cashCollected)}</strong></span>
+      </div>}
+      {mode === "fuel" && <>
+        <div className="driver-day-panel__metrics"><span><small>Importe total</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div>
+        {selectedDayDetail.fuelEntries.length > 0 && <div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}-${index}`}><span><strong>{entry.time || "Repostaje"}</strong><small>{formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>)}</div>}
+      </>}
+      {mode === "mileage" && <div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><span><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div>}
+    </article>;
+  };
   const renderCalendarPage = (period) => (
     <div className="drivers-calendar-page" key={period.key}>
       {period.delta !== 0 && <div className="drivers-calendar-page__period">{reportMonths[period.month]} {period.year}</div>}
@@ -8085,7 +8133,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
 
       <div ref={driverGridRef} className="drivers-list" aria-label="Seis conductores profesionales">
         {driverRows.map((row) => <button type="button" className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key} onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}>
-          <span className="driver-list-card__identity"><strong>{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-list-card__plate" /></span>
+          <span className="driver-list-card__identity"><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-list-card__plate" /></span></span>
           <span className="driver-list-card__metric driver-list-card__metric--billing" aria-label={`Facturación ${formatCurrency(row.revenue)}`}><strong>{formatCurrency(row.revenue)}</strong></span>
           <span className="driver-list-card__metric driver-list-card__metric--fuel" aria-label={`Consumo ${formatCurrency(row.fuelCost)}`}><strong>{formatCurrency(row.fuelCost)}</strong></span>
         </button>)}
@@ -8106,39 +8154,12 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
 
       {selectedDriver && selectedDayDetail && <section className="driver-day-detail" aria-label={`Detalle de ${selectedDriver.driver}`}>
         <div className="driver-day-detail__columns">
-          <article className="driver-day-panel driver-day-panel--billing">
-            <header>
-              <button type="button" className="driver-day-panel__heading-button" onClick={() => openDayEditor("billing")} aria-label="Editar Facturación del día"><IconFileInvoice size={17} /><strong>Facturación</strong></button>
-              <DriverDayDocumentButtons compact documents={selectedDayBillingDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("billing")} onEditDocument={openDriverDocumentDateEditor} />
-            </header>
-            <div className="driver-day-panel__metrics driver-day-panel__metrics--billing">
-              <span><small>Conexión</small><strong>{selectedBillingStats.connection || "—"}</strong></span>
-              <span><small>Viajes</small><strong>{selectedBillingStats.trips}</strong></span>
-              <span><small>Puntos</small><strong>{selectedBillingStats.points}</strong></span>
-              <span><small>Precio neto</small><strong>{formatCurrency(selectedBillingStats.netAmount)}</strong></span>
-              <span><small>Propina</small><strong>{formatCurrency(selectedBillingStats.tips)}</strong></span>
-              <span><small>Ganancias totales</small><strong>{formatCurrency(selectedBillingStats.total)}</strong></span>
-              <span><small>Reembolsos</small><strong>{formatCurrency(selectedBillingStats.refunds)}</strong></span>
-              <span><small>Efectivo cobrado</small><strong>{formatCurrency(selectedBillingStats.cashCollected)}</strong></span>
-            </div>
-          </article>
-          <article className="driver-day-panel driver-day-panel--fuel">
-            <header>
-              <button type="button" className="driver-day-panel__heading-button" onClick={() => openDayEditor("fuel")} aria-label="Editar Repostaje del día"><IconGasStation size={17} /><strong>Repostaje</strong></button>
-              <DriverDayDocumentButtons compact documents={selectedDayFuelDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("fuel")} onEditDocument={openDriverDocumentDateEditor} />
-            </header>
-            <div className="driver-day-panel__metrics"><span><small>Importe total</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div>
-            {selectedDayDetail.fuelEntries.length > 0 && <div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}-${index}`}><span><strong>{entry.time || "Repostaje"}</strong><small>{formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>)}</div>}
-          </article>
-          <article className="driver-day-panel driver-day-panel--mileage">
-            <header>
-              <button type="button" className="driver-day-panel__heading-button" onClick={() => openDayEditor("mileage")} aria-label="Editar Kilómetros del día"><IconGauge size={17} /><strong>Kilómetros</strong></button>
-              <DriverDayDocumentButtons compact documents={selectedDayMileageDocuments} onOpen={openDriverSourceDocument} onEdit={() => openDayEditor("mileage")} onEditDocument={openDriverDocumentDateEditor} />
-            </header>
-            <div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><span><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div>
-          </article>
+          {renderDayPanel("billing")}
+          {renderDayPanel("fuel")}
+          {renderDayPanel("mileage")}
         </div>
       </section>}
+      {expandedDayPanel && selectedDriver && selectedDayDetail && createPortal(<div className="driver-day-panel-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedDayPanel(""); }}><section className="driver-day-panel-overlay__surface" role="dialog" aria-modal="true" aria-label={`${expandedDayPanel === "billing" ? "Facturación" : expandedDayPanel === "fuel" ? "Repostaje" : "Kilómetros"} ampliado de ${selectedDriver.driver}`}>{renderDayPanel(expandedDayPanel, true)}</section></div>, document.body)}
     </section>
   );
 }
