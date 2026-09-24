@@ -92,3 +92,13 @@ test("abre el histórico como diálogo de viewport sin añadirlo al final de Man
   assert.doesNotMatch(appSource, /<header className="maintenance-reports-dialog__history-header">/);
   assert.match(stylesSource, /\.maintenance-reports-dialog-backdrop \{[^}]*position: fixed;[^}]*height: 100dvh;/s);
 });
+
+test("las facturas subidas en Mantenimiento se pueden abrir y borrar con limpieza", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(appSource, /sourceDocument: sourceDocument \?\? null/);
+  assert.match(appSource, /onDeleteMaintenanceDocument=\{removeAdminDriverDocument\}/);
+  assert.match(appSource, /className="maintenance-event-document-delete"/);
+  assert.match(appSource, /Borrar esta factura de mantenimiento y todos los datos asociados/);
+  assert.match(appSource, /deleteLabel: "Borrar documento"/);
+});

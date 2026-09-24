@@ -37,6 +37,7 @@ const rawRecordType = (document) => normalizeText(fieldValue(document, "recordTy
 
 export const getDocumentDeletionKind = (document) => {
   const recordType = rawRecordType(document);
+  if (recordType === "maintenance") return "maintenance";
   if (document?.category === "billing" || recordType === "billing" || recordType === "billing_daily") return "billing";
   if (["daily-km", "partial-1", "total-km", "total", "odometer", "odometro", "kilometraje diario", "km diarios", "kilometraje total", "km acumulados"].includes(recordType)) return "mileage";
   if (["fuel", "fuel receipt", "fuel_receipt", "repostaje"].includes(recordType)) return "fuel";

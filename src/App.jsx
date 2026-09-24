@@ -3133,6 +3133,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         source: "Documento IA",
         status: sourceDocument?.status === "approved" ? "Asociada" : "Revisar",
         items: [{ concept, amount: Number(transaction.amount) || 0 }],
+        sourceDocument: sourceDocument ?? null,
         filePath: sourceDocument?.file_path ?? "",
         fileName: sourceDocument?.file_name ?? "",
         mimeType: sourceDocument?.mime_type ?? "",
@@ -3642,7 +3643,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
           {activeNav === "Gasolina" && <FuelView key="gasolina" initialTab="Repostaje" realtimeRevision={realtimeRevision} realtimeTable={realtimeTable} reportMonth={reportMonth} reportYear={reportYear} onReportMonthChange={setReportMonth} onReportYearChange={setReportYear} adminUserId={session.user.id} vehicles={vehicles} driverEntries={driverEntries} transactions={ledgerTransactions} documents={documentRecords} selected={selected} onSelectVehicle={(vehicle) => setSelectedPlate(vehicle.plate)} onNavigate={navigate} setModal={setModal} onSaveDriverDay={saveAdminDriverDay} onDeleteDriverDocument={removeAdminDriverDocument} onReassignDriverDocumentDate={reassignAdminDriverDocumentDate} />}
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
-          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} notify={notify} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} onOpenMaintenanceReports={markMaintenanceReportNotificationsSeen} onRefreshMaintenanceReports={refreshMaintenanceReports} />}
+          {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} notify={notify} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} onOpenMaintenanceReports={markMaintenanceReportNotificationsSeen} onRefreshMaintenanceReports={refreshMaintenanceReports} onDeleteMaintenanceDocument={removeAdminDriverDocument} />}
           {activeNav === "Administración" && isAdmin && <AdminView notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} invoices={invoices} adminFunctionWindow={adminFunctionWindow} onAdminFunctionWindowChange={setAdminFunctionWindow} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
@@ -8711,7 +8712,7 @@ function formatMaintenanceReportDate(value) {
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Europe/Madrid" }).format(date).replace(".", "");
 }
 
-function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed, onOpenMaintenanceReports, onRefreshMaintenanceReports }) {
+function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed, onOpenMaintenanceReports, onRefreshMaintenanceReports, onDeleteMaintenanceDocument }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
@@ -8719,6 +8720,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
   const [reportsDialogReports, setReportsDialogReports] = useState([]);
   const [reportsRefreshing, setReportsRefreshing] = useState(false);
   const [reportsRefreshError, setReportsRefreshError] = useState("");
+  const [deletingDocumentId, setDeletingDocumentId] = useState("");
   const longPressRef = useRef({ timer: null, triggered: false, startX: 0, startY: 0 });
   const maintenanceInvoiceInputRef = useRef(null);
   const pendingMaintenanceKeyRef = useRef("");
@@ -8899,6 +8901,43 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
     });
   };
 
+  const removeMaintenanceDocument = async (document) => {
+    if (!document?.id || !onDeleteMaintenanceDocument || deletingDocumentId) return false;
+    setDeletingDocumentId(document.id);
+    try {
+      const removed = await onDeleteMaintenanceDocument(document);
+      if (removed === false) throw new Error("No se ha podido borrar el documento.");
+      notify?.("Documento de mantenimiento eliminado junto con sus datos asociados.");
+      return true;
+    } catch (error) {
+      notify?.(error?.message || "No se ha podido borrar el documento de mantenimiento.");
+      return false;
+    } finally {
+      setDeletingDocumentId("");
+    }
+  };
+
+  const confirmAndRemoveMaintenanceDocument = async (invoice) => {
+    const document = invoice?.sourceDocument;
+    if (!document?.id || deletingDocumentId) return;
+    const accepted = window.confirm("¿Borrar esta factura de mantenimiento y todos los datos asociados? Esta acción no se puede deshacer.");
+    if (!accepted) return;
+    await removeMaintenanceDocument(document);
+  };
+
+  const openMaintenanceInvoice = (invoice) => {
+    setModal({
+      type: "invoice",
+      item: {
+        ...invoice,
+        document: invoice.sourceDocument ?? null,
+        onDeleteDocument: invoice.sourceDocument ? removeMaintenanceDocument : null,
+        deleteLabel: "Borrar documento",
+        deletedItemLabel: "Documento de mantenimiento",
+      },
+    });
+  };
+
   return (
     <section className="module-page maintenance-page">
       <nav className="maintenance-vehicle-banners" aria-label="Vehículos de la flota">
@@ -8966,7 +9005,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
                 </button>
                 <div className="maintenance-event-summary"><small>Trabajo realizado</small><strong>{item.concept}</strong><span className="maintenance-event-summary__amount">{formatCurrency(item.amount)}</span></div>
                 <div className="maintenance-event-invoice">
-                  {invoice ? <button onClick={() => setModal({ type: "invoice", item: invoice })} aria-label={`Abrir factura ${invoice.id}`}><IconFileInvoice size={18} /><span><strong>Abrir factura</strong><small>{invoice.id}</small></span></button> : <span className="maintenance-invoice-unavailable"><IconFileInvoice size={18} /><span><strong>Sin factura</strong><small>No proporcionada</small></span></span>}
+                  {invoice ? <><button onClick={() => openMaintenanceInvoice(invoice)} aria-label={`Abrir factura ${invoice.id}`}><IconFileInvoice size={18} /><span><strong>Abrir factura</strong><small>{invoice.id}</small></span></button>{invoice.sourceDocument?.id && <button type="button" className="maintenance-event-document-delete" onClick={() => { void confirmAndRemoveMaintenanceDocument(invoice); }} disabled={deletingDocumentId === invoice.sourceDocument.id} aria-label={`Borrar documento de la factura ${invoice.id}`} title="Borrar documento y sus datos asociados"><IconTrash size={15} /><span><strong>{deletingDocumentId === invoice.sourceDocument.id ? "Borrando…" : "Borrar documento"}</strong></span></button>}</> : <span className="maintenance-invoice-unavailable"><IconFileInvoice size={18} /><span><strong>Sin factura</strong><small>No proporcionada</small></span></span>}
                 </div>
                 {isOpen && <div className="maintenance-event-detail" id={detailId}>
                   <header><strong>Trabajos realizados</strong><small>{invoice?.provider ?? "Registro de mantenimiento"}</small></header>
@@ -9375,21 +9414,21 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
   const isDriverDocumentDateEdit = modal.type === "driver-document-date-edit";
   const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Crear factura desde una foto", invoice: "Detalle de factura", "driver-document": "Foto original del conductor", "driver-day-edit": "Editar registro del día", "driver-document-date-edit": "Cambiar día del documento", "maintenance-edit": "Editar intervención", support: "Contactar con soporte" };
   const complete = (message) => { notify(message); onClose(); };
-  const [driverDocumentDeleteBusy, setDriverDocumentDeleteBusy] = useState(false);
-  const [driverDocumentDeleteError, setDriverDocumentDeleteError] = useState("");
-  const deleteDriverDocumentFromModal = async () => {
-    if (!item?.onDeleteDocument || !item?.document || driverDocumentDeleteBusy) return;
+  const [documentDeleteBusy, setDocumentDeleteBusy] = useState(false);
+  const [documentDeleteError, setDocumentDeleteError] = useState("");
+  const deleteDocumentFromModal = async () => {
+    if (!item?.onDeleteDocument || !item?.document || documentDeleteBusy) return;
     if (!window.confirm("¿Borrar este archivo y todos los datos extraídos?")) return;
-    setDriverDocumentDeleteError("");
-    setDriverDocumentDeleteBusy(true);
+    setDocumentDeleteError("");
+    setDocumentDeleteBusy(true);
     try {
       const result = await item.onDeleteDocument(item.document);
       if (result === false) throw new Error("No se ha podido borrar el archivo.");
-      notify(`${item.deleteLabel ?? "Archivo"} eliminado junto con sus datos.`);
+      notify(`${item.deletedItemLabel ?? item.deleteLabel ?? "Archivo"} eliminado junto con sus datos.`);
       onClose();
     } catch (error) {
-      setDriverDocumentDeleteError(error?.message || "No se ha podido borrar el archivo.");
-      setDriverDocumentDeleteBusy(false);
+      setDocumentDeleteError(error?.message || "No se ha podido borrar el archivo.");
+      setDocumentDeleteBusy(false);
     }
   };
   if (isDocumentProcessing) titles[modal.type] = `${isMaintenanceDocumentProcessing ? "Mantenimiento" : documentCategoryLabels[modal.category] ?? "Documento"} · Análisis IA`;
@@ -9399,7 +9438,7 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
         <header><div><span>{isDriverDocument || isDriverDocumentDateEdit ? "ARCHIVO DEL DÍA" : "Acción rápida"}</span><h2 id="modal-title">{isFuelInvoice ? "Ticket de gasolina" : isGestoriaInvoice ? "Factura de gestoría" : titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
         {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
         {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.documentNumber ?? item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div>{item.imageSrc ? <figure className="invoice-document-photo"><img src={item.imageSrc} alt={`Documento de ${item.provider} para ${item.plate || item.plateReference || "la flota"}, ${item.date}`} /><figcaption>Documento adjunto · vista previa</figcaption></figure> : item.filePath ? <PrivateDocumentAttachment item={item} /> : null}{isGestoriaInvoice && !item.imageSrc && !item.filePath && <div className="invoice-source-file"><IconMail size={17} /><span><strong>Adjunto rescatado del correo</strong><small>{item.sourceFile || "Archivo de Gestoría Durán Rivas"} · {item.sourceAccount}</small></span></div>}<dl><div><dt>Vehículo</dt><dd>{item.plate || `Sin matrícula${item.plateReference ? ` · ref. ${item.plateReference}` : ""}`}</dd></div>{itemOwner && <div><dt>Propietario</dt><dd>{itemOwner.name}<small>{[itemOwner.dni ? `DNI ${itemOwner.dni}` : "", itemOwner.location].filter(Boolean).join(" · ")}</small></dd></div>}{item.driver && <div><dt>Conductor</dt><dd>{item.driver}</dd></div>}{item.km && <div><dt>Kilometraje</dt><dd>{formatKm(item.km)}</dd></div>}{item.liters && <div><dt>Litros</dt><dd>{item.liters.toLocaleString("es-ES", { maximumFractionDigits: 1 })} L</dd></div>}{item.pricePerLiter && <div><dt>Precio/litro</dt><dd>{formatCurrency(item.pricePerLiter)}</dd></div>}<div><dt>Concepto</dt><dd>{item.concept}</dd></div>{item.periodKey && <div><dt>Periodo imputado</dt><dd>{item.periodKey}</dd></div>}<div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl>{item.items?.length > 0 && <InvoiceLinesTable date={item.date} items={item.items} />}</>}
-        {isDriverDocument && <><div className="driver-document-context"><IconCamera size={20} /><span><strong>{item.concept}</strong><small>{item.driver} · {item.date} · {item.fileName}</small></span><div className="driver-document-context__actions">{item.onChangeDate && <button type="button" className="table-action" onClick={item.onChangeDate}><IconCalendar size={14} />Cambiar día</button>}{item.onDeleteDocument && item.document && <button type="button" className="table-action driver-document-delete" onClick={deleteDriverDocumentFromModal} disabled={driverDocumentDeleteBusy}><IconTrash size={14} />{driverDocumentDeleteBusy ? "Borrando…" : item.deleteLabel ?? "Borrar archivo"}</button>}</div>{driverDocumentDeleteError && <p className="driver-document-delete-error" role="alert"><IconAlertTriangle size={14} />{driverDocumentDeleteError}</p>}</div><PrivateDocumentAttachment item={item} /></>}
+        {isDriverDocument && <><div className="driver-document-context"><IconCamera size={20} /><span><strong>{item.concept}</strong><small>{item.driver} · {item.date} · {item.fileName}</small></span><div className="driver-document-context__actions">{item.onChangeDate && <button type="button" className="table-action" onClick={item.onChangeDate}><IconCalendar size={14} />Cambiar día</button>}{item.onDeleteDocument && item.document && <button type="button" className="table-action driver-document-delete" onClick={deleteDocumentFromModal} disabled={documentDeleteBusy}><IconTrash size={14} />{documentDeleteBusy ? "Borrando…" : item.deleteLabel ?? "Borrar archivo"}</button>}</div>{documentDeleteError && <p className="driver-document-delete-error" role="alert"><IconAlertTriangle size={14} />{documentDeleteError}</p>}</div><PrivateDocumentAttachment item={item} /></>}
         {isDriverDayEdit && <DriverDayEditWorkflow item={item} onCancel={onClose} />}
         {isDriverDocumentDateEdit && <DriverDocumentDateWorkflow item={item} onCancel={onClose} />}
         {isMaintenanceEdit && <MaintenanceEditWorkflow item={item} onCancel={onClose} onSave={(values) => { const saved = onSaveMaintenance?.(values); if (saved !== false) complete("Intervención actualizada y reordenada por fecha"); }} />}
@@ -9407,7 +9446,7 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={async (invoice) => { const saved = await onSaveInvoice(invoice); if (saved !== false) complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
         {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} defaultDate={modal.defaultDate} recordType={modal.recordType} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument({ ...document, recordType: modal.recordType || document.recordType }); if (saved === false || saved?.ok === false) return saved; complete(isMaintenanceDocumentProcessing ? "Factura de mantenimiento guardada en el vehículo" : "Documento procesado y guardado"); return { ok: true }; }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
-        {!isPhotoInvoice && !isDocumentProcessing && !isDriverDocument && !isDriverDayEdit && !isDriverDocumentDateEdit && !isMaintenanceEdit && <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Ticket de gasolina revisado" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar ticket" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>}
+        {!isPhotoInvoice && !isDocumentProcessing && !isDriverDocument && !isDriverDayEdit && !isDriverDocumentDateEdit && !isMaintenanceEdit && <footer>{isInvoice && item.onDeleteDocument && item.document && <button type="button" className="secondary-button driver-document-delete" onClick={deleteDocumentFromModal} disabled={documentDeleteBusy}><IconTrash size={16} />{documentDeleteBusy ? "Borrando…" : item.deleteLabel ?? "Borrar documento"}</button>}<button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Ticket de gasolina revisado" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar ticket" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button>{documentDeleteError && <p className="driver-document-delete-error" role="alert"><IconAlertTriangle size={14} />{documentDeleteError}</p>}</footer>}
       </section>
     </div>
   );

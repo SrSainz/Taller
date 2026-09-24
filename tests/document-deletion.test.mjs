@@ -71,3 +71,24 @@ test("si queda otro documento del mismo tipo, conserva sus datos y no toca otro 
   assert.equal(result.entries[0].billing, 180);
   assert.equal(result.entries[1].billing, 90);
 });
+
+test("borrar una factura de mantenimiento elimina su movimiento sin tocar datos diarios", () => {
+  const maintenanceDocument = {
+    id: "doc-maintenance",
+    owner_id: "admin-1",
+    category: "billing",
+    document_date: "2026-09-10",
+    extracted_data: { recordType: "maintenance", total: 240, concept: "Cambio de aceite" },
+  };
+  const driverEntry = { id: "entry-1", driver_id: "admin-1", entry_date: "2026-09-10", billing: 180, cash_collected: 60 };
+  const result = removeDocumentLocalData({
+    document: maintenanceDocument,
+    documents: [maintenanceDocument],
+    transactions: [{ id: "tx-maintenance", source_document_id: "doc-maintenance", occurred_on: "2026-09-10", type: "maintenance", amount: 240 }],
+    entries: [driverEntry],
+  });
+
+  assert.deepEqual(result.documents, []);
+  assert.deepEqual(result.transactions, []);
+  assert.deepEqual(result.entries, [driverEntry]);
+});

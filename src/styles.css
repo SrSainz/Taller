@@ -2894,6 +2894,19 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .maintenance-page .maintenance-event-date small { font-size: clamp(11px, 1vw, 13px); }
 .maintenance-page .maintenance-event-summary__amount { border: 1px solid #111; background: #fff; font-size: clamp(12px, 1.2vw, 15px); }
 .maintenance-page .maintenance-event-invoice { border-left-color: #111; }
+.maintenance-page .maintenance-event-invoice > .maintenance-event-document-delete {
+  min-height: 25px;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border-top: 1px solid #111;
+  background: #fff4f2;
+  color: #a71d14;
+}
+.maintenance-page .maintenance-event-invoice > .maintenance-event-document-delete:hover { background: #ffe1dc; }
+.maintenance-page .maintenance-event-invoice > .maintenance-event-document-delete:disabled { cursor: wait; opacity: .65; }
+.maintenance-page .maintenance-event-invoice > .maintenance-event-document-delete > svg { width: 15px; height: 15px; padding: 0; color: #a71d14; }
+.maintenance-page .maintenance-event-invoice > .maintenance-event-document-delete strong { color: #a71d14; font-size: 7px; line-height: 1.05; }
 .maintenance-page .maintenance-event-detail { border-top-color: #111; background: rgba(255, 255, 255, .82); }
 .maintenance-page .maintenance-event-detail > header strong { color: #111 !important; }
 .maintenance-page .maintenance-work-item { border-color: #111; background: rgba(255, 255, 255, .82); }
@@ -2972,6 +2985,8 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .maintenance-history-header { gap: 9px; padding-inline: 12px; }
   .maintenance-history-upload-button { width: 42px; min-height: 40px; padding: 0; }
   .maintenance-history-upload-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .maintenance-page .maintenance-event-invoice > .maintenance-event-document-delete { min-height: 22px; padding: 3px 4px; }
+  .maintenance-page .maintenance-event-invoice > .maintenance-event-document-delete strong { font-size: 6px; }
 }
 
 /* Mantenimiento móvil: las cinco tarjetas ocupan el hueco completo entre las
