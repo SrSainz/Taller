@@ -16,6 +16,7 @@ export const netMonthlyFixedPayrollByDriver = Object.freeze({
 export const netMonthlyFixedInsuranceByPlate = Object.freeze({
   "5043 MLC": 220.83,
   "5750 MJV": 310.00,
+  "5754 MJV": 452.00,
 });
 
 const getDriverKey = (driver = "") => String(driver)

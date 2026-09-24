@@ -14,8 +14,8 @@ test("mantiene los importes mensuales fijos de nómina de Neto", () => {
   assert.equal(getNetMonthlyFixedPayroll("Fernando"), 1332.24);
   assert.equal(getNetMonthlyFixedPayroll("Andrés García"), 1323.72);
   assert.equal(getNetMonthlyFixedPayroll("nuevo conductor"), null);
-  assert.deepEqual(netMonthlyFixedInsuranceByPlate, { "5043 MLC": 220.83, "5750 MJV": 310 });
+  assert.deepEqual(netMonthlyFixedInsuranceByPlate, { "5043 MLC": 220.83, "5750 MJV": 310, "5754 MJV": 452 });
   assert.equal(getNetMonthlyFixedInsurance("5043MLC"), 220.83);
   assert.equal(getNetMonthlyFixedInsurance("5750 MJV"), 310);
-  assert.equal(getNetMonthlyFixedInsurance("5754 MJV"), null);
+  assert.equal(getNetMonthlyFixedInsurance("5754 MJV"), 452);
 });
