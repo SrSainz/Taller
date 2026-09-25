@@ -9,8 +9,11 @@ test("the permanent bottom navigation contains only home and profile", () => {
   const component = app.match(/function BottomNavigation[\s\S]*?\n}\n/)?.[0] ?? "";
   assert.match(component, /IconHome/);
   assert.match(component, /IconUserCircle/);
+  assert.match(component, /IconHome size=\{42\}/);
+  assert.match(component, /IconUserCircle size=\{42\}/);
   assert.doesNotMatch(component, /IconPlus|bottom-navigation__add|onAdd/);
   assert.doesNotMatch(app, /function QuickActionMenu/);
   assert.match(css, /\.bottom-navigation\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s);
+  assert.match(css, /\.bottom-navigation__item\s*\{[^}]*width:\s*48px;[^}]*height:\s*48px/s);
   assert.doesNotMatch(css, /\.bottom-navigation__add/);
 });

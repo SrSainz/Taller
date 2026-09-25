@@ -1992,8 +1992,8 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "green" }) {
 function BottomNavigation({ onHome, onProfile, homeActive, profileLabel = "Abrir perfil de usuario" }) {
   return (
     <nav className="bottom-navigation" aria-label="Navegación inferior">
-      <button type="button" className={`bottom-navigation__item${homeActive ? " bottom-navigation__item--active" : ""}`} onClick={onHome} aria-label="Ir a la página principal" aria-current={homeActive ? "page" : undefined} title="Página principal"><IconHome size={21} /></button>
-      <button type="button" className="bottom-navigation__item" onClick={onProfile} aria-label={profileLabel} title={profileLabel.replace(/^Abrir /, "")}><IconUserCircle size={21} /></button>
+      <button type="button" className={`bottom-navigation__item${homeActive ? " bottom-navigation__item--active" : ""}`} onClick={onHome} aria-label="Ir a la página principal" aria-current={homeActive ? "page" : undefined} title="Página principal"><IconHome size={42} /></button>
+      <button type="button" className="bottom-navigation__item" onClick={onProfile} aria-label={profileLabel} title={profileLabel.replace(/^Abrir /, "")}><IconUserCircle size={42} /></button>
     </nav>
   );
 }
