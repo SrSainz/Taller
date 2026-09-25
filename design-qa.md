@@ -85,6 +85,36 @@ passed
 
 final result: passed
 
+## 25 de septiembre de 2026 — Administración, calendario semanal y comisiones
+
+### Evidencia
+
+- Fuentes visuales: `codex-clipboard-c6be4bf9-d49b-401d-8df0-168a9c19e06a.png`, `codex-clipboard-33f90626-3462-4a8b-9cab-91ff5091fcf2.png` y `codex-clipboard-46750817-695f-44eb-9d0e-6d6c9ab25d53.png`.
+- Implementación browser-rendered autenticada: `https://talleria-flota.vercel.app/?release=63a8a32`.
+- Administración muestra las matrículas centradas a 24 px, sin los iconos verdes de coche, y el contador `DOCUMENTOS N` encima de cada fotografía.
+- La navegación inferior contiene únicamente Inicio y Administración/Perfil; el botón central `+` y su menú ya no se renderizan.
+- El calendario semanal final mide 442 px dentro de un área útil de 444 px; las columnas medidas son 78 px para conceptos y 52 px para cada uno de los siete días. No existe desplazamiento horizontal interior (`overflow-x: hidden`) y el carrusel conserva `touch-action: pan-y` para seguir el dedo horizontalmente sin bloquear el desplazamiento vertical.
+- Los selectores observados junto a la semana activa muestran `SEMANA DEL 21`, `Septiembre` y `2026`, todos derivados de la fecha seleccionada.
+- En Neto > 5750 MJV, el desglose desplegado muestra Mauricio (3.115,97 € de facturación) con comisión 0,00 € y Amin (5.574,69 €) con comisión 801,33 €. La fila anuncia `Desde 5.000 € · 32% + bonos`.
+
+### Comparación y superficies de fidelidad
+
+- Jerarquía: matrícula centrada entre los dos conductores y con el doble del tamaño anterior; documentos colocados inmediatamente encima del avatar correspondiente.
+- Contenido: el contador se filtra por conductor y por el mes natural en curso, de modo que cambia de periodo sin arrastrar archivos del mes anterior.
+- Interacción: el área completa de los días pertenece al carrusel semanal; las entradas de edición mantienen su excepción para no iniciar gestos mientras se escribe.
+- Adaptación: los siete días se ven completos en el ancho de la aplicación del conductor y la tabla se mueve como una sola pieza durante el cambio semanal.
+- Lógica económica: ninguna comisión, bono, propina, peaje o total a cobrar se imputa en esta partida por debajo de 5.000 €; desde el umbral se aplica el porcentaje al total mensual y el bono correspondiente.
+
+### Verificación técnica
+
+- `pnpm test`: 93/93 pruebas superadas.
+- `pnpm build`: superado.
+- GitHub: commits `2dfa195`, `40ea7aa` y `63a8a32` publicados en `main`.
+- Vercel producción: activo el bundle final `index-TvEtgmSK.js` / `index-CyhyoQwv.css` para `63a8a32`.
+- No se encontraron diferencias P0, P1 o P2 respecto a los requisitos visuales y funcionales.
+
+final result: passed
+
 ## Conductores · fotos, nombres y columnas monetarias (2026-09-24)
 
 - Fuente: `C:/Users/aiday/AppData/Local/Temp/codex-clipboard-5009b02f-f69d-45bc-8d53-36c9a6cdc84f.png`.
