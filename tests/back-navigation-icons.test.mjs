@@ -8,10 +8,13 @@ test("las acciones de volver usan una flecha curva grande y gruesa", () => {
   assert.match(source, /aria-label="Volver al resumen general"><IconArrowBackUp size=\{26\} stroke=\{3\.5\}/);
   assert.match(source, /aria-label=\{`Volver desde el calendario de \$\{row\.driver\}`\}><IconArrowBackUp size=\{26\} stroke=\{3\.5\}/);
   assert.match(source, /setSelectedDriverKey\(""\)[\s\S]*?<IconArrowBackUp size=\{26\} stroke=\{3\.5\}/);
+  assert.match(source, /net-detail-modal__header">\s*<button[^>]*app-return-button/);
+  assert.match(source, /driver-billing-calendar__leading">\s*<button[^>]*app-return-button/);
+  assert.match(source, /drivers-calendar-card__leading-actions">\s*\{!expanded && <button[^>]*app-return-button/);
 });
 
 test("las acciones que solo cierran diálogos conservan la X", () => {
   assert.match(source, /aria-label="Cerrar fotos de efectivo"[^\n]*<IconX/);
   assert.match(source, /aria-label="Cerrar ventana"><IconX/);
-  assert.match(source, /expanded \? <IconX size=\{17\} \/> : <IconArrowBackUp/);
+  assert.match(source, /\{expanded && <button[\s\S]*?aria-label="Cerrar calendario ampliado"><IconX size=\{17\}/);
 });

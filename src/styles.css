@@ -700,6 +700,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-calendar-card__header > div:nth-child(2) strong { color: var(--text); font-size: 17px; font-weight: 800; }
 .drivers-calendar-card__header > div:nth-child(2) small { overflow: hidden; color: var(--muted); font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .drivers-calendar-card__actions { display: flex; align-items: center; gap: 5px; }
+.drivers-calendar-card__leading-actions { display: flex; align-items: center; gap: 5px; }
+.drivers-calendar-card__back { flex: 0 0 auto; }
 .drivers-calendar-card__month { padding: 2px 8px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font: inherit; font-size: 11px; font-weight: 700; cursor: zoom-in; }
 .drivers-calendar-card__month:hover, .drivers-calendar-card__month:focus-visible { background: rgba(255,255,255,.82); color: var(--billing-strong); outline: 2px solid rgba(30,114,190,.22); outline-offset: 1px; }
 .drivers-calendar-nav { width: 29px; height: 29px; display: grid; place-items: center; padding: 0; border: 1px solid #b8d9c3; border-radius: 8px; background: #fff; color: var(--billing-strong); cursor: pointer; }
@@ -819,6 +821,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .report-income-table td:last-child strong { color: #007780; font-size: 10px; }
 .driver-billing-calendar { width: min(100%,920px); margin: 0 auto; overflow: hidden; border-color: var(--billing-line); box-shadow: 0 8px 22px rgba(63,150,80,.1); }
 .driver-billing-calendar__header { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 18px; border-bottom: 1px solid var(--billing-line); background: linear-gradient(90deg,var(--billing-soft) 0%,#fff 72%); }
+.driver-billing-calendar__leading { min-width: 0; display: flex; align-items: center; gap: 10px; }
 .driver-billing-calendar__identity, .driver-billing-calendar__summary, .driver-billing-calendar__summary > span { display: flex; align-items: center; }
 .driver-billing-calendar__identity { gap: 10px; }
 .driver-billing-calendar__identity > span:last-child, .driver-billing-calendar__summary > span { flex-direction: column; align-items: flex-start; gap: 3px; }
@@ -828,6 +831,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .driver-billing-calendar__summary > span { align-items: flex-end; }
 .driver-billing-calendar__summary strong { color: var(--billing-strong); font-size: 16px; }
 .driver-billing-calendar__summary button { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid #d4e1e7; border-radius: 8px; background: #fff; color: #526670; cursor: pointer; }
+.driver-billing-calendar__back { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; padding: 0; border: 1px solid #d4e1e7; border-radius: 8px; background: #fff; color: #526670; cursor: pointer; }
 .driver-billing-calendar__weekdays, .driver-billing-calendar__grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); }
 .driver-billing-calendar__weekdays { padding: 0 12px; border-bottom: 1px solid var(--billing-line); background: #f7fcf7; }
 .driver-billing-calendar__weekdays span { padding: 9px 4px; color: #65747b; font-size: 7px; font-weight: 750; text-align: center; text-transform: uppercase; }
@@ -10099,5 +10103,27 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
     max-height: calc(100dvh - 8px);
     padding: 13px 10px calc(13px + env(safe-area-inset-bottom));
     border-radius: 18px 18px 0 0;
+  }
+}
+
+/* Las acciones de regreso ocupan el margen izquierdo y reservan su espacio. */
+.net-detail-modal__back {
+  right: auto;
+  left: 12px;
+}
+.net-detail-modal__overview {
+  padding-right: 16px;
+  padding-left: 58px;
+}
+@media (max-width: 720px) {
+  .net-detail-modal__overview {
+    padding-right: 11px;
+    padding-left: 50px;
+  }
+}
+@media (max-width: 520px) and (max-height: 700px) {
+  .net-detail-modal__back {
+    right: auto;
+    left: 8px;
   }
 }

@@ -6765,12 +6765,12 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
     <div className="net-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className={`net-detail-modal${selectedDetail ? " net-detail-modal--expanded" : ""}`} role="dialog" aria-modal="true" aria-label="Detalle de NETO">
         <header className="net-detail-modal__header">
+          <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close net-detail-modal__back app-return-button" onClick={onClose} aria-label="Volver al resumen general"><IconArrowBackUp size={26} stroke={3.5} /></button>
           <div className="net-detail-modal__brand" aria-label="SOBRE RUEDAS">
             <img src="/brand/sobre-ruedas-logo.png" alt="" />
             <span><strong>SOBRE</strong><em> RUEDAS</em><small>GESTIÓN DE FLOTA</small></span>
           </div>
           <div className="net-detail-modal__header-heading"><span>NETO</span><small>{periodLabel}</small></div>
-          <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconArrowBackUp size={26} stroke={3.5} /></button>
         </header>
         <section className="net-detail-modal__hero" aria-label={`Vista visual de Neto de ${periodLabel}`}>
           <div className="net-detail-modal__hero-cars" aria-hidden="true">
@@ -7721,11 +7721,14 @@ function DriverBillingCalendar({ row, vehicle, month, year, documents = [], tran
   return (
     <section className="content-card driver-billing-calendar" id="driver-billing-calendar" aria-labelledby="driver-billing-calendar-title">
       <header className="driver-billing-calendar__header">
-        <div className="driver-billing-calendar__identity">
-          <span className="avatar report-driver-avatar">{row.driver.slice(0, 2).toUpperCase()}</span>
-          <span><strong id="driver-billing-calendar-title">{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-billing-calendar__plate" /><small>{row.model}</small></span>
+        <div className="driver-billing-calendar__leading">
+          <button type="button" className="driver-billing-calendar__back app-return-button" onClick={onClose} aria-label={`Volver desde el calendario de ${row.driver}`}><IconArrowBackUp size={26} stroke={3.5} /></button>
+          <div className="driver-billing-calendar__identity">
+            <span className="avatar report-driver-avatar">{row.driver.slice(0, 2).toUpperCase()}</span>
+            <span><strong id="driver-billing-calendar-title">{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-billing-calendar__plate" /><small>{row.model}</small></span>
+          </div>
         </div>
-        <div className="driver-billing-calendar__summary"><span><small>{reportMonths[month]} {year}</small><strong>{formatCurrency(row.revenue)}</strong></span><button type="button" onClick={onClose} aria-label={`Volver desde el calendario de ${row.driver}`}><IconArrowBackUp size={26} stroke={3.5} /></button></div>
+        <div className="driver-billing-calendar__summary"><span><small>{reportMonths[month]} {year}</small><strong>{formatCurrency(row.revenue)}</strong></span></div>
       </header>
       <div className="driver-billing-calendar__weekdays" aria-hidden="true">{calendarWeekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
       <div className="driver-billing-calendar__grid" role="grid" aria-label={`Facturación diaria de ${row.driver} en ${reportMonths[month]} de ${year}`}>
@@ -8078,14 +8081,17 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const renderDriversCalendar = (expanded = false) => (
     <section className={`drivers-calendar-card${expanded ? " drivers-calendar-card--expanded" : ""}`} aria-labelledby={expanded ? "drivers-calendar-expanded-title" : "drivers-calendar-title"}>
       <header className="drivers-calendar-card__header">
-        <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(-1)} aria-label="Mes anterior"><IconChevronLeft size={18} /></button>
+        <div className="drivers-calendar-card__leading-actions">
+          {!expanded && <button type="button" className="icon-button drivers-calendar-card__back app-return-button" onClick={() => setSelectedDriverKey("")} aria-label={`Volver desde el calendario de ${selectedDriver.driver}`}><IconArrowBackUp size={26} stroke={3.5} /></button>}
+          <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(-1)} aria-label="Mes anterior"><IconChevronLeft size={18} /></button>
+        </div>
         <div className="drivers-calendar-card__identity">
           <strong id={expanded ? "drivers-calendar-expanded-title" : "drivers-calendar-title"}>{selectedDriver.driver}</strong>
           <button type="button" className="drivers-calendar-card__month" onClick={() => setCalendarExpanded(true)} aria-label={`Ampliar calendario de ${reportMonths[reportMonth]} de ${reportYear}`} aria-pressed={expanded}>{reportMonths[reportMonth]} {reportYear}</button>
         </div>
         <div className="drivers-calendar-card__actions">
           <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><IconChevronRight size={18} /></button>
-          <button type="button" className="icon-button" onClick={() => expanded ? setCalendarExpanded(false) : setSelectedDriverKey("")} aria-label={expanded ? "Cerrar calendario ampliado" : `Volver desde el calendario de ${selectedDriver.driver}`}>{expanded ? <IconX size={17} /> : <IconArrowBackUp size={26} stroke={3.5} />}</button>
+          {expanded && <button type="button" className="icon-button" onClick={() => setCalendarExpanded(false)} aria-label="Cerrar calendario ampliado"><IconX size={17} /></button>}
         </div>
       </header>
       <div ref={calendarSurfaceRef} className="drivers-calendar-surface" onPointerDown={onCalendarPointerDown} onPointerMove={onCalendarPointerMove} onPointerUp={onCalendarPointerUp} onPointerCancel={onCalendarPointerCancel}>
