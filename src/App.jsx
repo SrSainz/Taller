@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import {
   IconAlertTriangle,
+  IconArrowBackUp,
   IconBrandUber,
   IconBell,
   IconBrandWhatsapp,
@@ -6769,7 +6770,7 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
             <span><strong>SOBRE</strong><em> RUEDAS</em><small>GESTIÓN DE FLOTA</small></span>
           </div>
           <div className="net-detail-modal__header-heading"><span>NETO</span><small>{periodLabel}</small></div>
-          <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconX size={20} /></button>
+          <button ref={closeButtonRef} type="button" className="icon-button net-detail-modal__close" onClick={onClose} aria-label="Volver al resumen general"><IconArrowBackUp size={26} stroke={3.5} /></button>
         </header>
         <section className="net-detail-modal__hero" aria-label={`Vista visual de Neto de ${periodLabel}`}>
           <div className="net-detail-modal__hero-cars" aria-hidden="true">
@@ -7724,7 +7725,7 @@ function DriverBillingCalendar({ row, vehicle, month, year, documents = [], tran
           <span className="avatar report-driver-avatar">{row.driver.slice(0, 2).toUpperCase()}</span>
           <span><strong id="driver-billing-calendar-title">{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-billing-calendar__plate" /><small>{row.model}</small></span>
         </div>
-        <div className="driver-billing-calendar__summary"><span><small>{reportMonths[month]} {year}</small><strong>{formatCurrency(row.revenue)}</strong></span><button type="button" onClick={onClose} aria-label={`Cerrar calendario de ${row.driver}`}><IconX size={17} /></button></div>
+        <div className="driver-billing-calendar__summary"><span><small>{reportMonths[month]} {year}</small><strong>{formatCurrency(row.revenue)}</strong></span><button type="button" onClick={onClose} aria-label={`Volver desde el calendario de ${row.driver}`}><IconArrowBackUp size={26} stroke={3.5} /></button></div>
       </header>
       <div className="driver-billing-calendar__weekdays" aria-hidden="true">{calendarWeekdays.map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
       <div className="driver-billing-calendar__grid" role="grid" aria-label={`Facturación diaria de ${row.driver} en ${reportMonths[month]} de ${year}`}>
@@ -8084,7 +8085,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         </div>
         <div className="drivers-calendar-card__actions">
           <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><IconChevronRight size={18} /></button>
-          <button type="button" className="icon-button" onClick={() => expanded ? setCalendarExpanded(false) : setSelectedDriverKey("")} aria-label={expanded ? "Cerrar calendario ampliado" : `Cerrar calendario de ${selectedDriver.driver}`}><IconX size={17} /></button>
+          <button type="button" className="icon-button" onClick={() => expanded ? setCalendarExpanded(false) : setSelectedDriverKey("")} aria-label={expanded ? "Cerrar calendario ampliado" : `Volver desde el calendario de ${selectedDriver.driver}`}>{expanded ? <IconX size={17} /> : <IconArrowBackUp size={26} stroke={3.5} />}</button>
         </div>
       </header>
       <div ref={calendarSurfaceRef} className="drivers-calendar-surface" onPointerDown={onCalendarPointerDown} onPointerMove={onCalendarPointerMove} onPointerUp={onCalendarPointerUp} onPointerCancel={onCalendarPointerCancel}>
