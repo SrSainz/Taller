@@ -6745,6 +6745,10 @@ body:has(.net-detail-backdrop) .topbar--reports {
     min-width: 78px;
     max-width: 78px;
   }
+  .driver-mobile-week-page .driver-mobile-week-table {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 /* Conductores: el importe y la foto abren el mismo editor del día. */
