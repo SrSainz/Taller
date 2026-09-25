@@ -776,7 +776,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     ? commissionSummary.find((row) => row.calculation)
     : null;
   const commissionRates = [...new Set(commissionSummary.map((row) => `${Math.round(row.commissionCalculation.commissionRate * 100)}%`))];
-  const commissionCadence = commissionRates.length ? `${commissionRates.join(" y ")} + bonos · total a cobrar` : "Según facturación mensual";
+  const commissionCadence = commissionRates.length ? `Desde 5.000 € · ${commissionRates.join(" y ")} + bonos` : "Desde 5.000 € de facturación";
   const socialBreakdown = [
     { breakdownKey: "autonomo", label: "Autónomo", amount: getNetSocialSecurityAmount(vehicle.plate, 0), meta: "Cuota mensual fija" },
     ...vehicleDrivers.map((driver, index) => ({ breakdownKey: vehicle.driverProfiles?.[index]?.id || normalizeNetExpenseCategory(driver), driverId: vehicle.driverProfiles?.[index]?.id ?? "", label: driver, amount: getNetSocialSecurityAmount(vehicle.plate, index + 1), meta: "Cuota mensual fija" })),
@@ -1985,67 +1985,12 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "green" }) {
   );
 }
 
-function BottomNavigation({ onHome, onAdd, onProfile, homeActive, profileLabel = "Abrir perfil de usuario" }) {
+function BottomNavigation({ onHome, onProfile, homeActive, profileLabel = "Abrir perfil de usuario" }) {
   return (
     <nav className="bottom-navigation" aria-label="Navegación inferior">
       <button type="button" className={`bottom-navigation__item${homeActive ? " bottom-navigation__item--active" : ""}`} onClick={onHome} aria-label="Ir a la página principal" aria-current={homeActive ? "page" : undefined} title="Página principal"><IconHome size={21} /></button>
-      <button type="button" className="bottom-navigation__add" onClick={onAdd} aria-label="Añadir" title="Añadir"><IconPlus size={24} /></button>
       <button type="button" className="bottom-navigation__item" onClick={onProfile} aria-label={profileLabel} title={profileLabel.replace(/^Abrir /, "")}><IconUserCircle size={21} /></button>
     </nav>
-  );
-}
-
-function QuickActionMenu({ step, category, onCategory, onDocumentAction, onNotice }) {
-  const nativeInputRef = useRef(null);
-  const categoryRef = useRef(category);
-
-  useEffect(() => {
-    categoryRef.current = category;
-  }, [category]);
-
-  const openNativePicker = (input = nativeInputRef.current) => {
-    if (!input) return;
-    input.value = "";
-    try {
-      if (typeof input.showPicker === "function") {
-        input.showPicker();
-        return;
-      }
-    } catch {
-      // Some mobile browsers expose showPicker but only allow click().
-    }
-    input.click();
-  };
-
-  const handleCategory = (nextCategory) => {
-    categoryRef.current = nextCategory;
-    openNativePicker();
-    onCategory(nextCategory);
-  };
-
-  const handleFile = (event) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const validation = validateDocumentFile(file, "upload");
-      if (!validation.valid) {
-        onNotice?.(validation.message);
-      } else {
-        onDocumentAction({ category: categoryRef.current, source: "upload", file });
-      }
-    }
-    event.target.value = "";
-  };
-
-  return (
-    <>
-      {step === "categories" && <div className="bottom-navigation__quick-menu bottom-navigation__quick-menu--categories" onClick={(event) => event.stopPropagation()} role="menu" aria-label="Seleccionar tipo de registro">
-        <div className="bottom-navigation__quick-options bottom-navigation__quick-options--categories">
-          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--billing" onClick={() => handleCategory("billing")}><IconFileInvoice size={21} /><span>Facturación</span></button>
-          <button type="button" role="menuitem" className="bottom-navigation__quick-option bottom-navigation__quick-option--fuel" onClick={() => handleCategory("consumption")}><IconGasStation size={21} /><span>Consumo</span></button>
-        </div>
-      </div>}
-      <input ref={nativeInputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" aria-label="Seleccionar una acción: Cámara o Archivos" onChange={handleFile} />
-    </>
   );
 }
 
@@ -2290,8 +2235,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const [homeChartMetric, setHomeChartMetric] = useState("summary");
   const [reportMonth, setReportMonth] = useState(() => new Date().getMonth());
   const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
-  const [quickMenuStep, setQuickMenuStep] = useState("");
-  const [quickMenuCategory, setQuickMenuCategory] = useState("");
   const [maintenanceSearchQuery, setMaintenanceSearchQuery] = useState("");
   const [maintenanceSearchOpen, setMaintenanceSearchOpen] = useState(false);
   const [maintenanceSearchSelection, setMaintenanceSearchSelection] = useState(null);
@@ -3062,15 +3005,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   }, [isAdmin, notify, onProfileChange, refreshDriverProfiles, session.user.id, syncAdminRealtimeRecord]);
 
   useEffect(() => {
-    const onBottomNavigationClick = (event) => {
-      if (!(event.target instanceof Element)) return;
-      if (quickMenuStep && !event.target.closest(".bottom-navigation__quick-menu") && !event.target.closest(".bottom-navigation__add")) setQuickMenuStep("");
-    };
-    document.addEventListener("click", onBottomNavigationClick);
-    return () => document.removeEventListener("click", onBottomNavigationClick);
-  }, [quickMenuStep]);
-
-  useEffect(() => {
     const handleHash = () => {
       const nextNav = navFromHash();
       setActiveNav(nextNav);
@@ -3094,7 +3028,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         setTopbarMenuOpen(false);
         setAdminHeaderOpen(false);
         setAdminFunctionWindow("");
-        setQuickMenuStep("");
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -3657,7 +3590,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} notify={notify} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} onOpenMaintenanceReports={markMaintenanceReportNotificationsSeen} onRefreshMaintenanceReports={refreshMaintenanceReports} onDeleteMaintenanceDocument={removeAdminDriverDocument} />}
-          {activeNav === "Administración" && isAdmin && <AdminView notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} invoices={invoices} adminFunctionWindow={adminFunctionWindow} onAdminFunctionWindowChange={setAdminFunctionWindow} />}
+          {activeNav === "Administración" && isAdmin && <AdminView notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} documents={documentRecords} adminFunctionWindow={adminFunctionWindow} onAdminFunctionWindowChange={setAdminFunctionWindow} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}
@@ -3682,14 +3615,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         />
       )}
 
-      <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} onHome={openGeneral} onAdd={() => { setQuickMenuStep((current) => current ? "" : "categories"); setQuickMenuCategory(""); }} onProfile={() => navigate(adminNavItem)} profileLabel={isAdmin ? "Abrir administración" : "Abrir perfil de usuario"} />
-      <QuickActionMenu
-        step={quickMenuStep}
-        category={quickMenuCategory}
-        onCategory={(category) => { setQuickMenuCategory(category); setQuickMenuStep(""); }}
-        onNotice={(message) => notify(message)}
-        onDocumentAction={({ category, source, file }) => { setQuickMenuStep(""); setQuickMenuCategory(""); setModal({ type: "document-processing", category, source, file, selectedPlate }); }}
-      />
+      <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} onHome={openGeneral} onProfile={() => navigate(adminNavItem)} profileLabel={isAdmin ? "Abrir administración" : "Abrir perfil de usuario"} />
       {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoiceCentral} onSaveDocument={saveProcessedDocumentCentral} onSaveMaintenance={saveMaintenanceEdit} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
     </div>
@@ -5770,7 +5696,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   };
   const handleWeekPointerDown = (event) => {
     if (weekSwipeTransition || (event.pointerType === "mouse" && event.button !== 0)) return;
-    if (event.target instanceof Element && event.target.closest(".driver-mobile-week-table-wrap")) return;
+    if (event.target instanceof Element && event.target.closest("input, textarea, select")) return;
     weekGestureRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, axis: "", offset: 0 };
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
@@ -6072,7 +5998,7 @@ const copyTextToClipboard = async (value) => {
   if (!copied) throw new Error("El navegador no permite copiar el enlace.");
 };
 
-function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [], adminFunctionWindow = "", onAdminFunctionWindowChange }) {
+function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], adminFunctionWindow = "", onAdminFunctionWindowChange }) {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -6257,7 +6183,25 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [], ad
       .filter((driver) => !assignedNames.has(normalizeDriverAvatarKey(driver.full_name)));
     return orderAdminDriverCardsForVehicle(vehicle, [...assigned, ...fallback].slice(0, 2));
   };
-  const vehicleDocumentCount = (vehicle) => invoices.filter((invoice) => canonicalizeVehiclePlate(invoice.plate || invoice.vehicle_plate) === vehicle.plate).length;
+  const currentDocumentPeriod = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  })();
+  const driverDocumentCount = (driver) => {
+    const driverId = String(driver?.id ?? "");
+    const driverName = normalizeDriverAvatarKey(driver?.full_name);
+    const driverPlate = canonicalizeVehiclePlate(driver?.vehicle_plate);
+    return documents.filter((document) => {
+      const documentDate = getDriverDocumentDateKey(document);
+      if (!documentDate?.startsWith(`${currentDocumentPeriod}-`)) return false;
+      const fields = getExtractedDocumentFields(document);
+      const assignedDriverId = String(document?.driver_id || fields.driverId || fields.driver_id || "");
+      if (driverId && !driverId.startsWith("seed-") && (String(document?.owner_id ?? "") === driverId || assignedDriverId === driverId)) return true;
+      const assignedDriverName = normalizeDriverAvatarKey(fields.driverName || fields.driver_name || fields.driver || fields.conductor || "");
+      const documentPlate = canonicalizeVehiclePlate(document?.vehicle_plate || fields.vehiclePlate || fields.vehicle_plate || fields.plate);
+      return Boolean(driverName && assignedDriverName === driverName && (!driverPlate || !documentPlate || documentPlate === driverPlate));
+    }).length;
+  };
   const startDriverLongPress = (driverKey) => {
     window.clearTimeout(longPressRef.current.timer);
     longPressRef.current = { timer: window.setTimeout(() => {
@@ -6310,18 +6254,19 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, invoices = [], ad
      <div className="admin-access-stack">
        {driverVehicleOptions.map((vehicle) => {
          const vehicleDrivers = driversForVehicle(vehicle);
-         const vehicleDocuments = vehicleDocumentCount(vehicle);
          return <section className="admin-vehicle-card" key={vehicle.plate} aria-label={`Coche ${vehicle.plate}`}>
            <header className="admin-vehicle-card__header">
-              <div className="admin-vehicle-card__identity"><span className="admin-vehicle-card__icon"><IconCar size={21} /></span><div><VehiclePlateLabel vehicleOrPlate={vehicle} className="admin-vehicle-plate" /><span className="admin-accordion__documents"><IconFileInvoice size={13} /><b>Documentos</b><small>{vehicleDocuments}</small></span></div></div>
+              <VehiclePlateLabel vehicleOrPlate={vehicle} className="admin-vehicle-plate" />
            </header>
            <div className="admin-vehicle-card__drivers">
              {vehicleDrivers.map((driver) => {
                const driverKey = driverActionKey(driver);
                const avatarPath = getDriverAvatarPath(driver.full_name);
                const menuOpen = driverActionId === driverKey;
+               const monthlyDocuments = driverDocumentCount(driver);
                return <article className={`admin-driver-card${menuOpen ? " is-open" : ""}`} key={driverKey}>
                  <button className="admin-driver-card__trigger" type="button" onClick={() => openDriverApplication(driver, driverKey)} onPointerDown={(event) => { if (event.pointerType !== "mouse" || event.button === 0) startDriverLongPress(driverKey); }} onPointerUp={stopDriverLongPress} onPointerLeave={stopDriverLongPress} onPointerCancel={stopDriverLongPress} onContextMenu={(event) => event.preventDefault()} onKeyDown={(event) => { if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) { event.preventDefault(); setDriverActionId(driverKey); } }} aria-label={`Abrir aplicación de ${driver.full_name}`} aria-haspopup="dialog" title="Toca para ver la aplicación; mantén pulsado para gestionar el acceso">
+                    <span className="admin-driver-card__documents">DOCUMENTOS <b>{monthlyDocuments}</b></span>
                     <span className="admin-driver-card__avatar">{avatarPath ? <img src={avatarPath} alt="" /> : <span>{driverInitials(driver.full_name)}</span>}<i className={driver.active ? "is-active" : ""} aria-hidden="true" /></span>
                     <strong>{driver.full_name}</strong>
                   </button>

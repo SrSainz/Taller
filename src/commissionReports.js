@@ -39,15 +39,17 @@ export const isAlex = (name = "") => normalizeDriverName(name) === "alex";
 export const calculateDriverCommission = ({ driverName = "", billing = 0, tips = 0, tolls = 0, payroll = 0 } = {}) => {
   const monthlyBilling = money(billing);
   const commissionRate = getDriverCommissionRate(driverName);
-  const commissionBase = money(monthlyBilling * commissionRate);
-  const thresholdBonus = commissionRate > 0 ? calculateCommissionThresholdBonus(monthlyBilling) : 0;
+  const commissionEligible = commissionRate > 0 && monthlyBilling >= FIRST_BONUS_THRESHOLD;
+  const commissionBase = commissionEligible ? money(monthlyBilling * commissionRate) : 0;
+  const thresholdBonus = commissionEligible ? calculateCommissionThresholdBonus(monthlyBilling) : 0;
   const commission = money(commissionBase + thresholdBonus);
-  const totalBenefitMonth = money(commission + tips + tolls);
-  const totalToCollect = signedMoney(totalBenefitMonth - payroll);
+  const totalBenefitMonth = commissionEligible ? money(commission + tips + tolls) : 0;
+  const totalToCollect = commissionEligible ? signedMoney(totalBenefitMonth - payroll) : 0;
   return {
     driverName,
     monthlyBilling,
     commissionRate,
+    commissionEligible,
     commissionBase,
     thresholdBonus,
     commission,

@@ -1344,21 +1344,12 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .invoice-lines-detail > header > strong { color: var(--green-900); font-size: 13px; }
 .support-form { padding: 6px 19px 20px; }
 
-.bottom-navigation { position: fixed; z-index: 24; right: 0; bottom: 0; left: 0; height: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; padding: 0 18px env(safe-area-inset-bottom); border-top: 1px solid #444744; background: #292b2a; box-shadow: 0 -10px 28px rgba(12,18,16,.2); }
-.bottom-navigation__item, .bottom-navigation__add { display: grid; place-items: center; padding: 0; cursor: pointer; }
+.bottom-navigation { position: fixed; z-index: 24; right: 0; bottom: 0; left: 0; height: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; padding: 0 18px env(safe-area-inset-bottom); border-top: 1px solid #444744; background: #292b2a; box-shadow: 0 -10px 28px rgba(12,18,16,.2); }
+.bottom-navigation__item { display: grid; place-items: center; padding: 0; cursor: pointer; }
 .bottom-navigation__item { width: 40px; height: 40px; justify-self: center; border: 0; border-radius: 0; background: transparent; color: #c5cac5; }
 .bottom-navigation__item:last-child { justify-self: center; }
 .bottom-navigation__item:hover, .bottom-navigation__item--active { background: transparent; color: #fff; }
 .bottom-navigation__item:focus-visible { outline: 2px solid rgba(242,234,213,.78); outline-offset: 4px; background: transparent; color: #fff; }
-.bottom-navigation__add { width: 42px; height: 42px; align-self: center; justify-self: center; margin: 0; border: 1px solid #f8f0dc; border-radius: 10px; background: #f2ead5; color: #59615b; box-shadow: 0 4px 12px rgba(0,0,0,.24); }
-.bottom-navigation__add:hover, .bottom-navigation__add:focus-visible { background: #fff5df; color: #3f4942; transform: none; }
-.bottom-navigation__quick-menu { position: fixed; z-index: 26; right: 12px; bottom: calc(var(--bottom-navigation-height) + 12px + env(safe-area-inset-bottom)); left: 50%; width: min(250px, calc(100vw - 24px)); padding: 8px; transform: translateX(-50%); border: 1px solid #d7e2dd; border-radius: 15px; background: rgba(255,255,255,.98); box-shadow: 0 14px 32px rgba(16,44,35,.22), 0 2px 7px rgba(16,44,35,.08); }
-.bottom-navigation__quick-options { display: grid; gap: 7px; }
-.bottom-navigation__quick-options--categories { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.bottom-navigation__quick-option { min-height: 58px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 10px; border: 1px solid #e0e8e4; border-radius: 11px; background: #f8fbfa; color: #304a40; font-size: 10px; font-weight: 750; cursor: pointer; }
-.bottom-navigation__quick-option:hover, .bottom-navigation__quick-option:focus-visible { border-color: #a5c8ba; background: #eef8f3; outline: none; }
-.bottom-navigation__quick-option--billing svg { color: #168b68; }
-.bottom-navigation__quick-option--fuel svg { color: #df4538; }
 .toast { position: fixed; z-index: 80; right: 25px; bottom: calc(var(--bottom-navigation-height) + 16px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 9px; max-width: 380px; padding: 12px 15px; border-radius: 9px; background: #153f35; color: #fff; font-size: 9px; box-shadow: var(--shadow); animation: toast-in .2s ease-out; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(7px); } }
 @media (max-width: 1360px) {
@@ -3767,9 +3758,8 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .driver-period-card__stats strong, .driver-period-card__ledger strong { font-size: 9px; }
 }
 
-/* Navegación global: la casita, el más y el perfil permanecen anclados en todos los módulos. */
+/* Navegación global: la casita y el perfil permanecen anclados en todos los módulos. */
 .app-shell > .bottom-navigation { position: fixed !important; z-index: 200; visibility: visible; opacity: 1; }
-.bottom-navigation__quick-menu { z-index: 210; }
 .toast { z-index: 220; }
 
 /* Calendario de Conductores: el día arriba y los importes apoyados en la base de cada celda. */
@@ -6481,7 +6471,6 @@ body:has(.net-detail-backdrop) .topbar--reports {
   .report-period-menu--months { max-height: calc(100dvh - 110px - env(safe-area-inset-bottom)); }
   .report-period-menu button { min-height: 44px; font-size: 12px; }
   .report-period-menu--wheel:not(.report-chart-metric-menu) button { min-height: 42px; font-size: 11px; }
-  .bottom-navigation__quick-menu button { min-height: 50px; font-size: 13px; }
   .admin-driver-access-sheet__share-actions button,
   .admin-driver-access-editor input,
   .admin-driver-access-editor select,
@@ -6633,6 +6622,45 @@ body:has(.net-detail-backdrop) .topbar--reports {
   width: max-content;
   min-width: 470px;
   table-layout: fixed;
+}
+
+/* La tabla visible pertenece al carrusel semanal: el gesto horizontal cambia de
+   semana y la tabla completa acompaña al dedo, sin un segundo scroll interno. */
+.driver-mobile-week-page .driver-mobile-week-table-wrap {
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.driver-mobile-week-page .driver-mobile-week-table {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Administración: matrícula centrada y documentos mensuales por conductor. */
+.app-shell--admin .admin-vehicle-card__header {
+  justify-content: center;
+  text-align: center;
+}
+.app-shell--admin .admin-vehicle-plate {
+  display: inline-flex;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+}
+.app-shell--admin .admin-driver-card__trigger {
+  grid-template-rows: auto auto auto;
+  row-gap: 5px;
+}
+.app-shell--admin .admin-driver-card__documents {
+  color: #60756e;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.app-shell--admin .admin-driver-card__documents b {
+  color: #173f36;
+  font-size: 9px;
 }
 .driver-mobile-week-table thead th:first-child,
 .driver-mobile-week-table tbody th {
