@@ -6686,6 +6686,11 @@ body:has(.net-detail-backdrop) .topbar--reports {
   width: 56px;
   min-width: 56px;
 }
+.driver-mobile-week-page .driver-mobile-week-table thead th:not(:first-child),
+.driver-mobile-week-page .driver-mobile-week-table tbody td {
+  width: calc((100% - 78px) / 7);
+  min-width: 0;
+}
 .driver-mobile-week-table thead th {
   height: 58px;
   padding: 6px 4px;
