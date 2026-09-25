@@ -6005,7 +6005,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .app-shell--admin .admin-driver-card__trigger strong {
   max-width: 100%;
   margin-top: 3px;
-  font-size: 10px;
+  font-size: 15px;
   line-height: 1.1;
 }
 .app-shell--admin .admin-driver-card__trigger small {
@@ -6174,7 +6174,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
     padding-inline: 2px;
   }
   .app-shell--admin .admin-driver-card__trigger strong {
-    font-size: 9px;
+    font-size: 13.5px;
   }
 }
 
@@ -6671,7 +6671,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .app-shell--admin .admin-vehicle-plate {
   display: inline-flex;
   justify-content: center;
-  font-size: 24px;
+  font-size: 19.2px;
   line-height: 1;
 }
 .app-shell--admin .admin-driver-card__trigger {

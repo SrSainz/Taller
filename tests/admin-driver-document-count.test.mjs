@@ -17,6 +17,12 @@ test("administración muestra documentos mensuales por conductor y no el icono v
   assert.doesNotMatch(adminSource, /admin-vehicle-card__icon/);
 });
 
+test("administración reduce las matrículas y amplía los nombres de conductores", () => {
+  assert.match(css, /\.app-shell--admin \.admin-vehicle-plate\s*\{[^}]*font-size:\s*19\.2px/s);
+  assert.match(css, /\.app-shell--admin \.admin-driver-card__trigger strong\s*\{[^}]*font-size:\s*15px/s);
+  assert.match(css, /@media \(max-width: 380px\)[\s\S]*?\.app-shell--admin \.admin-driver-card__trigger strong\s*\{[^}]*font-size:\s*13\.5px/s);
+});
+
 test("el gesto semanal se inicia desde la propia tabla del calendario", () => {
   assert.doesNotMatch(source, /closest\("\.driver-mobile-week-table-wrap"\)\) return/);
   assert.match(source, /shiftDriverWeek\(direction\)/);
