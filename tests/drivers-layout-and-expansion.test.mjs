@@ -16,6 +16,16 @@ test("daily driver panels expand in a dismissible viewport overlay", () => {
   assert.match(css, /\.driver-day-panel-overlay__surface\s*\{[^}]*height:\s*52vh/s);
 });
 
+test("the driver month expands the calendar and closes from the backdrop or Escape", () => {
+  assert.match(app, /const \[calendarExpanded, setCalendarExpanded\] = useState\(false\)/);
+  assert.match(app, /className="drivers-calendar-card__month"/);
+  assert.match(app, /setCalendarExpanded\(true\)/);
+  assert.match(app, /className="drivers-calendar-overlay"/);
+  assert.match(app, /event\.target === event\.currentTarget\) setCalendarExpanded\(false\)/);
+  assert.match(css, /\.drivers-calendar-overlay__surface\s*\{[^}]*width:\s*min\(96vw,1500px\)[^}]*height:\s*min\(90dvh,920px\)/s);
+  assert.match(css, /\.drivers-calendar-card--expanded[^{]*\.drivers-calendar-grid\s*\{[^}]*flex:\s*1 1 auto/s);
+});
+
 test("driver rows include photos, smaller names and right-grouped metrics", () => {
   assert.match(app, /driver-list-card__avatar/);
   assert.match(app, /getDriverAvatarPath\(row\.driver\)/);

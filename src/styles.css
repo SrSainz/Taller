@@ -700,6 +700,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-calendar-card__header > div:nth-child(2) strong { color: var(--text); font-size: 17px; font-weight: 800; }
 .drivers-calendar-card__header > div:nth-child(2) small { overflow: hidden; color: var(--muted); font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .drivers-calendar-card__actions { display: flex; align-items: center; gap: 5px; }
+.drivers-calendar-card__month { padding: 2px 8px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font: inherit; font-size: 11px; font-weight: 700; cursor: zoom-in; }
+.drivers-calendar-card__month:hover, .drivers-calendar-card__month:focus-visible { background: rgba(255,255,255,.82); color: var(--billing-strong); outline: 2px solid rgba(30,114,190,.22); outline-offset: 1px; }
 .drivers-calendar-nav { width: 29px; height: 29px; display: grid; place-items: center; padding: 0; border: 1px solid #b8d9c3; border-radius: 8px; background: #fff; color: var(--billing-strong); cursor: pointer; }
 .drivers-calendar-nav:hover { background: var(--billing-soft); }
 .drivers-calendar-surface { overflow: hidden; touch-action: pan-y; }
@@ -724,6 +726,20 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .drivers-calendar-day--billing.drivers-calendar-day--fuel { background: linear-gradient(135deg, #f6fcf6 0 53%, #fff5f3 53% 100%); }
 .drivers-calendar-day--selected { box-shadow: inset 0 0 0 2px var(--billing-strong), 0 3px 8px rgba(63,150,80,.14); }
 .drivers-calendar-day--empty { border-color: transparent; background: transparent; cursor: default; }
+.drivers-calendar-overlay { position: fixed; z-index: 155; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(5,17,29,.58); backdrop-filter: blur(3px); }
+.drivers-calendar-overlay__surface { width: min(96vw,1500px); height: min(90dvh,920px); }
+.drivers-calendar-card--expanded { width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; border-radius: 18px; background: #fff; box-shadow: 0 26px 78px rgba(3,19,31,.38); }
+.drivers-calendar-card--expanded .drivers-calendar-card__header { min-height: 70px; flex: 0 0 auto; padding: 14px 20px; }
+.drivers-calendar-card--expanded .drivers-calendar-card__identity strong { font-size: clamp(24px,2.6vw,36px); }
+.drivers-calendar-card--expanded .drivers-calendar-card__month { color: var(--billing-strong); font-size: clamp(16px,1.8vw,24px); font-weight: 900; cursor: default; }
+.drivers-calendar-card--expanded .drivers-calendar-surface { min-height: 0; flex: 1 1 auto; }
+.drivers-calendar-card--expanded .drivers-calendar-track, .drivers-calendar-card--expanded .drivers-calendar-page { height: 100%; }
+.drivers-calendar-card--expanded .drivers-calendar-page { display: flex; flex-direction: column; }
+.drivers-calendar-card--expanded .drivers-calendar-weekdays span { padding: 10px 4px; font-size: clamp(11px,1vw,15px); font-weight: 900; }
+.drivers-calendar-card--expanded .drivers-calendar-grid { min-height: 0; flex: 1 1 auto; grid-auto-rows: minmax(0,1fr); gap: 7px; padding: 12px 14px 16px; }
+.drivers-calendar-card--expanded .drivers-calendar-day { height: 100%; padding: 9px; border-radius: 10px; }
+.drivers-calendar-card--expanded .drivers-calendar-day > span:first-child { font-size: clamp(16px,1.6vw,23px); }
+.drivers-calendar-card--expanded .drivers-calendar-day__values small { font-size: clamp(15px,1.7vw,24px); }
 .driver-day-detail { border-color: #dce5e1; }
 .driver-day-detail > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); background: #f9fbfa; }
 .driver-day-detail > header > div { display: flex; flex-direction: column; gap: 2px; }
@@ -2594,6 +2610,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .drivers-page--calendar-open .drivers-calendar-card__header { padding: 10px 14px; }
 .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) strong { font-size: clamp(20px, 2vw, 26px); font-weight: 900; letter-spacing: .02em; line-height: 1; text-transform: uppercase; }
 .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) small { font-size: clamp(13px, 1.3vw, 17px); font-weight: 850; line-height: 1.1; }
+.drivers-page--calendar-open .drivers-calendar-card__month { font-size: clamp(13px, 1.3vw, 17px); font-weight: 850; line-height: 1.1; text-transform: uppercase; }
 .drivers-page--calendar-open .drivers-calendar-weekdays span { padding: 6px 3px; font-size: 10px; font-weight: 850; }
 .drivers-page--calendar-open .drivers-calendar-day { padding: 4px; gap: 1px; border-radius: 7px; }
 .drivers-page--calendar-open .drivers-calendar-day > span:first-child { font-size: clamp(12px, 1.2vw, 15px); font-weight: 900; }
@@ -2616,6 +2633,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .drivers-page--calendar-open .drivers-calendar-card__header { padding: 7px 8px; }
   .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) strong { font-size: clamp(18px, 5.2vw, 23px); }
   .drivers-page--calendar-open .drivers-calendar-card__header > div:nth-child(2) small { font-size: clamp(12px, 3.6vw, 15px); }
+  .drivers-page--calendar-open .drivers-calendar-card__month { font-size: clamp(12px, 3.6vw, 15px); }
   .drivers-page--calendar-open .drivers-calendar-weekdays { padding: 0 5px; }
   .drivers-page--calendar-open .drivers-calendar-weekdays span { padding: 5px 1px; font-size: 9px; }
   .drivers-page--calendar-open .drivers-calendar-grid { gap: 2px; padding: 5px 6px 6px; }
@@ -3144,6 +3162,16 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .driver-day-panel--expanded .driver-day-panel__metrics > span { padding: 10px; }
   .driver-day-panel--expanded .driver-day-panel__metrics small { font-size: 10px; }
   .driver-day-panel--expanded .driver-day-panel__metrics strong { font-size: clamp(18px, 6vw, 28px); }
+  .drivers-calendar-overlay { padding: 8px; }
+  .drivers-calendar-overlay__surface { width: calc(100vw - 16px); height: min(88dvh,780px); }
+  .drivers-calendar-card--expanded .drivers-calendar-card__header { min-height: 58px; padding: 9px 10px; }
+  .drivers-calendar-card--expanded .drivers-calendar-card__identity strong { font-size: clamp(20px,6vw,28px); }
+  .drivers-calendar-card--expanded .drivers-calendar-card__month { font-size: clamp(15px,4.5vw,21px); }
+  .drivers-calendar-card--expanded .drivers-calendar-weekdays span { padding: 7px 1px; font-size: 10px; }
+  .drivers-calendar-card--expanded .drivers-calendar-grid { gap: 3px; padding: 7px 6px 9px; }
+  .drivers-calendar-card--expanded .drivers-calendar-day { padding: 5px; border-radius: 7px; }
+  .drivers-calendar-card--expanded .drivers-calendar-day > span:first-child { font-size: clamp(13px,4vw,18px); }
+  .drivers-calendar-card--expanded .drivers-calendar-day__values small { font-size: clamp(12px,3.8vw,18px); }
 }
 
 /* Mantenimiento móvil: las cinco tarjetas ocupan el hueco completo entre las

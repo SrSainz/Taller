@@ -7775,6 +7775,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const [selectedDriverKey, setSelectedDriverKey] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
   const [expandedDayPanel, setExpandedDayPanel] = useState("");
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [calendarSwipeOffset, setCalendarSwipeOffset] = useState(0);
   const [calendarSwipeTransition, setCalendarSwipeTransition] = useState(false);
   const driverGridRef = useRef(null);
@@ -7846,18 +7847,21 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   }, [selectedDriver?.key, selectedDay, reportMonth, reportYear]);
 
   useEffect(() => {
-    if (!expandedDayPanel) return undefined;
+    if (!expandedDayPanel && !calendarExpanded) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const closeOnEscape = (event) => {
-      if (event.key === "Escape") setExpandedDayPanel("");
+      if (event.key === "Escape") {
+        setExpandedDayPanel("");
+        setCalendarExpanded(false);
+      }
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [expandedDayPanel]);
+  }, [calendarExpanded, expandedDayPanel]);
 
   useEffect(() => () => {
     if (swipeResetTimer.current) window.clearTimeout(swipeResetTimer.current);
@@ -8069,6 +8073,26 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       </div>
     </div>
   );
+  const renderDriversCalendar = (expanded = false) => (
+    <section className={`drivers-calendar-card${expanded ? " drivers-calendar-card--expanded" : ""}`} aria-labelledby={expanded ? "drivers-calendar-expanded-title" : "drivers-calendar-title"}>
+      <header className="drivers-calendar-card__header">
+        <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(-1)} aria-label="Mes anterior"><IconChevronLeft size={18} /></button>
+        <div className="drivers-calendar-card__identity">
+          <strong id={expanded ? "drivers-calendar-expanded-title" : "drivers-calendar-title"}>{selectedDriver.driver}</strong>
+          <button type="button" className="drivers-calendar-card__month" onClick={() => setCalendarExpanded(true)} aria-label={`Ampliar calendario de ${reportMonths[reportMonth]} de ${reportYear}`} aria-pressed={expanded}>{reportMonths[reportMonth]} {reportYear}</button>
+        </div>
+        <div className="drivers-calendar-card__actions">
+          <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><IconChevronRight size={18} /></button>
+          <button type="button" className="icon-button" onClick={() => expanded ? setCalendarExpanded(false) : setSelectedDriverKey("")} aria-label={expanded ? "Cerrar calendario ampliado" : `Cerrar calendario de ${selectedDriver.driver}`}><IconX size={17} /></button>
+        </div>
+      </header>
+      <div ref={calendarSurfaceRef} className="drivers-calendar-surface" onPointerDown={onCalendarPointerDown} onPointerMove={onCalendarPointerMove} onPointerUp={onCalendarPointerUp} onPointerCancel={onCalendarPointerCancel}>
+        <div ref={calendarTrackRef} className="drivers-calendar-track" onTransitionEnd={onCalendarTrackTransitionEnd} style={{ "--calendar-swipe-offset": `${calendarSwipeOffset}px`, transition: calendarSwipeTransition ? "transform 280ms cubic-bezier(.22,.75,.3,1)" : "none" }}>
+          {calendarPeriods.map(renderCalendarPage)}
+        </div>
+      </div>
+    </section>
+  );
 
   return (
     <section className={`module-page drivers-page${selectedDriver ? " drivers-page--calendar-open" : ""}`}>
@@ -8091,18 +8115,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         </button>)}
       </div>
 
-      {selectedDriver && <section className="drivers-calendar-card" aria-labelledby="drivers-calendar-title">
-        <header className="drivers-calendar-card__header">
-          <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(-1)} aria-label="Mes anterior"><IconChevronLeft size={18} /></button>
-          <div><strong id="drivers-calendar-title">{selectedDriver.driver}</strong><small>{reportMonths[reportMonth]} {reportYear}</small></div>
-          <div className="drivers-calendar-card__actions"><button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><IconChevronRight size={18} /></button><button type="button" className="icon-button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar calendario de ${selectedDriver.driver}`}><IconX size={17} /></button></div>
-        </header>
-        <div ref={calendarSurfaceRef} className="drivers-calendar-surface" onPointerDown={onCalendarPointerDown} onPointerMove={onCalendarPointerMove} onPointerUp={onCalendarPointerUp} onPointerCancel={onCalendarPointerCancel}>
-          <div ref={calendarTrackRef} className="drivers-calendar-track" onTransitionEnd={onCalendarTrackTransitionEnd} style={{ "--calendar-swipe-offset": `${calendarSwipeOffset}px`, transition: calendarSwipeTransition ? "transform 280ms cubic-bezier(.22,.75,.3,1)" : "none" }}>
-            {calendarPeriods.map(renderCalendarPage)}
-          </div>
-        </div>
-      </section>}
+      {selectedDriver && !calendarExpanded && renderDriversCalendar()}
 
       {selectedDriver && selectedDayDetail && <section className="driver-day-detail" aria-label={`Detalle de ${selectedDriver.driver}`}>
         <div className="driver-day-detail__columns">
@@ -8112,6 +8125,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         </div>
       </section>}
       {expandedDayPanel && selectedDriver && selectedDayDetail && createPortal(<div className="driver-day-panel-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedDayPanel(""); }}><section className="driver-day-panel-overlay__surface" role="dialog" aria-modal="true" aria-label={`${expandedDayPanel === "billing" ? "Facturación" : expandedDayPanel === "fuel" ? "Repostaje" : "Kilómetros"} ampliado de ${selectedDriver.driver}`}>{renderDayPanel(expandedDayPanel, true)}</section></div>, document.body)}
+      {calendarExpanded && selectedDriver && createPortal(<div className="drivers-calendar-overlay" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setCalendarExpanded(false); }}><div className="drivers-calendar-overlay__surface" role="dialog" aria-modal="true" aria-label={`Calendario ampliado de ${selectedDriver.driver}`}>{renderDriversCalendar(true)}</div></div>, document.body)}
     </section>
   );
 }
