@@ -52,6 +52,7 @@ export const operationsFromDocument = ({ category, fields = {}, recordType = "",
     time: values.time || "",
     documentType: values.documentType || "",
     concept: values.concept || "",
+    maintenanceItems: Array.isArray(values.maintenanceItems) ? values.maintenanceItems : [],
     expenseCategory: values.expenseCategory || "",
     supplyType: values.supplyType || values.fuelType || "",
   };

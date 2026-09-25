@@ -62,8 +62,11 @@ import {
   formatFileSize,
   getDriverBillingAmounts,
   hasDriverBillingAmount,
+  maintenanceConceptText,
+  maintenanceItemsFromConceptText,
   normalizeDriverBillingAnalysisFields,
   normalizeDocumentAnalysis,
+  normalizeMaintenanceItems,
   prepareDocumentFile,
   readFileAsDataUrl,
   validateDocumentFile,
@@ -1388,6 +1391,7 @@ const buildAdminDataActivities = ({ transactions = [], documents = [], driverEnt
 };
 const getMaintenanceRecordKey = (item, index = 0) => `${item.date}-${item.concept}-${item.km}-${index}`;
 const getMaintenanceEventDomId = (plate, key) => `maintenance-event-${normalizeText(`${plate}-${key}`).replace(/[^a-z0-9]+/g, "-")}`;
+const formatMaintenanceLineAmount = (value) => value === null || value === undefined || value === "" ? "Incluido en factura" : formatCurrency(Number(value));
 const maintenanceMonths = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
 const getVehicleBrand = (vehicle) => vehicle.model.split(" ")[0];
 const getVehicleOwner = (vehicleOrPlate) => getCanonicalVehicleOwner(vehicleOrPlate);
@@ -3050,7 +3054,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       const sourceDocument = documentRecords.find((document) => document.id === transaction.source_document_id);
       const fields = getExtractedDocumentFields(sourceDocument);
       const metadata = transaction.metadata ?? {};
-      const concept = metadata.concept || fields.concept || fields.expenseCategory || "Taller";
+      const maintenanceItems = normalizeMaintenanceItems(metadata.maintenanceItems || fields.maintenanceItems);
+      const concept = maintenanceConceptText(maintenanceItems, metadata.concept || fields.concept || fields.expenseCategory || "Taller").replace(/\n/g, " · ");
       const provider = metadata.company || fields.company || fields.provider || "Taller no identificado";
       const invoiceNumber = metadata.invoiceNumber || fields.invoiceNumber || `DOC-${String(transaction.source_document_id ?? transaction.id).slice(0, 8)}`;
       const odometerKm = getDocumentNumericField(metadata, ["odometerKm", "odometer_km", "kilometres", "kilometers", "km"])
@@ -3067,7 +3072,9 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         km: odometerKm,
         source: "Documento IA",
         status: sourceDocument?.status === "approved" ? "Asociada" : "Revisar",
-        items: [{ concept, amount: Number(transaction.amount) || 0 }],
+        items: maintenanceItems.length
+          ? maintenanceItems.map((item) => ({ concept: item.description, amount: item.amount }))
+          : [{ concept, amount: Number(transaction.amount) || 0 }],
         sourceDocument: sourceDocument ?? null,
         filePath: sourceDocument?.file_path ?? "",
         fileName: sourceDocument?.file_name ?? "",
@@ -9007,17 +9014,17 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
                         date: formatMaintenanceDate(record.item),
                         km: record.item.km,
                         concept: candidate.concept,
-                        amount: Number(candidate.amount),
+                        amount: candidate.amount,
                       })));
                     return <div className={`maintenance-work-item ${isConceptOpen ? "is-open" : ""}`} key={`${detail.concept}-${index}`}>
                       <button type="button" className="maintenance-work-item__trigger" onClick={() => setOpenConceptKey(isConceptOpen ? "" : conceptKey)} aria-expanded={isConceptOpen} aria-controls={conceptMatchId} aria-label={`Ver todas las coincidencias de ${detail.concept}`}>
-                        <span><IconCheck size={15} />{detail.concept}</span><span><strong>{formatCurrency(Number(detail.amount))}</strong><IconChevronDown size={16} /></span>
+                        <span><IconCheck size={15} />{detail.concept}</span><span><strong>{formatMaintenanceLineAmount(detail.amount)}</strong><IconChevronDown size={16} /></span>
                       </button>
                       {isConceptOpen && <div className="maintenance-concept-matches" id={conceptMatchId}>
                         <header><strong>Coincidencias de «{detail.concept}»</strong><small>{matches.length} {matches.length === 1 ? "registro" : "registros"}</small></header>
                         <div role="table" aria-label={`Coincidencias de ${detail.concept}`}>
                           <div role="row" className="maintenance-concept-matches__head"><span role="columnheader">Fecha</span><span role="columnheader">Kilometraje</span><span role="columnheader">Concepto</span><span role="columnheader">Importe</span></div>
-                          {matches.map((match, matchIndex) => <div role="row" key={`${match.date}-${match.km}-${matchIndex}`}><span role="cell"><strong>{match.date}</strong></span><span role="cell">{formatKm(match.km)}</span><span role="cell">{match.concept}</span><span role="cell"><strong>{formatCurrency(match.amount)}</strong></span></div>)}
+                          {matches.map((match, matchIndex) => <div role="row" key={`${match.date}-${match.km}-${matchIndex}`}><span role="cell"><strong>{match.date}</strong></span><span role="cell">{formatKm(match.km)}</span><span role="cell">{match.concept}</span><span role="cell"><strong>{formatMaintenanceLineAmount(match.amount)}</strong></span></div>)}
                         </div>
                       </div>}
                     </div>;
@@ -9602,7 +9609,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   const [saveState, setSaveState] = useState({ saving: false, message: "" });
   const [dateEditOpen, setDateEditOpen] = useState(false);
   const [dateWasEdited, setDateWasEdited] = useState(false);
-  const applyContextDefaults = useCallback((nextFields) => {
+  const applyContextDefaults = useCallback((nextFields, extraction = null) => {
     const normalizedRecordType = normalizeText(recordType);
     const isDriverBilling = category === "billing" && ["billing", "billing_daily"].includes(normalizedRecordType);
     const isDriverFuel = category === "consumption" && normalizedRecordType === "fuel";
@@ -9615,8 +9622,10 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
     if (isMaintenanceReview) {
       const detectedDateField = nextFields.find((field) => ["serviceDate", "issueDate", "date"].includes(field.key) && field.value);
       const detectedDate = detectedDateField?.value || "";
+      const detectedItems = normalizeMaintenanceItems(extraction?.fields?.maintenanceItems);
       return nextFields.map((field) => {
         if (field.key === "serviceDate" && !field.value && detectedDate) return { ...field, value: detectedDate, confidence: detectedDateField.confidence };
+        if (field.key === "concept" && detectedItems.length) return { ...field, value: maintenanceConceptText(detectedItems, field.value), confidence: extraction?.confidence?.maintenanceItems ?? field.confidence };
         if (field.key === "expenseCategory" && !field.value) return { ...field, value: "Taller", confidence: 100 };
         if (field.key === "vehicle" && !field.value && defaultVehicle) return { ...field, value: defaultVehicle, confidence: 100 };
         return field;
@@ -9709,7 +9718,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
       if (controller.signal.aborted) return;
       setProgress(82);
       setAnalysis(responseBody);
-      const normalizedFields = applyContextDefaults(normalizeDocumentAnalysis(category, responseBody, defaultVehicle));
+      const normalizedFields = applyContextDefaults(normalizeDocumentAnalysis(category, responseBody, defaultVehicle), responseBody);
       setFields(category === "billing" && ["billing", "billing_daily"].includes(normalizeText(recordType))
         ? normalizeDriverBillingAnalysisFields(normalizedFields)
         : normalizedFields);
@@ -9793,6 +9802,9 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
   const save = async () => {
     if (saveState.saving) return;
     const extractedValues = fieldsToRecord(fields);
+    if (isMaintenanceReview) {
+      extractedValues.maintenanceItems = maintenanceItemsFromConceptText(extractedValues.concept, analysis?.fields?.maintenanceItems);
+    }
     if (isMaintenanceReview) {
       const maintenanceDate = extractedValues.serviceDate || extractedValues.issueDate || extractedValues.date || "";
       const maintenanceConcept = String(extractedValues.concept ?? "").trim();
@@ -9894,7 +9906,9 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
               const value = field.value ?? "";
               return <label className={`document-field${low ? " document-field--low-confidence" : ""}`} key={field.key}>
                 <span><strong>{field.label}</strong><small>{field.confidence}%{low ? " · Revisar" : ""}</small></span>
-                {field.suffix ? <div className="document-field__input"><input type={field.type} min={field.min} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => { if (field.key === "date" || (isMaintenanceReview && field.key === "serviceDate")) setDateWasEdited(true); updateField(field.key, event.target.value); }} /><i>{field.suffix}</i></div> : <input type={field.type} min={field.min} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => { if (field.key === "date" || (isMaintenanceReview && field.key === "serviceDate")) setDateWasEdited(true); updateField(field.key, event.target.value); }} />}
+                {isMaintenanceReview && field.key === "concept"
+                  ? <textarea rows="5" value={value} placeholder="Un concepto de la factura por línea" disabled={saveState.saving} onChange={(event) => updateField(field.key, event.target.value)} />
+                  : field.suffix ? <div className="document-field__input"><input type={field.type} min={field.min} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => { if (field.key === "date" || (isMaintenanceReview && field.key === "serviceDate")) setDateWasEdited(true); updateField(field.key, event.target.value); }} /><i>{field.suffix}</i></div> : <input type={field.type} min={field.min} step={field.step} value={value} placeholder={field.placeholder} disabled={saveState.saving} onChange={(event) => { if (field.key === "date" || (isMaintenanceReview && field.key === "serviceDate")) setDateWasEdited(true); updateField(field.key, event.target.value); }} />}
               </label>;
             })}
           </div>
@@ -9913,14 +9927,15 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
 }
 
 function InvoiceLinesTable({ date, items }) {
+  const itemTotal = items.reduce((sum, line) => sum + (line.amount === null || line.amount === undefined || line.amount === "" ? 0 : Number(line.amount) || 0), 0);
   return (
     <section className="invoice-lines-detail">
-      <header><div><h3>Conceptos de la factura</h3><p>Desglose detectado en el documento.</p></div><strong>{formatCurrency(items.reduce((sum, line) => sum + Number(line.amount), 0))}</strong></header>
+      <header><div><h3>Conceptos de la factura</h3><p>Desglose detectado en el documento.</p></div>{itemTotal > 0 && <strong>{formatCurrency(itemTotal)}</strong>}</header>
       <div className="invoice-lines-scroll">
         <table>
           <caption className="sr-only">Conceptos y precios de la factura</caption>
           <thead><tr><th>Fecha</th><th>Concepto</th><th>Precio</th></tr></thead>
-          <tbody>{items.map((line, index) => <tr key={`${line.concept}-${index}`}><td>{date}</td><td>{line.concept}</td><td><strong>{formatCurrency(Number(line.amount))}</strong></td></tr>)}</tbody>
+          <tbody>{items.map((line, index) => <tr key={`${line.concept}-${index}`}><td>{date}</td><td>{line.concept}</td><td><strong>{formatMaintenanceLineAmount(line.amount)}</strong></td></tr>)}</tbody>
         </table>
       </div>
     </section>

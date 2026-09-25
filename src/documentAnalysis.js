@@ -139,6 +139,32 @@ export const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
 
 const clampConfidence = (value) => Math.max(0, Math.min(100, Number.isFinite(Number(value)) ? Number(value) : 0));
 
+export const normalizeMaintenanceItems = (value) => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value.flatMap((item) => {
+    const description = String(item?.description ?? item?.concept ?? item ?? "").replace(/\s+/g, " ").trim();
+    const key = description.toLocaleLowerCase("es");
+    if (!description || seen.has(key)) return [];
+    seen.add(key);
+    const rawAmount = item && typeof item === "object" ? item.amount : null;
+    const amount = rawAmount === null || rawAmount === undefined || rawAmount === "" || !Number.isFinite(Number(rawAmount)) ? null : Number(rawAmount);
+    return [{ description, amount }];
+  });
+};
+
+export const maintenanceConceptText = (items, fallback = "") => {
+  const concepts = normalizeMaintenanceItems(items).map((item) => item.description);
+  return concepts.length ? concepts.join("\n") : String(fallback ?? "").trim();
+};
+
+export const maintenanceItemsFromConceptText = (value, detectedItems = []) => {
+  const detected = normalizeMaintenanceItems(detectedItems);
+  const detectedByDescription = new Map(detected.map((item) => [item.description.toLocaleLowerCase("es"), item.amount]));
+  const concepts = String(value ?? "").split(/\r?\n|\s*[•·]\s*/).map((item) => item.trim()).filter(Boolean);
+  return normalizeMaintenanceItems(concepts.map((description) => ({ description, amount: detectedByDescription.get(description.toLocaleLowerCase("es")) ?? null })));
+};
+
 export const normalizeDocumentAnalysis = (category, analysis, defaultVehicle = "") => {
   const fields = documentFieldDefinitions[category] ?? [];
   return fields.map((definition) => {

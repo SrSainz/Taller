@@ -47,6 +47,21 @@ test("la captura diaria conserva Precio neto y Reembolsos como conceptos indepen
   assert.equal(entry.refunds, 0.95);
 });
 
+test("mantenimiento conserva todos los conceptos dentro del movimiento central", () => {
+  const maintenanceItems = [
+    { description: "Cambio de aceite", amount: 65 },
+    { description: "Filtro de aceite", amount: 18.5 },
+    { description: "Pastillas de freno", amount: null },
+  ];
+  const [row] = operationsFromDocument({
+    category: "billing",
+    fields: { serviceDate: "2026-09-24", total: 180, concept: "Cambio de aceite\nFiltro de aceite\nPastillas de freno", maintenanceItems, expenseCategory: "Taller", vehicle: "5754 MJV" },
+    fileHash: "maintenance-all-lines",
+  });
+  assert.equal(row.type, "maintenance");
+  assert.deepEqual(row.metadata.maintenanceItems, maintenanceItems);
+});
+
 test("normaliza el efectivo cobrado negativo de una captura como importe positivo", () => {
   const rows = operationsFromDocument({
     category: "billing",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import handler, { buildPrompt, buildSchema } from "../api/analyze-document.js";
-import { getDocumentKind, getDocumentMimeType, hasDriverBillingAmount, normalizeDocumentAnalysis, normalizeDriverBillingAnalysisFields, validateDocumentFile } from "../src/documentAnalysis.js";
+import { getDocumentKind, getDocumentMimeType, hasDriverBillingAmount, maintenanceConceptText, maintenanceItemsFromConceptText, normalizeDocumentAnalysis, normalizeDriverBillingAnalysisFields, normalizeMaintenanceItems, validateDocumentFile } from "../src/documentAnalysis.js";
 
 const invoke = async (request) => {
   const response = {
@@ -44,6 +44,7 @@ test("requires every nullable extraction field for strict structured output", ()
   assert.ok(Object.hasOwn(billingFields.properties, "baseNetAmount"));
   assert.ok(Object.hasOwn(billingFields.properties, "promotions"));
   assert.ok(Object.hasOwn(billingFields.properties, "odometerKm"));
+  assert.ok(Object.hasOwn(billingFields.properties, "maintenanceItems"));
 });
 
 test("anchors fuel totals and collected cash to the printed document date", () => {
@@ -56,6 +57,24 @@ test("anchors fuel totals and collected cash to the printed document date", () =
   assert.match(billingPrompt, /Propina/i);
   assert.match(billingPrompt, /no la sumes a cashCollected/i);
   assert.match(billingPrompt, /baseNetAmount \+ promotions/i);
+  assert.match(billingPrompt, /cada descripción de trabajo, pieza o servicio/i);
+});
+
+test("conserva todos los conceptos de una factura de mantenimiento", () => {
+  const extracted = normalizeMaintenanceItems([
+    { description: "Cambio de aceite", amount: 65 },
+    { description: "Filtro de aceite", amount: 18.5 },
+    { description: "Cambio de aceite", amount: 65 },
+    { description: "Pastillas de freno", amount: null },
+  ]);
+  assert.deepEqual(extracted, [
+    { description: "Cambio de aceite", amount: 65 },
+    { description: "Filtro de aceite", amount: 18.5 },
+    { description: "Pastillas de freno", amount: null },
+  ]);
+  const text = maintenanceConceptText(extracted, "Mantenimiento");
+  assert.equal(text, "Cambio de aceite\nFiltro de aceite\nPastillas de freno");
+  assert.deepEqual(maintenanceItemsFromConceptText(text, extracted), extracted);
 });
 
 test("normaliza el Precio neto de una captura con promociones", () => {
