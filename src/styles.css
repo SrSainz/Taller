@@ -10152,3 +10152,13 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
   outline: 2px solid rgba(225, 6, 0, .28) !important;
   outline-offset: 2px;
 }
+
+/* Mantenimiento: la matrícula sustituye al nombre textual de la marca. */
+.maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity > .maintenance-vehicle-plate {
+  font-size: 21px;
+}
+@media (max-width: 820px) {
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity > .maintenance-vehicle-plate {
+    font-size: clamp(19.5px, 5.55vw, 27px);
+  }
+}

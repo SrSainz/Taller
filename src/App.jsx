@@ -8969,7 +8969,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
               <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
                 <span className="maintenance-vehicle-number">{index + 1}</span>
                 <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
-                <span className="maintenance-vehicle-identity"><small>{brand}</small><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" /><span>{vehicle.model}</span></span>
+                <span className="maintenance-vehicle-identity"><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" /><span>{vehicle.model}</span></span>
                 <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
                 <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
               </button>
