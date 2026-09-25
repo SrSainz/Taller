@@ -5703,9 +5703,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   };
   const handleWeekPointerDown = (event) => {
     if (weekSwipeTransition || (event.pointerType === "mouse" && event.button !== 0)) return;
-    if (event.target instanceof Element && event.target.closest("input, textarea, select")) return;
     weekGestureRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, axis: "", offset: 0 };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
   };
   const handleWeekPointerMove = (event) => {
     const gesture = weekGestureRef.current;
@@ -5715,7 +5713,10 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     if (!gesture.axis) {
       if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 6) return;
       gesture.axis = Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
-      if (gesture.axis === "horizontal") setWeekSwipeActive(true);
+      if (gesture.axis === "horizontal") {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        setWeekSwipeActive(true);
+      }
     }
     if (gesture.axis !== "horizontal") return;
     event.preventDefault();
@@ -5726,7 +5727,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const handleWeekPointerEnd = (event) => {
     const gesture = weekGestureRef.current;
     if (gesture.pointerId !== event.pointerId) return;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
     weekGestureRef.current = { pointerId: null, startX: 0, startY: 0, axis: "", offset: 0 };
     if (gesture.axis !== "horizontal") return;
     weekSuppressClickRef.current = true;
@@ -5871,7 +5872,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
           </div>
         </section>
         <section ref={historyRef} className="driver-mobile-section driver-mobile-section--history" aria-labelledby="driver-mobile-week-title">
-          <div ref={weekSwipeViewportRef} className={`driver-mobile-week-swipe-wrap${weekSwipeActive ? " is-dragging" : ""}`} role="region" aria-label="Semana desplazable" onPointerDown={handleWeekPointerDown} onPointerMove={handleWeekPointerMove} onPointerUp={handleWeekPointerEnd} onPointerCancel={handleWeekPointerEnd} onClickCapture={handleWeekClickCapture}>
+          <div ref={weekSwipeViewportRef} className={`driver-mobile-week-swipe-wrap${weekSwipeActive ? " is-dragging" : ""}`} role="region" aria-label="Semana desplazable desde cualquier celda" onPointerDownCapture={handleWeekPointerDown} onPointerMoveCapture={handleWeekPointerMove} onPointerUpCapture={handleWeekPointerEnd} onPointerCancelCapture={handleWeekPointerEnd} onClickCapture={handleWeekClickCapture}>
             <div className={`driver-mobile-week-track${weekSwipeTransition ? " is-animating" : ""}`} onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "transform") completeWeekSwipe(); }} style={{ transform: `translate3d(calc(-33.333333% + ${weekSwipeOffset}px), 0, 0)` }}>
               {driverWeekPages.map((page) => <div className="driver-mobile-week-page" key={page.key}><div className="driver-mobile-week-table-wrap"><table className="driver-mobile-week-table"><thead><tr><th scope="col"> </th>{page.days.map(({ date, key }) => <th scope="col" key={key}><button type="button" className={selectedDate === key ? "is-selected" : ""} onClick={() => setSelectedDate(key)}><span>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", "")}</span><strong>{date.getDate()}</strong></button></th>)}</tr></thead><tbody>{page.rows.map((row) => <tr className={`driver-mobile-week-table__row--${row.key}${row.key === "total" ? " is-total" : ""}`} key={`${page.key}-${row.key}`}><th className={`driver-mobile-week-table__label driver-mobile-week-table__label--${row.key}`} scope="row">{row.label}</th>{row.values.map((value, index) => <td key={`${page.key}-${row.key}-${page.days[index].key}`}>{weeklyCellWithDocuments(row, value, page.days[index].key, page.offset === 0)}</td>)}</tr>)}</tbody></table></div></div>)}
             </div>

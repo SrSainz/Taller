@@ -25,6 +25,11 @@ test("administración reduce las matrículas y amplía los nombres de conductore
 
 test("el gesto semanal se inicia desde la propia tabla del calendario", () => {
   assert.doesNotMatch(source, /closest\("\.driver-mobile-week-table-wrap"\)\) return/);
+  assert.doesNotMatch(source, /closest\("input, textarea, select"\)\) return/);
+  assert.match(source, /onPointerDownCapture=\{handleWeekPointerDown\}/);
+  assert.match(source, /onPointerMoveCapture=\{handleWeekPointerMove\}/);
+  assert.match(source, /onPointerUpCapture=\{handleWeekPointerEnd\}/);
+  assert.match(source, /gesture\.axis === "horizontal"[\s\S]*setPointerCapture/);
   assert.match(source, /shiftDriverWeek\(direction\)/);
 });
 
