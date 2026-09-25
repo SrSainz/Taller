@@ -5289,7 +5289,7 @@ function DriverBillingTarget({ periodSummary }) {
 }
 
 function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, onRefresh, refreshing = false, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverCalendarDocuments = {}, driverDayDocumentsLoading = false, onDeleteDriverDocument, driverEditableRange, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
-  const weekSwipeDuration = 520;
+  const weekSwipeDuration = 440;
   const kmChartMax = 45;
   const kmChartTicks = [0, 15, 20, 25, 30, 35, 40, 45];
   const consumptionChartTicks = [3.5, 4, 4.5, 5, 5.5];
