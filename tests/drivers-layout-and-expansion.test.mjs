@@ -26,9 +26,10 @@ test("the driver month expands the calendar and closes from the backdrop or Esca
   assert.match(css, /\.drivers-calendar-card--expanded[^{]*\.drivers-calendar-grid\s*\{[^}]*flex:\s*1 1 auto/s);
 });
 
-test("driver rows include photos, smaller names and right-grouped metrics", () => {
+test("driver rows include photos, names enlarged by 15 percent and right-grouped metrics", () => {
   assert.match(app, /driver-list-card__avatar/);
   assert.match(app, /getDriverAvatarPath\(row\.driver\)/);
-  assert.match(css, /\.driver-list-card__identity-copy > strong\s*\{[^}]*font-size:\s*13\.6px/s);
+  assert.match(css, /\.driver-list-card__identity-copy > strong\s*\{[^}]*font-size:\s*15\.64px/s);
+  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.driver-list-card__identity-copy > strong\s*\{[^}]*font-size:\s*12\.88px/s);
   assert.match(css, /grid-template-columns:\s*minmax\(0, 1fr\) minmax\(172px, max-content\) minmax\(142px, max-content\)/);
 });
