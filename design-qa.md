@@ -85,6 +85,33 @@ passed
 
 final result: passed
 
+## 28 de septiembre de 2026 — Simplificación de la ficha de comisión
+
+### Evidencia
+
+- Fuente visual: `C:/Users/aiday/AppData/Local/Temp/codex-clipboard-49428d87-8c7e-45fb-bcca-e1201ff76981.png` (875 × 855 px).
+- Implementación browser-rendered: `design-qa-commission-sheet.png` (875 × 855 px).
+- Viewport: 875 × 855 CSS px, comparación 1:1 sin reescalado.
+- Estado: ficha mensual abierta para Tirso, septiembre de 2026.
+
+### Comparación y superficies de fidelidad
+
+- Tipografía: se mantiene la jerarquía existente y el mes pasa a ser el primer texto visible.
+- Espaciado: la eliminación no deja huecos; nombre y matrícula quedan alineados a la izquierda.
+- Color: permanecen intactos los tokens negro, crema, dorado, verde y gris.
+- Imágenes: esta ficha no contiene recursos rasterizados ni introduce activos nuevos.
+- Copy: desaparecen exactamente “EVOLUCIÓN DE LA COMISIÓN”, “CONDUCTOR” y el círculo negro del porcentaje; el porcentaje permanece en el desglose.
+- Comparación enfocada: la cabecera y el bloque de identidad son legibles en la captura completa, por lo que no fue necesario un segundo recorte.
+
+### Interacciones y verificación técnica
+
+- Cerrar e Imprimir conservan su comportamiento.
+- `pnpm test`: 110/110 pruebas superadas.
+- `pnpm build`: superado.
+- No quedan hallazgos P0, P1 o P2.
+
+final result: passed
+
 ## 25 de septiembre de 2026 — Administración, calendario semanal y comisiones
 
 ### Evidencia

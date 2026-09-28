@@ -3504,12 +3504,11 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .driver-commission-sheet__header span { color: #a56d00; font-size: 10px; font-weight: 950; letter-spacing: .1em; }
 .driver-commission-sheet__header h2 { margin: 0; font-size: 28px; line-height: 1; text-transform: uppercase; }
 .driver-commission-sheet__header > button { width: 36px; height: 36px; display: grid; place-items: center; padding: 0; border: 1px solid #ccd6d2; border-radius: 9px; background: #fff; color: #111; cursor: pointer; }
-.driver-commission-sheet__identity { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 0 16px; }
+.driver-commission-sheet__identity { display: block; padding: 20px 0 16px; }
 .driver-commission-sheet__identity > span { min-width: 0; display: grid; gap: 3px; }
 .driver-commission-sheet__identity small { color: #69736f; font-size: 8px; font-weight: 900; letter-spacing: .1em; }
 .driver-commission-sheet__identity strong { font-size: 22px; text-transform: uppercase; }
 .driver-commission-sheet__plate { color: #59645f; font-size: 11px; font-weight: 850; }
-.driver-commission-sheet__identity > b { min-width: 82px; height: 82px; display: grid; place-items: center; border-radius: 50%; background: #111; color: #fff; font-size: 25px; }
 .driver-commission-sheet__progress { display: grid; gap: 8px; padding: 14px; border-radius: 12px; background: #f7f3e7; }
 .driver-commission-sheet__progress > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
 .driver-commission-sheet__progress span { color: #655936; font-size: 10px; font-weight: 850; text-transform: uppercase; }

@@ -50,7 +50,9 @@ test("cada conductor tiene una evolución mensual de comisión imprimible", () =
   assert.doesNotMatch(app, /className="driver-list-card__plate"/);
   assert.match(css, /\.driver-list-card__commission-button\s*\{[^}]*width:\s*min\(180px,[^}]*margin-left:\s*52px[^}]*border-radius:\s*999px/s);
   assert.match(app, /function DriverCommissionDialog/);
-  assert.match(app, /EVOLUCIÓN DE LA COMISIÓN/);
+  assert.doesNotMatch(app, />EVOLUCIÓN DE LA COMISIÓN</);
+  assert.doesNotMatch(app, /<small>CONDUCTOR<\/small>/);
+  assert.doesNotMatch(app, /<b>\{rateLabel\}<\/b>/);
   assert.match(app, /onClick=\{\(\) => window\.print\(\)\}/);
   assert.match(css, /\.driver-commission-sheet__formula/);
   assert.match(css, /@media print[\s\S]*?\.driver-commission-sheet__actions\s*\{\s*display:\s*none !important;/s);

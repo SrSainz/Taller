@@ -7816,12 +7816,11 @@ function DriverCommissionDialog({ row, calculation, month, year, onClose }) {
   return createPortal(<div className="driver-commission-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="driver-commission-sheet" role="dialog" aria-modal="true" aria-labelledby="driver-commission-title">
       <header className="driver-commission-sheet__header">
-        <div><span>EVOLUCIÓN DE LA COMISIÓN</span><h2 id="driver-commission-title">{monthLabel}</h2></div>
+        <div><h2 id="driver-commission-title">{monthLabel}</h2></div>
         <button type="button" onClick={onClose} aria-label="Cerrar evolución de la comisión"><IconX size={20} /></button>
       </header>
       <div className="driver-commission-sheet__identity">
-        <span><small>CONDUCTOR</small><strong>{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-commission-sheet__plate" /></span>
-        <b>{rateLabel}</b>
+        <span><strong>{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-commission-sheet__plate" /></span>
       </div>
       <div className="driver-commission-sheet__progress">
         <div><span>Facturación acumulada</span><strong>{formatCurrency(calculation.monthlyBilling)}</strong></div>
