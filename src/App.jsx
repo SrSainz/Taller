@@ -6040,7 +6040,18 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
   const [editingDriverId, setEditingDriverId] = useState("");
   const [driverProfileForm, setDriverProfileForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", active: true });
   const [copiedDriverKey, setCopiedDriverKey] = useState("");
+  const [driverOrder, setDriverOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem("sobre-ruedas-admin-driver-order") || "[]");
+      return Array.isArray(saved) ? saved.map(String) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [draggingDriverId, setDraggingDriverId] = useState("");
+  const [dragTarget, setDragTarget] = useState({ vehiclePlate: "", driverId: "" });
   const longPressRef = useRef({ timer: null, key: "", triggered: false });
+  const dragRef = useRef({ driver: null, startX: 0, startY: 0, moved: false, vehiclePlate: "", driverId: "" });
   const driverApplicationLink = getDriverApplicationLink();
 
   const driversLastLoadRef = useRef(0);
@@ -6073,6 +6084,9 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
   }, [loadDrivers]);
   useEffect(() => { onDriversChange?.(drivers); }, [drivers, onDriversChange]);
   useEffect(() => {
+    window.localStorage.setItem("sobre-ruedas-admin-driver-order", JSON.stringify(driverOrder));
+  }, [driverOrder]);
+  useEffect(() => {
     const closeDriverMenu = (event) => {
       if (event.key === "Escape") {
         setDriverActionId("");
@@ -6104,7 +6118,8 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
     try {
       const response = await invokeAdminUsers({ action: "create", ...form });
       const createdProfile = normalizeDriverProfileRecord(response.profile);
-      setDrivers((current) => [...current, createdProfile].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+      setDrivers((current) => [...current, createdProfile]);
+      setDriverOrder((current) => [...current.filter((id) => id !== createdProfile.id), createdProfile.id]);
       setGeneratedPassword({ driverId: createdProfile?.id, value: response.password });
       setDriverActionId(createdProfile ? driverActionKey(createdProfile) : "");
       setCreateOpen(false);
@@ -6206,12 +6221,76 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
     }
   };
   const driversForVehicle = (vehicle) => {
-    const assigned = orderDriverProfilesForVehicle(vehicle, drivers.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate)).slice(0, 2);
+    const rank = new Map(driverOrder.map((id, index) => [id, index]));
+    const assigned = orderDriverProfilesForVehicle(vehicle, drivers.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate))
+      .sort((left, right) => (rank.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.id) ?? Number.MAX_SAFE_INTEGER));
     const assignedNames = new Set(assigned.map((driver) => normalizeDriverAvatarKey(driver.full_name)));
     const fallback = (vehicle.drivers ?? [])
       .map((name, index) => ({ id: `seed-${vehicle.plate.replace(/\s/g, "-")}-${index}`, full_name: name, email: "", vehicle_plate: vehicle.plate, active: true, isSeed: true }))
       .filter((driver) => !assignedNames.has(normalizeDriverAvatarKey(driver.full_name)));
-    return orderAdminDriverCardsForVehicle(vehicle, [...assigned, ...fallback].slice(0, 2));
+    const cards = [...assigned, ...fallback];
+    return driverOrder.length ? cards : orderAdminDriverCardsForVehicle(vehicle, cards);
+  };
+  const resetDriverDrag = () => {
+    dragRef.current = { driver: null, startX: 0, startY: 0, moved: false, vehiclePlate: "", driverId: "" };
+    setDraggingDriverId("");
+    setDragTarget({ vehiclePlate: "", driverId: "" });
+  };
+  const beginDriverDrag = (event, driver) => {
+    if (!driver?.id || driver.isSeed || (event.pointerType === "mouse" && event.button !== 0)) return;
+    dragRef.current = { driver, startX: event.clientX, startY: event.clientY, moved: false, vehiclePlate: canonicalizeVehiclePlate(driver.vehicle_plate), driverId: driver.id };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const moveDriverDrag = (event) => {
+    const state = dragRef.current;
+    if (!state.driver) return;
+    if (!state.moved && Math.hypot(event.clientX - state.startX, event.clientY - state.startY) < 9) return;
+    if (!state.moved) {
+      state.moved = true;
+      window.clearTimeout(longPressRef.current.timer);
+      setDraggingDriverId(state.driver.id);
+    }
+    event.preventDefault();
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.("[data-driver-drop-id], [data-vehicle-drop-plate]");
+    const vehicleElement = target?.closest?.("[data-vehicle-drop-plate]") ?? target;
+    state.vehiclePlate = canonicalizeVehiclePlate(vehicleElement?.dataset?.vehicleDropPlate || state.driver.vehicle_plate);
+    state.driverId = target?.dataset?.driverDropId || "";
+    setDragTarget({ vehiclePlate: state.vehiclePlate, driverId: state.driverId });
+  };
+  const finishDriverDrag = async (event, driver, driverKey) => {
+    const state = dragRef.current;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (!state.driver || !state.moved) {
+      resetDriverDrag();
+      openDriverApplication(driver, driverKey);
+      return;
+    }
+    const previousDrivers = drivers;
+    const previousOrder = driverOrder;
+    const targetPlate = state.vehiclePlate || canonicalizeVehiclePlate(driver.vehicle_plate);
+    const orderedIds = driverVehicleOptions.flatMap((vehicle) => driversForVehicle(vehicle).filter((item) => item.id && !item.isSeed).map((item) => item.id));
+    const withoutDragged = orderedIds.filter((id) => id !== driver.id);
+    const targetIndex = state.driverId && state.driverId !== driver.id ? withoutDragged.indexOf(state.driverId) : -1;
+    if (targetIndex >= 0) withoutDragged.splice(targetIndex, 0, driver.id);
+    else {
+      const lastTargetIndex = withoutDragged.reduce((last, id, index) => canonicalizeVehiclePlate(drivers.find((item) => item.id === id)?.vehicle_plate) === targetPlate ? index : last, -1);
+      withoutDragged.splice(lastTargetIndex + 1, 0, driver.id);
+    }
+    setDrivers((current) => current.map((item) => item.id === driver.id ? { ...item, vehicle_plate: targetPlate } : item));
+    setDriverOrder(withoutDragged);
+    resetDriverDrag();
+    try {
+      if (targetPlate !== canonicalizeVehiclePlate(driver.vehicle_plate)) {
+        const response = await invokeAdminUsers({ action: "update", userId: driver.id, vehiclePlate: targetPlate });
+        const updatedProfile = normalizeDriverProfileRecord(response.profile);
+        setDrivers((current) => current.map((item) => item.id === driver.id ? updatedProfile : item));
+      }
+      notify(`${driver.full_name} colocado en ${targetPlate}`);
+    } catch (error) {
+      setDrivers(previousDrivers);
+      setDriverOrder(previousOrder);
+      setMessage(error.message);
+    }
   };
   const currentDocumentPeriod = (() => {
     const now = new Date();
@@ -6284,7 +6363,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
      <div className="admin-access-stack">
        {driverVehicleOptions.map((vehicle) => {
          const vehicleDrivers = driversForVehicle(vehicle);
-         return <section className="admin-vehicle-card" key={vehicle.plate} aria-label={`Coche ${vehicle.plate}`}>
+         return <section className={`admin-vehicle-card${dragTarget.vehiclePlate === vehicle.plate ? " is-drop-target" : ""}`} key={vehicle.plate} aria-label={`Coche ${vehicle.plate}`} data-vehicle-drop-plate={vehicle.plate}>
            <header className="admin-vehicle-card__header">
               <VehiclePlateLabel vehicleOrPlate={vehicle} className="admin-vehicle-plate" />
            </header>
@@ -6294,8 +6373,8 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
                const avatarPath = getDriverAvatarPath(driver.full_name);
                const menuOpen = driverActionId === driverKey;
                const monthlyDocuments = driverDocumentCount(driver);
-               return <article className={`admin-driver-card${menuOpen ? " is-open" : ""}`} key={driverKey}>
-                 <button className="admin-driver-card__trigger" type="button" onClick={() => openDriverApplication(driver, driverKey)} onPointerDown={(event) => { if (event.pointerType !== "mouse" || event.button === 0) startDriverLongPress(driverKey); }} onPointerUp={stopDriverLongPress} onPointerLeave={stopDriverLongPress} onPointerCancel={stopDriverLongPress} onContextMenu={(event) => event.preventDefault()} onKeyDown={(event) => { if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) { event.preventDefault(); setDriverActionId(driverKey); } }} aria-label={`Abrir aplicación de ${driver.full_name}`} aria-haspopup="dialog" title="Toca para ver la aplicación; mantén pulsado para gestionar el acceso">
+               return <article className={`admin-driver-card${menuOpen ? " is-open" : ""}${draggingDriverId === driver.id ? " is-dragging" : ""}${dragTarget.driverId === driver.id ? " is-drop-before" : ""}`} key={driverKey} data-driver-drop-id={driver.id || undefined}>
+                 <button className="admin-driver-card__trigger" type="button" onClick={(event) => event.preventDefault()} onPointerDown={(event) => { beginDriverDrag(event, driver); if (event.pointerType !== "mouse" || event.button === 0) startDriverLongPress(driverKey); }} onPointerMove={moveDriverDrag} onPointerUp={(event) => { stopDriverLongPress(); void finishDriverDrag(event, driver, driverKey); }} onPointerLeave={() => { if (!dragRef.current.moved) stopDriverLongPress(); }} onPointerCancel={() => { stopDriverLongPress(); resetDriverDrag(); }} onContextMenu={(event) => event.preventDefault()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDriverApplication(driver, driverKey); } else if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) { event.preventDefault(); setDriverActionId(driverKey); } }} aria-label={`Abrir aplicación de ${driver.full_name}. También puedes arrastrarlo para cambiar su posición o vehículo.`} aria-haspopup="dialog" title="Toca para ver la aplicación; arrastra para mover; mantén pulsado para gestionar el acceso">
                     <span className="admin-driver-card__documents">DOCUMENTOS <b>{monthlyDocuments}</b></span>
                     <span className="admin-driver-card__avatar">{avatarPath ? <img src={avatarPath} alt="" /> : <span>{driverInitials(driver.full_name)}</span>}<i className={driver.active ? "is-active" : ""} aria-hidden="true" /></span>
                     <strong>{driver.full_name}</strong>

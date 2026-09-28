@@ -68,13 +68,6 @@ Deno.serve(async (request) => {
     if (!email || !email.includes("@") || !fullName || !professionalVehicles.has(vehiclePlate ?? "") || !validDriverPassword(password)) {
       return json({ error: "Introduce nombre, email y una contraseña definitiva de al menos 8 caracteres." }, 400);
     }
-    const { count: vehicleCount, error: countError } = await auth.admin
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "driver")
-      .eq("vehicle_plate", vehiclePlate);
-    if (countError) return json({ error: countError.message }, 400);
-    if ((vehicleCount ?? 0) >= 2) return json({ error: "Ese coche ya tiene dos conductores asignados." }, 400);
     const { data: created, error: createError } = await auth.admin.auth.admin.createUser({
       email,
       password,
@@ -134,11 +127,6 @@ Deno.serve(async (request) => {
     if (payload.vehiclePlate !== undefined) {
       const nextVehicle = normalizeName(payload.vehiclePlate) || null;
       if (nextVehicle && !professionalVehicles.has(nextVehicle)) return json({ error: "Solo puedes asignar uno de los tres coches profesionales." }, 400);
-      if (nextVehicle && nextVehicle !== targetDriver.vehicle_plate) {
-        const { count: vehicleCount, error: countError } = await auth.admin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "driver").eq("vehicle_plate", nextVehicle).neq("id", userId);
-        if (countError) return json({ error: countError.message }, 400);
-        if ((vehicleCount ?? 0) >= 2) return json({ error: "Ese coche ya tiene dos conductores asignados." }, 400);
-      }
       updates.vehicle_plate = nextVehicle;
     }
     if (payload.active !== undefined) updates.active = Boolean(payload.active);
