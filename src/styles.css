@@ -10347,8 +10347,8 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
   grid-template-columns: 30px 56px minmax(220px, 1.2fr) 82px minmax(170px, 1fr);
   grid-template-areas:
     "number brand plate type latest"
-    "number tracking tracking type latest";
-  grid-template-rows: 41px 41px;
+    "number brand tracking type latest";
+  grid-template-rows: 34px 48px;
   align-items: start;
   gap: 0 14px;
   padding-block: 2px;
@@ -10357,9 +10357,9 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
 .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-number { grid-area: number; align-self: start; }
 .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .vehicle-brand-mark { width: 41.6px; height: 41.6px; grid-area: brand; align-self: start; border-radius: 11px; }
 .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .vehicle-brand-mark img { width: 27.2px; height: 27.2px; }
-.maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-identity { grid-area: plate; align-self: start; }
+.maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-identity { grid-area: plate; align-self: center; transform: translateY(4px); }
 .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-km-tracking { grid-area: tracking; align-self: start; }
-.maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-km-tracking { gap: 0; font-size: 13px; line-height: 1; }
+.maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-km-tracking { gap: 0; font-size: 16.9px; line-height: .94; }
 .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-type { grid-area: type; align-self: center; }
 .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-latest { grid-area: latest; align-self: center; }
 .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-identity > .maintenance-vehicle-plate {
@@ -10383,8 +10383,8 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
     grid-template-columns: 41.6px minmax(0, 1fr);
     grid-template-areas:
       "brand plate"
-      "tracking tracking";
-    grid-template-rows: 40px 38px;
+      "brand tracking";
+    grid-template-rows: 33px 45px;
     align-content: start;
     align-items: start;
     gap: 1px 8px;
@@ -10411,7 +10411,7 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
     font-size: clamp(19.5px, 5.55vw, 27px);
   }
   .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-km-tracking {
-    font-size: clamp(9px, 2.55vw, 12.5px);
-    line-height: 1.02;
+    font-size: clamp(11.7px, 3.32vw, 16.25px);
+    line-height: .92;
   }
 }

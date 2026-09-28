@@ -20,12 +20,14 @@ test("5754 MJV iguala el botón, reduce logo y matrícula y conserva el kilometr
   assert.match(source, /maintenance-vehicle-identity"><VehiclePlateLabel[\s\S]*?!vehicle\.serviceTracking/);
   assert.match(source, /vehicle\.serviceTracking && <span className="maintenance-vehicle-km-tracking"/);
   assert.match(source, /Próxima revisión: \{formatKm\(vehicle\.serviceTracking\.remainingKm\)\}/);
-  assert.match(css, /has-service-tracking \.maintenance-vehicle-banner\s*\{[^}]*grid-template-areas:[^}]*"number brand plate type latest"[^}]*"number tracking tracking type latest"/s);
+  assert.match(css, /has-service-tracking \.maintenance-vehicle-banner\s*\{[^}]*grid-template-areas:[^}]*"number brand plate type latest"[^}]*"number brand tracking type latest"/s);
   assert.match(css, /has-service-tracking \.maintenance-vehicle-banner\s*\{[^}]*min-height:\s*88px;[^}]*height:\s*88px/s);
   assert.match(css, /\.maintenance-page \.maintenance-vehicle-banner\s*\{[^}]*height:\s*88px;[^}]*min-height:\s*88px;[^}]*box-sizing:\s*border-box/s);
   assert.match(css, /has-service-tracking \.vehicle-brand-mark\s*\{[^}]*width:\s*41\.6px;[^}]*height:\s*41\.6px/s);
   assert.match(css, /has-service-tracking \.maintenance-vehicle-identity > \.maintenance-vehicle-plate\s*\{[^}]*font-size:\s*21px/s);
   assert.match(css, /has-service-tracking \.maintenance-vehicle-identity > \.maintenance-vehicle-plate > strong\s*\{[^}]*font-size:\s*inherit/s);
-  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?grid-template-areas:[^}]*"brand plate"[^}]*"tracking tracking"/s);
+  assert.match(css, /has-service-tracking \.maintenance-vehicle-identity\s*\{[^}]*align-self:\s*center;[^}]*transform:\s*translateY\(4px\)/s);
+  assert.match(css, /has-service-tracking \.maintenance-vehicle-km-tracking\s*\{[^}]*font-size:\s*16\.9px/s);
+  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?grid-template-areas:[^}]*"brand plate"[^}]*"brand tracking"/s);
   assert.match(css, /@media \(max-width: 820px\)[\s\S]*?has-service-tracking \.maintenance-vehicle-banner\s*\{[^}]*min-height:\s*82px;[^}]*height:\s*82px/s);
 });
