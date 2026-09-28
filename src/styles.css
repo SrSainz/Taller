@@ -3440,7 +3440,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-content: center;
-  gap: 3px;
+  gap: 0;
 }
 .driver-list-card__select {
   min-width: 0;
@@ -3464,17 +3464,18 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: -9px;
   margin-left: 52px;
   padding: 3px 12px;
   border: 1px solid #d7b04b;
   border-radius: 999px;
   background: #fff8df;
-  color: #714d00;
+  color: #c8322b;
   font: inherit;
   text-align: center;
   cursor: pointer;
 }
-.driver-list-card__commission-button > strong { overflow: hidden; font-size: 11px; font-weight: 900; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.driver-list-card__commission-button > strong { overflow: hidden; font-size: 13.75px; font-weight: 900; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
 .driver-list-card__commission-button:hover,
 .driver-list-card__commission-button:focus-visible { border-color: #a56d00; background: #ffefb8; outline: 2px solid rgba(165,109,0,.16); outline-offset: 1px; }
 
@@ -3523,6 +3524,16 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .driver-commission-sheet__formula .driver-commission-sheet__total { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; background: #e5f4ea; border-color: #bcdcc7; }
 .driver-commission-sheet__total span { color: #17663a; font-size: 11px; text-transform: uppercase; }
 .driver-commission-sheet__total strong { color: #0d6d38; font-size: 22px; }
+.driver-commission-sheet__payroll { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(90px,1fr) auto auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #d9dee0; border-radius: 10px; background: #f7f8f8; }
+.driver-commission-sheet__payroll > span:first-child { color: #4d5955; font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.driver-commission-sheet__payroll > span:nth-child(2) { display: flex; align-items: center; gap: 6px; }
+.driver-commission-sheet__payroll input { width: 116px; min-height: 32px; padding: 5px 8px; border: 1px solid #bcc9c4; border-radius: 7px; background: #fff; color: #111; font: inherit; font-size: 13px; font-weight: 800; text-align: right; }
+.driver-commission-sheet__payroll button { min-height: 32px; padding: 5px 9px; border: 1px solid #9eb5ab; border-radius: 7px; background: #fff; color: #075f4e; font-size: 9px; font-weight: 900; cursor: pointer; }
+.driver-commission-sheet__payroll > strong { min-width: 92px; color: #303936; font-size: 18px; text-align: right; }
+.driver-commission-sheet__cash-total { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 16px; border: 1px solid #e6aaa6; border-radius: 10px; background: #fff0ef; }
+.driver-commission-sheet__cash-total span { color: #a92520; font-size: 12px; font-weight: 950; }
+.driver-commission-sheet__cash-total strong { color: #c8322b; font-size: 24px; font-weight: 950; }
+.driver-commission-sheet__payroll-message { margin: 8px 2px 0; color: #52605b; font-size: 9px; font-weight: 750; }
 .driver-commission-sheet__table-wrap { max-height: 210px; overflow: auto; margin-top: 14px; border: 1px solid #d8dedb; border-radius: 10px; }
 .driver-commission-sheet table { width: 100%; border-collapse: collapse; }
 .driver-commission-sheet th,
@@ -3535,8 +3546,14 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 
 @media (max-width: 720px) {
   .driver-list-card__select { grid-template-columns: 34px minmax(0, 1fr); gap: 7px; }
-  .driver-list-card__commission-button { width: min(132px, calc(100% - 41px)); min-width: 72px; min-height: 22px; margin-left: 41px; padding: 2px 8px; }
-  .driver-list-card__commission-button > strong { font-size: 9px; }
+  .driver-list-card__commission-button { width: min(132px, calc(100% - 41px)); min-width: 72px; min-height: 24px; margin-top: -8px; margin-left: 41px; padding: 2px 8px; }
+  .driver-list-card__commission-button > strong { font-size: 11.25px; }
+  .driver-commission-sheet__payroll { grid-template-columns: 1fr auto; gap: 7px; }
+  .driver-commission-sheet__payroll > span:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  .driver-commission-sheet__payroll input { width: 100%; }
+  .driver-commission-sheet__cash-total { padding: 11px 12px; }
+  .driver-commission-sheet__cash-total span { font-size: 10px; }
+  .driver-commission-sheet__cash-total strong { font-size: 20px; }
   .driver-commission-overlay { padding: 8px; }
   .driver-commission-sheet { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 16px; border-radius: 14px; }
   .driver-commission-sheet__header h2 { font-size: 22px; }
