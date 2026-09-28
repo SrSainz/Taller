@@ -3433,6 +3433,24 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   }
 }
 
+/* Conductores: resúmenes superiores en negro azabache, conservando sus colores de datos. */
+.drivers-summary-card--billing,
+.drivers-summary-card--fuel {
+  background: #050505;
+}
+.drivers-summary-card--billing:hover,
+.drivers-summary-card--fuel:hover {
+  background: #050505;
+}
+.drivers-summary-card--billing .drivers-summary-card__vehicle-plate,
+.drivers-summary-card--fuel .drivers-summary-card__vehicle-plate {
+  color: #fff !important;
+}
+.drivers-summary-card--billing > header > span:nth-child(2) > strong,
+.drivers-summary-card--fuel > header > span:nth-child(2) > strong {
+  color: #fff;
+}
+
 @media (max-width: 520px) {
   .maintenance-page .maintenance-vehicle-banners {
     height: calc(100dvh - 64px - var(--bottom-navigation-height) - env(safe-area-inset-bottom) - 16px);
