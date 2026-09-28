@@ -8988,14 +8988,13 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
                 <span className="maintenance-vehicle-number">{index + 1}</span>
                 <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
                 <span className="maintenance-vehicle-identity"><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" />
-                  {vehicle.serviceTracking
-                    ? <span className="maintenance-vehicle-km-tracking" aria-label={`Kilometraje del cuadro ${formatKm(vehicle.serviceTracking.instrumentKm)}, kilometraje real ${formatKm(vehicle.serviceTracking.realKm)}, faltan ${formatKm(vehicle.serviceTracking.remainingKm)} para la próxima revisión`}>
-                        <strong>Km cuadro: {formatKm(vehicle.serviceTracking.instrumentKm)}</strong>
-                        <strong>Km reales: {formatKm(vehicle.serviceTracking.realKm)}</strong>
-                        <strong>Revisión: faltan {formatKm(vehicle.serviceTracking.remainingKm)}</strong>
-                      </span>
-                    : <span>{vehicle.model}</span>}
+                  {!vehicle.serviceTracking && <span>{vehicle.model}</span>}
                 </span>
+                {vehicle.serviceTracking && <span className="maintenance-vehicle-km-tracking" aria-label={`Kilometraje del cuadro ${formatKm(vehicle.serviceTracking.instrumentKm)}, kilometraje real ${formatKm(vehicle.serviceTracking.realKm)}, faltan ${formatKm(vehicle.serviceTracking.remainingKm)} para la próxima revisión`}>
+                  <strong>Km cuadro: {formatKm(vehicle.serviceTracking.instrumentKm)}</strong>
+                  <strong>Km reales: {formatKm(vehicle.serviceTracking.realKm)}</strong>
+                  <strong>Próxima revisión: {formatKm(vehicle.serviceTracking.remainingKm)}</strong>
+                </span>}
                 <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
                 <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
               </button>

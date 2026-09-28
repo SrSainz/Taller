@@ -1,5 +1,5 @@
 export const instrumentClusterVehiclePlate = "5754 MJV";
-export const instrumentClusterBaselineKm = 128460;
+export const instrumentClusterBaselineKm = 174900;
 export const realOdometerBaselineKm = 486900;
 export const instrumentClusterOffsetKm = realOdometerBaselineKm - instrumentClusterBaselineKm;
 export const initialNextServiceInstrumentKm = 199900;
