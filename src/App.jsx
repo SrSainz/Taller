@@ -7825,14 +7825,13 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
       <div className="driver-commission-sheet__progress">
         <div><span>Facturación acumulada</span><strong>{formatCurrency(calculation.monthlyBilling)}</strong></div>
         <div className="driver-commission-sheet__progress-track" aria-label={`${Math.round(progress)}% del tramo actual`}><i style={{ width: `${progress}%` }} /></div>
-        <small>{calculation.commissionEligible ? `Siguiente tramo: ${formatCurrency(nextThreshold)}` : `La comisión comienza al superar ${formatCurrency(5000)}`}</small>
       </div>
       <div className="driver-commission-sheet__formula">
         <div><span>Porcentaje aplicado</span><strong>{rateLabel}</strong></div>
         <div><span>Comisión porcentual</span><strong>{formatCurrency(calculation.commissionBase)}</strong></div>
         <div><span>Bono por tramos</span><strong>{formatCurrency(calculation.thresholdBonus)}</strong></div>
         <div><span>Propinas</span><strong>{formatCurrency(calculation.tips)}</strong></div>
-        <div className="driver-commission-sheet__total"><span>Total comisión y complementos</span><strong>{formatCurrency(calculation.totalBenefitMonth)}</strong></div>
+        <div className="driver-commission-sheet__total"><span>TOTAL BENEFICIO MES</span><strong>{formatCurrency(calculation.totalBenefitMonth)}</strong></div>
         <label className="driver-commission-sheet__payroll"><span>Nómina</span><span><input type="number" min="0" step="0.01" inputMode="decimal" value={payrollDraft} onChange={(event) => onPayrollDraftChange(event.target.value)} aria-label={`Nómina mensual de ${row.driver}`} /><button type="button" onClick={onSavePayroll} disabled={payrollBusy}>{payrollBusy ? "Guardando…" : "Guardar"}</button></span><strong>{formatCurrency(payroll)}</strong></label>
         <div className="driver-commission-sheet__cash-total"><span>TOTAL A COBRAR EN EFECTIVO</span><strong>{formatCurrency(calculation.totalToCollect)}</strong></div>
       </div>
@@ -7842,7 +7841,6 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
           {evolutionRows.map((item) => <tr className={item.reached ? "is-reached" : ""} key={item.threshold}><td>{formatCurrency(item.threshold)}</td><td>{formatCurrency(item.bonus)}</td><td>{item.reached ? "Alcanzado" : "Siguiente"}</td></tr>)}
         </tbody></table>
       </div>
-      <p className="driver-commission-sheet__note">Hasta 5.000 € inclusive la comisión es 0 €. Al superar 5.000 € se aplica el porcentaje sobre la facturación total y un complemento de 250 €, más 50 € por cada tramo adicional de 500 €.</p>
       <footer className="driver-commission-sheet__actions"><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="primary-button" onClick={() => window.print()}><IconPrinter size={17} />Imprimir</button></footer>
     </section>
   </div>, document.body);

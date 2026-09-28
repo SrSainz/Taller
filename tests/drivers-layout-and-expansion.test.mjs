@@ -55,10 +55,15 @@ test("cada conductor tiene una evolución mensual de comisión imprimible", () =
   assert.doesNotMatch(app, /<b>\{rateLabel\}<\/b>/);
   assert.match(app, /Nómina mensual de \$\{row\.driver\}/);
   assert.match(app, /TOTAL A COBRAR EN EFECTIVO/);
+  assert.match(app, /TOTAL BENEFICIO MES/);
+  assert.doesNotMatch(app, /Siguiente tramo:/);
+  assert.doesNotMatch(app, /Hasta 5\.000 € inclusive la comisión es 0 €/);
   assert.match(app, /upsertDriverPeriodFinancial\(\{ driverId: commissionDriver\.driverId, periodStart, payroll, createdBy: adminUserId \}\)/);
   assert.match(css, /\.driver-list-card__commission-button > strong\s*\{[^}]*font-size:\s*13\.75px[^}]*font-weight:\s*900/s);
   assert.match(css, /\.driver-list-card__commission-button\s*\{[^}]*margin-top:\s*-9px[^}]*color:\s*#c8322b/s);
   assert.match(css, /\.driver-commission-sheet__cash-total/);
+  assert.match(css, /\.driver-commission-sheet__cash-total\s*\{[^}]*min-height:\s*78px[^}]*padding:\s*20px 24px/s);
+  assert.match(css, /\.driver-commission-sheet__cash-total strong\s*\{[^}]*font-size:\s*36px/s);
   assert.match(app, /onClick=\{\(\) => window\.print\(\)\}/);
   assert.match(css, /\.driver-commission-sheet__formula/);
   assert.match(css, /@media print[\s\S]*?\.driver-commission-sheet__actions\s*\{\s*display:\s*none !important;/s);
