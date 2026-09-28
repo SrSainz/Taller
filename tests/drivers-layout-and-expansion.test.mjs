@@ -37,6 +37,7 @@ test("driver rows include photos, names enlarged by 15 percent and right-grouped
 test("the two driver summary buttons use jet black while plates stay white and metrics keep their colors", () => {
   assert.match(css, /\.drivers-summary-card--billing,\s*\.drivers-summary-card--fuel\s*\{\s*background:\s*#050505;/s);
   assert.match(css, /\.drivers-summary-card--billing \.drivers-summary-card__vehicle-plate,\s*\.drivers-summary-card--fuel \.drivers-summary-card__vehicle-plate\s*\{\s*color:\s*#fff !important;/s);
+  assert.match(css, /\.drivers-summary-card--billing \.drivers-summary-card__vehicle-plate > strong,\s*\.drivers-summary-card--fuel \.drivers-summary-card__vehicle-plate > strong\s*\{\s*color:\s*#fff !important;/s);
   assert.match(css, /\.drivers-summary-card--billing > div strong\s*\{\s*color:\s*var\(--billing-strong\);/s);
   assert.match(css, /\.drivers-summary-card--fuel > div strong\s*\{\s*color:\s*#c3382f;/s);
   assert.match(css, /\.drivers-summary-card__period\s*\{\s*color:\s*var\(--maintenance-orange-strong\);/s);

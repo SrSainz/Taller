@@ -3446,6 +3446,10 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .drivers-summary-card--fuel .drivers-summary-card__vehicle-plate {
   color: #fff !important;
 }
+.drivers-summary-card--billing .drivers-summary-card__vehicle-plate > strong,
+.drivers-summary-card--fuel .drivers-summary-card__vehicle-plate > strong {
+  color: #fff !important;
+}
 .drivers-summary-card--billing > header > span:nth-child(2) > strong,
 .drivers-summary-card--fuel > header > span:nth-child(2) > strong {
   color: #fff;
