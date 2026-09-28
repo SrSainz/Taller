@@ -67,4 +67,6 @@ test("cada conductor tiene una evolución mensual de comisión imprimible", () =
   assert.match(app, /onClick=\{\(\) => window\.print\(\)\}/);
   assert.match(css, /\.driver-commission-sheet__formula/);
   assert.match(css, /@media print[\s\S]*?\.driver-commission-sheet__actions\s*\{\s*display:\s*none !important;/s);
+  assert.match(css, /@media print\s*\{\s*@page\s*\{\s*size:\s*A4 portrait;\s*margin:\s*0;/s);
+  assert.match(css, /body:has\(\.driver-commission-sheet\) \.driver-commission-overlay\s*\{[^}]*padding:\s*14mm/s);
 });

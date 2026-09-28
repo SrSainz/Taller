@@ -3565,11 +3565,13 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 }
 
 @media print {
-  @page { size: A4 portrait; margin: 14mm; }
+  @page { size: A4 portrait; margin: 0; }
+  html:has(.driver-commission-sheet),
+  body:has(.driver-commission-sheet) { margin: 0 !important; padding: 0 !important; }
   body:has(.driver-commission-sheet) * { visibility: hidden !important; }
   body:has(.driver-commission-sheet) .driver-commission-overlay,
   body:has(.driver-commission-sheet) .driver-commission-overlay * { visibility: visible !important; }
-  body:has(.driver-commission-sheet) .driver-commission-overlay { position: absolute; inset: 0; display: block; padding: 0; background: #fff; }
+  body:has(.driver-commission-sheet) .driver-commission-overlay { position: absolute; inset: 0; display: block; box-sizing: border-box; padding: 14mm; background: #fff; }
   body:has(.driver-commission-sheet) .driver-commission-sheet { width: 100%; max-height: none; overflow: visible; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
   body:has(.driver-commission-sheet) .driver-commission-sheet__header > button,
   body:has(.driver-commission-sheet) .driver-commission-sheet__actions { display: none !important; }
