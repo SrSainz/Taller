@@ -37,6 +37,7 @@ import {
   IconMenu2,
   IconMessageCircle,
   IconPlus,
+  IconPrinter,
   IconRefresh,
   IconLogout,
   IconRobot,
@@ -7788,6 +7789,63 @@ function FuelDriversReport({ vehicles, selectedDriverKey, onSelectDriver }) {
   );
 }
 
+const buildCommissionEvolutionRows = (monthlyBilling = 0) => {
+  const billing = Math.max(0, Number(monthlyBilling) || 0);
+  const reached = getCommissionThresholdsForBilling(billing);
+  const nextThreshold = billing <= 5000
+    ? 5001
+    : 5500 + (Math.floor((billing - 5000) / 500) * 500);
+  return [...new Set([...reached, nextThreshold])].map((threshold) => ({
+    threshold,
+    bonus: threshold === 5001 ? 250 : 250 + (((threshold - 5000) / 500) * 50),
+    reached: billing >= threshold,
+  }));
+};
+
+function DriverCommissionDialog({ row, calculation, month, year, onClose }) {
+  const monthLabel = `${reportMonths[month]} ${year}`;
+  const rateLabel = `${Math.round(calculation.commissionRate * 100)}%`;
+  const evolutionRows = buildCommissionEvolutionRows(calculation.monthlyBilling);
+  const reachedRows = evolutionRows.filter((item) => item.reached);
+  const lastReached = reachedRows.at(-1)?.threshold ?? 0;
+  const nextThreshold = evolutionRows.find((item) => !item.reached)?.threshold ?? lastReached + 500;
+  const progressStart = lastReached || 0;
+  const progressRange = Math.max(1, nextThreshold - progressStart);
+  const progress = Math.max(0, Math.min(100, ((calculation.monthlyBilling - progressStart) / progressRange) * 100));
+
+  return createPortal(<div className="driver-commission-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="driver-commission-sheet" role="dialog" aria-modal="true" aria-labelledby="driver-commission-title">
+      <header className="driver-commission-sheet__header">
+        <div><span>EVOLUCIÓN DE LA COMISIÓN</span><h2 id="driver-commission-title">{monthLabel}</h2></div>
+        <button type="button" onClick={onClose} aria-label="Cerrar evolución de la comisión"><IconX size={20} /></button>
+      </header>
+      <div className="driver-commission-sheet__identity">
+        <span><small>CONDUCTOR</small><strong>{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-commission-sheet__plate" /></span>
+        <b>{rateLabel}</b>
+      </div>
+      <div className="driver-commission-sheet__progress">
+        <div><span>Facturación acumulada</span><strong>{formatCurrency(calculation.monthlyBilling)}</strong></div>
+        <div className="driver-commission-sheet__progress-track" aria-label={`${Math.round(progress)}% del tramo actual`}><i style={{ width: `${progress}%` }} /></div>
+        <small>{calculation.commissionEligible ? `Siguiente tramo: ${formatCurrency(nextThreshold)}` : `La comisión comienza al superar ${formatCurrency(5000)}`}</small>
+      </div>
+      <div className="driver-commission-sheet__formula">
+        <div><span>Porcentaje aplicado</span><strong>{rateLabel}</strong></div>
+        <div><span>Comisión porcentual</span><strong>{formatCurrency(calculation.commissionBase)}</strong></div>
+        <div><span>Bono por tramos</span><strong>{formatCurrency(calculation.thresholdBonus)}</strong></div>
+        <div><span>Propinas</span><strong>{formatCurrency(calculation.tips)}</strong></div>
+        <div className="driver-commission-sheet__total"><span>Total comisión y complementos</span><strong>{formatCurrency(calculation.totalBenefitMonth)}</strong></div>
+      </div>
+      <div className="driver-commission-sheet__table-wrap">
+        <table><thead><tr><th>Facturación</th><th>Complemento acumulado</th><th>Estado</th></tr></thead><tbody>
+          {evolutionRows.map((item) => <tr className={item.reached ? "is-reached" : ""} key={item.threshold}><td>{formatCurrency(item.threshold)}</td><td>{formatCurrency(item.bonus)}</td><td>{item.reached ? "Alcanzado" : "Siguiente"}</td></tr>)}
+        </tbody></table>
+      </div>
+      <p className="driver-commission-sheet__note">Hasta 5.000 € inclusive la comisión es 0 €. Al superar 5.000 € se aplica el porcentaje sobre la facturación total y un complemento de 250 €, más 50 € por cada tramo adicional de 500 €.</p>
+      <footer className="driver-commission-sheet__actions"><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="primary-button" onClick={() => window.print()}><IconPrinter size={17} />Imprimir</button></footer>
+    </section>
+  </div>, document.body);
+}
+
 function DriversView({ vehicles, driverEntries = [], transactions = [], documents = [], setModal, onSaveDriverDay, onDeleteDriverDocument, onReassignDriverDocumentDate, navigationTarget = null, onNavigationTargetConsumed, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange }) {
   const [internalReportMonth, setInternalReportMonth] = useState(() => new Date().getMonth());
   const [internalReportYear, setInternalReportYear] = useState(() => new Date().getFullYear());
@@ -7801,6 +7859,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [calendarSwipeOffset, setCalendarSwipeOffset] = useState(0);
   const [calendarSwipeTransition, setCalendarSwipeTransition] = useState(false);
+  const [commissionDriverKey, setCommissionDriverKey] = useState("");
   const driverGridRef = useRef(null);
   const calendarSurfaceRef = useRef(null);
   const calendarTrackRef = useRef(null);
@@ -7832,6 +7891,15 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     };
   }), [driverRows, professionalVehicles]);
   const selectedDriver = driverRows.find((row) => row.key === selectedDriverKey) ?? null;
+  const commissionDriver = driverRows.find((row) => row.key === commissionDriverKey) ?? null;
+  const commissionCalculation = useMemo(() => {
+    if (!commissionDriver) return null;
+    const periodKey = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}`;
+    const monthEntries = (commissionDriver.entries ?? []).filter((entry) => String(entry.entry_date ?? "").startsWith(periodKey));
+    const tips = monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0);
+    const tolls = monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0);
+    return calculateDriverCommission({ driverName: commissionDriver.driver, billing: commissionDriver.revenue, tips, tolls });
+  }, [commissionDriver, reportMonth, reportYear]);
   const calendarRows = useMemo(() => selectedDriver ? getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, reportMonth, reportYear, documents, transactions) : [], [selectedDriver, reportMonth, reportYear, documents, transactions]);
   const periodKilometres = useMemo(() => calendarRows.reduce((sum, day) => sum + (Number(day.km) || 0), 0), [calendarRows]);
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;
@@ -7870,13 +7938,14 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   }, [selectedDriver?.key, selectedDay, reportMonth, reportYear]);
 
   useEffect(() => {
-    if (!expandedDayPanel && !calendarExpanded) return undefined;
+    if (!expandedDayPanel && !calendarExpanded && !commissionDriverKey) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const closeOnEscape = (event) => {
       if (event.key === "Escape") {
         setExpandedDayPanel("");
         setCalendarExpanded(false);
+        setCommissionDriverKey("");
       }
     };
     document.addEventListener("keydown", closeOnEscape);
@@ -7884,7 +7953,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [calendarExpanded, expandedDayPanel]);
+  }, [calendarExpanded, commissionDriverKey, expandedDayPanel]);
 
   useEffect(() => () => {
     if (swipeResetTimer.current) window.clearTimeout(swipeResetTimer.current);
@@ -8133,12 +8202,14 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         </button>
       </div>
 
-      <div ref={driverGridRef} className="drivers-list" aria-label="Seis conductores profesionales">
-        {driverRows.map((row) => <button type="button" className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key} onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}>
-          <span className="driver-list-card__identity"><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-list-card__plate" /></span></span>
+      <div ref={driverGridRef} className="drivers-list" aria-label="Conductores profesionales">
+        {driverRows.map((row) => {
+          const rowCommission = calculateDriverCommission({ driverName: row.driver, billing: row.revenue });
+          return <article className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key}>
+          <span className="driver-list-card__identity"><button type="button" className="driver-list-card__select" onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-list-card__plate" /></span></button><button type="button" className="driver-list-card__commission-button" onClick={() => setCommissionDriverKey(row.key)} aria-label={`Ver evolución de la comisión de ${row.driver}`}><IconCurrencyEuro size={15} /><span>Comisión</span><strong>{Math.round(rowCommission.commissionRate * 100)}%</strong><small>{formatCurrency(rowCommission.commission)}</small></button></span>
           <span className="driver-list-card__metric driver-list-card__metric--billing" aria-label={`Facturación ${formatCurrency(row.revenue)}`}><strong>{formatCurrency(row.revenue)}</strong></span>
           <span className="driver-list-card__metric driver-list-card__metric--fuel" aria-label={`Consumo ${formatCurrency(row.fuelCost)}`}><strong>{formatCurrency(row.fuelCost)}</strong></span>
-        </button>)}
+        </article>})}
       </div>
 
       {selectedDriver && !calendarExpanded && renderDriversCalendar()}
@@ -8152,6 +8223,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       </section>}
       {expandedDayPanel && selectedDriver && selectedDayDetail && createPortal(<div className="driver-day-panel-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedDayPanel(""); }}><section className="driver-day-panel-overlay__surface" role="dialog" aria-modal="true" aria-label={`${expandedDayPanel === "billing" ? "Facturación" : expandedDayPanel === "fuel" ? "Repostaje" : "Kilómetros"} ampliado de ${selectedDriver.driver}`}>{renderDayPanel(expandedDayPanel, true)}</section></div>, document.body)}
       {calendarExpanded && selectedDriver && createPortal(<div className="drivers-calendar-overlay" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setCalendarExpanded(false); }}><div className="drivers-calendar-overlay__surface" role="dialog" aria-modal="true" aria-label={`Calendario ampliado de ${selectedDriver.driver}`}>{renderDriversCalendar(true)}</div></div>, document.body)}
+      {commissionDriver && commissionCalculation && <DriverCommissionDialog row={commissionDriver} calculation={commissionCalculation} month={reportMonth} year={reportYear} onClose={() => setCommissionDriverKey("")} />}
     </section>
   );
 }

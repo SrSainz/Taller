@@ -19,19 +19,19 @@ const normalizeDriverName = (name = "") => String(name)
   .trim()
   .toLocaleLowerCase("es");
 
-export const getDriverCommissionRate = (driverName = "") => DRIVER_COMMISSION_RATES[normalizeDriverName(driverName)] ?? 0;
+export const getDriverCommissionRate = (driverName = "") => DRIVER_COMMISSION_RATES[normalizeDriverName(driverName)] ?? 0.30;
 
 export const calculateCommissionThresholdBonus = (billing = 0) => {
   const monthlyBilling = money(billing);
-  if (monthlyBilling < FIRST_BONUS_THRESHOLD) return 0;
+  if (monthlyBilling <= FIRST_BONUS_THRESHOLD) return 0;
   return money(FIRST_BONUS + (Math.floor((monthlyBilling - FIRST_BONUS_THRESHOLD) / BONUS_STEP_THRESHOLD) * BONUS_STEP));
 };
 
 export const getCommissionThresholdsForBilling = (billing = 0) => {
   const monthlyBilling = money(billing);
-  if (monthlyBilling < FIRST_BONUS_THRESHOLD) return [];
+  if (monthlyBilling <= FIRST_BONUS_THRESHOLD) return [];
   const thresholdCount = Math.floor((monthlyBilling - FIRST_BONUS_THRESHOLD) / BONUS_STEP_THRESHOLD) + 1;
-  return Array.from({ length: thresholdCount }, (_, index) => FIRST_BONUS_THRESHOLD + (index * BONUS_STEP_THRESHOLD));
+  return Array.from({ length: thresholdCount }, (_, index) => index === 0 ? FIRST_BONUS_THRESHOLD + 1 : FIRST_BONUS_THRESHOLD + (index * BONUS_STEP_THRESHOLD));
 };
 
 export const isAlex = (name = "") => normalizeDriverName(name) === "alex";
@@ -39,7 +39,7 @@ export const isAlex = (name = "") => normalizeDriverName(name) === "alex";
 export const calculateDriverCommission = ({ driverName = "", billing = 0, tips = 0, tolls = 0, payroll = 0 } = {}) => {
   const monthlyBilling = money(billing);
   const commissionRate = getDriverCommissionRate(driverName);
-  const commissionEligible = commissionRate > 0 && monthlyBilling >= FIRST_BONUS_THRESHOLD;
+  const commissionEligible = commissionRate > 0 && monthlyBilling > FIRST_BONUS_THRESHOLD;
   const commissionBase = commissionEligible ? money(monthlyBilling * commissionRate) : 0;
   const thresholdBonus = commissionEligible ? calculateCommissionThresholdBonus(monthlyBilling) : 0;
   const commission = money(commissionBase + thresholdBonus);

@@ -42,3 +42,13 @@ test("the two driver summary buttons use jet black while plates stay white and m
   assert.match(css, /\.drivers-summary-card--fuel > div strong\s*\{\s*color:\s*#c3382f;/s);
   assert.match(css, /\.drivers-summary-card__period\s*\{\s*color:\s*var\(--maintenance-orange-strong\);/s);
 });
+
+test("cada conductor tiene una evolución mensual de comisión imprimible", () => {
+  assert.match(app, /driver-list-card__commission-button/);
+  assert.match(app, /Ver evolución de la comisión de \$\{row\.driver\}/);
+  assert.match(app, /function DriverCommissionDialog/);
+  assert.match(app, /EVOLUCIÓN DE LA COMISIÓN/);
+  assert.match(app, /onClick=\{\(\) => window\.print\(\)\}/);
+  assert.match(css, /\.driver-commission-sheet__formula/);
+  assert.match(css, /@media print[\s\S]*?\.driver-commission-sheet__actions\s*\{\s*display:\s*none !important;/s);
+});

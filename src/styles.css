@@ -3433,6 +3433,132 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   }
 }
 
+/* Conductores: acceso individual a la evolución mensual de comisiones. */
+.driver-list-card { cursor: default; }
+.driver-list-card__identity { min-width: 0; }
+.driver-list-card__select {
+  min-width: 0;
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.driver-list-card__commission-button {
+  min-width: 94px;
+  min-height: 38px;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 18px auto;
+  align-items: center;
+  gap: 1px 5px;
+  padding: 5px 8px;
+  border: 1px solid #d7b04b;
+  border-radius: 9px;
+  background: #fff8df;
+  color: #714d00;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.driver-list-card__commission-button > svg { grid-row: 1 / 3; color: #a56d00; }
+.driver-list-card__commission-button > span { font-size: 7px; font-weight: 900; letter-spacing: .055em; text-transform: uppercase; }
+.driver-list-card__commission-button > strong { font-size: 12px; line-height: 1; }
+.driver-list-card__commission-button > small { grid-column: 1 / -1; color: #8a6a22; font-size: 7px; font-weight: 800; text-align: right; }
+.driver-list-card__commission-button:hover,
+.driver-list-card__commission-button:focus-visible { border-color: #a56d00; background: #ffefb8; outline: 2px solid rgba(165,109,0,.16); outline-offset: 1px; }
+
+.driver-commission-overlay {
+  position: fixed;
+  z-index: 190;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(7, 15, 22, .62);
+  backdrop-filter: blur(3px);
+}
+.driver-commission-sheet {
+  width: min(720px, calc(100vw - 36px));
+  max-height: calc(100dvh - 36px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid #d7dedb;
+  border-radius: 18px;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 28px 90px rgba(0,0,0,.36);
+}
+.driver-commission-sheet__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-bottom: 15px; border-bottom: 3px solid #111; }
+.driver-commission-sheet__header > div { display: grid; gap: 3px; }
+.driver-commission-sheet__header span { color: #a56d00; font-size: 10px; font-weight: 950; letter-spacing: .1em; }
+.driver-commission-sheet__header h2 { margin: 0; font-size: 28px; line-height: 1; text-transform: uppercase; }
+.driver-commission-sheet__header > button { width: 36px; height: 36px; display: grid; place-items: center; padding: 0; border: 1px solid #ccd6d2; border-radius: 9px; background: #fff; color: #111; cursor: pointer; }
+.driver-commission-sheet__identity { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 0 16px; }
+.driver-commission-sheet__identity > span { min-width: 0; display: grid; gap: 3px; }
+.driver-commission-sheet__identity small { color: #69736f; font-size: 8px; font-weight: 900; letter-spacing: .1em; }
+.driver-commission-sheet__identity strong { font-size: 22px; text-transform: uppercase; }
+.driver-commission-sheet__plate { color: #59645f; font-size: 11px; font-weight: 850; }
+.driver-commission-sheet__identity > b { min-width: 82px; height: 82px; display: grid; place-items: center; border-radius: 50%; background: #111; color: #fff; font-size: 25px; }
+.driver-commission-sheet__progress { display: grid; gap: 8px; padding: 14px; border-radius: 12px; background: #f7f3e7; }
+.driver-commission-sheet__progress > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.driver-commission-sheet__progress span { color: #655936; font-size: 10px; font-weight: 850; text-transform: uppercase; }
+.driver-commission-sheet__progress strong { font-size: 22px; }
+.driver-commission-sheet__progress small { color: #746c58; font-size: 9px; font-weight: 700; }
+.driver-commission-sheet__progress-track { height: 10px; overflow: hidden; border-radius: 999px; background: #ded7c2; }
+.driver-commission-sheet__progress-track > i { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, #d69a16, #f1bc3f); }
+.driver-commission-sheet__formula { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-top: 12px; }
+.driver-commission-sheet__formula > div { display: grid; gap: 4px; padding: 11px 12px; border: 1px solid #e2e6e4; border-radius: 10px; background: #fbfcfb; }
+.driver-commission-sheet__formula span { color: #66716d; font-size: 9px; font-weight: 800; }
+.driver-commission-sheet__formula strong { font-size: 17px; }
+.driver-commission-sheet__formula .driver-commission-sheet__total { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; background: #e5f4ea; border-color: #bcdcc7; }
+.driver-commission-sheet__total span { color: #17663a; font-size: 11px; text-transform: uppercase; }
+.driver-commission-sheet__total strong { color: #0d6d38; font-size: 22px; }
+.driver-commission-sheet__table-wrap { max-height: 210px; overflow: auto; margin-top: 14px; border: 1px solid #d8dedb; border-radius: 10px; }
+.driver-commission-sheet table { width: 100%; border-collapse: collapse; }
+.driver-commission-sheet th,
+.driver-commission-sheet td { padding: 8px 10px; border-bottom: 1px solid #e7ebe9; font-size: 9px; text-align: left; }
+.driver-commission-sheet th { position: sticky; top: 0; background: #f0f3f1; font-size: 8px; letter-spacing: .045em; text-transform: uppercase; }
+.driver-commission-sheet tr.is-reached td { background: #edf8f1; color: #145f36; font-weight: 850; }
+.driver-commission-sheet__note { margin: 12px 0 0; color: #59635f; font-size: 9px; line-height: 1.45; }
+.driver-commission-sheet__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #dfe5e2; }
+.driver-commission-sheet__actions button { min-height: 38px; }
+
+@media (max-width: 720px) {
+  .driver-list-card__select { gap: 7px; }
+  .driver-list-card__commission-button { min-width: 54px; min-height: 34px; grid-template-columns: 14px auto; gap: 1px 3px; padding: 4px 5px; }
+  .driver-list-card__commission-button > span,
+  .driver-list-card__commission-button > small { display: none; }
+  .driver-list-card__commission-button > strong { font-size: 10px; }
+  .driver-commission-overlay { padding: 8px; }
+  .driver-commission-sheet { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 16px; border-radius: 14px; }
+  .driver-commission-sheet__header h2 { font-size: 22px; }
+  .driver-commission-sheet__identity { padding-block: 14px; }
+  .driver-commission-sheet__identity strong { font-size: 18px; }
+  .driver-commission-sheet__identity > b { min-width: 64px; height: 64px; font-size: 20px; }
+  .driver-commission-sheet__formula strong { font-size: 14px; }
+  .driver-commission-sheet__total strong { font-size: 18px; }
+}
+
+@media print {
+  @page { size: A4 portrait; margin: 14mm; }
+  body:has(.driver-commission-sheet) * { visibility: hidden !important; }
+  body:has(.driver-commission-sheet) .driver-commission-overlay,
+  body:has(.driver-commission-sheet) .driver-commission-overlay * { visibility: visible !important; }
+  body:has(.driver-commission-sheet) .driver-commission-overlay { position: absolute; inset: 0; display: block; padding: 0; background: #fff; }
+  body:has(.driver-commission-sheet) .driver-commission-sheet { width: 100%; max-height: none; overflow: visible; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  body:has(.driver-commission-sheet) .driver-commission-sheet__header > button,
+  body:has(.driver-commission-sheet) .driver-commission-sheet__actions { display: none !important; }
+  body:has(.driver-commission-sheet) .driver-commission-sheet__table-wrap { max-height: none; overflow: visible; }
+  body:has(.driver-commission-sheet) .driver-commission-sheet__progress-track > i { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
 /* Conductores: resúmenes superiores en negro azabache, conservando sus colores de datos. */
 .drivers-summary-card--billing,
 .drivers-summary-card--fuel {
