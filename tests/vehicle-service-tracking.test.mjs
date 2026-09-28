@@ -68,3 +68,25 @@ test("rechazar el reinicio conserva el objetivo inicial de 199.900 km", () => {
   });
   assert.equal(tracking.nextServiceInstrumentKm, 199900);
 });
+
+test("5750 MJV parte de 5.843 de cuadro, 554.774 reales y 27.850 para revisión", () => {
+  assert.deepEqual(buildInstrumentClusterTracking({ vehiclePlate: "5750MJV" }), {
+    instrumentKm: 5843,
+    realKm: 554774,
+    nextServiceInstrumentKm: 33693,
+    remainingKm: 27850,
+  });
+});
+
+test("5750 MJV suma las nuevas lecturas a cuadro y reales y las resta de revisión", () => {
+  const entries = [
+    { driver_id: "mauricio", vehicle_plate: "5750 MJV", entry_date: "2026-09-29", odometer_km: 5900 },
+    { driver_id: "amin", vehicle_plate: "5750MJV", entry_date: "2026-09-30", odometer_km: 6018 },
+  ];
+  assert.deepEqual(buildInstrumentClusterTracking({ entries, vehiclePlate: "5750 MJV" }), {
+    instrumentKm: 6018,
+    realKm: 554949,
+    nextServiceInstrumentKm: 33693,
+    remainingKm: 27675,
+  });
+});
