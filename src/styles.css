@@ -941,6 +941,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .maintenance-vehicle-identity > .maintenance-vehicle-plate { overflow: visible; color: inherit; font-size: 14px; text-overflow: clip; white-space: normal; }
 .maintenance-vehicle-identity > .maintenance-vehicle-plate .vehicle-plate-label__initials { color: var(--green-800); }
 .maintenance-vehicle-identity > span, .maintenance-vehicle-latest > span, .maintenance-vehicle-service > span { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.maintenance-vehicle-km-tracking { display: grid; gap: 1px; overflow: visible; color: #25362f; font-size: 14px; line-height: 1.08; white-space: normal; }
+.maintenance-vehicle-km-tracking > strong { overflow: hidden; font-size: inherit; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .maintenance-vehicle-latest strong, .maintenance-vehicle-service strong { font-size: 11px; }
 .maintenance-vehicle-service strong { color: var(--green-800); }
 .maintenance-vehicle-chevron { color: #7c8c85; transition: transform .18s; }
@@ -2277,6 +2279,8 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-latest > span,
 .maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-service > span { color: var(--muted); }
 .maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-service strong { color: #111; font-size: 22px; line-height: 1; white-space: nowrap; }
+.maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-km-tracking { display: grid; gap: 1px; overflow: visible; color: #25362f; font-size: 14px; line-height: 1.08; white-space: normal; }
+.maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-km-tracking > strong { overflow: hidden; font-size: inherit; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .maintenance-page .maintenance-vehicle-banner .maintenance-vehicle-chevron { display: none; }
 .maintenance-page .maintenance-history-header h2,
 .maintenance-page .maintenance-timeline-heading strong { text-transform: uppercase; }
@@ -3315,6 +3319,23 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
     color: #6c7a74;
     font-size: 8px;
     line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-km-tracking {
+    display: grid;
+    gap: 1px;
+    overflow: visible;
+    color: #25362f;
+    font-size: clamp(9px, 2.45vw, 12px);
+    line-height: 1.05;
+    white-space: normal;
+  }
+
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-km-tracking > strong {
+    overflow: hidden;
+    font-size: inherit;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -10154,11 +10175,21 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
 }
 
 /* Mantenimiento: la matrícula sustituye al nombre textual de la marca. */
+.maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-banner {
+  min-height: 112px;
+}
 .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity > .maintenance-vehicle-plate {
   font-size: 21px;
 }
 @media (max-width: 820px) {
+  .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-banner {
+    min-height: 0;
+  }
   .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity > .maintenance-vehicle-plate {
     font-size: clamp(19.5px, 5.55vw, 27px);
+  }
+  .maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-identity > .maintenance-vehicle-km-tracking {
+    font-size: clamp(13px, 3.7vw, 18px);
+    line-height: 1.02;
   }
 }

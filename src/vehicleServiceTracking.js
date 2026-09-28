@@ -1,0 +1,81 @@
+export const instrumentClusterVehiclePlate = "5754 MJV";
+export const instrumentClusterBaselineKm = 128460;
+export const realOdometerBaselineKm = 486900;
+export const instrumentClusterOffsetKm = realOdometerBaselineKm - instrumentClusterBaselineKm;
+export const initialNextServiceInstrumentKm = 199900;
+export const oilServiceIntervalKm = 25000;
+export const instrumentClusterInstalledOn = "2025-08-21";
+
+const normalizePlate = (value) => {
+  const compact = String(value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const match = compact.match(/^(\d{4})([A-Z]{3})$/);
+  return match ? `${match[1]} ${match[2]}` : String(value ?? "").trim().toUpperCase();
+};
+
+const asPositiveKm = (value) => {
+  const parsed = Number(String(value ?? "").replace(/\s/g, "").replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 0;
+};
+
+const entryOdometerKm = (entry) => {
+  const overrides = typeof entry?.manual_overrides === "string"
+    ? (() => { try { return JSON.parse(entry.manual_overrides); } catch { return {}; } })()
+    : entry?.manual_overrides ?? {};
+  return asPositiveKm(overrides?.mileage?.odometerKm) || asPositiveKm(entry?.odometer_km);
+};
+
+const documentFields = (document) => document?.extracted_data ?? document?.extractedData ?? document?.fields ?? {};
+
+const normalizeText = (value) => String(value ?? "")
+  .toLocaleLowerCase("es")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
+
+export const getLatestInstrumentClusterKm = (entries = []) => entries.reduce((latest, entry) => {
+  if (normalizePlate(entry?.vehicle_plate) !== instrumentClusterVehiclePlate) return latest;
+  if (String(entry?.entry_date ?? "") < instrumentClusterInstalledOn) return latest;
+  return Math.max(latest, entryOdometerKm(entry));
+}, instrumentClusterBaselineKm);
+
+export const isOilAndFilterMaintenance = ({ recordType, fields = {} } = {}) => {
+  if (normalizeText(recordType) !== "maintenance") return false;
+  const itemText = Array.isArray(fields.maintenanceItems)
+    ? fields.maintenanceItems.map((item) => typeof item === "string" ? item : item?.description ?? item?.concept).join(" ")
+    : "";
+  const description = normalizeText(`${fields.concept ?? ""} ${fields.expenseCategory ?? ""} ${itemText}`);
+  return description.includes("aceite") && description.includes("filtro");
+};
+
+export const getNextServiceInstrumentKm = (documents = []) => {
+  const resets = documents
+    .filter((document) => normalizePlate(document?.vehicle_plate ?? documentFields(document).vehicle) === instrumentClusterVehiclePlate)
+    .map((document) => ({
+      fields: documentFields(document),
+      date: String(document?.document_date ?? document?.created_at ?? ""),
+    }))
+    .filter(({ fields }) => fields.serviceCounterReset === true)
+    .sort((left, right) => right.date.localeCompare(left.date));
+  const latestTarget = asPositiveKm(resets[0]?.fields?.nextServiceInstrumentKm);
+  return latestTarget || initialNextServiceInstrumentKm;
+};
+
+export const buildInstrumentClusterTracking = ({ entries = [], documents = [] } = {}) => {
+  const instrumentKm = getLatestInstrumentClusterKm(entries);
+  const nextServiceInstrumentKm = getNextServiceInstrumentKm(documents);
+  return {
+    instrumentKm,
+    realKm: instrumentKm + instrumentClusterOffsetKm,
+    nextServiceInstrumentKm,
+    remainingKm: Math.max(0, nextServiceInstrumentKm - instrumentKm),
+  };
+};
+
+export const buildServiceCounterResetMetadata = ({ instrumentKm } = {}) => {
+  const currentInstrumentKm = asPositiveKm(instrumentKm) || instrumentClusterBaselineKm;
+  return {
+    serviceCounterReset: true,
+    serviceIntervalKm: oilServiceIntervalKm,
+    serviceResetInstrumentKm: currentInstrumentKm,
+    nextServiceInstrumentKm: currentInstrumentKm + oilServiceIntervalKm,
+  };
+};

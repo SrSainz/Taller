@@ -76,6 +76,7 @@ import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionRe
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
+import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, instrumentClusterVehiclePlate, isOilAndFilterMaintenance } from "./vehicleServiceTracking";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
 import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
@@ -3154,6 +3155,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     });
     return rows;
   }, [invoices, maintenanceEdits, transactions]);
+  const instrumentClusterTracking = useMemo(() => buildInstrumentClusterTracking({ entries: driverEntries, documents: documentRecords }), [documentRecords, driverEntries]);
   const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
     const recordedMaintenance = invoices
       .filter((invoice) => invoice.kind !== "gestoria" && invoice.plate === vehicle.plate)
@@ -3166,7 +3168,14 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         invoiceId: invoice.id,
         maintenanceEditKey: invoice.maintenanceEditKey || getMaintenanceEditKey(invoice),
       }));
-    return { ...vehicle, maintenance: recordedMaintenance, monthlyFuel: [], nextServiceKm: vehicle.odometer, serviceDate: "" };
+    return {
+      ...vehicle,
+      maintenance: recordedMaintenance,
+      monthlyFuel: [],
+      nextServiceKm: vehicle.odometer,
+      serviceDate: "",
+      serviceTracking: vehicle.plate === instrumentClusterVehiclePlate ? instrumentClusterTracking : null,
+    };
   }).map((vehicle) => {
     if (vehicle.use !== "Profesional") return { ...vehicle, driverProfiles: [] };
     const assignedProfiles = orderDriverProfilesForVehicle(vehicle, driverProfiles.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate));
@@ -3183,7 +3192,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       fuelSchedule: vehicle.fuelSchedule?.map((shift) => ({ ...shift, driver: resolveDriver(shift.driver) })),
       monthlyFuel: vehicle.monthlyFuel?.map((entry) => entry.driver ? { ...entry, driver: resolveDriver(entry.driver) } : entry),
     };
-  }).sort((a, b) => vehicleOrder.indexOf(a.plate) - vehicleOrder.indexOf(b.plate)), [driverProfiles, invoices]);
+  }).sort((a, b) => vehicleOrder.indexOf(a.plate) - vehicleOrder.indexOf(b.plate)), [driverProfiles, instrumentClusterTracking, invoices]);
 
   useEffect(() => {
     setSelectedDrivers((current) => {
@@ -3399,7 +3408,16 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     const vehiclePlate = canonicalizeVehiclePlate(assignedVehicle || savedDocument.vehiclePlate || fields.vehicle) || resolveVehiclePlate(fields.vehicle);
     const recordType = savedDocument.recordType || fields.recordType || "";
     const mileageOnly = ["daily-km", "partial-1", "total-km", "total", "odometer", "odometro", "kilometraje diario", "km diarios", "kilometraje total", "km acumulados"].includes(normalizeText(recordType));
-    const extractedData = { ...fields, vehicle: vehiclePlate, ...(driverId ? { driverId } : {}), ...(recordType ? { recordType } : {}), source: savedDocument.source || "document-processing" };
+    const shouldOfferServiceCounterReset = vehiclePlate === instrumentClusterVehiclePlate && isOilAndFilterMaintenance({ recordType, fields });
+    const resetServiceCounter = shouldOfferServiceCounterReset
+      ? window.confirm("Se ha detectado una revisión de aceite y filtros. ¿Deseas restaurar el contador regresivo a 25.000 km para la próxima revisión?")
+      : false;
+    const serviceCounterMetadata = shouldOfferServiceCounterReset
+      ? resetServiceCounter
+        ? buildServiceCounterResetMetadata({ instrumentKm: Number(fields.odometerKm) || getLatestInstrumentClusterKm(driverEntries) })
+        : { serviceCounterReset: false }
+      : {};
+    const extractedData = { ...fields, ...serviceCounterMetadata, vehicle: vehiclePlate, ...(driverId ? { driverId } : {}), ...(recordType ? { recordType } : {}), source: savedDocument.source || "document-processing" };
     let cloudSaved = false;
     try {
       const documentDate = savedDocument.category === "billing" ? fields.serviceDate || fields.issueDate || fields.date || fields.periodStart : fields.date || fields.serviceDate || fields.issueDate;
@@ -8965,11 +8983,19 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
           const reportCounts = getMaintenanceReportCounts(vehicleReports);
           const pendingReports = reportCounts.pending;
           return (
-            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}${pendingReports ? " has-pending" : ""}`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
+            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}${pendingReports ? " has-pending" : ""}${vehicle.serviceTracking ? " has-service-tracking" : ""}`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
               <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
                 <span className="maintenance-vehicle-number">{index + 1}</span>
                 <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
-                <span className="maintenance-vehicle-identity"><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" /><span>{vehicle.model}</span></span>
+                <span className="maintenance-vehicle-identity"><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" />
+                  {vehicle.serviceTracking
+                    ? <span className="maintenance-vehicle-km-tracking" aria-label={`Kilometraje del cuadro ${formatKm(vehicle.serviceTracking.instrumentKm)}, kilometraje real ${formatKm(vehicle.serviceTracking.realKm)}, faltan ${formatKm(vehicle.serviceTracking.remainingKm)} para la próxima revisión`}>
+                        <strong>Km cuadro: {formatKm(vehicle.serviceTracking.instrumentKm)}</strong>
+                        <strong>Km reales: {formatKm(vehicle.serviceTracking.realKm)}</strong>
+                        <strong>Revisión: faltan {formatKm(vehicle.serviceTracking.remainingKm)}</strong>
+                      </span>
+                    : <span>{vehicle.model}</span>}
+                </span>
                 <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
                 <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
               </button>
