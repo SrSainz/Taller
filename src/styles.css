@@ -10498,3 +10498,48 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
     line-height: .92;
   }
 }
+
+/* Mantenimiento: interior negro y datos rojos, sin alterar el aviso naranja. */
+.maintenance-page .maintenance-vehicle-banners,
+.maintenance-page .maintenance-vehicle-banner-row {
+  background: #fff;
+}
+
+.maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner,
+.maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner:hover,
+.maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner:focus-visible,
+.maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner.active {
+  background: #050505;
+  border-right-color: #444;
+  color: #ff4d57;
+}
+
+.maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner :is(
+  .maintenance-vehicle-number,
+  .maintenance-vehicle-identity,
+  .maintenance-vehicle-identity *,
+  .maintenance-vehicle-km-tracking,
+  .maintenance-vehicle-km-tracking *,
+  .maintenance-vehicle-type,
+  .maintenance-vehicle-type *,
+  .maintenance-vehicle-latest,
+  .maintenance-vehicle-latest *
+) {
+  color: #ff4d57;
+}
+
+.maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-number,
+.maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-banner.active .maintenance-vehicle-number,
+.maintenance-page .maintenance-vehicle-banner-row .maintenance-vehicle-type > * {
+  background: #1a1a1a;
+  color: #ff4d57;
+}
+
+.maintenance-page .maintenance-vehicle-banner-row .vehicle-brand-mark {
+  background: #050505;
+  border-color: #5e5e5e;
+}
+
+.maintenance-page .maintenance-vehicle-banner-row .vehicle-brand-mark img {
+  filter: brightness(0) invert(1);
+}
