@@ -3017,7 +3017,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   align-items: center;
   gap: 10px;
 }
-.driver-list-card__hours-button { position: absolute; z-index: 2; top: 3px; left: min(225px, calc(100% - 21px)); width: 18px; height: 18px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; background: #050505; color: #fff; font: 900 10px/1 Inter, sans-serif; cursor: pointer; }
+.driver-list-card__hours-button { position: absolute; z-index: 2; top: 34px; left: 43px; width: 8px; height: 16px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 3px; background: #050505; color: #e3362d; font: 950 7px/1 Inter, sans-serif; cursor: pointer; }
 .driver-list-card__hours-button:hover, .driver-list-card__hours-button:focus-visible { background: #333; outline: 2px solid #e2b43b; outline-offset: 1px; }
 .driver-list-card__avatar {
   width: 42px;
@@ -3568,7 +3568,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .driver-commission-sheet__actions button { min-height: 38px; }
 
 @media (max-width: 720px) {
-  .driver-list-card__hours-button { top: 1px; left: min(166px, calc(100% - 18px)); width: 16px; height: 16px; font-size: 9px; }
+  .driver-list-card__hours-button { top: 27px; left: 35px; width: 6px; height: 15px; font-size: 6px; }
   .driver-hours-overlay { padding: 7px; }
   .driver-hours-sheet { width: calc(100vw - 14px); max-height: calc(100dvh - 14px); padding: 13px; border-radius: 12px; }
   .driver-hours-sheet > header h2 { font-size: 20px; }
