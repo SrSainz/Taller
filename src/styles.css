@@ -8620,6 +8620,139 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .topbar-title .sobre-ruedas-wordmark strong { color: #fff !important; }
 .topbar-title .sobre-ruedas-wordmark em { color: #ef3340 !important; }
 
+/* Conductores: panel oscuro inspirado en la referencia seleccionada. */
+.app-shell--drivers { background: #090e12; color: #f5f7fb; }
+.app-shell--drivers .page-scroll { overflow: auto; background: #090e12; }
+.app-shell--drivers .topbar--reports { background: #10161c; border-color: #26343f; }
+.app-shell--drivers .topbar-title > div > span { color: #fff; font-size: clamp(21px, 2.6vw, 35px); font-weight: 900; letter-spacing: -.03em; }
+.app-shell--drivers .topbar-title small { color: #9fb3c8; font-size: clamp(9px, 1.1vw, 14px); letter-spacing: .18em; }
+.app-shell--drivers .topbar-refresh-button, .app-shell--drivers .topbar-route-button, .app-shell--drivers .bell-button, .app-shell--drivers .topbar-menu-button { border: 1px solid #354655; border-radius: 13px; background: #1c252e; }
+.app-shell--drivers .bottom-navigation { grid-template-columns: repeat(3, minmax(0,1fr)); border-color: #293e4c; background: #0d161d; }
+.app-shell--drivers .bottom-navigation__item--active { color: #47b9fc; }
+.app-shell--drivers .bottom-navigation__item--drivers { position: relative; }
+.app-shell--drivers .bottom-navigation__item--drivers::after { position: absolute; bottom: -4px; width: 50px; height: 3px; border-radius: 3px; background: #47b9fc; content: ""; }
+.drivers-page, .module-page.drivers-page--calendar-open { width: min(1180px, 100%); height: auto; min-height: 0; display: grid; align-content: start; gap: 15px; padding: 14px 18px 28px; overflow: visible; color: #f5f7fb; }
+.drivers-page--calendar-open .drivers-summary-grid, .drivers-page--calendar-open .drivers-list { display: grid; }
+.drivers-summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+.drivers-summary-card { min-height: 208px; display: flex; flex-direction: column; gap: 10px; padding: 17px 20px 10px; border: 1px solid #315777; border-radius: 15px; background: #13283b !important; color: #fff; box-shadow: 0 10px 26px rgba(0,0,0,.18); }
+.drivers-summary-card--fuel { border-color: #71333b; background: #391b20 !important; }
+.drivers-summary-card > header { display: grid; grid-template-columns: 58px minmax(0,1fr) 34px; gap: 14px; align-items: center; }
+.drivers-summary-card__icon { width: 58px; height: 58px; border-radius: 13px; background: #226ac0 !important; color: #fff; }
+.drivers-summary-card--fuel .drivers-summary-card__icon { background: #c7353d !important; }
+.drivers-summary-card > header > span:nth-child(2) { display: grid; gap: 4px; }
+.drivers-summary-card > header > span:nth-child(2) > strong { font-size: clamp(19px,2.3vw,31px); line-height: 1; }
+.drivers-summary-card > header small, .drivers-summary-card__period { color: #aec7e1; font-size: clamp(9px,1.1vw,14px); font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
+.drivers-summary-card--fuel > header small, .drivers-summary-card--fuel .drivers-summary-card__period { color: #f0aeb7; }
+.drivers-summary-card__trend { color: #38b7ff; }
+.drivers-summary-card--fuel .drivers-summary-card__trend { color: #f65b67; }
+.drivers-summary-card .drivers-summary-card__total { color: #fff; font-size: clamp(29px,4vw,54px) !important; font-weight: 900; letter-spacing: -.04em; line-height: 1.05; text-align: left; }
+.drivers-summary-card__sparkline { width: 100%; height: 42px; display: block; margin-top: auto; }
+.drivers-vehicle-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+.drivers-vehicle-card { min-width: 0; padding: 13px 15px 12px; border: 1px solid #2b3b48; border-radius: 12px; background: #151e26; }
+.drivers-vehicle-card > header { display: flex; align-items: center; gap: 13px; margin-bottom: 12px; }
+.drivers-vehicle-card__icon { width: 45px; height: 45px; display: grid; place-items: center; border-radius: 10px; background: #2c3945; color: #fff; }
+.drivers-vehicle-card > header strong { font-size: clamp(15px,2vw,24px); white-space: nowrap; }
+.drivers-vehicle-card__figures { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.drivers-vehicle-card__figures > span { min-width: 0; display: grid; gap: 3px; }
+.drivers-vehicle-card__figures > span + span { padding-left: 9px; border-left: 1px solid #334654; }
+.drivers-vehicle-card__figures strong { color: #50bffe; font-size: clamp(12px,1.65vw,20px); white-space: nowrap; }
+.drivers-vehicle-card__figures > span + span strong { color: #ff5967; }
+.drivers-vehicle-card__figures small { color: #b6cbe0; font-size: clamp(9px,1vw,12px); letter-spacing: .06em; text-transform: uppercase; }
+.drivers-vehicle-card__bar { height: 9px; display: block; margin-top: 11px; border-radius: 10px; background: linear-gradient(90deg,#4bbefa 0,#4bbefa calc(100% - var(--fuel-share)),#f15b68 calc(100% - var(--fuel-share)),#f15b68 100%); }
+.drivers-ranking-heading { display: grid; grid-template-columns: 58px minmax(0,1fr) auto; align-items: center; gap: 14px; margin-top: 3px; }
+.drivers-ranking-heading__icon { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 12px; background: #236ac4; color: #fff; }
+.drivers-ranking-heading > span:nth-child(2) { display: grid; gap: 3px; }
+.drivers-ranking-heading > span:nth-child(2) > strong { font-size: clamp(25px,3vw,38px); line-height: 1; }
+.drivers-ranking-heading small { color: #aebfd0; font-size: clamp(9px,1.05vw,13px); letter-spacing: .11em; }
+.drivers-ranking-heading label { color: transparent; font-size: 0; }
+.drivers-ranking-heading select { min-height: 46px; padding: 0 14px; border: 1px solid #394b58; border-radius: 10px; background: #1a242c; color: #fff; font: 500 15px Inter,sans-serif; cursor: pointer; }
+.drivers-list { overflow: hidden; gap: 0; border: 1px solid #25333d; border-radius: 12px; background: #10181e; }
+.drivers-list__head, .driver-list-card { display: grid; grid-template-columns: 34px minmax(0,1.8fr) 100px minmax(115px,1fr) minmax(115px,1fr) 20px; align-items: center; column-gap: 12px; }
+.drivers-list__head { min-height: 44px; padding: 0 15px; color: #adbecf; font-size: 12px; letter-spacing: .03em; text-transform: uppercase; }
+.drivers-list__head > span:nth-child(n+3) { text-align: right; }
+.driver-list-card { min-height: 67px; padding: 5px 15px; border: 0; border-top: 1px solid #2d3c46; border-radius: 0; background: transparent; color: #fff; }
+.driver-list-card--active { border: 1px solid #86a7c0; border-left: 4px solid #4fc1ff; border-radius: 9px; background: #283749; }
+.driver-list-card__rank { color: #cbd8e2; font-size: 16px; }
+.driver-list-card__identity { display: flex; align-items: center; gap: 7px; }
+.driver-list-card__select { width: auto; display: flex; align-items: center; gap: 10px; }
+.driver-list-card__avatar { width: 48px; height: 48px; flex-basis: 48px; border: 2px solid #4ebcf9; background: #253744; }
+.driver-list-card__identity-copy > strong { color: #fff; font-size: 18px; text-transform: uppercase; }
+.driver-list-card__hours-button { position: static; width: 27px; height: 28px; flex: 0 0 auto; border: 1px solid #394d5b; border-radius: 5px; color: #fff; font-size: 15px; }
+.driver-list-card__commission-button { width: auto; min-width: 0; min-height: 24px; margin: 0; padding: 2px 5px; border-color: #665331; border-radius: 5px; background: #111a20; }
+.driver-list-card__commission-button > strong { color: #f2686a; font-size: 11px; }
+.driver-list-card__hours { color: #fff; font-size: 15px; text-align: right; white-space: nowrap; }
+.driver-list-card__metric { display: block; padding: 0; border: 0; text-align: right; }
+.driver-list-card__metric strong, .driver-list-card__metric--billing strong, .driver-list-card__metric--fuel strong { font-size: clamp(13px,1.6vw,19px); }
+.driver-list-card__metric--billing strong { color: #4bbdfe; }
+.driver-list-card__metric--fuel strong { color: #ff5d6b; }
+.driver-list-card__open { display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: #fff; cursor: pointer; }
+.drivers-profile { padding: 17px; border: 1px solid #2e414f; border-radius: 14px; background: #17232c; }
+.drivers-profile > header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.drivers-profile > header .driver-list-card__avatar { width: 66px; height: 66px; flex-basis: 66px; border-color: #64dfbf; }
+.drivers-profile > header > span:nth-child(2) { display: grid; gap: 4px; }
+.drivers-profile > header > span:nth-child(2) strong { font-size: 28px; text-transform: uppercase; }
+.drivers-profile > header > span:nth-child(2) small { color: #aec3d2; font-size: 13px; }
+.drivers-profile > header > button { margin-left: auto; border: 0; background: transparent; color: #fff; cursor: pointer; }
+.drivers-profile__metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.drivers-profile__metrics > span { min-width: 0; display: grid; grid-template-columns: 30px minmax(0,1fr); align-items: center; gap: 2px 10px; padding: 12px; border: 1px solid #314452; border-radius: 10px; background: #21303b; }
+.drivers-profile__metrics svg { grid-row: span 2; color: #5ebeff; }
+.drivers-profile__metrics > span:nth-child(3n) svg { color: #fa6671; }
+.drivers-profile__metrics small { color: #b8cad8; font-size: 12px; }
+.drivers-profile__metrics strong { overflow: hidden; font-size: clamp(15px,2vw,22px); text-overflow: ellipsis; white-space: nowrap; }
+.app-shell--drivers .drivers-calendar-card, .app-shell--drivers .driver-day-detail { color: #172326; }
+.app-shell--drivers .drivers-page--calendar-open > .drivers-calendar-card, .app-shell--drivers .drivers-page--calendar-open > .driver-day-detail { width: 100%; }
+@media (max-width: 720px) {
+  .drivers-page, .module-page.drivers-page--calendar-open { gap: 10px; padding: 10px 9px 20px; }
+  .drivers-summary-grid { gap: 7px; }
+  .drivers-summary-card { min-height: 146px; padding: 10px 9px 5px; }
+  .drivers-summary-card > header { grid-template-columns: 32px minmax(0,1fr); gap: 7px; }
+  .drivers-summary-card__icon { width: 32px; height: 32px; }
+  .drivers-summary-card__icon svg { width: 19px; }
+  .drivers-summary-card__trend { display: none; }
+  .drivers-summary-card > header > span:nth-child(2) > strong { font-size: 15px; }
+  .drivers-summary-card > header small, .drivers-summary-card__period { font-size: 8px; letter-spacing: .03em; }
+  .drivers-summary-card .drivers-summary-card__total { font-size: clamp(17px,5vw,29px) !important; }
+  .drivers-summary-card__sparkline { height: 30px; }
+  .drivers-vehicle-grid { gap: 5px; }
+  .drivers-vehicle-card { padding: 7px 6px; }
+  .drivers-vehicle-card > header { gap: 4px; margin-bottom: 6px; }
+  .drivers-vehicle-card__icon { width: 24px; height: 24px; border-radius: 5px; }
+  .drivers-vehicle-card__icon svg { width: 17px; }
+  .drivers-vehicle-card > header strong { font-size: clamp(9px,2.5vw,14px); }
+  .drivers-vehicle-card__figures { gap: 2px; }
+  .drivers-vehicle-card__figures > span + span { padding-left: 3px; }
+  .drivers-vehicle-card__figures strong { font-size: clamp(7px,1.95vw,11px); }
+  .drivers-vehicle-card__figures small { font-size: 6px; }
+  .drivers-vehicle-card__bar { height: 5px; margin-top: 6px; }
+  .drivers-ranking-heading { grid-template-columns: 35px minmax(0,1fr) auto; gap: 7px; }
+  .drivers-ranking-heading__icon { width: 35px; height: 35px; }
+  .drivers-ranking-heading__icon svg { width: 21px; }
+  .drivers-ranking-heading > span:nth-child(2) > strong { font-size: 21px; }
+  .drivers-ranking-heading small { font-size: 7px; }
+  .drivers-ranking-heading select { width: 102px; min-height: 34px; padding: 0 2px; font-size: 10px; }
+  .drivers-list__head { display: none; }
+  .driver-list-card { min-height: 62px; grid-template-columns: 15px minmax(0,1fr) 67px 72px 16px; gap: 4px; padding: 4px 5px; }
+  .driver-list-card__rank { font-size: 11px; }
+  .driver-list-card__identity { gap: 3px; }
+  .driver-list-card__select { gap: 4px; }
+  .driver-list-card__avatar { width: 31px; height: 31px; flex-basis: 31px; }
+  .driver-list-card__identity-copy > strong { font-size: clamp(10px,2.8vw,14px); }
+  .driver-list-card__hours-button { width: 17px; height: 20px; font-size: 11px; }
+  .driver-list-card__commission-button { display: none; }
+  .driver-list-card__hours { display: none; }
+  .driver-list-card__metric strong, .driver-list-card__metric--billing strong, .driver-list-card__metric--fuel strong { font-size: clamp(9px,2.4vw,13px); }
+  .drivers-profile { padding: 10px; }
+  .drivers-profile > header .driver-list-card__avatar { width: 48px; height: 48px; flex-basis: 48px; }
+  .drivers-profile > header > span:nth-child(2) strong { font-size: 19px; }
+  .drivers-profile__metrics { gap: 5px; }
+  .drivers-profile__metrics > span { grid-template-columns: 1fr; gap: 2px; padding: 6px; }
+  .drivers-profile__metrics svg { width: 16px; height: 16px; grid-row: auto; }
+  .drivers-profile__metrics small { font-size: 8px; }
+  .drivers-profile__metrics strong { font-size: 11px; }
+  body:has(.app-shell--drivers .drivers-page--calendar-open) .app-shell, body:has(.app-shell--drivers .drivers-page--calendar-open) .workspace { height: auto; min-height: 100dvh; overflow: visible; }
+  body:has(.app-shell--drivers .drivers-page--calendar-open) .page-scroll { height: auto; overflow: auto; padding-bottom: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom)); }
+}
+
 @media (max-width: 520px) {
   .topbar-title .sobre-ruedas-wordmark { font-size: 16px; letter-spacing: .025em; }
 }
@@ -10497,4 +10630,45 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
     font-size: clamp(11.7px, 3.32vw, 16.25px);
     line-height: .92;
   }
+}
+
+/* La ficha seleccionada mantiene el resumen y la lista visibles para el formato nuevo. */
+body:has(.app-shell--drivers .drivers-page--calendar-open) .app-shell,
+body:has(.app-shell--drivers .drivers-page--calendar-open) .workspace { height: auto; min-height: 100dvh; overflow: visible; }
+body:has(.app-shell--drivers .drivers-page--calendar-open) .page-scroll { height: auto; overflow: auto; padding-bottom: calc(var(--bottom-navigation-height) + env(safe-area-inset-bottom)); }
+.app-shell--drivers .driver-list-card:hover { background: #1d2b37; box-shadow: none; }
+.app-shell--drivers .driver-list-card--active,
+.app-shell--drivers .driver-list-card--active:hover { background: #283749; color: #fff; }
+.app-shell--drivers .driver-list-card__identity-copy > strong { color: #fff; }
+.app-shell--drivers .drivers-page .drivers-list { display: grid; flex: none; align-content: start; justify-content: normal; }
+.drivers-profile__commission { display: flex; align-items: center; gap: 6px; margin-top: 11px; padding: 7px 10px; border: 1px solid #74535a; border-radius: 8px; background: #111a20; color: #bccbd5; font: 700 12px Inter,sans-serif; cursor: pointer; }
+.drivers-profile__commission strong { color: #ff6670; font-size: 14px; }
+.drivers-profile__commission:focus-visible { outline: 2px solid #53bbf7; outline-offset: 2px; }
+.drivers-profile__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.drivers-profile__calendar-link { margin-top: 11px; padding: 7px 10px; border: 1px solid #3d6780; border-radius: 8px; background: #19374b; color: #bce4fc; font: 700 12px Inter,sans-serif; cursor: pointer; }
+.drivers-profile__calendar-link:focus-visible { outline: 2px solid #53bbf7; outline-offset: 2px; }
+@media (min-width: 721px) {
+  .app-shell--drivers .topbar--reports { height: 118px; flex-basis: 118px; }
+  .app-shell--drivers .topbar-title > div > span { font-size: 38px; }
+  .app-shell--drivers .topbar-title small { font-size: 15px; }
+  .app-shell--drivers .bottom-navigation { height: 90px; }
+  .app-shell--drivers .drivers-summary-card { min-height: 265px; }
+  .app-shell--drivers .drivers-summary-card > header > span:nth-child(2) > strong { font-size: 31px; }
+  .app-shell--drivers .drivers-summary-card > header small, .app-shell--drivers .drivers-summary-card__period { font-size: 14px; }
+  .app-shell--drivers .drivers-summary-card .drivers-summary-card__total { font-size: clamp(40px,7vw,72px) !important; }
+  .app-shell--drivers .drivers-summary-card__sparkline { height: 60px; }
+  .app-shell--drivers .drivers-vehicle-card { min-height: 180px; padding-top: 18px; }
+  .app-shell--drivers .drivers-vehicle-card > header strong { font-size: 24px; }
+  .app-shell--drivers .drivers-vehicle-card__figures strong { font-size: clamp(15px,2.15vw,23px); }
+  .app-shell--drivers .drivers-vehicle-card__figures small { font-size: 12px; }
+  .app-shell--drivers .drivers-ranking-heading { min-height: 73px; }
+  .app-shell--drivers .drivers-ranking-heading > span:nth-child(2) > strong { font-size: 38px; }
+  .app-shell--drivers .drivers-ranking-heading small { font-size: 13px; }
+  .app-shell--drivers .driver-list-card { min-height: 72px; }
+  .app-shell--drivers .driver-list-card__identity-copy > strong { font-size: 23px; }
+  .app-shell--drivers .driver-list-card__metric strong { font-size: 22px; }
+  .app-shell--drivers .drivers-profile { min-height: 334px; padding: 22px; }
+  .app-shell--drivers .drivers-profile > header > span:nth-child(2) strong { font-size: 36px; }
+  .app-shell--drivers .drivers-profile__metrics > span { min-height: 100px; }
+  .app-shell--drivers .drivers-profile__metrics strong { font-size: 25px; }
 }

@@ -85,6 +85,20 @@ passed
 
 final result: passed
 
+## Conductores — 2026-09-30
+
+Source: user-supplied Conductores image (`codex-clipboard-cadbdb9b-2c1e-4ad3-b008-aa237533ab70.png`, 942 × 1674). Implementation: local `#/conductores` preview, inspected at 942 × 1674 and 390 × 844 in the browser.
+
+- Layout: dark top bar, two financial cards, three vehicle cards, sortable six-driver ledger, expanded Tirso profile, and three-control bottom navigation follow the supplied hierarchy. The expanded profile ends above the navigation at the reference viewport.
+- Typography and spacing: headings and monetary figures were enlarged after the first capture; the ledger was compacted so all six rows and the profile fit without clipping.
+- Color and imagery: blue billing, red fuel, dark cards, selected-row border, supplied logo, and existing driver photographs are present. Icons use the app's Tabler set.
+- Data: values are derived from the selected period. The isolated local preview had no authenticated records, so its amounts were zero; example amounts from the image were not copied into production data. Hours are expressed in hours, and efficiency is billed days divided by days in the period.
+- Interaction: sorting by name changed row order and selecting Tirso expanded the profile. The calendar and daily document editor remain available from the profile. Mobile content stays legible with vertical scrolling.
+
+The temporary design-preview authentication bypass was removed before the final build. No P0, P1, or P2 visual issues remain.
+
+final result: passed
+
 ## 28 de septiembre de 2026 — Simplificación de la ficha de comisión
 
 ### Evidencia
