@@ -8,7 +8,7 @@ export const instrumentClusterInstalledOn = "2025-08-21";
 
 export const instrumentClusterTrackingConfigs = {
   "5754 MJV": { instrumentBaselineKm: instrumentClusterBaselineKm, realBaselineKm: realOdometerBaselineKm, initialRemainingKm: 25000, installedOn: instrumentClusterInstalledOn },
-  "5750 MJV": { instrumentBaselineKm: 5843, realBaselineKm: 554774, initialRemainingKm: 27850, installedOn: "2026-09-29" },
+  "5750 MJV": { instrumentBaselineKm: 5843, realBaselineKm: 554774, lastServiceInstrumentKm: 2850, initialRemainingKm: oilServiceIntervalKm, installedOn: "2026-09-29" },
 };
 
 const normalizePlate = (value) => {
@@ -84,7 +84,7 @@ export const getNextServiceInstrumentKm = (documents = [], vehiclePlate = instru
     .filter(({ fields }) => fields.serviceCounterReset === true)
     .sort((left, right) => right.date.localeCompare(left.date));
   const latestTarget = asPositiveKm(resets[0]?.fields?.nextServiceInstrumentKm);
-  return latestTarget || config.instrumentBaselineKm + config.initialRemainingKm;
+  return latestTarget || (config.lastServiceInstrumentKm ?? config.instrumentBaselineKm) + config.initialRemainingKm;
 };
 
 export const buildInstrumentClusterTracking = ({ entries = [], documents = [], vehiclePlate = instrumentClusterVehiclePlate } = {}) => {
