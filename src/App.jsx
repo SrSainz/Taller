@@ -7281,7 +7281,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     net: "Neto",
   };
   const chartOptions = {
-    summary: { title: "RESUMEN GENERAL POR COCHE", description: "", color: SUMMARY_CHART_COLOR, data: summaryChartData },
+    summary: { title: "RESUMEN GENERAL POR COCHE", description: "Una barra por coche con Facturación, Mantenimiento, Combustible y Neto.", color: SUMMARY_CHART_COLOR, data: summaryChartData },
     billing: { title: "FACTURACIÓN POR CONDUCTOR", description: "", color: BILLING_COLOR, data: billingChartData },
     maintenance: { title: "MANTENIMIENTO POR COCHE", description: "", color: MAINTENANCE_COLOR, data: maintenanceChartData },
     fuel: { title: "COMBUSTIBLE POR COCHE", description: "", color: "#df4538", data: fuelChartData },
@@ -7528,7 +7528,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
               </div>
               <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
                 <header className="report-chart-card__top">
-                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong></span></div>
+                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
                 </header>
                 <div className="report-chart report-chart--summary">
                   {hasChartData ? <>
