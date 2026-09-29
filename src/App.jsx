@@ -8109,18 +8109,6 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     const monthEntries = (selectedDriver.entries ?? []).filter((entry) => String(entry.entry_date ?? "").startsWith(periodStart.slice(0, 7)));
     return calculateDriverCommission({ driverName: selectedDriver.driver, billing: selectedDriver.revenue, tips: monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0), tolls: monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0), payroll: getDriverPayroll(selectedDriver) });
   })() : null;
-  const dailyTrend = useMemo(() => {
-    const days = new Date(reportYear, reportMonth + 1, 0).getDate();
-    const totals = Array.from({ length: days }, (_, index) => ({ day: index + 1, billing: 0, fuel: 0 }));
-    driverRows.forEach((row) => getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear, documents, transactions).forEach((day) => {
-      if (totals[day.day - 1]) {
-        totals[day.day - 1].billing += day.billing || 0;
-        totals[day.day - 1].fuel += day.fuelCost || 0;
-      }
-    }));
-    return totals;
-  }, [driverRows, reportMonth, reportYear, documents, transactions]);
-
   useEffect(() => {
     if (!selectedDriver) {
       setSelectedDay(null);
@@ -8395,14 +8383,12 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     <section className={`module-page drivers-page${selectedDriver && showDriverCalendar ? " drivers-page--calendar-open" : ""}`}>
       <div className="drivers-summary-grid">
         <button type="button" className="drivers-summary-card drivers-summary-card--billing" onClick={scrollToDrivers}>
-          <header><span className="drivers-summary-card__icon"><IconFileInvoice size={30} /></span><span><strong>Facturación</strong><small><span className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</span> · 3 coches</small></span><IconChartBar className="drivers-summary-card__trend" size={33} /></header>
+          <header><span className="drivers-summary-card__icon"><IconFileInvoice size={30} /></span><span><strong>Facturación</strong><small className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</small></span><IconChartBar className="drivers-summary-card__trend" size={33} /></header>
           <strong className="drivers-summary-card__total">{formatCurrency(totalBilling)}</strong>
-          <span className="drivers-summary-card__sparkline" aria-hidden="true"><ResponsiveContainer width="100%" height="100%"><LineChart data={dailyTrend}><Line dataKey="billing" type="monotone" stroke="#39aaf8" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></span>
         </button>
         <button type="button" className="drivers-summary-card drivers-summary-card--fuel" onClick={scrollToDrivers}>
-          <header><span className="drivers-summary-card__icon"><IconGasStation size={30} /></span><span><strong>Consumo</strong><small><span className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</span><br />3 coches</small></span><IconChartBar className="drivers-summary-card__trend" size={33} /></header>
+          <header><span className="drivers-summary-card__icon"><IconGasStation size={30} /></span><span><strong>Consumo</strong><small className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</small></span><IconChartBar className="drivers-summary-card__trend" size={33} /></header>
           <strong className="drivers-summary-card__total">{formatCurrency(totalFuel)}</strong>
-          <span className="drivers-summary-card__sparkline" aria-hidden="true"><ResponsiveContainer width="100%" height="100%"><LineChart data={dailyTrend}><Line dataKey="fuel" type="monotone" stroke="#fa5b66" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></span>
         </button>
       </div>
 
@@ -8411,7 +8397,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           const billing = driverRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0);
           const fuel = fuelSummaries.find((summary) => summary.vehicle.plate === vehicle.plate)?.cost ?? 0;
           return <article className="drivers-vehicle-card" key={vehicle.plate}>
-            <header><span className="drivers-vehicle-card__icon"><IconCar size={25} /></span><strong>{vehicle.plate}</strong></header>
+            <header><strong>{vehicle.plate}</strong></header>
             <div className="drivers-vehicle-card__figures"><span><strong>{formatCurrency(billing)}</strong><small>Facturación</small></span><span><strong>{formatCurrency(fuel)}</strong><small>Consumo</small></span></div>
             <span className="drivers-vehicle-card__bar" style={{ "--fuel-share": `${Math.max(4, Math.min(95, billing + fuel > 0 ? fuel / (billing + fuel) * 100 : 20))}%` }} />
           </article>;

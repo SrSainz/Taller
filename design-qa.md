@@ -674,3 +674,13 @@ final result: passed
 - Vercel para `98dbda8`: estado `success`.
 
 final result: passed
+
+## 30 de septiembre de 2026 — Tarjetas compactas de Conductores
+
+- Fuente visual: captura adjunta `codex-clipboard-77cb4502-9c96-456c-b0fb-4d502551b829.png` y las instrucciones del usuario para quitar “3 coches”, las dos tendencias y los iconos de coche, dando más tamaño a las matrículas y cifras de los vehículos.
+- Implementación: `src/App.jsx` y `src/styles.css`, commit local `91541f3`.
+- Verificación técnica: `pnpm run build` y `pnpm test` correctos (127/127).
+- Verificación visual: bloqueada. La previsualización local requiere sesión y la cuenta conectada `Davizete` recibe 403 al subir a `SrSainz/Taller`; el conector GitHub confirma `push: false`. Por ello aún no hay captura autenticada del resultado ni despliegue de este commit para comparar en el mismo estado.
+- Pendiente: habilitar escritura en el repositorio para la cuenta conectada, publicar el commit, capturar la vista autenticada en escritorio y móvil, comparar y corregir recortes si los hubiera.
+
+final result: blocked
