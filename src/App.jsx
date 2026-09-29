@@ -97,6 +97,7 @@ import { GESTORIA_MONTHLY_FIXED_AMOUNT, gestoriaDocuments, gestoriaImportMeta, g
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
+import { getMonthlyDriverBilling } from "./driverBillingTotals";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
 import { findDriverNavigationRow } from "./driverNavigation";
@@ -917,16 +918,17 @@ const getDriverWeeklyAmount = (entry, key, dateKey, manualValues = {}) => {
   const amount = getDriverEntryAmount(entry, key === "wash" ? "wash_expenses" : key === "net" ? "billing" : key);
   return key === "cash_collected" ? normalizeDriverCashCollected(amount) : amount;
 };
-const getDriverDailyNetAmount = (entry, dateKey, manualValues = {}) => calculateDriverDailyTotal({
+const getDriverDailyNetAmount = (entry, dateKey, manualValues = {}, excludeRefunds = false) => calculateDriverDailyTotal({
   cashCollected: getDriverWeeklyAmount(entry, "cash_collected", dateKey, manualValues),
   fuelCost: getDriverWeeklyAmount(entry, "fuel_cost", dateKey, manualValues),
   refunds: getDriverWeeklyAmount(entry, "refunds", dateKey, manualValues),
   washExpenses: getDriverWeeklyAmount(entry, "wash", dateKey, manualValues),
   otherExpenses: getDriverWeeklyAmount(entry, "other_expenses", dateKey, manualValues),
+  excludeRefunds,
 });
-const buildDriverWeeklyRows = (days, entries, manualValues = {}) => {
+const buildDriverWeeklyRows = (days, entries, manualValues = {}, excludeRefunds = false) => {
   const total = (entry, key, index) => getDriverWeeklyAmount(entry, key, days[index]?.key, manualValues);
-  const cumulativeTotals = accumulateDriverWeekTotals(days.map(({ key }, index) => getDriverDailyNetAmount(entries[index], key, manualValues)));
+  const cumulativeTotals = accumulateDriverWeekTotals(days.map(({ key }, index) => getDriverDailyNetAmount(entries[index], key, manualValues, excludeRefunds)));
   return [
     { key: "net", label: "Precio\nneto", values: entries.map((entry, index) => total(entry, "net", index)) },
     { key: "cash", label: "Efectivo", values: entries.map((entry, index) => total(entry, "cash_collected", index)) },
@@ -966,7 +968,7 @@ const saveDriverMaintenanceNote = (vehiclePlate, note) => {
     // La nota se mantiene en memoria aunque el navegador no permita guardar preferencias locales.
   }
 };
-const buildDriverWeekPage = (anchorDate, entries, manualValues = {}, billingStatsByDate = new Map()) => {
+const buildDriverWeekPage = (anchorDate, entries, manualValues = {}, billingStatsByDate = new Map(), excludeRefunds = false) => {
   const weekStart = getDriverWeekStart(anchorDate);
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(weekStart);
@@ -974,7 +976,7 @@ const buildDriverWeekPage = (anchorDate, entries, manualValues = {}, billingStat
     return { date, key: getDriverDateKey(date) };
   });
   const weekEntries = days.map(({ key }) => getDriverDailyLedgerEntry(entries, key, billingStatsByDate));
-  const rows = buildDriverWeeklyRows(days, weekEntries, manualValues);
+  const rows = buildDriverWeeklyRows(days, weekEntries, manualValues, excludeRefunds);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
   const shortDate = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
@@ -1618,19 +1620,14 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year, documents = 
       const date = new Date(`${stats.dateKey}T12:00:00`);
       return date.getMonth() === month && date.getFullYear() === year;
     });
-    const hasDocumentedBilling = billingDocumentStats.some((stats) => stats.hasBillingAmount);
     const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
-    const recordedRevenue = Number((hasDocumentedBilling
-      ? billingDocumentStats.reduce((sum, stats) => sum + stats.netAmount, 0)
-      : entries.reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0)).toFixed(2));
-    const hasBillingOverride = entries.some((entry) => entry.billing_override === true);
-    const hasRecordedBilling = hasDocumentedBilling || entries.some((entry) => Number(entry.billing) > 0) || hasBillingOverride;
     const importedBillingByPeriod = getImportedBillingByPeriod(driver);
     const importedTipsByPeriod = getImportedTipsByPeriod(driver);
     const importedRevenue = importedBillingByPeriod?.[periodKey] ?? 0;
     const importedTips = importedTipsByPeriod?.[periodKey] ?? 0;
-    const revenue = hasRecordedBilling ? recordedRevenue : importedRevenue;
-    const billingByPeriod = importedBillingByPeriod ? { ...importedBillingByPeriod, ...(hasRecordedBilling ? { [periodKey]: recordedRevenue } : {}) } : null;
+    const { amount: revenue, hasRecordedBilling } = getMonthlyDriverBilling({ entries, billingStatsByDate, periodKey, importedBilling: importedRevenue });
+    const hasBillingOverride = entries.some((entry) => entry.billing_override === true);
+    const billingByPeriod = importedBillingByPeriod ? { ...importedBillingByPeriod, ...(hasRecordedBilling ? { [periodKey]: revenue } : {}) } : null;
     const importedPeriodEntry = !hasRecordedBilling && importedRevenue > 0
       ? [{ id: `${String(driver).toLocaleLowerCase("es").replace(/\s+/g, "-")}-billing-${periodKey}`, driver_id: profile?.id ?? "", vehicle_plate: vehicle.plate, entry_date: `${periodKey}-01`, billing: importedRevenue, cash_collected: 0, tips: importedTips, tolls: 0, fuel_cost: 0, fuel_liters: 0, other_expenses: 0, odometer_km: 0, isImportedBilling: true }]
       : [];
@@ -2977,7 +2974,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     }
     void adminRefreshDataRef.current?.({ force: true, full: true });
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") void adminRefreshDataRef.current?.();
+      if (document.visibilityState === "visible") void adminRefreshDataRef.current?.({ force: true });
     };
     window.addEventListener("focus", refreshWhenVisible);
     document.addEventListener("visibilitychange", refreshWhenVisible);
@@ -4469,18 +4466,16 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     });
     const total = (list, key) => list.reduce((sum, item) => sum + (key === "cash_collected" ? normalizeDriverCashCollected(item?.[key]) : getDriverEntryAmount(item, key)), 0);
     const washFor = (item) => Object.hasOwn(weeklyManualValues?.[item?.entry_date] ?? {}, "wash") ? Number(weeklyManualValues[item.entry_date].wash) || 0 : getDriverEntryAmount(item, "wash_expenses");
-    const recordedMonthlyBilling = total(monthEntries, "billing");
     const billingDocuments = [...getDriverBillingStatsByDate(documents, activeProfileId, entries).values()]
       .filter((stats) => stats.dateKey.startsWith(monthKey));
     const hasDocumentedMonthlyBilling = billingDocuments.some((stats) => stats.hasBillingAmount);
-    const documentedMonthlyBilling = billingDocuments.reduce((sum, stats) => sum + stats.netAmount, 0);
     const documentedMonthlyTips = billingDocuments.reduce((sum, stats) => sum + stats.tips, 0);
     const importedBillingByPeriod = getImportedBillingByPeriod(profile.full_name);
     const importedTipsByPeriod = getImportedTipsByPeriod(profile.full_name);
     const importedMonthlyBilling = importedBillingByPeriod?.[monthKey] ?? 0;
     const recordedMonthlyTips = total(monthEntries, "tips");
     const importedMonthlyTips = importedTipsByPeriod?.[monthKey] ?? 0;
-    const monthlyBilling = hasDocumentedMonthlyBilling ? documentedMonthlyBilling : recordedMonthlyBilling > 0 ? recordedMonthlyBilling : importedMonthlyBilling;
+    const monthlyBilling = getMonthlyDriverBilling({ entries, billingStatsByDate: driverBillingStatsByDate, periodKey: monthKey, importedBilling: importedMonthlyBilling }).amount;
     const monthlyTips = hasDocumentedMonthlyBilling ? documentedMonthlyTips : recordedMonthlyTips > 0 ? recordedMonthlyTips : importedMonthlyTips;
     const documentedTipDays = buildDriverTipDayRows(billingDocuments.map((stats) => ({ dateKey: stats.dateKey, amount: stats.tips })));
     const recordedTipDays = buildDriverTipDayRows(monthEntries.map((item) => ({ dateKey: item.entry_date, amount: getDriverEntryAmount(item, "tips") })));
@@ -4496,7 +4491,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     const weeklyWash = weekEntries.reduce((sum, item) => sum + washFor(item), 0);
     const weeklyOther = total(weekEntries, "other_expenses") + weeklyWash;
     const monthlyWash = monthEntries.reduce((sum, item) => sum + washFor(item), 0);
-    const weeklyNet = weeklyCash - weeklyFuel - weeklyRefunds - weeklyOther;
+    const weeklyNet = weeklyCash - weeklyFuel - (profileVehiclePlate === "5754 MJV" ? 0 : weeklyRefunds) - weeklyOther;
     const weekEndLabel = new Date(weekEnd);
     weekEndLabel.setDate(weekEndLabel.getDate() - 1);
     const periodFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
@@ -4520,6 +4515,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       weeklyCash,
       weeklyFuel,
       weeklyRefunds,
+      excludeRefunds: profileVehiclePlate === "5754 MJV",
       weeklyOther,
       weeklyNet,
       weeklyProgress: weeklyCash > 0 ? Math.max(0, Math.min(100, (weeklyNet / weeklyCash) * 100)) : 0,
@@ -4579,8 +4575,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const driverWeekPages = useMemo(() => [-1, 0, 1].map((offset) => {
     const pageDate = new Date(driverPeriodDate);
     pageDate.setDate(pageDate.getDate() + (offset * 7));
-    return { offset, ...buildDriverWeekPage(pageDate, entries, weeklyManualValues, driverBillingStatsByDate) };
-  }), [driverPeriodDate, entries, weeklyManualValues, driverBillingStatsByDate]);
+    return { offset, ...buildDriverWeekPage(pageDate, entries, weeklyManualValues, driverBillingStatsByDate, profileVehiclePlate === "5754 MJV") };
+  }), [driverPeriodDate, entries, weeklyManualValues, driverBillingStatsByDate, profileVehiclePlate]);
   const driverWeeklyRecords = useMemo(() => {
     const chronologicalEntries = [...entries].sort((left, right) => String(left.entry_date ?? "").localeCompare(String(right.entry_date ?? "")));
     const effectiveOdometer = (candidate) => {
@@ -5069,7 +5065,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     }
   };
   const handleMaintenanceNoteSave = (value) => handleMaintenanceReportSave({ note: value });
-  const weeklyRows = buildDriverWeeklyRows(driverWeekDays, driverWeekEntries, weeklyManualValues);
+  const weeklyRows = buildDriverWeeklyRows(driverWeekDays, driverWeekEntries, weeklyManualValues, profileVehiclePlate === "5754 MJV");
   const weeklyChartData = driverWeekDays.map(({ date }, index) => ({
     label: new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date).replace(".", ""),
     consumption: getDriverEntryAmount(driverWeekEntries[index], "fuel_liters"),
@@ -5196,7 +5192,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
             <div className="driver-period-card__ledger">
               <span><small>Efectivo cobrado</small><strong>{formatCurrency(periodSummary.weeklyCash)}</strong></span>
               <span><small>− Gasolina</small><strong>− {formatCurrency(periodSummary.weeklyFuel)}</strong></span>
-              <span><small>− Reembolsos</small><strong>− {formatCurrency(periodSummary.weeklyRefunds)}</strong></span>
+              <span><small>{periodSummary.excludeRefunds ? "Reembolsos (informativo)" : "− Reembolsos"}</small><strong>{periodSummary.excludeRefunds ? "" : "− "}{formatCurrency(periodSummary.weeklyRefunds)}</strong></span>
               <span><small>− Otros gastos</small><strong>− {formatCurrency(periodSummary.weeklyOther)}</strong></span>
             </div>
           </article>

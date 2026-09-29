@@ -25,8 +25,8 @@ export const normalizeDriverCashCollected = (value) => roundCurrency(Math.abs(to
 /**
  * Calculates the amount shown in one driver's daily Total cell.
  *
- * The daily total is cash collected less every expense shown in the weekly
- * calendar. Missing values are intentionally treated as zero.
+ * The daily total is cash collected less applicable expenses. For 5754 MJV,
+ * refunds remain visible but do not reduce the driver's cash total.
  */
 export const calculateDriverDailyTotal = ({
   cashCollected = 0,
@@ -34,10 +34,11 @@ export const calculateDriverDailyTotal = ({
   refunds = 0,
   washExpenses = 0,
   otherExpenses = 0,
+  excludeRefunds = false,
 } = {}) => roundCurrency(
   normalizeDriverCashCollected(cashCollected)
   - toAmount(fuelCost)
-  - toAmount(refunds)
+  - (excludeRefunds ? 0 : toAmount(refunds))
   - toAmount(washExpenses)
   - toAmount(otherExpenses),
 );

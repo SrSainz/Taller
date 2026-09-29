@@ -3,6 +3,12 @@ import test from "node:test";
 
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal } from "../src/driverWeeklyTotals.js";
 
+test("5754 MJV can retain refunds without deducting them from cash totals", () => {
+  assert.equal(calculateDriverDailyTotal({ cashCollected: 100, fuelCost: 20, refunds: 15, excludeRefunds: true }), 80);
+  assert.equal(calculateDriverDailyTotal({ cashCollected: 100, fuelCost: 20, refunds: 15 }), 65);
+  assert.deepEqual(accumulateDriverWeekTotals([80, 40]), [80, 120]);
+});
+
 test("calcula el total diario restando repostaje, reembolsos, lavados y varios al efectivo", () => {
   assert.equal(calculateDriverDailyTotal({
     cashCollected: "150,00",
