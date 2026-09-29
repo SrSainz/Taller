@@ -39,15 +39,31 @@ const entryOdometerKm = (entry) => {
 
 const documentFields = (document) => document?.extracted_data ?? document?.extractedData ?? document?.fields ?? {};
 const normalizeText = (value) => String(value ?? "").toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const accumulatedMileageRecordTypes = new Set(["total-km", "total", "odometer", "odometro", "kilometraje total", "km acumulados"]);
 
-export const getLatestInstrumentClusterKm = (entries = [], vehiclePlate = instrumentClusterVehiclePlate) => {
+const documentOdometerKm = (document) => {
+  const fields = documentFields(document);
+  const recordType = normalizeText(fields.recordType ?? fields.record_type);
+  if (!accumulatedMileageRecordTypes.has(recordType)) return 0;
+  return asPositiveKm(fields.odometerKm ?? fields.odometer_km ?? fields.totalKm ?? fields.kilometres ?? fields.kilometers ?? fields.km);
+};
+
+const documentDate = (document) => String(document?.document_date ?? documentFields(document).date ?? document?.created_at ?? "").slice(0, 10);
+
+export const getLatestInstrumentClusterKm = (entries = [], vehiclePlate = instrumentClusterVehiclePlate, documents = []) => {
   const config = getTrackingConfig(vehiclePlate);
   if (!config) return 0;
-  return entries.reduce((latest, entry) => {
+  const latestEntryKm = entries.reduce((latest, entry) => {
     if (normalizePlate(entry?.vehicle_plate) !== config.plate) return latest;
     if (String(entry?.entry_date ?? "") < config.installedOn) return latest;
     return Math.max(latest, entryOdometerKm(entry));
   }, config.instrumentBaselineKm);
+  return documents.reduce((latest, document) => {
+    const fields = documentFields(document);
+    if (normalizePlate(document?.vehicle_plate ?? fields.vehicle ?? fields.vehiclePlate) !== config.plate) return latest;
+    if (documentDate(document) < config.installedOn) return latest;
+    return Math.max(latest, documentOdometerKm(document));
+  }, latestEntryKm);
 };
 
 export const isOilAndFilterMaintenance = ({ recordType, fields = {} } = {}) => {
@@ -74,7 +90,7 @@ export const getNextServiceInstrumentKm = (documents = [], vehiclePlate = instru
 export const buildInstrumentClusterTracking = ({ entries = [], documents = [], vehiclePlate = instrumentClusterVehiclePlate } = {}) => {
   const config = getTrackingConfig(vehiclePlate);
   if (!config) return null;
-  const instrumentKm = getLatestInstrumentClusterKm(entries, config.plate);
+  const instrumentKm = getLatestInstrumentClusterKm(entries, config.plate, documents);
   const nextServiceInstrumentKm = getNextServiceInstrumentKm(documents, config.plate);
   return {
     instrumentKm,

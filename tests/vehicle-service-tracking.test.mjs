@@ -90,3 +90,32 @@ test("5750 MJV suma las nuevas lecturas a cuadro y reales y las resta de revisi�
     remainingKm: 27675,
   });
 });
+
+test("una foto de KM ACUMULADOS actualiza mantenimiento aunque la entrada diaria aún no haya llegado", () => {
+  const documents = [{
+    vehicle_plate: "5750 MJV",
+    document_date: "2026-09-30",
+    extracted_data: { recordType: "total-km", odometerKm: 6125, source: "driver-circle" },
+  }];
+  assert.deepEqual(buildInstrumentClusterTracking({ documents, vehiclePlate: "5750 MJV" }), {
+    instrumentKm: 6125,
+    realKm: 555056,
+    nextServiceInstrumentKm: 33693,
+    remainingKm: 27568,
+  });
+});
+
+test("usa la lectura acumulada más alta de los dos conductores del coche", () => {
+  const entries = [{ vehicle_plate: "5754 MJV", entry_date: "2026-09-30", odometer_km: 175080 }];
+  const documents = [
+    { vehicle_plate: "5754MJV", document_date: "2026-09-30", extracted_data: { recordType: "km acumulados", odometerKm: 175120 } },
+    { vehicle_plate: "5750 MJV", document_date: "2026-09-30", extracted_data: { recordType: "total-km", odometerKm: 9000 } },
+  ];
+  assert.equal(getLatestInstrumentClusterKm(entries, "5754 MJV", documents), 175120);
+  assert.deepEqual(buildInstrumentClusterTracking({ entries, documents, vehiclePlate: "5754 MJV" }), {
+    instrumentKm: 175120,
+    realKm: 487120,
+    nextServiceInstrumentKm: 199900,
+    remainingKm: 24780,
+  });
+});
