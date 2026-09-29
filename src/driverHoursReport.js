@@ -15,7 +15,9 @@ const startOfMondayWeek = (date) => {
 
 export const getDriverHoursCompany = (plate) => COMPANY_BY_PLATE[String(plate ?? "").trim().toUpperCase()] ?? Object.freeze({ name: "", cif: "", workplace: "Boadilla del Monte" });
 
-export const buildDriverHoursRows = ({ calendarRows = [], month, year, today = new Date() }) => {
+const driverKey = (name) => String(name ?? "").trim().toLocaleLowerCase("es").normalize("NFD").replace(/\p{Diacritic}/gu, "").split(/\s+/)[0];
+
+export const buildDriverHoursRows = ({ calendarRows = [], month, year, driverName = "", today = new Date() }) => {
   const todayKey = isoDate(today.getFullYear(), today.getMonth(), today.getDate());
   const rows = calendarRows.map((row) => {
     const dateKey = isoDate(year, month, row.day);
@@ -23,21 +25,31 @@ export const buildDriverHoursRows = ({ calendarRows = [], month, year, today = n
     const future = dateKey > todayKey;
     return { ...row, dateKey, date, weekKey: startOfMondayWeek(date), future, active: !future && Boolean(row.active), billing: Number(row.billing) || 0 };
   });
-  const lowestActiveByWeek = new Map();
-  rows.filter((row) => row.active).forEach((row) => {
-    const current = lowestActiveByWeek.get(row.weekKey);
-    if (!current || row.billing < current.billing || (row.billing === current.billing && row.day < current.day)) lowestActiveByWeek.set(row.weekKey, row);
+  const key = driverKey(driverName);
+  const dynamicTwoDayRest = ["alex", "amin", "mauricio", "tirso"].includes(key);
+  const selectedRestDates = new Set();
+  const weeks = new Map();
+  rows.filter((row) => !row.future).forEach((row) => weeks.set(row.weekKey, [...(weeks.get(row.weekKey) ?? []), row]));
+  weeks.forEach((weekRows) => {
+    const emptyDays = weekRows.filter((row) => !row.active).length;
+    const restNeeded = dynamicTwoDayRest ? Math.max(0, 2 - emptyDays) : 1;
+    weekRows.filter((row) => row.active).sort((a, b) => a.billing - b.billing || a.day - b.day).slice(0, restNeeded).forEach((row) => selectedRestDates.add(row.dateKey));
   });
   return rows.map((row) => {
-    const weeklyLowest = lowestActiveByWeek.get(row.weekKey)?.dateKey === row.dateKey;
+    const weeklyLowest = selectedRestDates.has(row.dateKey);
     const status = row.future ? "Pendiente" : !row.active ? "Sin datos" : weeklyLowest ? "Menor facturación semanal" : "Trabajado";
     return { ...row, weeklyLowest, hours: status === "Trabajado" ? 8 : 0, status };
   });
 };
 
 export const getDriverHoursDefaultShift = (driverName, date, status) => {
-  if (status !== "Trabajado") return { entry: "", exit: "", ordinary: "", agreed: "", voluntary: "" };
-  const key = String(driverName ?? "").trim().toLocaleLowerCase("es").normalize("NFD").replace(/\p{Diacritic}/gu, "").split(/\s+/)[0];
+  const key = driverKey(driverName);
+  const weekday = date.getDay();
+  const fixedRest = (key === "fernando" && [0, 6].includes(weekday)) || (key === "andres" && [0, 1].includes(weekday));
+  if (status !== "Trabajado" || fixedRest) return { entry: "", exit: "", ordinary: "", agreed: "", voluntary: "" };
+  if (key === "fernando") return { entry: "16:30 / 21:30", exit: "20:30 / 02:30", ordinary: "9", agreed: "", voluntary: "" };
+  if (key === "andres") return { entry: "05:00 / 10:00", exit: "09:00 / 14:00", ordinary: "8", agreed: "", voluntary: "" };
+  if (["mauricio", "tirso"].includes(key)) return { entry: "06:30 / 12:00", exit: "10:30 / 16:00", ordinary: "8", agreed: "", voluntary: "" };
   if (!["alex", "amin"].includes(key)) return { entry: "", exit: "", ordinary: "", agreed: "", voluntary: "" };
   const fridayOrSaturday = [5, 6].includes(date.getDay());
   return fridayOrSaturday
