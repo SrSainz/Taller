@@ -6968,9 +6968,9 @@ body:has(.net-detail-backdrop) .topbar--reports {
   position: sticky;
   left: 0;
   z-index: 3;
-  width: 78px;
-  min-width: 78px;
-  max-width: 78px;
+  width: 39px;
+  min-width: 39px;
+  max-width: 39px;
   box-sizing: border-box;
   background: #fff;
   box-shadow: 5px 0 9px -8px rgba(16, 45, 88, .75);
@@ -6989,7 +6989,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
 }
 .driver-mobile-week-page .driver-mobile-week-table thead th:not(:first-child),
 .driver-mobile-week-page .driver-mobile-week-table tbody td {
-  width: calc((100% - 78px) / 7);
+  width: calc((100% - 39px) / 7);
   min-width: 0;
 }
 .driver-mobile-week-table thead th {
@@ -7011,9 +7011,10 @@ body:has(.net-detail-backdrop) .topbar--reports {
   line-height: 1;
 }
 .driver-mobile-week-table tbody th {
-  padding: 11px 0 11px 8px;
-  font-size: 13px;
+  padding: 11px 2px 11px 3px;
+  font-size: 10px;
   line-height: 1.08;
+  overflow-wrap: anywhere;
 }
 .driver-mobile-week-table tbody td {
   padding: 10px 1px;
@@ -7037,7 +7038,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
 }
 .driver-mobile-week-table__label--fuel,
 .driver-mobile-week-table__label--refunds {
-  font-size: 12px !important;
+  font-size: 9px !important;
   letter-spacing: -.025em !important;
 }
 
@@ -7047,9 +7048,9 @@ body:has(.net-detail-backdrop) .topbar--reports {
   }
   .driver-mobile-week-table thead th:first-child,
   .driver-mobile-week-table tbody th {
-    width: 78px;
-    min-width: 78px;
-    max-width: 78px;
+    width: 39px;
+    min-width: 39px;
+    max-width: 39px;
   }
   .driver-mobile-week-page .driver-mobile-week-table {
     width: 100%;
