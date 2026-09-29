@@ -78,6 +78,29 @@ test("5750 MJV cuenta 25.000 km desde la revisión realizada a los 2.850 km", ()
   });
 });
 
+test("5043 MLC muestra cuadro, kilómetros reales y revisión desde los 98.749 km", () => {
+  assert.deepEqual(buildInstrumentClusterTracking({ vehiclePlate: "5043MLC" }), {
+    instrumentKm: 108987,
+    realKm: 528837,
+    nextServiceInstrumentKm: 123749,
+    remainingKm: 14762,
+  });
+});
+
+test("5043 MLC avanza con las lecturas de Álex o Tirso sin retroceder el cuadro", () => {
+  const entries = [
+    { driver_id: "alex", vehicle_plate: "5043 MLC", entry_date: "2026-09-29", odometer_km: 108831 },
+    { driver_id: "tirso", vehicle_plate: "5043MLC", entry_date: "2026-09-30", odometer_km: 109100 },
+  ];
+  assert.deepEqual(buildInstrumentClusterTracking({ entries, vehiclePlate: "5043 MLC" }), {
+    instrumentKm: 109100,
+    realKm: 528950,
+    nextServiceInstrumentKm: 123749,
+    remainingKm: 14649,
+  });
+  assert.equal(buildInstrumentClusterTracking({ entries: entries.slice(0, 1), vehiclePlate: "5043 MLC" }).instrumentKm, 108987);
+});
+
 test("5750 MJV suma las nuevas lecturas a cuadro y reales y las resta de revisión", () => {
   const entries = [
     { driver_id: "mauricio", vehicle_plate: "5750 MJV", entry_date: "2026-09-29", odometer_km: 5900 },

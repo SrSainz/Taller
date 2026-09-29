@@ -7,6 +7,7 @@ export const oilServiceIntervalKm = 25000;
 export const instrumentClusterInstalledOn = "2025-08-21";
 
 export const instrumentClusterTrackingConfigs = {
+  "5043 MLC": { instrumentBaselineKm: 108987, realBaselineKm: 528837, lastServiceInstrumentKm: 98749, initialRemainingKm: oilServiceIntervalKm, installedOn: "2026-09-29" },
   "5754 MJV": { instrumentBaselineKm: instrumentClusterBaselineKm, realBaselineKm: realOdometerBaselineKm, initialRemainingKm: 25000, installedOn: instrumentClusterInstalledOn },
   "5750 MJV": { instrumentBaselineKm: 5843, realBaselineKm: 554774, lastServiceInstrumentKm: 2850, initialRemainingKm: oilServiceIntervalKm, installedOn: "2026-09-29" },
 };
