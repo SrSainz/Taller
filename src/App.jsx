@@ -100,6 +100,7 @@ import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverC
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
 import { findDriverNavigationRow } from "./driverNavigation";
+import { buildDriverHoursRows, getDriverHoursCompany } from "./driverHoursReport";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
 import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
@@ -7927,6 +7928,27 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
   </div>, document.body);
 }
 
+function DriverHoursDialog({ row, calendarRows, month, year, onClose }) {
+  const company = getDriverHoursCompany(row.plate);
+  const hoursRows = buildDriverHoursRows({ calendarRows, month, year });
+  const totalHours = hoursRows.reduce((sum, item) => sum + item.hours, 0);
+  const monthLabel = `${reportMonths[month]} ${year}`;
+  const signedDate = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "long", year: "numeric" }).format(new Date());
+  return createPortal(<div className="driver-hours-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="driver-hours-sheet" role="dialog" aria-modal="true" aria-labelledby="driver-hours-title">
+      <header><div><small>REGISTRO MENSUAL DE JORNADA</small><h2 id="driver-hours-title">{monthLabel}</h2></div><button type="button" onClick={onClose} aria-label="Cerrar registro de jornada"><IconX size={19} /></button></header>
+      <div className="driver-hours-sheet__details">
+        <span><small>EMPRESA</small><strong>{company.name}</strong></span><span><small>CIF</small><strong>{company.cif}</strong></span>
+        <span><small>CENTRO DE TRABAJO</small><strong>{company.workplace}</strong></span><span><small>MATRÍCULA</small><strong>{row.plate}</strong></span>
+        <span className="driver-hours-sheet__driver"><small>PERSONA TRABAJADORA</small><strong>{row.driver}</strong></span><span><small>JORNADA</small><strong>8 horas</strong></span>
+      </div>
+      <div className="driver-hours-sheet__table-wrap"><table><thead><tr><th>Día</th><th>Semana</th><th>Facturación</th><th>Horas</th><th>Situación</th><th>Firma</th></tr></thead><tbody>{hoursRows.map((item) => <tr className={item.status !== "Trabajado" ? "is-exception" : ""} key={item.dateKey}><td>{String(item.day).padStart(2, "0")}</td><td>{new Intl.DateTimeFormat("es-ES", { weekday: "long" }).format(item.date)}</td><td>{item.active ? formatCurrency(item.billing) : "—"}</td><td>{item.hours ? `${item.hours} h` : "—"}</td><td>{item.status}</td><td /></tr>)}</tbody><tfoot><tr><th colSpan="3">TOTAL HORAS REGISTRADAS</th><th>{totalHours} h</th><th colSpan="2" /></tr></tfoot></table></div>
+      <div className="driver-hours-sheet__signatures"><span>Firmado en Boadilla del Monte, a {signedDate}</span><div><span>Firma de la empresa</span><span>Firma del conductor</span></div></div>
+      <footer><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="primary-button" onClick={() => window.print()}><IconPrinter size={17} />Imprimir</button></footer>
+    </section>
+  </div>, document.body);
+}
+
 function DriversView({ vehicles, driverEntries = [], transactions = [], documents = [], setModal, onSaveDriverDay, onDeleteDriverDocument, onReassignDriverDocumentDate, navigationTarget = null, onNavigationTargetConsumed, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, adminUserId = "", realtimeRevision = 0, realtimeTable = "" }) {
   const [internalReportMonth, setInternalReportMonth] = useState(() => new Date().getMonth());
   const [internalReportYear, setInternalReportYear] = useState(() => new Date().getFullYear());
@@ -7941,6 +7963,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const [calendarSwipeOffset, setCalendarSwipeOffset] = useState(0);
   const [calendarSwipeTransition, setCalendarSwipeTransition] = useState(false);
   const [commissionDriverKey, setCommissionDriverKey] = useState("");
+  const [hoursDriverKey, setHoursDriverKey] = useState("");
   const [periodFinancials, setPeriodFinancials] = useState([]);
   const [payrollDraft, setPayrollDraft] = useState("");
   const [payrollBusy, setPayrollBusy] = useState(false);
@@ -7978,6 +8001,8 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   }), [driverRows, professionalVehicles]);
   const selectedDriver = driverRows.find((row) => row.key === selectedDriverKey) ?? null;
   const commissionDriver = driverRows.find((row) => row.key === commissionDriverKey) ?? null;
+  const hoursDriver = driverRows.find((row) => row.key === hoursDriverKey) ?? null;
+  const hoursCalendarRows = useMemo(() => hoursDriver ? getDriverCalendarRows(hoursDriver.vehicle, hoursDriver, reportMonth, reportYear, documents, transactions) : [], [hoursDriver, reportMonth, reportYear, documents, transactions]);
   const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
   useEffect(() => {
     let mounted = true;
@@ -8069,7 +8094,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   }, [selectedDriver?.key, selectedDay, reportMonth, reportYear]);
 
   useEffect(() => {
-    if (!expandedDayPanel && !calendarExpanded && !commissionDriverKey) return undefined;
+    if (!expandedDayPanel && !calendarExpanded && !commissionDriverKey && !hoursDriverKey) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const closeOnEscape = (event) => {
@@ -8077,6 +8102,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         setExpandedDayPanel("");
         setCalendarExpanded(false);
         setCommissionDriverKey("");
+        setHoursDriverKey("");
       }
     };
     document.addEventListener("keydown", closeOnEscape);
@@ -8084,7 +8110,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [calendarExpanded, commissionDriverKey, expandedDayPanel]);
+  }, [calendarExpanded, commissionDriverKey, expandedDayPanel, hoursDriverKey]);
 
   useEffect(() => () => {
     if (swipeResetTimer.current) window.clearTimeout(swipeResetTimer.current);
@@ -8340,7 +8366,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           const tolls = monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0);
           const rowCommission = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, tips, tolls, payroll: getDriverPayroll(row) });
           return <article className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key}>
-          <span className="driver-list-card__identity"><button type="button" className="driver-list-card__select" onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong></span></button><button type="button" className="driver-list-card__commission-button" onClick={() => setCommissionDriverKey(row.key)} aria-label={`Ver total a cobrar en efectivo de ${row.driver}. Importe actual ${formatCurrency(rowCommission.totalToCollect)}`}><strong>{formatCurrency(rowCommission.totalToCollect)}</strong></button></span>
+          <span className="driver-list-card__identity"><button type="button" className="driver-list-card__select" onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong></span></button><button type="button" className="driver-list-card__hours-button" onClick={() => setHoursDriverKey(row.key)} aria-label={`Abrir registro mensual de jornada de ${row.driver}`}>H</button><button type="button" className="driver-list-card__commission-button" onClick={() => setCommissionDriverKey(row.key)} aria-label={`Ver total a cobrar en efectivo de ${row.driver}. Importe actual ${formatCurrency(rowCommission.totalToCollect)}`}><strong>{formatCurrency(rowCommission.totalToCollect)}</strong></button></span>
           <span className="driver-list-card__metric driver-list-card__metric--billing" aria-label={`Facturación ${formatCurrency(row.revenue)}`}><strong>{formatCurrency(row.revenue)}</strong></span>
           <span className="driver-list-card__metric driver-list-card__metric--fuel" aria-label={`Consumo ${formatCurrency(row.fuelCost)}`}><strong>{formatCurrency(row.fuelCost)}</strong></span>
         </article>})}
@@ -8358,6 +8384,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       {expandedDayPanel && selectedDriver && selectedDayDetail && createPortal(<div className="driver-day-panel-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedDayPanel(""); }}><section className="driver-day-panel-overlay__surface" role="dialog" aria-modal="true" aria-label={`${expandedDayPanel === "billing" ? "Facturación" : expandedDayPanel === "fuel" ? "Repostaje" : "Kilómetros"} ampliado de ${selectedDriver.driver}`}>{renderDayPanel(expandedDayPanel, true)}</section></div>, document.body)}
       {calendarExpanded && selectedDriver && createPortal(<div className="drivers-calendar-overlay" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setCalendarExpanded(false); }}><div className="drivers-calendar-overlay__surface" role="dialog" aria-modal="true" aria-label={`Calendario ampliado de ${selectedDriver.driver}`}>{renderDriversCalendar(true)}</div></div>, document.body)}
       {commissionDriver && commissionCalculation && <DriverCommissionDialog row={commissionDriver} calculation={commissionCalculation} month={reportMonth} year={reportYear} payroll={commissionPayroll} payrollDraft={payrollDraft} onPayrollDraftChange={setPayrollDraft} onSavePayroll={saveCommissionPayroll} payrollBusy={payrollBusy} payrollMessage={payrollMessage} onClose={() => setCommissionDriverKey("")} />}
+      {hoursDriver && <DriverHoursDialog row={hoursDriver} calendarRows={hoursCalendarRows} month={reportMonth} year={reportYear} onClose={() => setHoursDriverKey("")} />}
     </section>
   );
 }
