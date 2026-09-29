@@ -6947,7 +6947,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
   line-height: 1;
 }
 .driver-mobile-week-table thead button strong {
-  font-size: 19px;
+  font-size: 15.2px;
   line-height: 1;
 }
 .driver-mobile-week-table tbody th {
@@ -6957,13 +6957,13 @@ body:has(.net-detail-backdrop) .topbar--reports {
 }
 .driver-mobile-week-table tbody td {
   padding: 10px 1px;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 750;
   line-height: 1.1;
 }
 .driver-mobile-week-table tr.is-total th,
 .driver-mobile-week-table tr.is-total td {
-  font-size: 16px;
+  font-size: 12.8px;
 }
 .driver-mobile-week-table__amount-editor,
 .driver-mobile-week-table__amount-trigger,
