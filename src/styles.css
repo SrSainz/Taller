@@ -3494,7 +3494,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 }
 .driver-hours-overlay { position: fixed; z-index: 195; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(7,15,22,.66); backdrop-filter: blur(3px); }
 .driver-hours-sheet { width: min(820px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 22px; border-radius: 16px; background: #fff; color: #111; box-shadow: 0 28px 90px rgba(0,0,0,.38); }
-.driver-hours-sheet > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-bottom: 12px; border-bottom: 3px solid #111; }
+.driver-hours-sheet > header { position: sticky; z-index: 5; top: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-bottom: 12px; border-bottom: 3px solid #111; background: #fff; }
 .driver-hours-sheet > header small { font-size: 9px; font-weight: 900; letter-spacing: .1em; }
 .driver-hours-sheet > header h2 { margin: 3px 0 0; font-size: 22px; text-align: center; }
 .driver-hours-sheet > header button { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 1px solid #ccd6d2; border-radius: 8px; background: #fff; cursor: pointer; }
@@ -3578,12 +3578,13 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 
 @media (max-width: 720px) {
   .driver-list-card__hours-button { top: 32px; left: 23px; width: 18px; height: 15px; font-size: 6px; }
-  .driver-hours-overlay { padding: 7px; }
-  .driver-hours-sheet { width: calc(100vw - 14px); max-height: calc(100dvh - 14px); padding: 13px; border-radius: 12px; }
+  .driver-hours-overlay { align-items: start; padding: 7px 7px calc(var(--bottom-navigation-height, 58px) + env(safe-area-inset-bottom, 0px) + 9px); }
+  .driver-hours-sheet { width: calc(100vw - 14px); max-height: calc(100dvh - var(--bottom-navigation-height, 58px) - env(safe-area-inset-bottom, 0px) - 16px); padding: 13px; border-radius: 12px; }
   .driver-hours-sheet > header h2 { font-size: 20px; }
   .driver-hours-sheet__details { grid-template-columns: 1fr 1fr; gap: 8px; }
   .driver-hours-sheet__details > label { grid-template-columns: 1fr; gap: 2px; }
-  .driver-hours-sheet > footer { bottom: -1px; padding-top: 7px; }
+  .driver-hours-sheet > footer { bottom: 0; padding: 7px 4px 5px; }
+  .driver-hours-sheet > footer button { min-height: 40px; }
   .driver-list-card__select { grid-template-columns: 34px minmax(0, 1fr); gap: 7px; }
   .driver-list-card__commission-button { width: min(132px, calc(100% - 41px)); min-width: 72px; min-height: 24px; margin-top: -8px; margin-left: 41px; padding: 2px 8px; }
   .driver-list-card__commission-button > strong { font-size: 11.25px; }
@@ -3623,6 +3624,19 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   body:has(.driver-hours-sheet) .driver-hours-sheet { width: 100%; max-height: none; overflow: visible; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
   body:has(.driver-hours-sheet) .driver-hours-sheet > header button, body:has(.driver-hours-sheet) .driver-hours-sheet > footer { display: none !important; }
   body:has(.driver-hours-sheet) .driver-hours-sheet__table-wrap { overflow: visible; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet > header { position: static; padding-bottom: 2mm; border-bottom-width: .6mm; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet > header h2 { margin: 0; font-size: 14pt; line-height: 1.05; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet__details { gap: 1.2mm 4mm; padding: 2.5mm 0; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet__details > label { grid-template-columns: 30mm minmax(0,1fr); gap: 1mm; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet__details small { font-size: 6pt; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet__details input { height: 5mm; padding: .5mm 1mm; font-size: 7pt; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet th,
+  body:has(.driver-hours-sheet) .driver-hours-sheet td { height: 5.15mm; font-size: 6.5pt; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet td input { height: 5mm; padding: 0 1mm; font-size: 7pt; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet tbody td:first-child small { font-size: 5.5pt; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet__signatures { gap: 7mm; padding: 4mm 2mm 0; font-size: 7pt; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet__signatures > div { gap: 18mm; }
+  body:has(.driver-hours-sheet) .driver-hours-sheet__signatures > div span { min-height: 12mm; }
 }
 
 /* Conductores: resúmenes superiores en negro azabache, conservando sus colores de datos. */
