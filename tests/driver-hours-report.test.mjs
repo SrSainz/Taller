@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDriverHoursRows, getDriverHoursCompany } from "../src/driverHoursReport.js";
+import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift } from "../src/driverHoursReport.js";
 
 test("assigns the requested company to each professional plate", () => {
   assert.equal(getDriverHoursCompany("5754 MJV").name, "Aida Pérez Sal");
   assert.equal(getDriverHoursCompany("5750 MJV").name, "Aida Díaz Pérez");
   assert.equal(getDriverHoursCompany("5043 MLC").name, "David Díaz Muñoz");
+});
+
+test("Álex y Amin reciben los turnos nocturnos indicados y los descansos quedan vacíos", () => {
+  assert.deepEqual(getDriverHoursDefaultShift("Amin", new Date(2026, 8, 25, 12), "Trabajado"), { entry: "19:00 / 00:30", exit: "23:00 / 04:30", ordinary: "8", agreed: "", voluntary: "" });
+  assert.deepEqual(getDriverHoursDefaultShift("Álex", new Date(2026, 8, 27, 12), "Trabajado"), { entry: "19:00 / 00:00", exit: "00:00 / 03:00", ordinary: "8", agreed: "", voluntary: "" });
+  assert.equal(getDriverHoursDefaultShift("Amin", new Date(2026, 8, 25, 12), "Sin datos").entry, "");
 });
 
 test("records no-data days and one lowest-billing active day in each week", () => {
@@ -26,4 +32,3 @@ test("records no-data days and one lowest-billing active day in each week", () =
   assert.equal(rows.find((row) => row.day === 8).status, "Menor facturación semanal");
   assert.equal(rows.find((row) => row.day === 9).hours, 8);
 });
-

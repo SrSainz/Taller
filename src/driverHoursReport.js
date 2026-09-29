@@ -35,3 +35,12 @@ export const buildDriverHoursRows = ({ calendarRows = [], month, year, today = n
   });
 };
 
+export const getDriverHoursDefaultShift = (driverName, date, status) => {
+  if (status !== "Trabajado") return { entry: "", exit: "", ordinary: "", agreed: "", voluntary: "" };
+  const key = String(driverName ?? "").trim().toLocaleLowerCase("es").normalize("NFD").replace(/\p{Diacritic}/gu, "").split(/\s+/)[0];
+  if (!["alex", "amin"].includes(key)) return { entry: "", exit: "", ordinary: "", agreed: "", voluntary: "" };
+  const fridayOrSaturday = [5, 6].includes(date.getDay());
+  return fridayOrSaturday
+    ? { entry: "19:00 / 00:30", exit: "23:00 / 04:30", ordinary: "8", agreed: "", voluntary: "" }
+    : { entry: "19:00 / 00:00", exit: "00:00 / 03:00", ordinary: "8", agreed: "", voluntary: "" };
+};

@@ -100,7 +100,7 @@ import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverC
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
 import { findDriverNavigationRow } from "./driverNavigation";
-import { buildDriverHoursRows, getDriverHoursCompany } from "./driverHoursReport";
+import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift } from "./driverHoursReport";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
 import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
@@ -7931,18 +7931,30 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
 function DriverHoursDialog({ row, calendarRows, month, year, onClose }) {
   const company = getDriverHoursCompany(row.plate);
   const hoursRows = buildDriverHoursRows({ calendarRows, month, year });
-  const totalHours = hoursRows.reduce((sum, item) => sum + item.hours, 0);
   const monthLabel = `${reportMonths[month]} ${year}`;
   const signedDate = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "long", year: "numeric" }).format(new Date());
+  const storageKey = `sobre-ruedas:driver-hours:${row.driverId || row.key}:${year}-${String(month + 1).padStart(2, "0")}`;
+  const defaults = useMemo(() => Object.fromEntries(hoursRows.map((item) => [item.dateKey, getDriverHoursDefaultShift(row.driver, item.date, item.status)])), [row.driver, month, year, calendarRows]);
+  const [fields, setFields] = useState(() => {
+    try { return { workerNif: "", affiliation: "", ccc: "", rows: defaults, ...JSON.parse(window.localStorage.getItem(storageKey) || "{}") }; }
+    catch { return { workerNif: "", affiliation: "", ccc: "", rows: defaults }; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(storageKey, JSON.stringify(fields)); } catch { /* El formulario sigue siendo editable aunque el navegador bloquee el almacenamiento. */ }
+  }, [fields, storageKey]);
+  const setHeaderField = (key, value) => setFields((current) => ({ ...current, [key]: value }));
+  const setRowField = (dateKey, key, value) => setFields((current) => ({ ...current, rows: { ...defaults, ...(current.rows ?? {}), [dateKey]: { ...(defaults[dateKey] ?? {}), ...(current.rows?.[dateKey] ?? {}), [key]: value } } }));
+  const totalHours = hoursRows.reduce((sum, item) => sum + (Number(String(fields.rows?.[item.dateKey]?.ordinary ?? defaults[item.dateKey]?.ordinary ?? "").replace(",", ".")) || 0), 0);
   return createPortal(<div className="driver-hours-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="driver-hours-sheet" role="dialog" aria-modal="true" aria-labelledby="driver-hours-title">
-      <header><div><small>REGISTRO MENSUAL DE JORNADA</small><h2 id="driver-hours-title">{monthLabel}</h2></div><button type="button" onClick={onClose} aria-label="Cerrar registro de jornada"><IconX size={19} /></button></header>
+      <header><div><h2 id="driver-hours-title">Listado resumen mensual del registro de jornada</h2></div><button type="button" onClick={onClose} aria-label="Cerrar registro de jornada"><IconX size={19} /></button></header>
       <div className="driver-hours-sheet__details">
-        <span><small>EMPRESA</small><strong>{company.name}</strong></span><span><small>CIF</small><strong>{company.cif}</strong></span>
-        <span><small>CENTRO DE TRABAJO</small><strong>{company.workplace}</strong></span><span><small>MATRÍCULA</small><strong>{row.plate}</strong></span>
-        <span className="driver-hours-sheet__driver"><small>PERSONA TRABAJADORA</small><strong>{row.driver}</strong></span><span><small>JORNADA</small><strong>8 horas</strong></span>
+        <label><small>EMPRESA</small><input value={company.name} readOnly /></label><label><small>TRABAJADOR</small><input value={row.driver} readOnly /></label>
+        <label><small>C.I.F./N.I.F.</small><input value={company.cif} readOnly /></label><label><small>N.I.F.</small><input value={fields.workerNif} onChange={(event) => setHeaderField("workerNif", event.target.value)} /></label>
+        <label><small>CENTRO DE TRABAJO</small><input value={company.workplace} readOnly /></label><label><small>N.º AFILIACIÓN</small><input value={fields.affiliation} onChange={(event) => setHeaderField("affiliation", event.target.value)} /></label>
+        <label><small>C.C.C.</small><input value={fields.ccc} onChange={(event) => setHeaderField("ccc", event.target.value)} /></label><label><small>MES Y AÑO</small><input value={monthLabel} readOnly /></label>
       </div>
-      <div className="driver-hours-sheet__table-wrap"><table><thead><tr><th>Día</th><th>Semana</th><th>Facturación</th><th>Horas</th><th>Situación</th><th>Firma</th></tr></thead><tbody>{hoursRows.map((item) => <tr className={item.status !== "Trabajado" ? "is-exception" : ""} key={item.dateKey}><td>{String(item.day).padStart(2, "0")}</td><td>{new Intl.DateTimeFormat("es-ES", { weekday: "long" }).format(item.date)}</td><td>{item.active ? formatCurrency(item.billing) : "—"}</td><td>{item.hours ? `${item.hours} h` : "—"}</td><td>{item.status}</td><td /></tr>)}</tbody><tfoot><tr><th colSpan="3">TOTAL HORAS REGISTRADAS</th><th>{totalHours} h</th><th colSpan="2" /></tr></tfoot></table></div>
+      <div className="driver-hours-sheet__table-wrap"><table><thead><tr><th rowSpan="2">Día</th><th rowSpan="2">Hora entrada</th><th rowSpan="2">Hora salida</th><th rowSpan="2">Horas ordinarias</th><th colSpan="2">Horas complementarias</th></tr><tr><th>Pactadas</th><th>Voluntarias</th></tr></thead><tbody>{hoursRows.map((item) => { const values = { ...(defaults[item.dateKey] ?? {}), ...(fields.rows?.[item.dateKey] ?? {}) }; return <tr className={item.status !== "Trabajado" ? "is-exception" : ""} key={item.dateKey}><td><strong>{item.day}</strong><small>{new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(item.date)}</small></td><td><input value={values.entry} onChange={(event) => setRowField(item.dateKey, "entry", event.target.value)} aria-label={`Hora de entrada del día ${item.day}`} /></td><td><input value={values.exit} onChange={(event) => setRowField(item.dateKey, "exit", event.target.value)} aria-label={`Hora de salida del día ${item.day}`} /></td><td><input value={values.ordinary} onChange={(event) => setRowField(item.dateKey, "ordinary", event.target.value)} inputMode="decimal" aria-label={`Horas ordinarias del día ${item.day}`} /></td><td><input value={values.agreed} onChange={(event) => setRowField(item.dateKey, "agreed", event.target.value)} inputMode="decimal" aria-label={`Horas complementarias pactadas del día ${item.day}`} /></td><td><input value={values.voluntary} onChange={(event) => setRowField(item.dateKey, "voluntary", event.target.value)} inputMode="decimal" aria-label={`Horas complementarias voluntarias del día ${item.day}`} /></td></tr>; })}</tbody><tfoot><tr><th>TOTAL HORAS</th><th /><th /><th>{totalHours}</th><th /><th /></tr></tfoot></table></div>
       <div className="driver-hours-sheet__signatures"><span>Firmado en Boadilla del Monte, a {signedDate}</span><div><span>Firma de la empresa</span><span>Firma del conductor</span></div></div>
       <footer><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="primary-button" onClick={() => window.print()}><IconPrinter size={17} />Imprimir</button></footer>
     </section>
