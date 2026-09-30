@@ -123,10 +123,10 @@ const canTransformImage = (mimeType) => String(mimeType ?? "").startsWith("image
 const calculateNetDriverCommission = (driverName, billing) => calculateDriverCommission({ driverName, billing }).totalToCollect;
 const chartMetricOptions = [
   { value: "summary", label: "Resumen" },
-  { value: "billing", label: "Facturación" },
   { value: "maintenance", label: "Mantenimiento" },
   { value: "fuel", label: "Combustible" },
   { value: "net", label: "Neto" },
+  { value: "billing", label: "Facturación" },
   { value: "consumptionAverage", label: "Consumo medio" },
   { value: "billingPerHour", label: "Fact. por hora" },
 ];
@@ -135,7 +135,7 @@ const selectableChartMetrics = chartMetricOptions.filter((option) => option.valu
 const allChartMetricValues = selectableChartMetrics.map((option) => option.value);
 const summaryChartMetricValues = ["billing", "maintenance", "fuel", "net"];
 const driverAverageChartMetrics = new Set(["consumptionAverage", "billingPerHour"]);
-const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c", consumptionAverage: "#1976c9", billingPerHour: "#c3382f" };
+const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c", consumptionAverage: "#087f91", billingPerHour: "#7950ae" };
 
 const splitChartAxisLabel = (value) => {
   const words = String(value ?? "").trim().split(/\s+/).filter(Boolean);

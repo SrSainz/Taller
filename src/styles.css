@@ -408,9 +408,9 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .report-chart--summary { display: grid; grid-template-rows: minmax(0,1fr) 34px; }
 .report-chart-legend { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); align-items: stretch; gap: 5px; color: #586660; font-size: 8px; }
 .report-chart-legend--placeholder { visibility: hidden; }
-.report-chart-legend__button { min-width: 0; min-height: 28px; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 4px 5px; overflow: hidden; border: 1px solid #dce5e1; border-radius: 7px; background: #fff; color: #586660; font-size: 7px; font-weight: 800; letter-spacing: .025em; text-transform: uppercase; white-space: nowrap; cursor: pointer; transition: border-color .15s ease, background .15s ease, color .15s ease, transform .15s ease; }
-.report-chart-legend__button:hover { border-color: var(--legend-color); color: var(--legend-color); transform: translateY(-1px); }
-.report-chart-legend__button--active { border-color: var(--legend-color); background: var(--legend-background); color: var(--legend-color); box-shadow: inset 0 0 0 1px var(--legend-color); }
+.report-chart-legend__button { min-width: 0; min-height: 28px; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 4px 5px; overflow: hidden; border: 1px solid var(--legend-color, #dce5e1); border-radius: 7px; background: var(--legend-background, #fff); color: var(--legend-color, #586660); font-size: 7px; font-weight: 800; letter-spacing: .025em; text-transform: uppercase; white-space: nowrap; cursor: pointer; transition: border-color .15s ease, background .15s ease, color .15s ease, transform .15s ease; }
+.report-chart-legend__button:hover { transform: translateY(-1px); }
+.report-chart-legend__button--active { box-shadow: inset 0 0 0 1px var(--legend-color); }
 .report-chart-legend__button--billing { --legend-color: var(--billing-strong); --legend-background: #eef7ff; }
 .report-chart-legend__button--maintenance { --legend-color: var(--maintenance-orange-strong); --legend-background: #fff6e5; }
 .report-chart-legend__button--fuel { --legend-color: #d43b30; --legend-background: #fff0ef; }
@@ -10636,16 +10636,16 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
   .driver-mobile-preview-mini-grid .driver-performance__weeks b { font-size: 9px; }
 }
 
-/* Las dos medias por coche son vistas individuales; el resumen mantiene cuatro series. */
-.report-chart--summary { grid-template-rows: minmax(0, 1fr) 34px; }
-.report-chart-legend { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.report-chart-legend__button--consumptionAverage { --legend-color: #1976c9; --legend-background: #eef7ff; }
-.report-chart-legend__button--billingPerHour { --legend-color: #c3382f; --legend-background: #fff0ef; }
-.report-chart-legend__swatch--consumptionAverage { background: #1976c9; }
-.report-chart-legend__swatch--billingPerHour { background: #c3382f; }
+/* Vehículos arriba y conductores debajo; el resumen conserva sus cuatro series. */
+.report-chart--summary { grid-template-rows: minmax(0, 1fr) 76px; }
+.report-chart-legend { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.report-chart-legend__button--consumptionAverage { --legend-color: #087f91; --legend-background: #eaf8fa; }
+.report-chart-legend__button--billingPerHour { --legend-color: #7950ae; --legend-background: #f5effb; }
+.report-chart-legend__swatch--consumptionAverage { background: #087f91; }
+.report-chart-legend__swatch--billingPerHour { background: #7950ae; }
 @media (max-width: 720px) {
-  .report-chart--summary { grid-template-rows: minmax(0, 1fr) 52px; }
-  .report-chart-legend { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 3px; }
-  .report-chart-legend__button { min-height: 0; padding: 3px 2px; font-size: 6px; white-space: normal; line-height: 1.05; }
+  .report-chart--summary { grid-template-rows: minmax(0, 1fr) 62px; }
+  .report-chart-legend { gap: 3px; }
+  .report-chart-legend__button { min-height: 0; padding: 3px 2px; font-size: 6.5px; white-space: normal; line-height: 1.05; }
   .report-chart-legend__button > span { overflow: visible; text-overflow: clip; }
 }
