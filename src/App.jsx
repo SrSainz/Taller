@@ -8067,6 +8067,8 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     billing: selectedDriver?.revenue,
     fuelCost: selectedDriver?.fuelCost,
     daysInMonth: new Date(reportYear, reportMonth + 1, 0).getDate(),
+    year: reportYear,
+    month: reportMonth,
   }), [calendarRows, selectedDriver?.revenue, selectedDriver?.fuelCost, reportYear, reportMonth]);
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;
   const calendarPeriods = useMemo(() => {
@@ -8402,8 +8404,8 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           <div className="driver-performance__metric"><IconFileInvoice aria-hidden="true" /><span><small>Facturación</small><strong>{formatCurrency(selectedDriver.revenue)}</strong></span></div>
           <div className="driver-performance__metric driver-performance__metric--fuel"><IconGasStation aria-hidden="true" /><span><small>Consumo</small><strong>{formatCurrency(selectedDriver.fuelCost)}</strong></span></div>
           <div className="driver-performance__metric"><IconGauge aria-hidden="true" /><span><small>Eficiencia</small><strong>{performanceSummary.efficiency} %</strong></span></div>
-          <div className="driver-performance__metric"><IconChartBar aria-hidden="true" /><span><small>Consumo / fact.</small><strong>{performanceSummary.fuelToBilling.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %</strong></span></div>
-          <div className="driver-performance__metric driver-performance__metric--fuel"><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{formatCurrency(performanceSummary.billingPerHour)}</strong></span></div>
+          <div className="driver-performance__metric driver-performance__metric--breakdown"><IconChartBar aria-hidden="true" /><span><small>Consumo / fact.</small><strong>{performanceSummary.fuelToBilling.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %</strong><span className="driver-performance__weeks">{performanceSummary.weeks.map((week) => <span key={week.number}><small>Semana {week.number} · {week.startDay}–{week.endDay}</small><b>{week.fuelToBilling === null ? "—" : `${week.fuelToBilling.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`}</b></span>)}</span></span></div>
+          <div className="driver-performance__metric driver-performance__metric--fuel driver-performance__metric--breakdown"><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{formatCurrency(performanceSummary.billingPerHour)}</strong><span className="driver-performance__weeks">{performanceSummary.weeks.map((week) => <span key={week.number}><small>Semana {week.number} · {week.startDay}–{week.endDay}</small><b>{week.billingPerHour === null ? "—" : formatCurrency(week.billingPerHour)}</b></span>)}</span></span></div>
         </div>
       </section>}
       {expandedDayPanel && selectedDriver && selectedDayDetail && createPortal(<div className="driver-day-panel-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedDayPanel(""); }}><section className="driver-day-panel-overlay__surface" role="dialog" aria-modal="true" aria-label={`${expandedDayPanel === "billing" ? "Facturación" : expandedDayPanel === "fuel" ? "Repostaje" : "Kilómetros"} ampliado de ${selectedDriver.driver}`}>{renderDayPanel(expandedDayPanel, true)}</section></div>, document.body)}
