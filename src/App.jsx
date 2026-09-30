@@ -70,6 +70,7 @@ import {
   normalizeDocumentAnalysis,
   normalizeMaintenanceItems,
   prepareDocumentFile,
+  prepareDriverPhotoFile,
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
@@ -3297,7 +3298,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
 
   const saveProcessedDocumentLegacy = async (document) => {
     const { file, originalFile, ...documentWithoutFile } = document;
-    const archiveFile = originalFile || file;
+    const archiveFile = document.driverId ? file || originalFile : originalFile || file;
     const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
     setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
     let cloudSaved = false;
@@ -3420,7 +3421,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
 
   const saveProcessedDocumentCentral = async (document) => {
     const { file, originalFile, ...documentWithoutFile } = document;
-    const archiveFile = originalFile || file;
+    const archiveFile = document.driverId ? file || originalFile : originalFile || file;
     const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
     const fields = savedDocument.fields ?? {};
     const driverId = savedDocument.driverId || "";
@@ -4438,9 +4439,10 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       let savedDocument = null;
       if (file && supabase) {
         try {
-          const fileHash = await hashDocumentFile(file);
+          const uploadFile = await prepareDriverPhotoFile(file);
+          const fileHash = await hashDocumentFile(uploadFile);
           const extractedData = { date: uploadDate, captureDate, dateSource: intentionalUploadDate ? "intentional-edit" : uploadDate === captureDate ? "capture" : "operating-day", recordType: "fuel", cost: data.fuel_cost, consumption: data.fuel_liters, unit: "L", odometerKm: data.odometer_km, billing: data.billing, cashCollected: data.cash_collected, tips: data.tips, refunds: data.refunds, tolls: data.tolls, otherExpenses: data.other_expenses, driverId: activeProfileId, vehicle: profileVehiclePlate, source: "driver-weekly-entry" };
-          savedDocument = await uploadDocumentRecord({ ownerId: activeProfileId, category: "consumption", vehiclePlate: profileVehiclePlate, file, fileHash, documentDate: uploadDate, extractedData, status: "review" });
+          savedDocument = await uploadDocumentRecord({ ownerId: activeProfileId, category: "consumption", vehiclePlate: profileVehiclePlate, file: uploadFile, fileHash, documentDate: uploadDate, extractedData, status: "review" });
           const operations = operationsFromDocument({ category: "consumption", fields: extractedData, recordType: "fuel", driverId: activeProfileId, vehiclePlate: profileVehiclePlate, fileHash, fallbackDate: uploadDate });
           if (operations.length > 0) {
             const result = await confirmDocumentTransactions(savedDocument.id, operations);
@@ -4846,7 +4848,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   };
   const saveCircleReview = async (reviewDocument) => {
     const recordKey = circleReview?.recordKey;
-    const file = reviewDocument?.originalFile || reviewDocument?.file;
+    const file = reviewDocument?.file || reviewDocument?.originalFile;
     if (!recordKey || !file) return { ok: false, message: "No se ha encontrado el archivo que estabas revisando." };
     const fields = reviewDocument.fields ?? {};
     const fieldNumber = (...keys) => {
@@ -5071,7 +5073,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
         setMessage("Pendiente de mantenimiento guardado en este dispositivo.");
         return null;
       }
-      const saved = await createMaintenanceReport({ reporterId: activeProfileId, vehiclePlate: profileVehiclePlate, note: nextNote, photoFile });
+      const uploadPhoto = photoFile ? await prepareDriverPhotoFile(photoFile) : null;
+      const saved = await createMaintenanceReport({ reporterId: activeProfileId, vehiclePlate: profileVehiclePlate, note: nextNote, photoFile: uploadPhoto });
       const normalizedReport = normalizeMaintenanceReportRecord(saved);
       const nextReports = [normalizedReport, ...driverMaintenanceReportsRef.current.filter((report) => report.id !== normalizedReport.id)];
       driverMaintenanceReportsRef.current = nextReports;
@@ -10094,7 +10097,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         throw offlineError;
       }
       setProgress(20);
-      const optimized = await prepareDocumentFile(file);
+      const optimized = driverId ? await prepareDriverPhotoFile(file) : await prepareDocumentFile(file);
       if (controller.signal.aborted) return;
       setPreparedFile(optimized);
       setProgress(35);
