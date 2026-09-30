@@ -10518,14 +10518,14 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .driver-performance__identity small { color: var(--muted); font-size: 13px; }
 .driver-performance__header > button { width: 38px; height: 38px; display: grid; place-items: center; margin-left: auto; border: 1px solid var(--billing-line); border-radius: 9px; background: #fff; color: var(--billing-strong); cursor: pointer; }
 .driver-performance__header > button:hover, .driver-performance__header > button:focus-visible { background: var(--billing-soft); outline: 2px solid var(--billing-strong); outline-offset: 2px; }
-.driver-performance__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.driver-performance__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .driver-performance__metric { min-width: 0; min-height: 90px; display: flex; align-items: center; gap: 15px; padding: 14px 16px; border: 1px solid #d5e4ee; border-radius: 10px; background: #f2f8fc; }
 .driver-performance__metric > svg { width: 26px; height: 26px; flex: 0 0 auto; color: var(--billing-strong); }
 .driver-performance__metric--fuel > svg { color: #c3382f; }
 .driver-performance__metric > span { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .driver-performance__metric small { color: #405d70; font-size: 13px; line-height: 1.1; }
 .driver-performance__metric strong { color: var(--text); font-size: clamp(20px, 2vw, 28px); font-weight: 850; line-height: 1.1; white-space: nowrap; }
-.driver-performance__metric--breakdown { align-items: flex-start; }
+.driver-performance__metric--breakdown { grid-column: span 2; align-items: flex-start; }
 .driver-performance__metric--breakdown > svg { margin-top: 7px; }
 .driver-performance__metric--breakdown > span { width: 100%; flex: 1; }
 .driver-performance__metric--breakdown > span > strong { font-size: clamp(24px, 2.5vw, 34px); }
@@ -10533,6 +10533,11 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .driver-performance__weeks > span { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .driver-performance__weeks small { font-size: 11px; white-space: nowrap; }
 .driver-performance__weeks b { color: var(--text); font-size: 13px; font-weight: 750; white-space: nowrap; }
+.driver-performance__week-short { display: none; }
+@media (max-width: 900px) {
+  .driver-performance__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .driver-performance__metric--breakdown { grid-column: auto; }
+}
 @media (max-width: 640px) {
   .driver-performance { padding: 10px; }
   .driver-performance__avatar { width: 46px; height: 46px; }
@@ -10541,8 +10546,15 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
   .driver-performance__metric > svg { width: 21px; height: 21px; }
   .driver-performance__metric small { font-size: 10px; }
   .driver-performance__metric strong { font-size: clamp(15px, 4vw, 21px); }
-  .driver-performance__metric--breakdown { grid-column: 1 / -1; }
-  .driver-performance__metric--breakdown > span > strong { font-size: 27px; }
-  .driver-performance__weeks small { font-size: 11px; }
-  .driver-performance__weeks b { font-size: 13px; }
+  .driver-performance__metric--breakdown { position: relative; display: block; min-height: 0; padding: 9px 8px; }
+  .driver-performance__metric--breakdown > svg { position: absolute; top: 9px; left: 8px; width: 18px; height: 18px; margin: 0; }
+  .driver-performance__metric--breakdown > span { width: 100%; gap: 5px; }
+  .driver-performance__metric--breakdown > span > small { min-height: 18px; padding-left: 23px; font-size: 10px; }
+  .driver-performance__metric--breakdown > span > strong { font-size: clamp(15px, 4.5vw, 21px); letter-spacing: -.04em; }
+  .driver-performance__weeks { gap: 5px !important; padding-top: 7px; }
+  .driver-performance__weeks > span { gap: 2px; }
+  .driver-performance__weeks small { font-size: 9px; }
+  .driver-performance__weeks b { font-size: 10px; letter-spacing: -.03em; }
+  .driver-performance__week-full { display: none; }
+  .driver-performance__week-short { display: inline; }
 }
