@@ -7979,6 +7979,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const setReportYear = onReportYearChange ?? setInternalReportYear;
   const [selectedDriverKey, setSelectedDriverKey] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedDayPhotoPreviews, setSelectedDayPhotoPreviews] = useState([]);
   const [expandedDayPanel, setExpandedDayPanel] = useState("");
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [calendarSwipeOffset, setCalendarSwipeOffset] = useState(0);
@@ -8148,8 +8149,10 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
 
   const selectDriver = (row) => {
     setSelectedDriverKey(row.key);
-    const nextCalendarRows = getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear, documents, transactions);
-    setSelectedDay(nextCalendarRows.find((calendarRow) => calendarRow.active)?.day ?? 1);
+    const today = new Date();
+    setReportMonth(today.getMonth());
+    setReportYear(today.getFullYear());
+    setSelectedDay(today.getDate());
   };
   const shiftMonth = (delta) => {
     const next = new Date(reportYear, reportMonth + delta, 1);
@@ -8268,7 +8271,18 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       item: { ...buildDriverDocumentModalItem(document, { driver: selectedDriver.driver, plate: selectedDriver.plate, fallbackDate }), onChangeDate: () => openDriverDocumentDateEditor(document), onDeleteDocument: onDeleteDriverDocument, deleteLabel: "Borrar archivo" },
     });
   };
-  const selectedDayDocuments = selectedDayDetail?.documents ?? [];
+  const selectedDayDocuments = useMemo(() => selectedDayDetail?.documents ?? [], [selectedDayDetail]);
+  useEffect(() => {
+    let cancelled = false;
+    setSelectedDayPhotoPreviews([]);
+    if (!supabase || selectedDayDocuments.length === 0) return undefined;
+    Promise.all(selectedDayDocuments.map(async (document) => {
+      if (!document.file_path || !String(document.mime_type ?? "").startsWith("image/") || !canTransformImage(document.mime_type)) return { ...document, signedUrl: "" };
+      const { signedUrl } = await createCachedStorageUrl({ bucket: "documents", path: document.file_path, expiresIn: 60 * 60, transform: DOCUMENT_THUMBNAIL_TRANSFORM });
+      return { ...document, signedUrl: signedUrl ?? "" };
+    })).then((previews) => { if (!cancelled) setSelectedDayPhotoPreviews(previews); }).catch(() => { if (!cancelled) setSelectedDayPhotoPreviews(selectedDayDocuments.map((document) => ({ ...document, signedUrl: "" }))); });
+    return () => { cancelled = true; };
+  }, [selectedDayDocuments]);
   const selectedDayBillingDocuments = selectedDayDocuments.filter((document) => getDriverDocumentKind(document) === "billing");
   const selectedDayFuelDocuments = selectedDayDocuments.filter((document) => ["fuel", "consumption"].includes(getDriverDocumentKind(document)));
   const selectedDayMileageDocuments = selectedDayDocuments.filter((document) => getDriverDocumentKind(document) === "mileage");
@@ -8348,7 +8362,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       <div className="drivers-calendar-grid" role="grid" aria-label={`Facturación y consumo de ${selectedDriver.driver} en ${reportMonths[period.month]} de ${period.year}`}>
         {period.cells.map((cell) => cell.empty
           ? <span className="drivers-calendar-day drivers-calendar-day--empty" aria-hidden="true" key={cell.key} />
-          : <button type="button" className={`drivers-calendar-day${cell.billing > 0 ? " drivers-calendar-day--billing" : ""}${cell.fuelCost > 0 ? " drivers-calendar-day--fuel" : ""}${cell.km > 0 ? " drivers-calendar-day--mileage" : ""}${cell.documents?.length ? " drivers-calendar-day--document" : ""}${period.delta === 0 && selectedDay === cell.day ? " drivers-calendar-day--selected" : ""}`} role="gridcell" tabIndex={period.delta === 0 ? 0 : -1} onClick={() => period.delta === 0 && setSelectedDay(cell.day)} aria-label={`${cell.day} de ${reportMonths[period.month]}: ${formatCurrency(cell.billing)} de facturación, ${formatCurrency(cell.fuelCost)} de repostaje y ${formatKm(cell.km)} realizados${cell.documents?.length ? `, ${cell.documents.length} foto${cell.documents.length === 1 ? "" : "s"} original${cell.documents.length === 1 ? "" : "es"} archivada${cell.documents.length === 1 ? "" : "s"}` : ""}`} key={cell.key}><span>{cell.day}</span><span className="drivers-calendar-day__values">{cell.billing > 0 && <small className="drivers-calendar-day__billing">{formatShortCurrency(cell.billing)}</small>}{cell.fuelCost > 0 && <small className="drivers-calendar-day__fuel">-{formatShortCurrency(cell.fuelCost)}</small>}{cell.documents?.length > 0 && <small className="drivers-calendar-day__document" aria-hidden="true"><IconCamera size={10} />{cell.documents.length}</small>}</span></button>)}
+          : <button type="button" className={`drivers-calendar-day${cell.billing > 0 ? " drivers-calendar-day--billing" : ""}${cell.fuelCost > 0 ? " drivers-calendar-day--fuel" : ""}${cell.km > 0 ? " drivers-calendar-day--mileage" : ""}${cell.documents?.length ? " drivers-calendar-day--document" : ""}${period.delta === 0 && selectedDay === cell.day ? " drivers-calendar-day--selected" : ""}`} role="gridcell" tabIndex={period.delta === 0 ? 0 : -1} onClick={() => period.delta === 0 && setSelectedDay(cell.day)} aria-label={`${cell.day} de ${reportMonths[period.month]}: ${formatCurrency(cell.billing)} de facturación, ${formatCurrency(cell.fuelCost)} de repostaje y ${formatKm(cell.km)} realizados${cell.documents?.length ? `, ${cell.documents.length} foto${cell.documents.length === 1 ? "" : "s"} original${cell.documents.length === 1 ? "" : "es"} archivada${cell.documents.length === 1 ? "" : "s"}` : ""}`} key={cell.key}><span>{cell.day}</span><span className="drivers-calendar-day__values"><small className="drivers-calendar-day__billing">{formatShortCurrency(cell.billing)}</small><small className="drivers-calendar-day__fuel">{formatShortCurrency(cell.fuelCost)}</small>{cell.documents?.length > 0 && <small className="drivers-calendar-day__document" aria-hidden="true"><IconCamera size={11} />{cell.documents.length}</small>}</span></button>)}
       </div>
     </div>
   );
@@ -8361,7 +8375,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         </div>
         <div className="drivers-calendar-card__identity">
           <strong id={expanded ? "drivers-calendar-expanded-title" : "drivers-calendar-title"}>{selectedDriver.driver}</strong>
-          <button type="button" className="drivers-calendar-card__month" onClick={() => setCalendarExpanded(true)} aria-label={`Ampliar calendario de ${reportMonths[reportMonth]} de ${reportYear}`} aria-pressed={expanded}>{reportMonths[reportMonth]} {reportYear}</button>
+          <span className="drivers-calendar-card__month">{reportMonths[reportMonth]} {reportYear}</span>
         </div>
         <div className="drivers-calendar-card__actions">
           <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><IconChevronRight size={18} /></button>
@@ -8397,12 +8411,17 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           const rowCommission = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, tips, tolls, payroll: getDriverPayroll(row) });
           return <article className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key}>
           <span className="driver-list-card__identity"><button type="button" className="driver-list-card__select" onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong></span></button><button type="button" className="driver-list-card__hours-button" onClick={() => setHoursDriverKey(row.key)} aria-label={`Abrir registro mensual de jornada de ${row.driver}`}>H</button><button type="button" className="driver-list-card__commission-button" onClick={() => setCommissionDriverKey(row.key)} aria-label={`Ver total a cobrar en efectivo de ${row.driver}. Importe actual ${formatCurrency(rowCommission.totalToCollect)}`}><strong>{formatCurrency(rowCommission.totalToCollect)}</strong></button></span>
-          <span className="driver-list-card__metric driver-list-card__metric--billing" aria-label={`Facturación ${formatCurrency(row.revenue)}`}><strong>{formatCurrency(row.revenue)}</strong></span>
-          <span className="driver-list-card__metric driver-list-card__metric--fuel" aria-label={`Consumo ${formatCurrency(row.fuelCost)}`}><strong>{formatCurrency(row.fuelCost)}</strong></span>
+          <button type="button" className="driver-list-card__metric driver-list-card__metric--billing" onClick={() => selectDriver(row)} aria-label={`Ver calendario de ${row.driver}. Facturación ${formatCurrency(row.revenue)}`}><strong>{formatCurrency(row.revenue)}</strong></button>
+          <button type="button" className="driver-list-card__metric driver-list-card__metric--fuel" onClick={() => selectDriver(row)} aria-label={`Ver calendario de ${row.driver}. Consumo ${formatCurrency(row.fuelCost)}`}><strong>{formatCurrency(row.fuelCost)}</strong></button>
         </article>})}
       </div>
 
       {selectedDriver && !calendarExpanded && renderDriversCalendar()}
+
+      {selectedDriver && selectedDayDetail && <section className="drivers-day-photo-strip" aria-label={`Fotos del día ${selectedDay} de ${reportMonths[reportMonth]}`}>
+        <strong><IconCamera size={16} />Fotos del día {selectedDay}</strong>
+        {selectedDayDocuments.length ? <div>{selectedDayPhotoPreviews.map((document) => <button type="button" key={document.id} className="drivers-day-photo-strip__item" onClick={() => openDriverSourceDocument(document)} aria-label={`Abrir foto de ${getDriverDocumentKindLabel(document)}: ${document.file_name || "justificante"}`} title={document.file_name || getDriverDocumentKindLabel(document)}>{document.signedUrl ? <img src={document.signedUrl} alt="" loading="lazy" /> : <IconFileInvoice size={20} />}<span>{getDriverDocumentKindLabel(document)}</span></button>)}</div> : <span>Sin fotos ni justificantes</span>}
+      </section>}
 
       {selectedDriver && selectedDayDetail && <section className="driver-day-detail" aria-label={`Detalle de ${selectedDriver.driver}`}>
         <div className="driver-day-detail__columns">
