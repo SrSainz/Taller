@@ -10608,8 +10608,17 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 /* Los dos indicadores personales comparten exactamente el formato del administrador. */
 .driver-mobile-preview-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .driver-mobile-preview-mini-grid > .driver-mobile-preview-history { grid-column: 1 / -1; order: 0; }
-.driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown { grid-column: auto; order: 1; min-height: 0; }
-.driver-mobile-preview-mini-grid .driver-performance__weeks { gap: 4px !important; }
+.driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown { position: relative; grid-column: auto; order: 1; display: block; min-height: 0; padding: 9px 8px; }
+.driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown > svg { position: absolute; top: 9px; left: 8px; width: 18px; height: 18px; margin: 0; }
+.driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown > span { width: 100%; gap: 5px; }
+.driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown > span > small { min-height: 18px; padding-left: 23px; font-size: 10px; }
+.driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown > span > strong { font-size: clamp(16px, 2vw, 21px); letter-spacing: -.04em; }
+.driver-mobile-preview-mini-grid .driver-performance__weeks { gap: 4px !important; padding-top: 7px; }
+.driver-mobile-preview-mini-grid .driver-performance__weeks > span { gap: 2px; }
+.driver-mobile-preview-mini-grid .driver-performance__weeks small { font-size: 9px; }
+.driver-mobile-preview-mini-grid .driver-performance__weeks b { font-size: 10px; letter-spacing: -.03em; }
+.driver-mobile-preview-mini-grid .driver-performance__week-full { display: none; }
+.driver-mobile-preview-mini-grid .driver-performance__week-short { display: inline; }
 @media (max-width: 640px) {
   .driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown { padding: 9px 7px; }
   .driver-mobile-preview-mini-grid .driver-performance__weeks small { font-size: 8px; }
