@@ -6487,8 +6487,11 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .admin-driver-access-sheet__plate { color: #5b756d; font-size: 12px; font-weight: 850; }
 .admin-driver-access-sheet__identity .admin-driver-access-sheet__validity { color: #73867f; font-size: 9px; font-weight: 750; letter-spacing: 0; }
 .admin-driver-access-sheet__avatar { position: relative; display: grid; width: 68px; height: 68px; flex: 0 0 68px; place-items: center; overflow: visible; border: 3px solid #fff; border-radius: 50%; background: #dff2ec; color: #197c6e; font-size: 18px; font-weight: 900; box-shadow: 0 5px 15px rgba(27, 79, 68, .17); }
+.admin-driver-access-sheet__avatar--editable { padding: 0; cursor: pointer; }
+.admin-driver-access-sheet__avatar--editable:hover, .admin-driver-access-sheet__avatar--editable:focus-visible { outline: 3px solid rgba(22, 140, 125, .28); outline-offset: 2px; }
 .admin-driver-access-sheet__avatar img { width: 100%; height: 100%; display: block; border-radius: 50%; object-fit: cover; }
-.admin-driver-access-sheet__avatar > span { display: grid; width: 100%; height: 100%; place-items: center; }
+.admin-driver-access-sheet__avatar > span:not(.admin-driver-access-sheet__avatar-camera) { display: grid; width: 100%; height: 100%; place-items: center; }
+.admin-driver-access-sheet__avatar-camera { position: absolute; right: -2px; bottom: -2px; display: grid; width: 25px; height: 25px; place-items: center; border: 2px solid #fff; border-radius: 50%; background: #137f6d; color: #fff; }
 .admin-driver-access-sheet__avatar i { position: absolute; right: -1px; bottom: 4px; width: 13px; height: 13px; border: 3px solid #f8fbfa; border-radius: 50%; background: #aebcb7; }
 .admin-driver-access-sheet__avatar i.is-active { background: #26af5d; }
 .admin-driver-access-sheet__close { width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center; padding: 0; border: 1px solid #d4e2dd; border-radius: 11px; background: #fff; color: #547168; cursor: pointer; }
@@ -6521,6 +6524,8 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .admin-driver-access-sheet__actions strong { color: #244a41; font-size: 10px; line-height: 1.1; }
 .admin-driver-access-sheet__actions small { color: #74877f; font-size: 8px; line-height: 1.25; }
 .admin-driver-access-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; padding: 14px; border: 1px solid #cfe2d9; border-radius: 14px; background: #fff; }
+.admin-driver-access-editor__photo-input { display: none; }
+.admin-driver-access-editor__photo-hint { grid-column: 1 / -1; margin: 0; color: #647a72; font-size: 10px; line-height: 1.4; }
 .admin-driver-access-editor label { min-width: 0; display: grid; gap: 5px; color: #536d64; font-size: 9px; font-weight: 850; }
 .admin-driver-access-editor input, .admin-driver-access-editor select { width: 100%; min-height: 38px; box-sizing: border-box; padding: 8px 9px; border: 1px solid #cadbd5; border-radius: 9px; background: #fff; color: #17342d; font: inherit; font-size: 11px; outline: 0; }
 .admin-driver-access-editor input:focus, .admin-driver-access-editor select:focus { border-color: #168c7d; box-shadow: 0 0 0 3px rgba(22, 140, 125, .12); }

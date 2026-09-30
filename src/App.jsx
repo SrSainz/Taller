@@ -229,7 +229,12 @@ const normalizeDriverAvatarKey = (value) => String(value ?? "")
   .normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "")
   .split(/\s+/)[0];
-const getDriverAvatarPath = (value) => driverAvatarPaths[normalizeDriverAvatarKey(value)] ?? "";
+const savedDriverAvatarPaths = new Map();
+const getDriverAvatarPath = (value) => {
+  const name = typeof value === "object" ? value?.full_name : value;
+  const uploadedPath = typeof value === "object" ? value?.avatar_url : "";
+  return uploadedPath || savedDriverAvatarPaths.get(normalizeDriverAvatarKey(name)) || driverAvatarPaths[normalizeDriverAvatarKey(name)] || "";
+};
 const orderDriverProfilesForVehicle = (vehicle, profiles = []) => {
   const sortedProfiles = [...profiles].sort((left, right) => Number(right.active) - Number(left.active) || left.full_name.localeCompare(right.full_name));
   const orderedProfiles = (vehicle?.drivers ?? [])
@@ -2453,7 +2458,14 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const refreshDriverProfiles = useCallback(async () => {
     if (!isAdmin) return;
     const response = await invokeAdminUsers({ action: "list" });
-    const nextProfiles = (response.profiles ?? []).map(normalizeDriverProfileRecord);
+    savedDriverAvatarPaths.clear();
+    const nextProfiles = await Promise.all((response.profiles ?? []).map(async (profile) => {
+      const normalized = normalizeDriverProfileRecord(profile);
+      if (!normalized.avatar_path) return { ...normalized, avatar_url: "" };
+      const { signedUrl } = await createCachedStorageUrl({ bucket: "documents", path: normalized.avatar_path, expiresIn: 7 * 24 * 60 * 60 });
+      if (signedUrl) savedDriverAvatarPaths.set(normalizeDriverAvatarKey(normalized.full_name), signedUrl);
+      return { ...normalized, avatar_url: signedUrl || "" };
+    }));
     adminDriverProfilesRef.current = nextProfiles;
     setDriverProfiles(nextProfiles);
   }, [isAdmin]);
@@ -6126,6 +6138,9 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
   const [form, setForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", password: "" });
   const [editingDriverId, setEditingDriverId] = useState("");
   const [driverProfileForm, setDriverProfileForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", active: true });
+  const [driverPhotoFile, setDriverPhotoFile] = useState(null);
+  const [driverPhotoPreviewUrl, setDriverPhotoPreviewUrl] = useState("");
+  const driverPhotoInputRef = useRef(null);
   const [replacementOpen, setReplacementOpen] = useState(false);
   const [replacementForm, setReplacementForm] = useState({ fullName: "", email: "", password: "", effectiveFrom: getBrowserLocalDateKey() });
   const [copiedDriverKey, setCopiedDriverKey] = useState("");
@@ -6145,19 +6160,36 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
 
   const driversLastLoadRef = useRef(0);
 
+  const loadDriverAvatarUrls = useCallback(async (profiles) => Promise.all(profiles.map(async (profile) => {
+    if (!profile.avatar_path) return { ...profile, avatar_url: "" };
+    const { signedUrl } = await createCachedStorageUrl({ bucket: "documents", path: profile.avatar_path, expiresIn: 7 * 24 * 60 * 60 });
+    if (signedUrl) savedDriverAvatarPaths.set(normalizeDriverAvatarKey(profile.full_name), signedUrl);
+    return { ...profile, avatar_url: signedUrl || "" };
+  })), []);
+
   const loadDrivers = useCallback(async () => {
     if (Date.now() - driversLastLoadRef.current < DATA_REFRESH_MIN_INTERVAL_MS) return;
     driversLastLoadRef.current = Date.now();
     setLoading(true);
     try {
       const response = await invokeAdminUsers({ action: "list" });
-      setDrivers((response.profiles ?? []).map(normalizeDriverProfileRecord));
+      savedDriverAvatarPaths.clear();
+      setDrivers(await loadDriverAvatarUrls((response.profiles ?? []).map(normalizeDriverProfileRecord)));
     } catch (error) {
       setMessage(error.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadDriverAvatarUrls]);
+  useEffect(() => {
+    if (!driverPhotoFile) {
+      setDriverPhotoPreviewUrl("");
+      return undefined;
+    }
+    const previewUrl = URL.createObjectURL(driverPhotoFile);
+    setDriverPhotoPreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [driverPhotoFile]);
   useEffect(() => { loadDrivers(); }, [loadDrivers]);
   useEffect(() => {
     const refreshOnReturn = () => {
@@ -6291,6 +6323,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
   };
   const startDriverEdit = (driver) => {
     setEditingDriverId(driver.id);
+    setDriverPhotoFile(null);
     setReplacementOpen(false);
     setDriverActionId(driverActionKey(driver));
     setDriverProfileForm({ fullName: driver.full_name ?? "", email: driver.email ?? "", vehiclePlate: canonicalizeVehiclePlate(driver.vehicle_plate) || driverVehicleOptions[0]?.plate || "", active: Boolean(driver.active) });
@@ -6301,13 +6334,25 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
     event.preventDefault();
     setMessage("");
     setSaving(true);
+    let uploadedPhotoPath = "";
     try {
-      const response = await invokeAdminUsers({ action: "update", userId: driver.id, ...driverProfileForm });
-      const updatedProfile = normalizeDriverProfileRecord(response.profile);
+      let avatarPath = driver.avatar_path ?? "";
+      if (driverPhotoFile) {
+        avatarPath = `profile-photos/${driver.id}/${crypto.randomUUID()}.webp`;
+        const { error: uploadError } = await supabase.storage.from("documents").upload(avatarPath, driverPhotoFile, {
+          contentType: "image/webp", cacheControl: "86400", upsert: false,
+        });
+        if (uploadError) throw uploadError;
+        uploadedPhotoPath = avatarPath;
+      }
+      const response = await invokeAdminUsers({ action: "update", userId: driver.id, ...driverProfileForm, ...(driverPhotoFile ? { avatarPath } : {}) });
+      const [updatedProfile] = await loadDriverAvatarUrls([normalizeDriverProfileRecord(response.profile)]);
       setDrivers((current) => current.map((candidate) => candidate.id === driver.id ? updatedProfile : candidate));
+      setDriverPhotoFile(null);
       setEditingDriverId("");
       notify(`Perfil de ${updatedProfile.full_name} actualizado`);
     } catch (error) {
+      if (uploadedPhotoPath) await supabase.storage.from("documents").remove([uploadedPhotoPath]).catch(() => undefined);
       setMessage(error.message);
     } finally {
       setSaving(false);
@@ -6458,7 +6503,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
   const selectedAccessDriver = driverVehicleOptions
     .flatMap((vehicle) => driversForVehicle(vehicle))
     .find((driver) => driverActionKey(driver) === driverActionId) ?? null;
-  const selectedAccessAvatar = selectedAccessDriver ? getDriverAvatarPath(selectedAccessDriver.full_name) : "";
+  const selectedAccessAvatar = selectedAccessDriver ? (driverPhotoPreviewUrl && editingDriverId === selectedAccessDriver.id ? driverPhotoPreviewUrl : getDriverAvatarPath(selectedAccessDriver)) : "";
   const selectedAccessPlate = selectedAccessDriver ? canonicalizeVehiclePlate(selectedAccessDriver.vehicle_plate) : "";
   const adminFunctionVehicleGroups = driverVehicleOptions.map((vehicle) => ({ vehicle, drivers: driversForVehicle(vehicle) }));
   const closeAdminFunctionWindow = () => onAdminFunctionWindowChange?.("");
@@ -6525,7 +6570,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
        <section className="admin-driver-access-sheet" role="dialog" aria-modal="true" aria-labelledby="admin-driver-access-title">
          <header className="admin-driver-access-sheet__header">
            <div className="admin-driver-access-sheet__identity">
-             <span className="admin-driver-access-sheet__avatar">{selectedAccessAvatar ? <img src={selectedAccessAvatar} alt="" /> : <span>{driverInitials(selectedAccessDriver.full_name)}</span>}<i className={selectedAccessDriver.active ? "is-active" : ""} aria-hidden="true" /></span>
+             {editingDriverId === selectedAccessDriver.id ? <button type="button" className="admin-driver-access-sheet__avatar admin-driver-access-sheet__avatar--editable" onClick={() => driverPhotoInputRef.current?.click()} aria-label="Añadir o cambiar foto de perfil">{selectedAccessAvatar ? <img src={selectedAccessAvatar} alt="" /> : <span>{driverInitials(selectedAccessDriver.full_name)}</span>}<span className="admin-driver-access-sheet__avatar-camera"><IconCamera size={15} /></span><i className={selectedAccessDriver.active ? "is-active" : ""} aria-hidden="true" /></button> : <span className="admin-driver-access-sheet__avatar">{selectedAccessAvatar ? <img src={selectedAccessAvatar} alt="" /> : <span>{driverInitials(selectedAccessDriver.full_name)}</span>}<i className={selectedAccessDriver.active ? "is-active" : ""} aria-hidden="true" /></span>}
              <span><small>GESTIÓN DE ACCESO</small><h2 id="admin-driver-access-title">{selectedAccessDriver.full_name}</h2><VehiclePlateLabel vehicleOrPlate={selectedAccessPlate} className="admin-driver-access-sheet__plate" /><small className="admin-driver-access-sheet__validity">{selectedAccessDriver.effective_to ? `Histórico hasta ${formatDriverProfileDate(selectedAccessDriver.effective_to)}` : `Vigente desde ${formatDriverProfileDate(selectedAccessDriver.effective_from) || "el inicio del registro"}`}</small></span>
            </div>
            <button type="button" className="admin-driver-access-sheet__close" onClick={() => { setDriverActionId(""); setEditingDriverId(""); setReplacementOpen(false); }} aria-label="Cerrar gestión de acceso" autoFocus><IconX size={20} /></button>
@@ -6539,7 +6584,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
          </section>
          {generatedPassword?.driverId === selectedAccessDriver.id && <div className="admin-driver-access-sheet__password" role="status"><IconKey size={18} /><span><small>CONTRASEÑA ACTUALIZADA</small><code>{generatedPassword.value}</code></span><button type="button" onClick={copyGeneratedPassword}><IconCopy size={15} />Copiar</button><button type="button" className="admin-driver-access-sheet__password-close" onClick={() => setGeneratedPassword(null)} aria-label="Ocultar contraseña"><IconX size={15} /></button></div>}
          <div className="admin-driver-access-sheet__actions"><button type="button" onClick={() => startDriverEdit(selectedAccessDriver)}><IconUserCircle size={18} /><span><strong>Editar perfil</strong><small>Nombre, email y vehículo</small></span></button>{selectedAccessDriver.active && !selectedAccessDriver.replaced_by && <button type="button" onClick={openDriverReplacement}><IconUserPlus size={18} /><span><strong>Sustituir conductor</strong><small>Crear el perfil del relevo</small></span></button>}<button type="button" onClick={() => toggleDriverAccess(selectedAccessDriver)}>{selectedAccessDriver.active ? <IconShieldCheck size={18} /> : <IconCircleCheck size={18} />}<span><strong>{selectedAccessDriver.active ? "Pausar acceso" : "Activar acceso"}</strong><small>{selectedAccessDriver.active ? "Bloquea el inicio de sesión" : "Permite iniciar sesión"}</small></span></button><button type="button" onClick={() => resetDriver(selectedAccessDriver)}><IconRefresh size={18} /><span><strong>Restablecer contraseña</strong><small>Genera una clave nueva</small></span></button></div>
-         {editingDriverId === selectedAccessDriver.id && <form className="admin-driver-access-editor" onSubmit={(event) => saveDriverProfile(event, selectedAccessDriver)}><label>Nombre completo<input value={driverProfileForm.fullName} onChange={(event) => updateDriverProfileForm("fullName", event.target.value)} required /></label><label>Email de acceso<input type="email" value={driverProfileForm.email} onChange={(event) => updateDriverProfileForm("email", event.target.value)} required /></label><label>Vehículo asignado<select value={driverProfileForm.vehiclePlate} onChange={(event) => updateDriverProfileForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((option) => <option key={option.plate} value={option.plate}>{option.plate} · {option.model}</option>)}</select></label><label className="admin-driver-access-editor__active"><input type="checkbox" checked={driverProfileForm.active} onChange={(event) => updateDriverProfileForm("active", event.target.checked)} />Acceso activo</label><div className="admin-driver-access-editor__actions"><button type="button" onClick={() => setEditingDriverId("")}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar acceso"}</button></div></form>}
+         {editingDriverId === selectedAccessDriver.id && <form className="admin-driver-access-editor" onSubmit={(event) => saveDriverProfile(event, selectedAccessDriver)}><input ref={driverPhotoInputRef} className="admin-driver-access-editor__photo-input" type="file" accept="image/*" aria-label="Seleccionar foto de perfil" onChange={async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; try { setDriverPhotoFile(await prepareDriverPhotoFile(file)); setMessage(""); } catch (error) { setMessage(error.message); } }} /><p className="admin-driver-access-editor__photo-hint">Pulsa la foto para elegir una imagen de perfil. Se guardará optimizada en WebP.</p><label>Nombre completo<input value={driverProfileForm.fullName} onChange={(event) => updateDriverProfileForm("fullName", event.target.value)} required /></label><label>Email de acceso<input type="email" value={driverProfileForm.email} onChange={(event) => updateDriverProfileForm("email", event.target.value)} required /></label><label>Vehículo asignado<select value={driverProfileForm.vehiclePlate} onChange={(event) => updateDriverProfileForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((option) => <option key={option.plate} value={option.plate}>{option.plate} · {option.model}</option>)}</select></label><label className="admin-driver-access-editor__active"><input type="checkbox" checked={driverProfileForm.active} onChange={(event) => updateDriverProfileForm("active", event.target.checked)} />Acceso activo</label><div className="admin-driver-access-editor__actions"><button type="button" onClick={() => { setEditingDriverId(""); setDriverPhotoFile(null); }}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar acceso"}</button></div></form>}
          {replacementOpen && <form className="admin-driver-access-editor admin-driver-access-editor--replacement" onSubmit={(event) => replaceDriver(event, selectedAccessDriver)}><header><strong>Nuevo perfil para {selectedAccessPlate}</strong><p>{selectedAccessDriver.full_name} conservará su historial hasta ayer. El relevo empieza hoy.</p></header><label>Nombre completo<input value={replacementForm.fullName} onChange={(event) => updateReplacementForm("fullName", event.target.value)} placeholder="Nombre y apellidos" required /></label><label>Email de acceso<input type="email" value={replacementForm.email} onChange={(event) => updateReplacementForm("email", event.target.value)} placeholder="conductor@email.com" required /></label><label>Contraseña inicial<input type="text" minLength={8} value={replacementForm.password} onChange={(event) => updateReplacementForm("password", event.target.value)} required /></label><label>Fecha de inicio<input type="date" value={replacementForm.effectiveFrom} readOnly aria-readonly="true" /></label><div className="admin-driver-access-editor__actions"><button type="button" onClick={() => setReplacementOpen(false)}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Sustituyendo…" : "Crear perfil y sustituir"}</button></div></form>}
        </section>
      </div>}
