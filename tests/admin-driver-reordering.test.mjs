@@ -20,3 +20,9 @@ test("las tarjetas de conductor se pueden arrastrar, reordenar y cambiar de coch
   assert.match(styles, /admin-driver-card\.is-dragging/);
   assert.match(styles, /admin-vehicle-card\.is-drop-target/);
 });
+
+test("un toque abre la aplicación del conductor y mantener pulsada la foto abre su gestión", () => {
+  assert.match(app, /onPreviewDriver\(driver\)/);
+  assert.match(app, /event\.target\.closest\("\.admin-driver-card__avatar"\)/);
+  assert.match(app, /longPressRef\.current\.triggered = true;\s*setDriverActionId\(driverKey\)/);
+});
