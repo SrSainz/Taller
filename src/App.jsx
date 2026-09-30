@@ -7210,23 +7210,20 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       .filter((vehicle) => (unassignedBillingByPlate[vehicle.plate] ?? 0) > 0)
       .map((vehicle) => ({ label: "Sin conductor", detail: vehicle.plate, value: unassignedBillingByPlate[vehicle.plate] })),
   ];
-  const driverPerformanceByPlate = new Map();
-  billingRows.forEach((row) => {
+  const driverPerformanceChartRows = billingRows.map((row) => {
     const vehicle = vehicles.find((candidate) => candidate.plate === row.plate);
-    if (!vehicle) return;
+    if (!vehicle) return { label: row.driver, detail: row.plate, consumptionAverage: null, billingPerHour: null };
     const calendarRows = getDriverCalendarRows(vehicle, row, reportMonth, reportYear, documents, transactions);
     const summary = getDriverPerformanceSummary({ calendarRows, billing: row.revenue, daysInMonth: periodDays, year: reportYear, month: reportMonth });
-    const values = driverPerformanceByPlate.get(row.plate) ?? { consumptionAverage: [], billingPerHour: [] };
-    if (summary.averageConsumption !== null) values.consumptionAverage.push(summary.averageConsumption);
-    if (summary.hours > 0) values.billingPerHour.push(summary.billingPerHour);
-    driverPerformanceByPlate.set(row.plate, values);
+    return {
+      label: row.driver,
+      detail: row.plate,
+      consumptionAverage: summary.averageConsumption === null ? null : Number(summary.averageConsumption.toFixed(2)),
+      billingPerHour: summary.hours > 0 ? Number(summary.billingPerHour.toFixed(2)) : null,
+    };
   });
-  const averageDriverMetricByVehicle = (metric) => vehicles.map((vehicle) => {
-    const values = driverPerformanceByPlate.get(vehicle.plate)?.[metric] ?? [];
-    return { label: vehicle.plate, detail: vehicle.model, value: values.length ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2)) : null };
-  });
-  const consumptionAverageChartData = averageDriverMetricByVehicle("consumptionAverage");
-  const billingPerHourChartData = averageDriverMetricByVehicle("billingPerHour");
+  const consumptionAverageChartData = driverPerformanceChartRows.map(({ label, detail, consumptionAverage }) => ({ label, detail, value: consumptionAverage }));
+  const billingPerHourChartData = driverPerformanceChartRows.map(({ label, detail, billingPerHour }) => ({ label, detail, value: billingPerHour }));
   const chartVehicleStats = vehicles.map((vehicle, index) => ({ vehicle, cost: vehicleStats[index]?.cost ?? 0 }));
   const fuelChartData = chartVehicleStats.map(({ vehicle, cost }, index) => ({
     label: vehicle.plate,
@@ -7341,8 +7338,8 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     maintenance: { title: "MANTENIMIENTO POR COCHE", description: "", color: MAINTENANCE_COLOR, data: maintenanceChartData },
     fuel: { title: "COMBUSTIBLE POR COCHE", description: "", color: "#df4538", data: fuelChartData },
     net: { title: "BENEFICIO NETO POR COCHE", description: "", color: "#28923c", data: netChartData },
-    consumptionAverage: { title: "CONSUMO MEDIO POR COCHE", description: "", color: chartMetricColors.consumptionAverage, data: consumptionAverageChartData },
-    billingPerHour: { title: "FACTURACIÓN POR HORA POR COCHE", description: "", color: chartMetricColors.billingPerHour, data: billingPerHourChartData },
+    consumptionAverage: { title: "CONSUMO MEDIO POR CONDUCTOR", description: "", color: chartMetricColors.consumptionAverage, data: consumptionAverageChartData },
+    billingPerHour: { title: "FACTURACIÓN POR HORA POR CONDUCTOR", description: "", color: chartMetricColors.billingPerHour, data: billingPerHourChartData },
   };
   const activeChart = chartOptions[chartMetric];
   const formatChartValue = (value) => chartMetric === "consumptionAverage"
@@ -7599,7 +7596,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
               </div>
               <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
                 <header className="report-chart-card__top">
-                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
+                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={`report-chart-title${chartMetric === "summary" ? " report-chart-title--summary" : ""}${driverAverageChartMetrics.has(chartMetric) ? " report-chart-title--driver" : ""}`}>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
                 </header>
                 <div className="report-chart report-chart--summary">
                   {hasChartData ? <>
@@ -7607,7 +7604,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                     <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 4 }} barCategoryGap="18%" barGap={3} onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
                       {selectedChartBar && <ReferenceArea x1={selectedChartBar} x2={selectedChartBar} fill="#edf0ee" fillOpacity={0.9} stroke="none" ifOverflow="extendDomain" zIndex={-20} />}
                       <CartesianGrid stroke="#e9efed" vertical={false} />
-                      <XAxis dataKey="label" interval={0} height={26} tickMargin={2} tick={<ChartAxisTick fontSize={8} fontWeight={chartMetric === "billing" ? 500 : 750} />} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="label" interval={0} height={26} tickMargin={2} tick={<ChartAxisTick fontSize={8} fontWeight={chartMetric === "billing" || driverAverageChartMetrics.has(chartMetric) ? 500 : 750} />} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={formatChartAxisValue} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatChartValue(value), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
