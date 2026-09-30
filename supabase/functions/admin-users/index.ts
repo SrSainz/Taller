@@ -17,6 +17,22 @@ const validDriverPassword = (value: unknown) => {
   const password = String(value ?? "");
   return password.length >= 8 && password.length <= 128;
 };
+const madridDateKey = (date = new Date()) => new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Madrid",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+}).format(date);
+const isCalendarDate = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
+};
+const previousCalendarDate = (value: string) => {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+};
 const professionalVehicles = new Set(["5043 MLC", "5750 MJV", "5754 MJV"]);
 
 const authenticateAdmin = async (request: Request) => {
@@ -37,7 +53,7 @@ const authenticateAdmin = async (request: Request) => {
   return { admin: createClient(supabaseUrl, serviceRoleKey), user };
 };
 
-const profileFields = "id, full_name, role, email, vehicle_plate, active, must_change_password, created_at, updated_at";
+const profileFields = "id, full_name, role, email, vehicle_plate, active, must_change_password, effective_from, effective_to, replaced_by, replaces_profile_id, created_at, updated_at";
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -85,12 +101,76 @@ Deno.serve(async (request) => {
       vehicle_plate: vehiclePlate,
       active: true,
       must_change_password: false,
+      effective_from: madridDateKey(),
     }).select(profileFields).single();
     if (profileError) {
       await auth.admin.auth.admin.deleteUser(created.user.id);
       return json({ error: profileError.message }, 400);
     }
     return json({ profile, password });
+  }
+
+  if (action === "replace") {
+    const previousDriverId = String(payload.previousDriverId ?? "");
+    const email = normalizeEmail(payload.email);
+    const fullName = normalizeName(payload.fullName);
+    const password = String(payload.password ?? "");
+    const effectiveFrom = String(payload.effectiveFrom ?? "");
+    if (!previousDriverId || !email || !email.includes("@") || !fullName || !validDriverPassword(password) || !isCalendarDate(effectiveFrom)) {
+      return json({ error: "Revisa el nombre, el email, la fecha de inicio y la contraseña (mínimo 8 caracteres)." }, 400);
+    }
+    if (effectiveFrom !== madridDateKey()) return json({ error: "La sustitución entra en vigor hoy; conserva cada documento con su fecha y perfil original." }, 400);
+
+    const { data: previousDriver, error: previousError } = await auth.admin.from("profiles")
+      .select("id, role, vehicle_plate, active, effective_from, replaced_by")
+      .eq("id", previousDriverId)
+      .single();
+    if (previousError || previousDriver?.role !== "driver" || !previousDriver.active || previousDriver.replaced_by) {
+      return json({ error: "El perfil seleccionado ya no tiene un acceso activo para sustituir." }, 400);
+    }
+    const vehiclePlate = normalizeName(previousDriver.vehicle_plate);
+    if (!professionalVehicles.has(vehiclePlate)) return json({ error: "El conductor no tiene asignado un coche profesional." }, 400);
+    const lastActiveDate = previousCalendarDate(effectiveFrom);
+    if (String(previousDriver.effective_from ?? "1900-01-01") > lastActiveDate) {
+      return json({ error: "La fecha de sustitución debe ser posterior al inicio de vigencia del perfil actual." }, 400);
+    }
+
+    const { data: created, error: createError } = await auth.admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: fullName },
+      app_metadata: { role: "driver" },
+    });
+    if (createError || !created.user) return json({ error: createError?.message ?? "No se ha podido crear la cuenta nueva." }, 400);
+
+    const { data: newProfile, error: profileError } = await auth.admin.from("profiles").insert({
+      id: created.user.id,
+      full_name: fullName,
+      role: "driver",
+      email,
+      vehicle_plate: vehiclePlate,
+      active: true,
+      must_change_password: false,
+      effective_from: effectiveFrom,
+      replaces_profile_id: previousDriverId,
+    }).select(profileFields).single();
+    if (profileError) {
+      await auth.admin.auth.admin.deleteUser(created.user.id);
+      return json({ error: profileError.message }, 400);
+    }
+
+    const { data: closedProfile, error: closeError } = await auth.admin.from("profiles").update({
+      active: false,
+      effective_to: lastActiveDate,
+      replaced_by: created.user.id,
+      updated_at: new Date().toISOString(),
+    }).eq("id", previousDriverId).eq("active", true).is("replaced_by", null).select(profileFields).maybeSingle();
+    if (closeError || !closedProfile) {
+      await auth.admin.auth.admin.deleteUser(created.user.id);
+      return json({ error: closeError?.message ?? "El perfil anterior cambió mientras se guardaba; no se completó la sustitución." }, 409);
+    }
+    return json({ profile: newProfile, previousProfile: closedProfile, password });
   }
 
   const userId = String(payload.userId ?? "");
