@@ -254,4 +254,5 @@ export const fieldsToRecord = (fields = []) => Object.fromEntries(fields.map(({ 
 export const formatFileSize = (value) => {
   const size = Number(value) || 0;
   if (size < 1024) return `${size} B`;
-  if 
+  if (size < 1024 * 1024) return `${(size / 1024).toLocaleString("es-ES", { maximumFractionDigits: 1 })} KB`;
+  return `${(size / (1024 * 1024)).toLocaleString("es-ES", { maxim
