@@ -1990,11 +1990,10 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "green" }) {
   );
 }
 
-function BottomNavigation({ onHome, onProfile, onDrivers, homeActive, driversActive, profileLabel = "Abrir perfil de usuario" }) {
+function BottomNavigation({ onHome, onProfile, homeActive, profileLabel = "Abrir perfil de usuario" }) {
   return (
     <nav className="bottom-navigation" aria-label="Navegación inferior">
       <button type="button" className={`bottom-navigation__item${homeActive ? " bottom-navigation__item--active" : ""}`} onClick={onHome} aria-label="Ir a la página principal" aria-current={homeActive ? "page" : undefined} title="Página principal"><IconHome size={42} /></button>
-      {onDrivers && <button type="button" className={`bottom-navigation__item bottom-navigation__item--drivers${driversActive ? " bottom-navigation__item--active" : ""}`} onClick={onDrivers} aria-label="Abrir Conductores" aria-current={driversActive ? "page" : undefined} title="Conductores"><IconChartBar size={36} /></button>}
       <button type="button" className="bottom-navigation__item" onClick={onProfile} aria-label={profileLabel} title={profileLabel.replace(/^Abrir /, "")}><IconUserCircle size={42} /></button>
     </nav>
   );
@@ -3551,12 +3550,12 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   }
 
   return (
-    <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}${activeNav === "Informes" && homeReportTab === "General" ? " app-shell--dashboard" : ""}${activeNav === "Conductores" ? " app-shell--drivers" : ""}${activeNav === adminNavItem.label ? " app-shell--admin" : ""}`}>
+    <div className={`app-shell ${showInspector ? "app-shell--inspector" : ""}${activeNav === "Informes" && homeReportTab === "General" ? " app-shell--dashboard" : ""}${activeNav === adminNavItem.label ? " app-shell--admin" : ""}`}>
       <main className="workspace">
           <header className={`${["Informes", "Gasolina", "Vehículos", "Conductores", "Administración"].includes(activeNav) ? "topbar topbar--reports" : "topbar"}${compactDetailHeader ? " topbar--detail" : ""}${activeNav === "Mantenimiento" ? " topbar--maintenance" : ""}`}>
           <div className="topbar-title">
             <button className="workspace-home-button admin-topbar-home" onClick={openGeneral} aria-label="Abrir SOBRE RUEDAS" title="SOBRE RUEDAS · Resumen general"><picture aria-hidden="true"><source media="(max-width: 520px)" srcSet="/icons/sobre-ruedas-192.png?v=20260827" /><img src="/brand/sobre-ruedas-logo.png" alt="" /></picture></button>
-            {activeNav === adminNavItem.label && isAdmin ? <button type="button" className="admin-title-control" onClick={() => { setAdminHeaderOpen((value) => !value); setAdminHeaderMessage(""); setTopbarMenuOpen(false); setNotificationsOpen(false); }} aria-expanded={adminHeaderOpen} aria-controls="admin-header-sheet"><span>ADMINISTRADOR</span><strong>{profileName.toLocaleUpperCase("es")}</strong><IconChevronDown size={17} /></button> : <div>{compactDetailHeader ? <span>{detailHeaderTitle}</span> : activeNav === "Informes" ? <SobreRuedasWordmark /> : <span>{activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>}{!compactDetailHeader && activeNav !== "Informes" && <small>{activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "SEGUIMIENTO EN TIEMPO REAL" : activeNav === "Administración" ? "Usuarios y permisos" : "Gestión centralizada de vehículos"}</small>}</div>}
+            {activeNav === adminNavItem.label && isAdmin ? <button type="button" className="admin-title-control" onClick={() => { setAdminHeaderOpen((value) => !value); setAdminHeaderMessage(""); setTopbarMenuOpen(false); setNotificationsOpen(false); }} aria-expanded={adminHeaderOpen} aria-controls="admin-header-sheet"><span>ADMINISTRADOR</span><strong>{profileName.toLocaleUpperCase("es")}</strong><IconChevronDown size={17} /></button> : <div>{compactDetailHeader ? <span>{detailHeaderTitle}</span> : activeNav === "Informes" ? <SobreRuedasWordmark /> : <span>{activeNav === "Conductores" ? "CONDUCTORES" : activeNav}</span>}{!compactDetailHeader && activeNav !== "Informes" && <small>{activeNav === "Gasolina" ? "Control de combustible" : activeNav === "Vehículos" ? "Vehículos, facturación y consumo" : activeNav === "Conductores" ? "Facturación y consumo por conductor" : activeNav === "Administración" ? "Usuarios y permisos" : "Gestión centralizada de vehículos"}</small>}</div>}
           </div>
           {activeNav === "Mantenimiento" && <MaintenanceSearch query={maintenanceSearchQuery} open={maintenanceSearchOpen} suggestions={maintenanceSearchSuggestions} onQueryChange={setMaintenanceSearchQuery} onOpenChange={setMaintenanceSearchOpen} onSelect={openMaintenanceSearchRecord} />}
           {!compactDetailHeader && <div className="topbar-actions">
@@ -3643,7 +3642,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         />
       )}
 
-      <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} driversActive={activeNav === "Conductores"} onHome={openGeneral} onDrivers={activeNav === "Conductores" ? () => navigate(conductorNavItem) : undefined} onProfile={() => navigate(adminNavItem)} profileLabel={isAdmin ? "Abrir administración" : "Abrir perfil de usuario"} />
+      <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} onHome={openGeneral} onProfile={() => navigate(adminNavItem)} profileLabel={isAdmin ? "Abrir administración" : "Abrir perfil de usuario"} />
       {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoiceCentral} onSaveDocument={saveProcessedDocumentCentral} onSaveMaintenance={saveMaintenanceEdit} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
     </div>
@@ -7966,9 +7965,6 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const setReportMonth = onReportMonthChange ?? setInternalReportMonth;
   const setReportYear = onReportYearChange ?? setInternalReportYear;
   const [selectedDriverKey, setSelectedDriverKey] = useState("");
-  const [showDriverCalendar, setShowDriverCalendar] = useState(false);
-  const initialDriverSelected = useRef(false);
-  const [driverSort, setDriverSort] = useState("billing");
   const [selectedDay, setSelectedDay] = useState(null);
   const [expandedDayPanel, setExpandedDayPanel] = useState("");
   const [calendarExpanded, setCalendarExpanded] = useState(false);
@@ -8012,12 +8008,6 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     };
   }), [driverRows, professionalVehicles]);
   const selectedDriver = driverRows.find((row) => row.key === selectedDriverKey) ?? null;
-  useEffect(() => {
-    if (initialDriverSelected.current || driverRows.length === 0 || navigationTarget) return;
-    initialDriverSelected.current = true;
-    const first = driverRows.find((row) => normalizeText(row.driver) === "tirso") ?? driverRows[0];
-    setSelectedDriverKey(first.key);
-  }, [driverRows, navigationTarget]);
   const commissionDriver = driverRows.find((row) => row.key === commissionDriverKey) ?? null;
   const hoursDriver = driverRows.find((row) => row.key === hoursDriverKey) ?? null;
   const hoursCalendarRows = useMemo(() => hoursDriver ? getDriverCalendarRows(hoursDriver.vehicle, hoursDriver, reportMonth, reportYear, documents, transactions) : [], [hoursDriver, reportMonth, reportYear, documents, transactions]);
@@ -8096,19 +8086,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   }, [selectedDriver, reportMonth, reportYear, documents, transactions]);
   const totalBilling = billingRows.reduce((sum, row) => sum + row.revenue, 0);
   const totalFuel = fuelSummaries.reduce((sum, summary) => sum + summary.cost, 0);
-  const rankedDrivers = useMemo(() => [...driverRows].sort((first, second) => {
-    if (driverSort === "fuel") return second.fuelCost - first.fuelCost;
-    if (driverSort === "name") return first.driver.localeCompare(second.driver, "es");
-    return second.revenue - first.revenue;
-  }), [driverRows, driverSort]);
-  const selectedConnectionHours = calendarRows.reduce((sum, day) => sum + (Number(day.billingStats?.connectionHours) || parseConnectionHours(day.billingStats?.connection) || 0), 0);
-  const selectedActiveDays = calendarRows.filter((day) => day.billing > 0).length;
-  const selectedEfficiency = selectedActiveDays / new Date(reportYear, reportMonth + 1, 0).getDate() * 100;
-  const selectedFuelRatio = selectedDriver?.revenue > 0 ? selectedDriver.fuelCost / selectedDriver.revenue * 100 : 0;
-  const selectedCommission = selectedDriver ? (() => {
-    const monthEntries = (selectedDriver.entries ?? []).filter((entry) => String(entry.entry_date ?? "").startsWith(periodStart.slice(0, 7)));
-    return calculateDriverCommission({ driverName: selectedDriver.driver, billing: selectedDriver.revenue, tips: monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0), tolls: monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0), payroll: getDriverPayroll(selectedDriver) });
-  })() : null;
+
   useEffect(() => {
     if (!selectedDriver) {
       setSelectedDay(null);
@@ -8148,7 +8126,6 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
 
   const selectDriver = (row) => {
     setSelectedDriverKey(row.key);
-    setShowDriverCalendar(false);
     const nextCalendarRows = getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear, documents, transactions);
     setSelectedDay(nextCalendarRows.find((calendarRow) => calendarRow.active)?.day ?? 1);
   };
@@ -8257,9 +8234,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   useEffect(() => {
     const row = findDriverNavigationRow(driverRows, navigationTarget);
     if (!row) return;
-    initialDriverSelected.current = true;
     setSelectedDriverKey(row.key);
-    setShowDriverCalendar(true);
     const nextCalendarRows = getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear, documents, transactions);
     setSelectedDay(nextCalendarRows.find((calendarRow) => calendarRow.active)?.day ?? 1);
     onNavigationTargetConsumed?.();
@@ -8380,56 +8355,34 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   );
 
   return (
-    <section className={`module-page drivers-page${selectedDriver && showDriverCalendar ? " drivers-page--calendar-open" : ""}`}>
+    <section className={`module-page drivers-page${selectedDriver ? " drivers-page--calendar-open" : ""}`}>
       <div className="drivers-summary-grid">
         <button type="button" className="drivers-summary-card drivers-summary-card--billing" onClick={scrollToDrivers}>
-          <header><span className="drivers-summary-card__icon"><IconFileInvoice size={30} /></span><span><strong>Facturación</strong><small className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</small></span><IconChartBar className="drivers-summary-card__trend" size={33} /></header>
-          <strong className="drivers-summary-card__total">{formatCurrency(totalBilling)}</strong>
+          <header><span className="drivers-summary-card__icon"><IconFileInvoice size={16} /></span><span><strong>Facturación</strong><small><span className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</span> · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalBilling)}</strong></header>
+          <div>{professionalVehicles.map((vehicle) => { const total = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0); return <span key={vehicle.plate}><VehiclePlateLabel vehicleOrPlate={vehicle} className="drivers-summary-card__vehicle-plate" /><strong className="drivers-summary-card__vehicle-total">{formatCurrency(total)}</strong></span>; })}</div>
         </button>
         <button type="button" className="drivers-summary-card drivers-summary-card--fuel" onClick={scrollToDrivers}>
-          <header><span className="drivers-summary-card__icon"><IconGasStation size={30} /></span><span><strong>Consumo</strong><small className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</small></span><IconChartBar className="drivers-summary-card__trend" size={33} /></header>
-          <strong className="drivers-summary-card__total">{formatCurrency(totalFuel)}</strong>
+          <header><span className="drivers-summary-card__icon"><IconGasStation size={16} /></span><span><strong>Consumo</strong><small><span className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</span> · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalFuel)}</strong></header>
+          <div>{fuelSummaries.map((summary) => <span key={summary.vehicle.plate}><VehiclePlateLabel vehicleOrPlate={summary.vehicle} className="drivers-summary-card__vehicle-plate" /><strong className="drivers-summary-card__vehicle-total">{formatCurrency(summary.cost)}</strong></span>)}</div>
         </button>
       </div>
 
-      <div className="drivers-vehicle-grid" aria-label="Facturación y consumo por vehículo">
-        {professionalVehicles.map((vehicle) => {
-          const billing = driverRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0);
-          const fuel = fuelSummaries.find((summary) => summary.vehicle.plate === vehicle.plate)?.cost ?? 0;
-          return <article className="drivers-vehicle-card" key={vehicle.plate}>
-            <header><strong>{vehicle.plate}</strong></header>
-            <div className="drivers-vehicle-card__figures"><span><strong>{formatCurrency(billing)}</strong><small>Facturación</small></span><span><strong>{formatCurrency(fuel)}</strong><small>Consumo</small></span></div>
-            <span className="drivers-vehicle-card__bar" style={{ "--fuel-share": `${Math.max(4, Math.min(95, billing + fuel > 0 ? fuel / (billing + fuel) * 100 : 20))}%` }} />
-          </article>;
-        })}
-      </div>
-
-      <header className="drivers-ranking-heading"><span className="drivers-ranking-heading__icon"><IconUsers size={27} /></span><span><strong>Conductores</strong><small>RENDIMIENTO INDIVIDUAL · {reportMonths[reportMonth]} {reportYear}</small></span><label>Ordenar conductores<select value={driverSort} onChange={(event) => setDriverSort(event.target.value)}><option value="billing">Por facturación</option><option value="fuel">Por consumo</option><option value="name">Por nombre</option></select></label></header>
-
       <div ref={driverGridRef} className="drivers-list" aria-label="Conductores profesionales">
-        <div className="drivers-list__head" aria-hidden="true"><span>#</span><span>Conductor</span><span>Horas</span><span>Facturación</span><span>Consumo</span><span /></div>
-        {rankedDrivers.map((row, index) => {
+        {driverRows.map((row) => {
           const monthEntries = (row.entries ?? []).filter((entry) => String(entry.entry_date ?? "").startsWith(periodStart.slice(0, 7)));
           const tips = monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0);
           const tolls = monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0);
           const rowCommission = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, tips, tolls, payroll: getDriverPayroll(row) });
-          const rowDays = getDriverCalendarRows(row.vehicle, row, reportMonth, reportYear, documents, transactions);
-          const connectionHours = rowDays.reduce((sum, day) => sum + (Number(day.billingStats?.connectionHours) || parseConnectionHours(day.billingStats?.connection) || 0), 0);
           return <article className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key}>
-          <span className="driver-list-card__rank">{index + 1}</span>
-          <span className="driver-list-card__identity"><button type="button" className="driver-list-card__select" onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver detalle de ${row.driver}`}><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong></span></button><button type="button" className="driver-list-card__hours-button" onClick={() => setHoursDriverKey(row.key)} aria-label={`Abrir registro mensual de jornada de ${row.driver}`}>H</button><button type="button" className="driver-list-card__commission-button" onClick={() => setCommissionDriverKey(row.key)} aria-label={`Ver total a cobrar en efectivo de ${row.driver}. Importe actual ${formatCurrency(rowCommission.totalToCollect)}`}><strong>{formatCurrency(rowCommission.totalToCollect)}</strong></button></span>
-          <span className="driver-list-card__hours">{connectionHours.toLocaleString("es-ES", { maximumFractionDigits: 1 })} h</span>
+          <span className="driver-list-card__identity"><button type="button" className="driver-list-card__select" onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong></span></button><button type="button" className="driver-list-card__hours-button" onClick={() => setHoursDriverKey(row.key)} aria-label={`Abrir registro mensual de jornada de ${row.driver}`}>H</button><button type="button" className="driver-list-card__commission-button" onClick={() => setCommissionDriverKey(row.key)} aria-label={`Ver total a cobrar en efectivo de ${row.driver}. Importe actual ${formatCurrency(rowCommission.totalToCollect)}`}><strong>{formatCurrency(rowCommission.totalToCollect)}</strong></button></span>
           <span className="driver-list-card__metric driver-list-card__metric--billing" aria-label={`Facturación ${formatCurrency(row.revenue)}`}><strong>{formatCurrency(row.revenue)}</strong></span>
           <span className="driver-list-card__metric driver-list-card__metric--fuel" aria-label={`Consumo ${formatCurrency(row.fuelCost)}`}><strong>{formatCurrency(row.fuelCost)}</strong></span>
-          <button type="button" className="driver-list-card__open" onClick={() => selectDriver(row)} aria-label={`Abrir detalle de ${row.driver}`}><IconChevronRight size={21} /></button>
         </article>})}
       </div>
 
-      {selectedDriver && <section className="drivers-profile" aria-label={`Resumen de ${selectedDriver.driver}`}><header><span className="driver-list-card__avatar"><img src={getDriverAvatarPath(selectedDriver.driver)} alt="" /></span><span><strong>{selectedDriver.driver}</strong><small>Conductor {rankedDrivers.findIndex((row) => row.key === selectedDriver.key) + 1} de {rankedDrivers.length}</small></span><button type="button" onClick={() => { setSelectedDriverKey(""); setShowDriverCalendar(false); }} aria-label="Cerrar ficha del conductor"><IconChevronUp size={24} /></button></header><div className="drivers-profile__metrics"><span><IconClock size={24} /><small>Horas</small><strong>{selectedConnectionHours.toLocaleString("es-ES", { maximumFractionDigits: 1 })} h</strong></span><span><IconFileInvoice size={24} /><small>Facturación</small><strong>{formatCurrency(selectedDriver.revenue)}</strong></span><span><IconGasStation size={24} /><small>Consumo</small><strong>{formatCurrency(selectedDriver.fuelCost)}</strong></span><span><IconGauge size={24} /><small>Eficiencia</small><strong>{selectedEfficiency.toLocaleString("es-ES", { maximumFractionDigits: 0 })} %</strong></span><span><IconChartBar size={24} /><small>Consumo / fact.</small><strong>{selectedFuelRatio.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %</strong></span><span><IconCurrencyEuro size={24} /><small>Fact. por hora</small><strong>{formatCurrency(selectedConnectionHours > 0 ? selectedDriver.revenue / selectedConnectionHours : 0)}</strong></span></div><div className="drivers-profile__actions"><button type="button" className="drivers-profile__commission" onClick={() => setCommissionDriverKey(selectedDriver.key)}>Total a cobrar en efectivo: <strong>{formatCurrency(selectedCommission?.totalToCollect ?? 0)}</strong></button><button type="button" className="drivers-profile__calendar-link" onClick={() => setShowDriverCalendar((open) => !open)} aria-expanded={showDriverCalendar}>{showDriverCalendar ? "Ocultar calendario" : "Ver calendario y detalle diario"}</button></div></section>}
+      {selectedDriver && !calendarExpanded && renderDriversCalendar()}
 
-      {selectedDriver && showDriverCalendar && !calendarExpanded && renderDriversCalendar()}
-
-      {selectedDriver && showDriverCalendar && selectedDayDetail && <section className="driver-day-detail" aria-label={`Detalle de ${selectedDriver.driver}`}>
+      {selectedDriver && selectedDayDetail && <section className="driver-day-detail" aria-label={`Detalle de ${selectedDriver.driver}`}>
         <div className="driver-day-detail__columns">
           {renderDayPanel("billing")}
           {renderDayPanel("fuel")}

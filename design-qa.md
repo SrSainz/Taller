@@ -85,20 +85,6 @@ passed
 
 final result: passed
 
-## Conductores — 2026-09-30
-
-Source: user-supplied Conductores image (`codex-clipboard-cadbdb9b-2c1e-4ad3-b008-aa237533ab70.png`, 942 × 1674). Implementation: local `#/conductores` preview, inspected at 942 × 1674 and 390 × 844 in the browser.
-
-- Layout: dark top bar, two financial cards, three vehicle cards, sortable six-driver ledger, expanded Tirso profile, and three-control bottom navigation follow the supplied hierarchy. The expanded profile ends above the navigation at the reference viewport.
-- Typography and spacing: headings and monetary figures were enlarged after the first capture; the ledger was compacted so all six rows and the profile fit without clipping.
-- Color and imagery: blue billing, red fuel, dark cards, selected-row border, supplied logo, and existing driver photographs are present. Icons use the app's Tabler set.
-- Data: values are derived from the selected period. The isolated local preview had no authenticated records, so its amounts were zero; example amounts from the image were not copied into production data. Hours are expressed in hours, and efficiency is billed days divided by days in the period.
-- Interaction: sorting by name changed row order and selecting Tirso expanded the profile. The calendar and daily document editor remain available from the profile. Mobile content stays legible with vertical scrolling.
-
-The temporary design-preview authentication bypass was removed before the final build. No P0, P1, or P2 visual issues remain.
-
-final result: passed
-
 ## 28 de septiembre de 2026 — Simplificación de la ficha de comisión
 
 ### Evidencia
@@ -674,13 +660,3 @@ final result: passed
 - Vercel para `98dbda8`: estado `success`.
 
 final result: passed
-
-## 30 de septiembre de 2026 — Tarjetas compactas de Conductores
-
-- Fuente visual: captura adjunta `codex-clipboard-77cb4502-9c96-456c-b0fb-4d502551b829.png` y las instrucciones del usuario para quitar “3 coches”, las dos tendencias y los iconos de coche, dando más tamaño a las matrículas y cifras de los vehículos.
-- Implementación: `src/App.jsx` y `src/styles.css`, commit local `91541f3`.
-- Verificación técnica: `pnpm run build` y `pnpm test` correctos (127/127).
-- Verificación visual: bloqueada. La previsualización local requiere sesión y la cuenta conectada `Davizete` recibe 403 al subir a `SrSainz/Taller`; el conector GitHub confirma `push: false`. Por ello aún no hay captura autenticada del resultado ni despliegue de este commit para comparar en el mismo estado.
-- Pendiente: habilitar escritura en el repositorio para la cuenta conectada, publicar el commit, capturar la vista autenticada en escritorio y móvil, comparar y corregir recortes si los hubiera.
-
-final result: blocked
