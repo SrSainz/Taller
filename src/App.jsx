@@ -70,6 +70,7 @@ import {
   normalizeDocumentAnalysis,
   normalizeMaintenanceItems,
   prepareDocumentFile,
+  prepareDriverPhotoFile,
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
@@ -122,10 +123,10 @@ const canTransformImage = (mimeType) => String(mimeType ?? "").startsWith("image
 const calculateNetDriverCommission = (driverName, billing) => calculateDriverCommission({ driverName, billing }).totalToCollect;
 const chartMetricOptions = [
   { value: "summary", label: "Resumen" },
-  { value: "billing", label: "Facturación" },
   { value: "maintenance", label: "Mantenimiento" },
   { value: "fuel", label: "Combustible" },
   { value: "net", label: "Neto" },
+  { value: "billing", label: "Facturación" },
   { value: "consumptionAverage", label: "Consumo medio" },
   { value: "billingPerHour", label: "Fact. por hora" },
 ];
@@ -134,7 +135,7 @@ const selectableChartMetrics = chartMetricOptions.filter((option) => option.valu
 const allChartMetricValues = selectableChartMetrics.map((option) => option.value);
 const summaryChartMetricValues = ["billing", "maintenance", "fuel", "net"];
 const driverAverageChartMetrics = new Set(["consumptionAverage", "billingPerHour"]);
-const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c", consumptionAverage: "#1976c9", billingPerHour: "#c3382f" };
+const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c", consumptionAverage: "#087f91", billingPerHour: "#7950ae" };
 
 const splitChartAxisLabel = (value) => {
   const words = String(value ?? "").trim().split(/\s+/).filter(Boolean);
@@ -3297,7 +3298,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
 
   const saveProcessedDocumentLegacy = async (document) => {
     const { file, originalFile, ...documentWithoutFile } = document;
-    const archiveFile = originalFile || file;
+    const archiveFile = document.driverId ? file || originalFile : originalFile || file;
     const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
     setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
     let cloudSaved = false;
@@ -3420,7 +3421,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
 
   const saveProcessedDocumentCentral = async (document) => {
     const { file, originalFile, ...documentWithoutFile } = document;
-    const archiveFile = originalFile || file;
+    const archiveFile = document.driverId ? file || originalFile : originalFile || file;
     const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
     const fields = savedDocument.fields ?? {};
     const driverId = savedDocument.driverId || "";
@@ -4438,9 +4439,10 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       let savedDocument = null;
       if (file && supabase) {
         try {
-          const fileHash = await hashDocumentFile(file);
+          const uploadFile = await prepareDriverPhotoFile(file);
+          const fileHash = await hashDocumentFile(uploadFile);
           const extractedData = { date: uploadDate, captureDate, dateSource: intentionalUploadDate ? "intentional-edit" : uploadDate === captureDate ? "capture" : "operating-day", recordType: "fuel", cost: data.fuel_cost, consumption: data.fuel_liters, unit: "L", odometerKm: data.odometer_km, billing: data.billing, cashCollected: data.cash_collected, tips: data.tips, refunds: data.refunds, tolls: data.tolls, otherExpenses: data.other_expenses, driverId: activeProfileId, vehicle: profileVehiclePlate, source: "driver-weekly-entry" };
-          savedDocument = await uploadDocumentRecord({ ownerId: activeProfileId, category: "consumption", vehiclePlate: profileVehiclePlate, file, fileHash, documentDate: uploadDate, extractedData, status: "review" });
+          savedDocument = await uploadDocumentRecord({ ownerId: activeProfileId, category: "consumption", vehiclePlate: profileVehiclePlate, file: uploadFile, fileHash, documentDate: uploadDate, extractedData, status: "review" });
           const operations = operationsFromDocument({ category: "consumption", fields: extractedData, recordType: "fuel", driverId: activeProfileId, vehiclePlate: profileVehiclePlate, fileHash, fallbackDate: uploadDate });
           if (operations.length > 0) {
             const result = await confirmDocumentTransactions(savedDocument.id, operations);
@@ -4846,7 +4848,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   };
   const saveCircleReview = async (reviewDocument) => {
     const recordKey = circleReview?.recordKey;
-    const file = reviewDocument?.originalFile || reviewDocument?.file;
+    const file = reviewDocument?.file || reviewDocument?.originalFile;
     if (!recordKey || !file) return { ok: false, message: "No se ha encontrado el archivo que estabas revisando." };
     const fields = reviewDocument.fields ?? {};
     const fieldNumber = (...keys) => {
@@ -5071,7 +5073,8 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
         setMessage("Pendiente de mantenimiento guardado en este dispositivo.");
         return null;
       }
-      const saved = await createMaintenanceReport({ reporterId: activeProfileId, vehiclePlate: profileVehiclePlate, note: nextNote, photoFile });
+      const uploadPhoto = photoFile ? await prepareDriverPhotoFile(photoFile) : null;
+      const saved = await createMaintenanceReport({ reporterId: activeProfileId, vehiclePlate: profileVehiclePlate, note: nextNote, photoFile: uploadPhoto });
       const normalizedReport = normalizeMaintenanceReportRecord(saved);
       const nextReports = [normalizedReport, ...driverMaintenanceReportsRef.current.filter((report) => report.id !== normalizedReport.id)];
       driverMaintenanceReportsRef.current = nextReports;
@@ -5907,8 +5910,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
           </div>
           {recordDeleteError && <p className="driver-mobile-record-delete-error" role="alert"><IconAlertTriangle size={14} />{recordDeleteError}</p>}
           <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
-            <article className="driver-mobile-preview-history" aria-label="Facturación mensual histórica"><div className="driver-mobile-history-scroll" role="region" tabIndex="0" aria-label="Histórico de facturación mensual de los últimos doce meses"><div className="driver-mobile-history-bars" role="list">{compactMonthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></div></article>
-            <DriverPerformanceBreakdownCards summary={driverPerformanceSummary} />
+            <article className="driver-mobile-preview-history" role="button" tabIndex="0" aria-label="Ampliar gráfico de facturación mensual histórica"><div className="driver-mobile-history-scroll" aria-hidden="true"><div className="driver-mobile-history-bars">{compactMonthlyBillingHistory.map((month) => <div className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></div>)}</div></div></article>
+            <DriverPerformanceBreakdownCards summary={driverPerformanceSummary} onExpand={(metric) => openPreviewMetric(metric)} />
           </div>
           <div className="driver-mobile-mini-grid">
             <article className="driver-mobile-mini-card driver-mobile-mini-card--billing-history"><div className="driver-mobile-mini-card__header"><div><strong>Facturación histórica</strong><span>{formatCurrency(activeBillingMonth.amount)} · este conductor</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("billing")} aria-label="Abrir ejemplo de facturación"><img src={driverReferenceImages.billing} alt="" loading="lazy" /><span>Ejemplo</span></button></div><div className="driver-mobile-billing-history" role="list" aria-label="Histórico mensual de facturación de los últimos doce meses">{compactMonthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-billing-history__month${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><strong>{formatDriverBarAmount(month.amount)}</strong></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></article>
@@ -5967,7 +5970,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
           <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}>
             <div className="driver-mobile-chart-dialog__panel">
               <header>
-                <div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "km" ? "KM/H realizados vs resto" : "Consumo comparado"}</h2></div>
+                <div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "averageConsumption" ? "Consumo medio semanal" : expandedPreviewMetric === "billingPerHour" ? "Facturación por hora semanal" : expandedPreviewMetric === "km" ? "KM/H realizados vs resto" : "Consumo comparado"}</h2></div>
                 <button type="button" aria-label="Cerrar gráfica ampliada" onClick={() => setExpandedPreviewMetric("")}><IconX size={18} /></button>
               </header>
               {expandedPreviewMetric === "billing" && (
@@ -5988,6 +5991,20 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
                     </div>
                   </div>
                   <p className="driver-mobile-chart-dialog__hint">Desliza a derecha e izquierda para consultar el resto de meses.</p>
+                </div>
+              )}
+              {["averageConsumption", "billingPerHour"].includes(expandedPreviewMetric) && (
+                <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--weekly">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={driverPerformanceSummary.weeks.map((week) => ({ label: `S${week.number} · ${week.startDay}–${week.endDay}`, amount: expandedPreviewMetric === "averageConsumption" ? week.averageConsumption : week.billingPerHour }))} margin={{ top: 38, right: 12, bottom: 55, left: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 13, fontWeight: 800, fill: "#173661" }} tickMargin={10} />
+                      <YAxis width={48} tick={{ fontSize: 13, fill: "#526783" }} domain={[0, "auto"]} />
+                      <Tooltip cursor={false} formatter={(value) => value == null ? "Sin lectura" : expandedPreviewMetric === "averageConsumption" ? `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km` : formatCurrency(Number(value))} />
+                      <Bar dataKey="amount" fill={expandedPreviewMetric === "averageConsumption" ? "#2c6de9" : "#c3382f"} radius={[5, 5, 0, 0]} minPointSize={3} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <p className="driver-mobile-chart-dialog__weekly-total">Media del mes: <strong>{expandedPreviewMetric === "averageConsumption" ? driverPerformanceSummary.averageConsumption == null ? "—" : `${driverPerformanceSummary.averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km` : driverPerformanceSummary.hours > 0 ? formatCurrency(driverPerformanceSummary.billingPerHour) : "—"}</strong></p>
                 </div>
               )}
               {expandedPreviewMetric === "km" && (
@@ -7193,23 +7210,20 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       .filter((vehicle) => (unassignedBillingByPlate[vehicle.plate] ?? 0) > 0)
       .map((vehicle) => ({ label: "Sin conductor", detail: vehicle.plate, value: unassignedBillingByPlate[vehicle.plate] })),
   ];
-  const driverPerformanceByPlate = new Map();
-  billingRows.forEach((row) => {
+  const driverPerformanceChartRows = billingRows.map((row) => {
     const vehicle = vehicles.find((candidate) => candidate.plate === row.plate);
-    if (!vehicle) return;
+    if (!vehicle) return { label: row.driver, detail: row.plate, consumptionAverage: null, billingPerHour: null };
     const calendarRows = getDriverCalendarRows(vehicle, row, reportMonth, reportYear, documents, transactions);
     const summary = getDriverPerformanceSummary({ calendarRows, billing: row.revenue, daysInMonth: periodDays, year: reportYear, month: reportMonth });
-    const values = driverPerformanceByPlate.get(row.plate) ?? { consumptionAverage: [], billingPerHour: [] };
-    if (summary.averageConsumption !== null) values.consumptionAverage.push(summary.averageConsumption);
-    if (summary.hours > 0) values.billingPerHour.push(summary.billingPerHour);
-    driverPerformanceByPlate.set(row.plate, values);
+    return {
+      label: row.driver,
+      detail: row.plate,
+      consumptionAverage: summary.averageConsumption === null ? null : Number(summary.averageConsumption.toFixed(2)),
+      billingPerHour: summary.hours > 0 ? Number(summary.billingPerHour.toFixed(2)) : null,
+    };
   });
-  const averageDriverMetricByVehicle = (metric) => vehicles.map((vehicle) => {
-    const values = driverPerformanceByPlate.get(vehicle.plate)?.[metric] ?? [];
-    return { label: vehicle.plate, detail: vehicle.model, value: values.length ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2)) : null };
-  });
-  const consumptionAverageChartData = averageDriverMetricByVehicle("consumptionAverage");
-  const billingPerHourChartData = averageDriverMetricByVehicle("billingPerHour");
+  const consumptionAverageChartData = driverPerformanceChartRows.map(({ label, detail, consumptionAverage }) => ({ label, detail, value: consumptionAverage }));
+  const billingPerHourChartData = driverPerformanceChartRows.map(({ label, detail, billingPerHour }) => ({ label, detail, value: billingPerHour }));
   const chartVehicleStats = vehicles.map((vehicle, index) => ({ vehicle, cost: vehicleStats[index]?.cost ?? 0 }));
   const fuelChartData = chartVehicleStats.map(({ vehicle, cost }, index) => ({
     label: vehicle.plate,
@@ -7324,8 +7338,8 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     maintenance: { title: "MANTENIMIENTO POR COCHE", description: "", color: MAINTENANCE_COLOR, data: maintenanceChartData },
     fuel: { title: "COMBUSTIBLE POR COCHE", description: "", color: "#df4538", data: fuelChartData },
     net: { title: "BENEFICIO NETO POR COCHE", description: "", color: "#28923c", data: netChartData },
-    consumptionAverage: { title: "CONSUMO MEDIO POR COCHE", description: "", color: chartMetricColors.consumptionAverage, data: consumptionAverageChartData },
-    billingPerHour: { title: "FACTURACIÓN POR HORA POR COCHE", description: "", color: chartMetricColors.billingPerHour, data: billingPerHourChartData },
+    consumptionAverage: { title: "CONSUMO MEDIO POR CONDUCTOR", description: "", color: chartMetricColors.consumptionAverage, data: consumptionAverageChartData },
+    billingPerHour: { title: "FACTURACIÓN POR HORA POR CONDUCTOR", description: "", color: chartMetricColors.billingPerHour, data: billingPerHourChartData },
   };
   const activeChart = chartOptions[chartMetric];
   const formatChartValue = (value) => chartMetric === "consumptionAverage"
@@ -7582,7 +7596,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
               </div>
               <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
                 <header className="report-chart-card__top">
-                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={chartMetric === "summary" ? "report-chart-title report-chart-title--summary" : "report-chart-title"}>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
+                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={`report-chart-title${chartMetric === "summary" ? " report-chart-title--summary" : ""}${driverAverageChartMetrics.has(chartMetric) ? " report-chart-title--driver" : ""}`}>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
                 </header>
                 <div className="report-chart report-chart--summary">
                   {hasChartData ? <>
@@ -7590,7 +7604,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                     <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 4 }} barCategoryGap="18%" barGap={3} onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
                       {selectedChartBar && <ReferenceArea x1={selectedChartBar} x2={selectedChartBar} fill="#edf0ee" fillOpacity={0.9} stroke="none" ifOverflow="extendDomain" zIndex={-20} />}
                       <CartesianGrid stroke="#e9efed" vertical={false} />
-                      <XAxis dataKey="label" interval={0} height={26} tickMargin={2} tick={<ChartAxisTick fontSize={8} fontWeight={chartMetric === "billing" ? 500 : 750} />} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="label" interval={0} height={26} tickMargin={2} tick={<ChartAxisTick fontSize={8} fontWeight={chartMetric === "billing" || driverAverageChartMetrics.has(chartMetric) ? 500 : 750} />} axisLine={false} tickLine={false} />
                       <YAxis tickFormatter={formatChartAxisValue} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatChartValue(value), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
@@ -8015,11 +8029,12 @@ function DriverHoursDialog({ row, calendarRows, month, year, onClose }) {
   </div>, document.body);
 }
 
-function DriverPerformanceBreakdownCards({ summary }) {
+function DriverPerformanceBreakdownCards({ summary, onExpand }) {
   const formatConsumption = (value) => value === null ? "—" : `${value.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`;
+  const interactiveProps = (metric) => onExpand ? { role: "button", tabIndex: 0, "aria-label": `Ampliar ${metric === "averageConsumption" ? "consumo medio" : "facturación por hora"}`, onClick: () => onExpand(metric), onKeyDown: (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onExpand(metric); } } } : {};
   return <>
-    <div className="driver-performance__metric driver-performance__metric--breakdown"><IconChartBar aria-hidden="true" /><span><small>Consumo medio</small><strong>{formatConsumption(summary.averageConsumption)}</strong><span className="driver-performance__weeks">{summary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{formatConsumption(week.averageConsumption)}</b></span>)}</span></span></div>
-    <div className="driver-performance__metric driver-performance__metric--fuel driver-performance__metric--breakdown"><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{summary.hours > 0 ? formatCurrency(summary.billingPerHour) : "—"}</strong><span className="driver-performance__weeks">{summary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{week.billingPerHour === null ? "—" : formatCurrency(week.billingPerHour)}</b></span>)}</span></span></div>
+    <div className="driver-performance__metric driver-performance__metric--breakdown" {...interactiveProps("averageConsumption")}><IconChartBar aria-hidden="true" /><span><small>Consumo medio</small><strong>{formatConsumption(summary.averageConsumption)}</strong><span className="driver-performance__weeks">{summary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{formatConsumption(week.averageConsumption)}</b></span>)}</span></span></div>
+    <div className="driver-performance__metric driver-performance__metric--fuel driver-performance__metric--breakdown" {...interactiveProps("billingPerHour")}><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{summary.hours > 0 ? formatCurrency(summary.billingPerHour) : "—"}</strong><span className="driver-performance__weeks">{summary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{week.billingPerHour === null ? "—" : formatCurrency(week.billingPerHour)}</b></span>)}</span></span></div>
   </>;
 }
 
@@ -10079,7 +10094,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         throw offlineError;
       }
       setProgress(20);
-      const optimized = await prepareDocumentFile(file);
+      const optimized = driverId ? await prepareDriverPhotoFile(file) : await prepareDocumentFile(file);
       if (controller.signal.aborted) return;
       setPreparedFile(optimized);
       setProgress(35);
@@ -10359,118 +10374,4 @@ function InvoicePhotoWorkflow({ initialPlate, vehicles, onCancel, onSave }) {
   const preparePhoto = (file) => {
     if (!file) return;
     const validation = validateDocumentFile(file, "upload");
-    if (!validation.valid || validation.kind !== "image") {
-      setError(validation.valid ? "Selecciona una imagen JPG, PNG o WEBP para la factura." : validation.message);
-      return;
-    }
-    setError("");
-    setSelectedFile(file);
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      setPreview(String(reader.result));
-      setStage("review");
-    });
-    reader.addEventListener("error", () => setError("No se ha podido leer la fotografía. Elige otra imagen e inténtalo de nuevo."));
-    reader.readAsDataURL(file);
-  };
-
-  const updateLine = (id, field, value) => {
-    setLines((current) => current.map((line) => line.id === id ? { ...line, [field]: field === "amount" ? Number(value) : value } : line));
-  };
-
-  const save = () => {
-    const concepts = lines.map((line) => line.concept.trim());
-    const compactConcept = concepts.length > 2 ? `${concepts.slice(0, 2).join(", ")} +${concepts.length - 2}` : concepts.join(", ");
-    const displayDate = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${date}T12:00:00`)).replace(".", "");
-    onSave({
-      id: `FAC-${date.slice(0, 4)}-${String(Date.now()).slice(-4)}`,
-      date: displayDate,
-      provider: provider.trim(),
-      plate,
-      km: Number(odometer),
-      dateIso: date,
-      concept: compactConcept,
-      amount: total,
-      source: "Foto",
-      status: "Revisar",
-      items: lines.map(({ concept, amount }) => ({ concept: concept.trim(), amount: Number(amount) })),
-      file: selectedFile,
-    });
-  };
-
-  if (stage === "upload") {
-    return (
-      <div className="invoice-photo-upload">
-        <div className="upload-zone">
-          <span className="upload-zone__icon"><IconCamera size={29} /></span>
-          <strong>Fotografía la factura del taller</strong>
-          <p>La imagen se procesará para detectar la fecha, el vehículo y cada concepto con su precio. Podrás corregirlo todo antes de guardarlo.</p>
-          <div className="photo-actions">
-            <label className="primary-button" htmlFor="invoice-camera"><IconCamera size={18} />Hacer una foto</label>
-            <input id="invoice-camera" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => preparePhoto(event.target.files?.[0])} />
-            <label className="secondary-button" htmlFor="invoice-gallery"><IconUpload size={17} />Elegir imagen</label>
-            <input id="invoice-gallery" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => preparePhoto(event.target.files?.[0])} />
-          </div>
-          {error && <p className="invoice-photo-error" role="alert">{error}</p>}
-          <button className="text-button" onClick={() => { setFileName("factura_taller_28-07-2026.jpg"); setStage("review"); }}>Probar con una factura de ejemplo</button>
-        </div>
-        <div className="invoice-workflow-actions"><button className="secondary-button" onClick={onCancel}>Cancelar</button></div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="invoice-photo-review">
-      <div className="photo-review-layout">
-        <aside className="photo-preview">
-          {preview ? <img src={preview} alt="Fotografía de la factura seleccionada" /> : <span className="photo-preview__placeholder"><IconFileInvoice size={34} /><strong>Factura de ejemplo</strong></span>}
-          <div><IconCamera size={17} /><span><strong>{fileName}</strong><small>Imagen preparada para revisión</small></span></div>
-          <button className="text-button" onClick={() => { setError(""); setStage("upload"); }}>Cambiar fotografía</button>
-        </aside>
-
-        <section className="invoice-extraction">
-          <div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA 96% · Revisa los datos antes de guardar</small></span></div>
-          <div className="invoice-meta-grid">
-            <label>Fecha de factura<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-            <label>Vehículo<select value={plate} onChange={(event) => { const nextPlate = event.target.value; setPlate(nextPlate); setOdometer(vehicles.find((vehicle) => vehicle.plate === nextPlate)?.odometer ?? 0); }}>{vehicles.map((vehicle) => <option key={vehicle.plate} value={vehicle.plate}>{vehicle.plate} · {vehicle.model}</option>)}</select></label>
-            <label>Kilometraje del vehículo<input type="number" min="0" step="1" value={odometer} onChange={(event) => setOdometer(event.target.value)} /></label>
-            <label className="invoice-provider-field">Taller<input value={provider} onChange={(event) => setProvider(event.target.value)} /></label>
-          </div>
-
-          <div className="extracted-lines-header"><div><h3>Conceptos detectados</h3><p>Edita, elimina o añade líneas.</p></div><button className="secondary-button compact-button" onClick={() => setLines((current) => [...current, { id: `photo-line-${Date.now()}`, concept: "", amount: 0 }])}><IconPlus size={16} />Añadir concepto</button></div>
-          <div className="invoice-lines-scroll">
-            <table className="editable-invoice-table">
-              <caption className="sr-only">Conceptos y precios extraídos de la fotografía</caption>
-              <thead><tr><th>Fecha</th><th>Concepto</th><th>Precio</th><th><span className="sr-only">Eliminar</span></th></tr></thead>
-              <tbody>{lines.map((line) => <tr key={line.id}><td><time dateTime={date}>{new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${date}T12:00:00`))}</time></td><td><input aria-label={`Concepto ${line.id}`} value={line.concept} onChange={(event) => updateLine(line.id, "concept", event.target.value)} /></td><td><label className="price-input"><input aria-label={`Precio de ${line.concept || "nuevo concepto"}`} type="number" min="0" step="0.01" value={line.amount} onChange={(event) => updateLine(line.id, "amount", event.target.value)} /><span>€</span></label></td><td><button className="icon-button delete-line-button" onClick={() => setLines((current) => current.filter((candidate) => candidate.id !== line.id))} aria-label={`Eliminar ${line.concept || "concepto"}`}><IconTrash size={17} /></button></td></tr>)}</tbody>
-              <tfoot><tr><td colSpan={2}>Total factura</td><td colSpan={2}><strong>{formatCurrency(total)}</strong></td></tr></tfoot>
-            </table>
-          </div>
-        </section>
-      </div>
-      <div className="invoice-workflow-actions"><button className="secondary-button" onClick={onCancel}>Cancelar</button><button className="primary-button" disabled={!valid} onClick={save}><IconCheck size={18} />Guardar factura</button></div>
-    </div>
-  );
-}
-
-function AppModal({ modal, onClose, notify }) {
-  const item = modal.item;
-  const isReading = modal.type === "reading-review";
-  const isInvoice = modal.type === "invoice";
-  const titles = { reading: "Registrar una lectura", "reading-review": "Revisar lectura", "invoice-upload": "Subir factura", invoice: "Detalle de factura", support: "Contactar con soporte" };
-  const complete = (message) => { notify(message); onClose(); };
-  return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <header><div><span>Acción rápida</span><h2 id="modal-title">{titles[modal.type]}</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar ventana"><IconX size={21} /></button></header>
-        {isReading && <><div className="review-banner"><IconSparkles size={21} /><span><strong>Extracción completada</strong><small>Confianza IA {item.confidence}% · Revisa antes de validar</small></span></div><div className="form-grid"><label>Vehículo<input defaultValue={item.plate} /></label><label>Conductor<input defaultValue={item.driver} /></label><label>Odómetro total<input defaultValue={item.total} /></label><label>Kilómetros diarios<input defaultValue={item.daily} /></label></div></>}
-        {isInvoice && <><div className="invoice-preview"><IconFileInvoice size={30} /><span><strong>{item.id}</strong><small>{item.provider} · {item.date}</small></span><strong>{formatCurrency(item.amount)}</strong></div><dl><div><dt>Vehículo</dt><dd>{item.plate}</dd></div><div><dt>Concepto</dt><dd>{item.concept}</dd></div><div><dt>Origen</dt><dd>{item.source}</dd></div><div><dt>Estado</dt><dd><StatusBadge status={item.status} /></dd></div></dl></>}
-        {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
-        {modal.type === "invoice-upload" && <div className="upload-zone"><IconFileInvoice size={30} /><strong>Subir factura del taller</strong><p>Formatos PDF, JPG o PNG. SOBRE RUEDAS propondrá vehículo, concepto e importe.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar archivo</button></div>}
-        {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
-        <footer><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button></footer>
-      </section>
-    </div>
-  );
-}
+    if (!valida

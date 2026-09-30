@@ -94,9 +94,14 @@ export const validateDocumentFile = (file, source = "upload") => {
   return { valid: true, kind };
 };
 
-export const prepareDocumentFile = async (file) => {
+export const prepareDocumentFile = async (file, { outputMimeType = "image/jpeg", requireOutputType = false, allowHeic = false } = {}) => {
   const validation = validateDocumentFile(file);
-  if (!validation.valid || validation.kind !== "image" || typeof createImageBitmap !== "function" || typeof document === "undefined") return file;
+  const heicImage = allowHeic && (/^image\/hei[cf]$/i.test(String(file?.type ?? "")) || /\.hei[cf]$/i.test(String(file?.name ?? "")));
+  if (!heicImage && (!validation.valid || validation.kind !== "image")) return file;
+  if (typeof createImageBitmap !== "function" || typeof document === "undefined") {
+    if (requireOutputType && getDocumentMimeType(file) !== outputMimeType) throw new Error("Este navegador no puede convertir la fotografía a WebP.");
+    return file;
+  }
 
   let bitmap;
   try {
@@ -107,11 +112,17 @@ export const prepareDocumentFile = async (file) => {
     canvas.width = Math.max(1, Math.round(bitmap.width * scale));
     canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
-    if (!blob || (blob.size >= file.size && scale === 1)) return file;
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, outputMimeType, outputMimeType === "image/webp" ? 0.78 : 0.82));
+    if (!blob || blob.type !== outputMimeType) {
+      if (requireOutputType) throw new Error("Este navegador no ha podido convertir la fotografía a WebP.");
+      return file;
+    }
+    if (blob.size >= file.size && scale === 1 && (!requireOutputType || getDocumentMimeType(file) === outputMimeType)) return file;
     const baseName = String(file.name || "documento").replace(/\.[^.]+$/, "");
-    return new File([blob], `${baseName}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
-  } catch {
+    const extension = outputMimeType === "image/webp" ? "webp" : "jpg";
+    return new File([blob], `${baseName}.${extension}`, { type: outputMimeType, lastModified: Date.now() });
+  } catch (error) {
+    if (requireOutputType && getDocumentMimeType(file) !== outputMimeType) throw new Error("No se ha podido convertir la fotografía a WebP.", { cause: error });
     // A camera can provide a valid image that the optional browser decoder
     // cannot resize. Keep the original so the upload can still be reviewed
     // and the server remains the final validation boundary.
@@ -152,6 +163,8 @@ export const normalizeMaintenanceItems = (value) => {
     return [{ description, amount }];
   });
 };
+
+export const prepareDriverPhotoFile = (file) => prepareDocumentFile(file, { outputMimeType: "image/webp", requireOutputType: true, allowHeic: true });
 
 export const maintenanceConceptText = (items, fallback = "") => {
   const concepts = normalizeMaintenanceItems(items).map((item) => item.description);
@@ -241,6 +254,4 @@ export const fieldsToRecord = (fields = []) => Object.fromEntries(fields.map(({ 
 export const formatFileSize = (value) => {
   const size = Number(value) || 0;
   if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toLocaleString("es-ES", { maximumFractionDigits: 1 })} KB`;
-  return `${(size / (1024 * 1024)).toLocaleString("es-ES", { maximumFractionDigits: 1 })} MB`;
-};
+  if 
