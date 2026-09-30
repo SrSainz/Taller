@@ -10591,3 +10591,41 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
   .drivers-page--calendar-open .drivers-calendar-day { min-height: 52px; height: 52px; padding: 2px; }
   .drivers-page--calendar-open .drivers-calendar-day__values small { font-size: 8px; }
 }
+
+/* El área del calendario no debe desplazarse internamente al seleccionar una fecha. */
+.drivers-page--calendar-open .drivers-calendar-surface { overflow: clip; }
+
+/* Horario vive junto al nombre en el detalle del conductor. */
+.driver-performance__name-row { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.driver-performance__name-row > strong { color: var(--text); font-size: clamp(23px, 2.4vw, 34px); font-weight: 900; line-height: 1; text-transform: uppercase; }
+.driver-performance__hours-button { min-width: 88px; min-height: 30px; padding: 5px 13px; border: 0; border-radius: 5px; background: #050505; color: #e3362d; font: 900 12px/1 Inter, sans-serif; text-transform: uppercase; cursor: pointer; }
+.driver-performance__hours-button:hover, .driver-performance__hours-button:focus-visible { background: #252525; outline: 2px solid #e2b43b; outline-offset: 2px; }
+@media (max-width: 640px) {
+  .driver-performance__name-row { gap: 8px; }
+  .driver-performance__hours-button { min-width: 75px; min-height: 27px; padding: 5px 10px; font-size: 10px; }
+}
+
+/* Los dos indicadores personales comparten exactamente el formato del administrador. */
+.driver-mobile-preview-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.driver-mobile-preview-mini-grid > .driver-mobile-preview-history { grid-column: 1 / -1; order: 0; }
+.driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown { grid-column: auto; order: 1; min-height: 0; }
+.driver-mobile-preview-mini-grid .driver-performance__weeks { gap: 4px !important; }
+@media (max-width: 640px) {
+  .driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown { padding: 9px 7px; }
+  .driver-mobile-preview-mini-grid .driver-performance__weeks small { font-size: 8px; }
+  .driver-mobile-preview-mini-grid .driver-performance__weeks b { font-size: 9px; }
+}
+
+/* Las dos medias por coche son vistas individuales; el resumen mantiene cuatro series. */
+.report-chart--summary { grid-template-rows: minmax(0, 1fr) 34px; }
+.report-chart-legend { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.report-chart-legend__button--consumptionAverage { --legend-color: #1976c9; --legend-background: #eef7ff; }
+.report-chart-legend__button--billingPerHour { --legend-color: #c3382f; --legend-background: #fff0ef; }
+.report-chart-legend__swatch--consumptionAverage { background: #1976c9; }
+.report-chart-legend__swatch--billingPerHour { background: #c3382f; }
+@media (max-width: 720px) {
+  .report-chart--summary { grid-template-rows: minmax(0, 1fr) 52px; }
+  .report-chart-legend { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 3px; }
+  .report-chart-legend__button { min-height: 0; padding: 3px 2px; font-size: 6px; white-space: normal; line-height: 1.05; }
+  .report-chart-legend__button > span { overflow: visible; text-overflow: clip; }
+}

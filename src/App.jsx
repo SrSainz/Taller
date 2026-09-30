@@ -126,11 +126,15 @@ const chartMetricOptions = [
   { value: "maintenance", label: "Mantenimiento" },
   { value: "fuel", label: "Combustible" },
   { value: "net", label: "Neto" },
+  { value: "consumptionAverage", label: "Consumo medio" },
+  { value: "billingPerHour", label: "Fact. por hora" },
 ];
 
 const selectableChartMetrics = chartMetricOptions.filter((option) => option.value !== "summary");
 const allChartMetricValues = selectableChartMetrics.map((option) => option.value);
-const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c" };
+const summaryChartMetricValues = ["billing", "maintenance", "fuel", "net"];
+const driverAverageChartMetrics = new Set(["consumptionAverage", "billingPerHour"]);
+const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c", consumptionAverage: "#1976c9", billingPerHour: "#c3382f" };
 
 const splitChartAxisLabel = (value) => {
   const words = String(value ?? "").trim().split(/\s+/).filter(Boolean);
@@ -151,7 +155,7 @@ function ChartAxisTick({ x, y, payload, fontSize = 8, fontWeight = 700, fill = "
   );
 }
 
-function ChartBarValueLabel({ x, y, width, height, value, textFill = "#fff" }) {
+function ChartBarValueLabel({ x, y, width, height, value, textFill = "#fff", formatter = formatShortCurrency }) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue) || numericValue === 0 || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y)) || !Number.isFinite(Number(width)) || !Number.isFinite(Number(height))) return null;
   const barWidth = Number(width);
@@ -160,7 +164,7 @@ function ChartBarValueLabel({ x, y, width, height, value, textFill = "#fff" }) {
   const centerY = Number(y) + barHeight / 2;
   const vertical = true;
   const fontSize = Math.max(5.8, Math.min(11.5, barWidth * 0.38, barHeight * 0.28));
-  const label = formatShortCurrency(numericValue);
+  const label = formatter(numericValue);
   const stroke = textFill === "#fff" ? "rgba(0,0,0,.2)" : "rgba(255,255,255,.72)";
   return (
     <text
@@ -4541,6 +4545,14 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     };
   }, [activeProfileId, documents, driverBillingStatsByDate, entries, profile.full_name, profileVehiclePlate, selectedDate, vehicle, weeklyManualValues]);
 
+  const driverPerformanceSummary = useMemo(() => {
+    if (!vehicle) return getDriverPerformanceSummary({ daysInMonth: new Date(driverPeriodYear, driverPeriodMonth + 1, 0).getDate(), year: driverPeriodYear, month: driverPeriodMonth });
+    const periodKey = `${driverPeriodYear}-${String(driverPeriodMonth + 1).padStart(2, "0")}`;
+    const row = { driver: profile.full_name, driverId: activeProfileId, plate: profileVehiclePlate, revenue: periodSummary.monthlyBilling, billingByPeriod: { [periodKey]: periodSummary.monthlyBilling }, entries, hasBillingOverride: entries.some((item) => item.billing_override === true && String(item.entry_date ?? "").startsWith(periodKey)), trips: 0 };
+    const calendarRows = getDriverCalendarRows(vehicle, row, driverPeriodMonth, driverPeriodYear, documents);
+    return getDriverPerformanceSummary({ calendarRows, billing: periodSummary.monthlyBilling, daysInMonth: calendarRows.length, year: driverPeriodYear, month: driverPeriodMonth });
+  }, [activeProfileId, documents, driverPeriodMonth, driverPeriodYear, entries, periodSummary.monthlyBilling, profile.full_name, profileVehiclePlate, vehicle]);
+
   const selectedDayDocumentData = useMemo(() => selectedDayDocuments.reduce((summary, document) => {
     const data = document.extracted_data ?? {};
     const billingStats = document.category === "billing" ? getDriverBillingDocumentStats(document) : null;
@@ -5102,6 +5114,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     profile={profile}
     vehicle={vehicle}
     periodSummary={periodSummary}
+    driverPerformanceSummary={driverPerformanceSummary}
     driverPeriodMonth={driverPeriodMonth}
     driverPeriodYear={driverPeriodYear}
     driverPeriodYears={driverPeriodYears}
@@ -5320,7 +5333,7 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, onRefresh, refreshing = false, isStandalone = false, profile, vehicle, periodSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverCalendarDocuments = {}, driverDayDocumentsLoading = false, onDeleteDriverDocument, driverEditableRange, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, onRefresh, refreshing = false, isStandalone = false, profile, vehicle, periodSummary, driverPerformanceSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverCalendarDocuments = {}, driverDayDocumentsLoading = false, onDeleteDriverDocument, driverEditableRange, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 440;
   const kmChartMax = 45;
   const kmChartTicks = [0, 15, 20, 25, 30, 35, 40, 45];
@@ -5894,9 +5907,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
           </div>
           {recordDeleteError && <p className="driver-mobile-record-delete-error" role="alert"><IconAlertTriangle size={14} />{recordDeleteError}</p>}
           <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
-            <article className="driver-mobile-preview-km driver-mobile-preview-chart-card" role="button" tabIndex={0} aria-label="KM/H realizados frente al resto de conductores"><div className="driver-mobile-preview-chart-card__heading">KM/H REALIZADOS VS RESTO</div><div className="driver-mobile-preview-chart-card__summary"><strong>{weeklyKmPerConnectionHourAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h</strong><span>Resto conductores: {otherDriversKmPerConnectionHourAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h</span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyKmPerConnectionHourData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverKmPerConnectionHour" name="Este conductor" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherKmPerConnectionHour" name="Resto conductores" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-preview-chart-card__legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
             <article className="driver-mobile-preview-history" aria-label="Facturación mensual histórica"><div className="driver-mobile-history-scroll" role="region" tabIndex="0" aria-label="Histórico de facturación mensual de los últimos doce meses"><div className="driver-mobile-history-bars" role="list">{compactMonthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></div></article>
-            <article className="driver-mobile-preview-consumption" aria-label="Consumo semanal comparado"><div className="driver-mobile-consumption-compare"><span>Este conductor<strong>{weeklyConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span><em className={consumptionDifference <= 0 ? "is-better" : "is-higher"}>{consumptionDifference > 0 ? "+" : ""}{consumptionDifference.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</em><span>Resto<strong>{otherDriversConsumptionAverage.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km</strong></span></div><ResponsiveContainer width="100%" height={58}><LineChart data={weeklyConsumptionData} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}><Line type="monotone" dataKey="driverConsumption" stroke="#2c6de9" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="otherConsumption" stroke="#9aaac0" strokeWidth={1.7} strokeDasharray="4 3" dot={false} /></LineChart></ResponsiveContainer><div className="driver-mobile-consumption-legend"><span><i className="is-driver" />Tú</span><span><i className="is-fleet" />Resto</span></div></article>
+            <DriverPerformanceBreakdownCards summary={driverPerformanceSummary} />
           </div>
           <div className="driver-mobile-mini-grid">
             <article className="driver-mobile-mini-card driver-mobile-mini-card--billing-history"><div className="driver-mobile-mini-card__header"><div><strong>Facturación histórica</strong><span>{formatCurrency(activeBillingMonth.amount)} · este conductor</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("billing")} aria-label="Abrir ejemplo de facturación"><img src={driverReferenceImages.billing} alt="" loading="lazy" /><span>Ejemplo</span></button></div><div className="driver-mobile-billing-history" role="list" aria-label="Histórico mensual de facturación de los últimos doce meses">{compactMonthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-billing-history__month${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><strong>{formatDriverBarAmount(month.amount)}</strong></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></article>
@@ -7181,6 +7193,23 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       .filter((vehicle) => (unassignedBillingByPlate[vehicle.plate] ?? 0) > 0)
       .map((vehicle) => ({ label: "Sin conductor", detail: vehicle.plate, value: unassignedBillingByPlate[vehicle.plate] })),
   ];
+  const driverPerformanceByPlate = new Map();
+  billingRows.forEach((row) => {
+    const vehicle = vehicles.find((candidate) => candidate.plate === row.plate);
+    if (!vehicle) return;
+    const calendarRows = getDriverCalendarRows(vehicle, row, reportMonth, reportYear, documents, transactions);
+    const summary = getDriverPerformanceSummary({ calendarRows, billing: row.revenue, daysInMonth: periodDays, year: reportYear, month: reportMonth });
+    const values = driverPerformanceByPlate.get(row.plate) ?? { consumptionAverage: [], billingPerHour: [] };
+    if (summary.averageConsumption !== null) values.consumptionAverage.push(summary.averageConsumption);
+    if (summary.hours > 0) values.billingPerHour.push(summary.billingPerHour);
+    driverPerformanceByPlate.set(row.plate, values);
+  });
+  const averageDriverMetricByVehicle = (metric) => vehicles.map((vehicle) => {
+    const values = driverPerformanceByPlate.get(vehicle.plate)?.[metric] ?? [];
+    return { label: vehicle.plate, detail: vehicle.model, value: values.length ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2)) : null };
+  });
+  const consumptionAverageChartData = averageDriverMetricByVehicle("consumptionAverage");
+  const billingPerHourChartData = averageDriverMetricByVehicle("billingPerHour");
   const chartVehicleStats = vehicles.map((vehicle, index) => ({ vehicle, cost: vehicleStats[index]?.cost ?? 0 }));
   const fuelChartData = chartVehicleStats.map(({ vehicle, cost }, index) => ({
     label: vehicle.plate,
@@ -7295,9 +7324,21 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     maintenance: { title: "MANTENIMIENTO POR COCHE", description: "", color: MAINTENANCE_COLOR, data: maintenanceChartData },
     fuel: { title: "COMBUSTIBLE POR COCHE", description: "", color: "#df4538", data: fuelChartData },
     net: { title: "BENEFICIO NETO POR COCHE", description: "", color: "#28923c", data: netChartData },
+    consumptionAverage: { title: "CONSUMO MEDIO POR COCHE", description: "", color: chartMetricColors.consumptionAverage, data: consumptionAverageChartData },
+    billingPerHour: { title: "FACTURACIÓN POR HORA POR COCHE", description: "", color: chartMetricColors.billingPerHour, data: billingPerHourChartData },
   };
   const activeChart = chartOptions[chartMetric];
-  const visibleChartMetrics = selectedChartMetrics.length > 0 ? selectedChartMetrics : allChartMetricValues;
+  const formatChartValue = (value) => chartMetric === "consumptionAverage"
+    ? `${Number(value).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`
+    : chartMetric === "billingPerHour"
+      ? `${Number(value).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} €/h`
+      : formatCurrency(Number(value));
+  const formatChartAxisValue = (value) => chartMetric === "consumptionAverage"
+    ? Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })
+    : chartMetric === "billingPerHour"
+      ? `${Math.round(Number(value))}`
+      : `${Math.round(Number(value) / 1000)}k`;
+  const visibleChartMetrics = selectedChartMetrics.length > 0 ? selectedChartMetrics : summaryChartMetricValues;
   const chartIconMetricColors = selectedChartMetrics.length === 0 ? { ...chartMetricColors, billing: SUMMARY_CHART_COLOR } : chartMetricColors;
   const chartIconBackground = visibleChartMetrics.length === 1
     ? chartIconMetricColors[visibleChartMetrics[0]]
@@ -7388,11 +7429,15 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   };
   const toggleLegendMetric = (event, metric) => {
     event.stopPropagation();
+    if (driverAverageChartMetrics.has(metric)) {
+      selectChartMetrics(selectedChartMetrics.includes(metric) ? [] : [metric]);
+      return;
+    }
     const nextMetrics = selectedChartMetrics.length === 0
       ? [metric]
       : selectedChartMetrics.includes(metric)
         ? selectedChartMetrics.filter((candidate) => candidate !== metric)
-        : [...selectedChartMetrics, metric];
+        : [...selectedChartMetrics.filter((candidate) => !driverAverageChartMetrics.has(candidate)), metric];
     selectChartMetrics(nextMetrics);
   };
   const handleSaveAlexPayroll = async (report, rawPayroll) => {
@@ -7546,8 +7591,8 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                       {selectedChartBar && <ReferenceArea x1={selectedChartBar} x2={selectedChartBar} fill="#edf0ee" fillOpacity={0.9} stroke="none" ifOverflow="extendDomain" zIndex={-20} />}
                       <CartesianGrid stroke="#e9efed" vertical={false} />
                       <XAxis dataKey="label" interval={0} height={26} tickMargin={2} tick={<ChartAxisTick fontSize={8} fontWeight={chartMetric === "billing" ? 500 : 750} />} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
-                      <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatCurrency(Number(value)), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
+                      <YAxis tickFormatter={formatChartAxisValue} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
+                      <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatChartValue(value), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
                         {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : BILLING_COLOR} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="billing" content={<ChartBarValueLabel textFill={selectedChartMetrics.length === 0 ? "#fff" : "#123e5f"} />} /></Bar>}
@@ -7555,7 +7600,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                         {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill="#df4538" maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="fuel" content={<ChartBarValueLabel />} /></Bar>}
                         {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="net" content={<ChartBarValueLabel />} /></Bar>}
                       </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} minPointSize={10} isAnimationActive={false} activeBar={false} onClick={selectChartBar}>
-                        <LabelList dataKey="value" content={<ChartBarValueLabel textFill={chartMetric === "billing" ? "#123e5f" : "#fff"} />} />
+                        <LabelList dataKey="value" content={<ChartBarValueLabel textFill={chartMetric === "billing" ? "#123e5f" : "#fff"} formatter={chartMetric === "consumptionAverage" || chartMetric === "billingPerHour" ? formatChartValue : formatShortCurrency} />} />
                         {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
                       </Bar>}
                     </BarChart>
@@ -7968,6 +8013,14 @@ function DriverHoursDialog({ row, calendarRows, month, year, onClose }) {
       <footer><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="primary-button" onClick={() => window.print()}><IconPrinter size={17} />Imprimir</button></footer>
     </section>
   </div>, document.body);
+}
+
+function DriverPerformanceBreakdownCards({ summary }) {
+  const formatConsumption = (value) => value === null ? "—" : `${value.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`;
+  return <>
+    <div className="driver-performance__metric driver-performance__metric--breakdown"><IconChartBar aria-hidden="true" /><span><small>Consumo medio</small><strong>{formatConsumption(summary.averageConsumption)}</strong><span className="driver-performance__weeks">{summary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{formatConsumption(week.averageConsumption)}</b></span>)}</span></span></div>
+    <div className="driver-performance__metric driver-performance__metric--fuel driver-performance__metric--breakdown"><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{summary.hours > 0 ? formatCurrency(summary.billingPerHour) : "—"}</strong><span className="driver-performance__weeks">{summary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{week.billingPerHour === null ? "—" : formatCurrency(week.billingPerHour)}</b></span>)}</span></span></div>
+  </>;
 }
 
 function DriversView({ vehicles, driverEntries = [], transactions = [], documents = [], setModal, onSaveDriverDay, onDeleteDriverDocument, onReassignDriverDocumentDate, navigationTarget = null, onNavigationTargetConsumed, reportMonth: controlledReportMonth, reportYear: controlledReportYear, onReportMonthChange, onReportYearChange, adminUserId = "", realtimeRevision = 0, realtimeTable = "" }) {
@@ -8409,7 +8462,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           const tolls = monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0);
           const rowCommission = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, tips, tolls, payroll: getDriverPayroll(row) });
           return <article className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key}>
-          <span className="driver-list-card__identity"><button type="button" className="driver-list-card__select" onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong></span></button><button type="button" className="driver-list-card__hours-button" onClick={() => setHoursDriverKey(row.key)} aria-label={`Abrir registro mensual de jornada de ${row.driver}`}>H</button><button type="button" className="driver-list-card__commission-button" onClick={() => setCommissionDriverKey(row.key)} aria-label={`Ver total a cobrar en efectivo de ${row.driver}. Importe actual ${formatCurrency(rowCommission.totalToCollect)}`}><strong>{formatCurrency(rowCommission.totalToCollect)}</strong></button></span>
+          <span className="driver-list-card__identity"><button type="button" className="driver-list-card__select" onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong></span></button><button type="button" className="driver-list-card__commission-button" onClick={() => setCommissionDriverKey(row.key)} aria-label={`Ver total a cobrar en efectivo de ${row.driver}. Importe actual ${formatCurrency(rowCommission.totalToCollect)}`}><strong>{formatCurrency(rowCommission.totalToCollect)}</strong></button></span>
           <button type="button" className="driver-list-card__metric driver-list-card__metric--billing" onClick={() => selectDriver(row)} aria-label={`Ver calendario de ${row.driver}. Facturación ${formatCurrency(row.revenue)}`}><strong>{formatCurrency(row.revenue)}</strong></button>
           <button type="button" className="driver-list-card__metric driver-list-card__metric--fuel" onClick={() => selectDriver(row)} aria-label={`Ver calendario de ${row.driver}. Consumo ${formatCurrency(row.fuelCost)}`}><strong>{formatCurrency(row.fuelCost)}</strong></button>
         </article>})}
@@ -8432,7 +8485,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       {selectedDriver && !calendarExpanded && <section className="driver-performance" aria-label={`Resumen mensual de ${selectedDriver.driver}`}>
         <header className="driver-performance__header">
           <span className="driver-performance__avatar" aria-hidden="true">{getDriverAvatarPath(selectedDriver.driver) ? <img src={getDriverAvatarPath(selectedDriver.driver)} alt="" /> : String(selectedDriver.driver).slice(0, 1)}</span>
-          <span className="driver-performance__identity"><strong>{selectedDriver.driver}</strong><small>Conductor {driverRows.findIndex((row) => row.key === selectedDriver.key) + 1} de {driverRows.length}</small></span>
+          <span className="driver-performance__identity"><span className="driver-performance__name-row"><strong>{selectedDriver.driver}</strong><button type="button" className="driver-performance__hours-button" onClick={() => setHoursDriverKey(selectedDriver.key)} aria-label={`Abrir horario de ${selectedDriver.driver}`}>Horario</button></span></span>
           <button type="button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar detalle de ${selectedDriver.driver}`}><IconChevronUp size={22} /></button>
         </header>
         <div className="driver-performance__grid">
@@ -8440,8 +8493,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           <div className="driver-performance__metric"><IconFileInvoice aria-hidden="true" /><span><small>Facturación</small><strong>{formatCurrency(selectedDriver.revenue)}</strong></span></div>
           <div className="driver-performance__metric driver-performance__metric--fuel"><IconGasStation aria-hidden="true" /><span><small>Consumo</small><strong>{formatCurrency(selectedDriver.fuelCost)}</strong></span></div>
           <div className="driver-performance__metric" title="Media de cuatro indicadores, cada uno limitado al 100 %: facturación por hora (30 €/h), facturación por kilómetro (0,80 €/km), consumo (5 l/100 km) y gasto de combustible (10 % de la facturación). Requiere todos los datos."><IconGauge aria-hidden="true" /><span><small>Eficiencia</small><strong>{performanceSummary.efficiency === null ? "—" : `${performanceSummary.efficiency} %`}</strong></span></div>
-          <div className="driver-performance__metric driver-performance__metric--breakdown"><IconChartBar aria-hidden="true" /><span><small>Consumo medio</small><strong>{performanceSummary.averageConsumption === null ? "—" : `${performanceSummary.averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`}</strong><span className="driver-performance__weeks">{performanceSummary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{week.averageConsumption === null ? "—" : `${week.averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`}</b></span>)}</span></span></div>
-          <div className="driver-performance__metric driver-performance__metric--fuel driver-performance__metric--breakdown"><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{formatCurrency(performanceSummary.billingPerHour)}</strong><span className="driver-performance__weeks">{performanceSummary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{week.billingPerHour === null ? "—" : formatCurrency(week.billingPerHour)}</b></span>)}</span></span></div>
+          <DriverPerformanceBreakdownCards summary={performanceSummary} />
         </div>
       </section>}
       {expandedDayPanel && selectedDriver && selectedDayDetail && createPortal(<div className="driver-day-panel-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedDayPanel(""); }}><section className="driver-day-panel-overlay__surface" role="dialog" aria-modal="true" aria-label={`${expandedDayPanel === "billing" ? "Facturación" : expandedDayPanel === "fuel" ? "Repostaje" : "Kilómetros"} ampliado de ${selectedDriver.driver}`}>{renderDayPanel(expandedDayPanel, true)}</section></div>, document.body)}
