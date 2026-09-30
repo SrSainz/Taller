@@ -53,7 +53,7 @@ const authenticateAdmin = async (request: Request) => {
   return { admin: createClient(supabaseUrl, serviceRoleKey), user };
 };
 
-const profileFields = "id, full_name, role, email, vehicle_plate, active, must_change_password, effective_from, effective_to, replaced_by, replaces_profile_id, created_at, updated_at";
+const profileFields = "id, full_name, role, email, vehicle_plate, avatar_path, active, must_change_password, effective_from, effective_to, replaced_by, replaces_profile_id, created_at, updated_at";
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -210,6 +210,14 @@ Deno.serve(async (request) => {
       updates.vehicle_plate = nextVehicle;
     }
     if (payload.active !== undefined) updates.active = Boolean(payload.active);
+    if (payload.avatarPath !== undefined) {
+      const avatarPath = String(payload.avatarPath ?? "");
+      const segments = avatarPath.split("/");
+      if (segments.length !== 3 || segments[0] !== "profile-photos" || segments[1] !== userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$/i.test(segments[2])) {
+        return json({ error: "La ruta de la foto de perfil no es válida." }, 400);
+      }
+      updates.avatar_path = avatarPath;
+    }
     if (Object.keys(authUpdates).length > 0) {
       const { error: authError } = await auth.admin.auth.admin.updateUserById(userId, authUpdates);
       if (authError) return json({ error: authError.message }, 400);
