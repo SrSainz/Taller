@@ -99,6 +99,7 @@ import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as get
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getMonthlyDriverBilling } from "./driverBillingTotals";
+import { driverProfileCoversWholePeriod, isDriverProfileValidDuringPeriod, isDriverProfileValidOnDate, profileDateForPeriod } from "./driverProfilePeriods";
 import { getDriverPerformanceSummary } from "./driverPerformanceSummary";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
@@ -236,6 +237,16 @@ const orderDriverProfilesForVehicle = (vehicle, profiles = []) => {
     .filter(Boolean);
   const matchedProfiles = new Set(orderedProfiles);
   return [...orderedProfiles, ...sortedProfiles.filter((driver) => !matchedProfiles.has(driver))];
+};
+const getBrowserLocalDateKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+const formatDriverProfileDate = (value) => {
+  const key = profileDateForPeriod(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || key === "1900-01-01") return "";
+  const [year, month, day] = key.split("-");
+  return `${day}/${month}/${year}`;
 };
 const orderAdminDriverCardsForVehicle = (vehicle, profiles = []) => {
   const orderedProfiles = [...profiles];
@@ -1313,6 +1324,8 @@ const normalizeDriverEntryRecord = (entry = {}) => ({
 const normalizeDriverProfileRecord = (driver = {}) => ({
   ...driver,
   vehicle_plate: canonicalizeVehiclePlate(driver.vehicle_plate),
+  effective_from: profileDateForPeriod(driver.effective_from),
+  effective_to: profileDateForPeriod(driver.effective_to) || null,
 });
 const normalizeMaintenanceReportRecord = (report = {}) => ({
   ...report,
@@ -1614,26 +1627,38 @@ const getImportedBillingByPeriod = (driver) => {
 
 const getDriverBillingRows = (vehicles, driverEntries, month, year, documents = []) => vehicles
   .filter((vehicle) => vehicle.use === "Profesional")
-  .flatMap((vehicle) => vehicle.drivers.map((driver, driverIndex) => {
-    const profile = vehicle.driverProfiles?.[driverIndex];
+  .flatMap((vehicle) => {
+    const profiles = vehicle.allDriverProfiles ?? vehicle.driverProfiles ?? [];
+    const rows = profiles.length ? profiles : vehicle.drivers.map((full_name) => ({ full_name, effective_from: "1900-01-01" }));
+    return rows.map((profile, driverIndex) => {
+    const driver = profile?.full_name ?? vehicle.drivers[driverIndex];
+    const periodStart = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    const periodEnd = `${year}-${String(month + 1).padStart(2, "0")}-${String(new Date(year, month + 1, 0).getDate()).padStart(2, "0")}`;
+    if (!isDriverProfileValidDuringPeriod(profile, periodStart, periodEnd)) return null;
     const allEntries = (driverEntries ?? []).filter((entry) => profile?.id && entry.driver_id === profile.id && entry.entry_date);
-    const entries = allEntries.filter((entry) => {
+    const rangedEntries = allEntries.filter((entry) => isDriverProfileValidOnDate(profile, entry.entry_date));
+    const entries = rangedEntries.filter((entry) => {
       const entryDate = new Date(`${entry.entry_date}T12:00:00`);
       return entryDate.getMonth() === month && entryDate.getFullYear() === year;
     });
-    const billingStatsByDate = getDriverBillingStatsByDate(documents, profile?.id, allEntries);
+    const billingStatsByDate = getDriverBillingStatsByDate(documents, profile?.id, rangedEntries);
     const billingDocumentStats = [...billingStatsByDate.values()].filter((stats) => {
+      if (!isDriverProfileValidOnDate(profile, stats.dateKey)) return false;
       const date = new Date(`${stats.dateKey}T12:00:00`);
       return date.getMonth() === month && date.getFullYear() === year;
     });
     const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
     const importedBillingByPeriod = getImportedBillingByPeriod(driver);
     const importedTipsByPeriod = getImportedTipsByPeriod(driver);
-    const importedRevenue = importedBillingByPeriod?.[periodKey] ?? 0;
-    const importedTips = importedTipsByPeriod?.[periodKey] ?? 0;
+    const coversEntirePeriod = driverProfileCoversWholePeriod(profile, periodStart, periodEnd);
+    const importedRevenue = coversEntirePeriod ? importedBillingByPeriod?.[periodKey] ?? 0 : 0;
+    const importedTips = coversEntirePeriod ? importedTipsByPeriod?.[periodKey] ?? 0 : 0;
     const { amount: revenue, hasRecordedBilling } = getMonthlyDriverBilling({ entries, billingStatsByDate, periodKey, importedBilling: importedRevenue });
     const hasBillingOverride = entries.some((entry) => entry.billing_override === true);
-    const billingByPeriod = importedBillingByPeriod ? { ...importedBillingByPeriod, ...(hasRecordedBilling ? { [periodKey]: revenue } : {}) } : null;
+    const eligibleImportedBillingByPeriod = importedBillingByPeriod
+      ? Object.fromEntries(Object.entries(importedBillingByPeriod).filter(([period]) => driverProfileCoversWholePeriod(profile, `${period}-01`, `${period}-${String(new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0).getDate()).padStart(2, "0")}`)))
+      : null;
+    const billingByPeriod = eligibleImportedBillingByPeriod ? { ...eligibleImportedBillingByPeriod, ...(hasRecordedBilling ? { [periodKey]: revenue } : {}) } : null;
     const importedPeriodEntry = !hasRecordedBilling && importedRevenue > 0
       ? [{ id: `${String(driver).toLocaleLowerCase("es").replace(/\s+/g, "-")}-billing-${periodKey}`, driver_id: profile?.id ?? "", vehicle_plate: vehicle.plate, entry_date: `${periodKey}-01`, billing: importedRevenue, cash_collected: 0, tips: importedTips, tolls: 0, fuel_cost: 0, fuel_liters: 0, other_expenses: 0, odometer_km: 0, isImportedBilling: true }]
       : [];
@@ -1645,17 +1670,18 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year, documents = 
       model: vehicle.model,
       trips: billingDocumentStats.reduce((sum, stats) => sum + stats.trips, 0),
       revenue,
-      entries: [...allEntries, ...importedPeriodEntry],
+      entries: [...rangedEntries, ...importedPeriodEntry],
       billingDocumentStats,
       billingByPeriod,
       hasBillingOverride,
       billingSource: hasRecordedBilling ? "ledger" : importedRevenue > 0 ? "document" : "none",
     };
-  }));
+    }).filter(Boolean);
+  });
 
 const getHistoricalBillingRowsForPeriod = (vehicles, driverEntries = [], month, year) => {
   const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
-  const profiles = vehicles.flatMap((vehicle) => vehicle.driverProfiles ?? []);
+  const profiles = vehicles.flatMap((vehicle) => vehicle.allDriverProfiles ?? vehicle.driverProfiles ?? []);
   return allHistoricalBillingSources.map((source) => {
     const record = source.summary?.[periodKey];
     const sourcePlate = canonicalizeVehiclePlate(source.vehiclePlate || historicalDriverVehicleByKey[source.key] || "");
@@ -1663,6 +1689,9 @@ const getHistoricalBillingRowsForPeriod = (vehicles, driverEntries = [], month, 
       ?? vehicles.find((candidate) => candidate.use === "Profesional" && candidate.drivers.some((driver) => getImportedDriverKey(driver) === source.key));
     const sourceDriverKey = getImportedDriverKey(source.label);
     const profile = profiles.find((candidate) => getImportedDriverKey(candidate.full_name) === sourceDriverKey);
+    const periodStart = `${periodKey}-01`;
+    const periodEnd = `${periodKey}-${String(new Date(year, month + 1, 0).getDate()).padStart(2, "0")}`;
+    if (profile && !driverProfileCoversWholePeriod(profile, periodStart, periodEnd)) return null;
     const recordedAmount = driverEntries
       .filter((entry) => profile?.id && entry.driver_id === profile.id && String(entry.entry_date ?? "").startsWith(periodKey))
       .reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0);
@@ -1690,7 +1719,10 @@ const getHistoricalBillingRowsForPeriod = (vehicles, driverEntries = [], month, 
 };
 
 const getNetDriverRowsForVehicle = ({ vehicle, billingRows = [], historicalBillingRows = [], includeHistoricalDrivers = false }) => {
-  const driverNames = vehicle.driverProfiles?.length
+  const monthRowsForVehicle = billingRows.filter((row) => row.plate === vehicle.plate);
+  const driverNames = monthRowsForVehicle.length
+    ? monthRowsForVehicle.map((row) => row.driver)
+    : vehicle.driverProfiles?.length
     ? vehicle.driverProfiles.slice(0, 2).map((profile) => profile.full_name)
     : historicalDriverNamesByPlate[vehicle.plate] ?? vehicle.drivers.slice(0, 2);
   const currentDriverRows = driverNames.map((driver, index) => {
@@ -1700,7 +1732,7 @@ const getNetDriverRowsForVehicle = ({ vehicle, billingRows = [], historicalBilli
     // mientras que una fila "none" representa ausencia de datos.
     const liveRow = billingRows.find((row) => row.plate === vehicle.plate && getImportedDriverKey(row.driver) === driverKey && row.billingSource !== "none");
     const historicalRow = historicalBillingRows.find((row) => getImportedDriverKey(row.driver) === driverKey);
-    const profile = vehicle.driverProfiles?.find((candidate) => getImportedDriverKey(candidate.full_name) === driverKey);
+    const profile = (vehicle.allDriverProfiles ?? vehicle.driverProfiles ?? []).find((candidate) => getImportedDriverKey(candidate.full_name) === driverKey);
     if (liveRow) return { ...liveRow, plate: vehicle.plate, model: vehicle.model };
     if (historicalRow) return { ...historicalRow, driverId: profile?.id ?? historicalRow.driverId, plate: vehicle.plate, model: vehicle.model };
     return { key: `${vehicle.plate}-${driver}-${index}`, driver, driverId: profile?.id ?? "", plate: vehicle.plate, model: vehicle.model, trips: 0, revenue: 0, entries: [], billingSource: "none" };
@@ -3202,16 +3234,32 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     };
   }).map((vehicle) => {
     if (vehicle.use !== "Profesional") return { ...vehicle, driverProfiles: [] };
-    const assignedProfiles = orderDriverProfilesForVehicle(vehicle, driverProfiles.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate));
-    if (!assignedProfiles.length) return { ...vehicle, driverProfiles: [] };
-    const resolvedDrivers = vehicle.drivers.map((seedDriver, index) => assignedProfiles[index]?.full_name || seedDriver);
-    const extraDrivers = assignedProfiles.slice(vehicle.drivers.length).map((driver) => driver.full_name);
-    const driverNameMap = new Map(vehicle.drivers.map((seedDriver, index) => [seedDriver, resolvedDrivers[index]]));
+    const allAssignedProfiles = orderDriverProfilesForVehicle(vehicle, driverProfiles.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate));
+    const assignedProfiles = orderDriverProfilesForVehicle(vehicle, allAssignedProfiles.filter((driver) => driver.active));
+    if (!allAssignedProfiles.length) return { ...vehicle, driverProfiles: [], allDriverProfiles: [] };
+    const resolvedDrivers = assignedProfiles.length ? assignedProfiles.map((driver) => driver.full_name) : vehicle.drivers;
+    const replacementsByProfileId = new Map(allAssignedProfiles.filter((profile) => profile.replaces_profile_id).map((profile) => [profile.replaces_profile_id, profile]));
+    const resolveFormerDriver = (profile) => {
+      let current = profile;
+      let visited = new Set();
+      while (current?.id && !visited.has(current.id)) {
+        visited.add(current.id);
+        const replacement = replacementsByProfileId.get(current.id);
+        if (!replacement) break;
+        current = replacement;
+      }
+      return current?.full_name ?? profile?.full_name;
+    };
+    const driverNameMap = new Map(vehicle.drivers.map((seedDriver) => {
+      const originalProfile = allAssignedProfiles.find((profile) => normalizeDriverAvatarKey(profile.full_name) === normalizeDriverAvatarKey(seedDriver));
+      return [seedDriver, resolveFormerDriver(originalProfile) ?? seedDriver];
+    }));
     const resolveDriver = (name) => driverNameMap.get(name) ?? name;
     return {
       ...vehicle,
-      drivers: [...resolvedDrivers, ...extraDrivers],
+      drivers: resolvedDrivers,
       driverProfiles: assignedProfiles,
+      allDriverProfiles: allAssignedProfiles,
       shifts: vehicle.shifts.map((shift) => ({ ...shift, driver: resolveDriver(shift.driver) })),
       fuelSchedule: vehicle.fuelSchedule?.map((shift) => ({ ...shift, driver: resolveDriver(shift.driver) })),
       monthlyFuel: vehicle.monthlyFuel?.map((entry) => entry.driver ? { ...entry, driver: resolveDriver(entry.driver) } : entry),
@@ -6078,6 +6126,8 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
   const [form, setForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", password: "" });
   const [editingDriverId, setEditingDriverId] = useState("");
   const [driverProfileForm, setDriverProfileForm] = useState({ fullName: "", email: "", vehiclePlate: driverVehicleOptions[0]?.plate ?? "", active: true });
+  const [replacementOpen, setReplacementOpen] = useState(false);
+  const [replacementForm, setReplacementForm] = useState({ fullName: "", email: "", password: "", effectiveFrom: getBrowserLocalDateKey() });
   const [copiedDriverKey, setCopiedDriverKey] = useState("");
   const [driverOrder, setDriverOrder] = useState(() => {
     try {
@@ -6130,6 +6180,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
       if (event.key === "Escape") {
         setDriverActionId("");
         setEditingDriverId("");
+        setReplacementOpen(false);
       }
     };
     window.addEventListener("keydown", closeDriverMenu);
@@ -6142,6 +6193,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
       if (!event.target.closest(".admin-driver-card, .admin-driver-access-sheet")) {
         setDriverActionId("");
         setEditingDriverId("");
+        setReplacementOpen(false);
       }
     };
     document.addEventListener("pointerdown", closeOnOutsideTap);
@@ -6234,10 +6286,12 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
     if (!saved) return false;
     setDriverActionId("");
     setEditingDriverId("");
+    setReplacementOpen(false);
     return true;
   };
   const startDriverEdit = (driver) => {
     setEditingDriverId(driver.id);
+    setReplacementOpen(false);
     setDriverActionId(driverActionKey(driver));
     setDriverProfileForm({ fullName: driver.full_name ?? "", email: driver.email ?? "", vehiclePlate: canonicalizeVehiclePlate(driver.vehicle_plate) || driverVehicleOptions[0]?.plate || "", active: Boolean(driver.active) });
     setMessage("");
@@ -6259,14 +6313,44 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
       setSaving(false);
     }
   };
+  const openDriverReplacement = () => {
+    setReplacementForm({ fullName: "", email: "", password: generateDriverPassword(), effectiveFrom: getBrowserLocalDateKey() });
+    setEditingDriverId("");
+    setReplacementOpen(true);
+    setMessage("");
+  };
+  const updateReplacementForm = (key, value) => setReplacementForm((current) => ({ ...current, [key]: value }));
+  const replaceDriver = async (event, driver) => {
+    event.preventDefault();
+    setMessage("");
+    setGeneratedPassword(null);
+    setSaving(true);
+    try {
+      const response = await invokeAdminUsers({ action: "replace", previousDriverId: driver.id, ...replacementForm });
+      const previousProfile = normalizeDriverProfileRecord(response.previousProfile);
+      const replacementProfile = normalizeDriverProfileRecord(response.profile);
+      setDrivers((current) => [...current.filter((candidate) => candidate.id !== driver.id), previousProfile, replacementProfile]);
+      setDriverOrder((current) => [...current.filter((id) => id !== replacementProfile.id), replacementProfile.id]);
+      setGeneratedPassword({ driverId: replacementProfile.id, value: response.password });
+      setReplacementOpen(false);
+      setEditingDriverId("");
+      setDriverActionId(driverActionKey(replacementProfile));
+      notify(`${driver.full_name} sustituido por ${replacementProfile.full_name} desde ${formatDriverProfileDate(replacementProfile.effective_from)}`);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
   const driversForVehicle = (vehicle) => {
     const rank = new Map(driverOrder.map((id, index) => [id, index]));
-    const assigned = orderDriverProfilesForVehicle(vehicle, drivers.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate))
+    const assigned = orderDriverProfilesForVehicle(vehicle, drivers.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate && (!driver.replaced_by || driver.active)))
       .sort((left, right) => (rank.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.id) ?? Number.MAX_SAFE_INTEGER));
     const assignedNames = new Set(assigned.map((driver) => normalizeDriverAvatarKey(driver.full_name)));
+    const replacedNames = new Set(drivers.filter((driver) => driver.replaced_by).map((driver) => normalizeDriverAvatarKey(driver.full_name)));
     const fallback = (vehicle.drivers ?? [])
       .map((name, index) => ({ id: `seed-${vehicle.plate.replace(/\s/g, "-")}-${index}`, full_name: name, email: "", vehicle_plate: vehicle.plate, active: true, isSeed: true }))
-      .filter((driver) => !assignedNames.has(normalizeDriverAvatarKey(driver.full_name)));
+      .filter((driver) => !assignedNames.has(normalizeDriverAvatarKey(driver.full_name)) && !replacedNames.has(normalizeDriverAvatarKey(driver.full_name)));
     const cards = [...assigned, ...fallback];
     return driverOrder.length ? cards : orderAdminDriverCardsForVehicle(vehicle, cards);
   };
@@ -6365,8 +6449,10 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
     const longPressed = longPressRef.current.triggered && longPressRef.current.key === driverKey;
     longPressRef.current.triggered = false;
     if (longPressed) return;
-    setDriverActionId("");
-    onPreviewDriver(driver);
+    if (!driver?.id || driver.isSeed) return;
+    setEditingDriverId("");
+    setReplacementOpen(false);
+    setDriverActionId(driverKey);
   };
   const driverInitials = (name) => String(name ?? "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
   const selectedAccessDriver = driverVehicleOptions
@@ -6413,7 +6499,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
                const menuOpen = driverActionId === driverKey;
                const monthlyDocuments = driverDocumentCount(driver);
                return <article className={`admin-driver-card${menuOpen ? " is-open" : ""}${draggingDriverId === driver.id ? " is-dragging" : ""}${dragTarget.driverId === driver.id ? " is-drop-before" : ""}`} key={driverKey} data-driver-drop-id={driver.id || undefined}>
-                 <button className="admin-driver-card__trigger" type="button" onClick={(event) => event.preventDefault()} onPointerDown={(event) => { beginDriverDrag(event, driver); if (event.pointerType !== "mouse" || event.button === 0) startDriverLongPress(driverKey); }} onPointerMove={moveDriverDrag} onPointerUp={(event) => { stopDriverLongPress(); void finishDriverDrag(event, driver, driverKey); }} onPointerLeave={() => { if (!dragRef.current.moved) stopDriverLongPress(); }} onPointerCancel={() => { stopDriverLongPress(); resetDriverDrag(); }} onContextMenu={(event) => event.preventDefault()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDriverApplication(driver, driverKey); } else if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) { event.preventDefault(); setDriverActionId(driverKey); } }} aria-label={`Abrir aplicación de ${driver.full_name}. También puedes arrastrarlo para cambiar su posición o vehículo.`} aria-haspopup="dialog" title="Toca para ver la aplicación; arrastra para mover; mantén pulsado para gestionar el acceso">
+                 <button className="admin-driver-card__trigger" type="button" onClick={(event) => event.preventDefault()} onPointerDown={(event) => { beginDriverDrag(event, driver); if (event.pointerType !== "mouse" || event.button === 0) startDriverLongPress(driverKey); }} onPointerMove={moveDriverDrag} onPointerUp={(event) => { stopDriverLongPress(); void finishDriverDrag(event, driver, driverKey); }} onPointerLeave={() => { if (!dragRef.current.moved) stopDriverLongPress(); }} onPointerCancel={() => { stopDriverLongPress(); resetDriverDrag(); }} onContextMenu={(event) => event.preventDefault()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDriverApplication(driver, driverKey); } else if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) { event.preventDefault(); setDriverActionId(driverKey); } }} aria-label={`Gestionar perfil de ${driver.full_name}. También puedes arrastrarlo para cambiar su posición o vehículo.`} aria-haspopup="dialog" title="Toca para gestionar el perfil o arrastra para cambiarlo de posición o vehículo">
                     <span className="admin-driver-card__documents">DOCUMENTOS <b>{monthlyDocuments}</b></span>
                     <span className="admin-driver-card__avatar">{avatarPath ? <img src={avatarPath} alt="" /> : <span>{driverInitials(driver.full_name)}</span>}<i className={driver.active ? "is-active" : ""} aria-hidden="true" /></span>
                     <strong>{driver.full_name}</strong>
@@ -6440,19 +6526,21 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
          <header className="admin-driver-access-sheet__header">
            <div className="admin-driver-access-sheet__identity">
              <span className="admin-driver-access-sheet__avatar">{selectedAccessAvatar ? <img src={selectedAccessAvatar} alt="" /> : <span>{driverInitials(selectedAccessDriver.full_name)}</span>}<i className={selectedAccessDriver.active ? "is-active" : ""} aria-hidden="true" /></span>
-             <span><small>GESTIÓN DE ACCESO</small><h2 id="admin-driver-access-title">{selectedAccessDriver.full_name}</h2><VehiclePlateLabel vehicleOrPlate={selectedAccessPlate} className="admin-driver-access-sheet__plate" /></span>
+             <span><small>GESTIÓN DE ACCESO</small><h2 id="admin-driver-access-title">{selectedAccessDriver.full_name}</h2><VehiclePlateLabel vehicleOrPlate={selectedAccessPlate} className="admin-driver-access-sheet__plate" /><small className="admin-driver-access-sheet__validity">{selectedAccessDriver.effective_to ? `Histórico hasta ${formatDriverProfileDate(selectedAccessDriver.effective_to)}` : `Vigente desde ${formatDriverProfileDate(selectedAccessDriver.effective_from) || "el inicio del registro"}`}</small></span>
            </div>
-           <button type="button" className="admin-driver-access-sheet__close" onClick={() => { setDriverActionId(""); setEditingDriverId(""); }} aria-label="Cerrar gestión de acceso" autoFocus><IconX size={20} /></button>
+           <button type="button" className="admin-driver-access-sheet__close" onClick={() => { setDriverActionId(""); setEditingDriverId(""); setReplacementOpen(false); }} aria-label="Cerrar gestión de acceso" autoFocus><IconX size={20} /></button>
          </header>
          <section className="admin-driver-access-sheet__credentials" aria-label={`Acceso de ${selectedAccessDriver.full_name}`}>
            <div className="admin-driver-access-sheet__section-title"><IconLink size={18} /><span><strong>Acceso a SOBRE RUEDAS</strong><small>Envía el enlace y el usuario al conductor.</small></span></div>
            <div className="admin-driver-access-sheet__user"><span>USUARIO</span><strong>{selectedAccessDriver.email || "Pendiente de crear"}</strong></div>
            <a className="admin-driver-access-sheet__url" href={driverApplicationLink} target="_blank" rel="noreferrer">{driverApplicationLink}</a>
            <div className="admin-driver-access-sheet__share-actions"><button type="button" onClick={() => copyDriverApplicationLink(selectedAccessDriver)}><IconCopy size={17} />{copiedDriverKey === driverActionKey(selectedAccessDriver) ? "Acceso copiado" : "Copiar acceso"}</button><button type="button" onClick={() => shareDriverApplicationLink(selectedAccessDriver)}><IconShare3 size={17} />Compartir acceso</button></div>
+           <button type="button" className="admin-driver-access-sheet__preview" onClick={() => { setDriverActionId(""); onPreviewDriver(selectedAccessDriver); }}><IconEye size={16} />Ver aplicación del conductor</button>
          </section>
          {generatedPassword?.driverId === selectedAccessDriver.id && <div className="admin-driver-access-sheet__password" role="status"><IconKey size={18} /><span><small>CONTRASEÑA ACTUALIZADA</small><code>{generatedPassword.value}</code></span><button type="button" onClick={copyGeneratedPassword}><IconCopy size={15} />Copiar</button><button type="button" className="admin-driver-access-sheet__password-close" onClick={() => setGeneratedPassword(null)} aria-label="Ocultar contraseña"><IconX size={15} /></button></div>}
-         <div className="admin-driver-access-sheet__actions"><button type="button" onClick={() => startDriverEdit(selectedAccessDriver)}><IconUserCircle size={18} /><span><strong>Editar perfil</strong><small>Nombre, email y vehículo</small></span></button><button type="button" onClick={() => toggleDriverAccess(selectedAccessDriver)}>{selectedAccessDriver.active ? <IconShieldCheck size={18} /> : <IconCircleCheck size={18} />}<span><strong>{selectedAccessDriver.active ? "Pausar acceso" : "Activar acceso"}</strong><small>{selectedAccessDriver.active ? "Bloquea el inicio de sesión" : "Permite iniciar sesión"}</small></span></button><button type="button" onClick={() => resetDriver(selectedAccessDriver)}><IconRefresh size={18} /><span><strong>Restablecer contraseña</strong><small>Genera una clave nueva</small></span></button></div>
+         <div className="admin-driver-access-sheet__actions"><button type="button" onClick={() => startDriverEdit(selectedAccessDriver)}><IconUserCircle size={18} /><span><strong>Editar perfil</strong><small>Nombre, email y vehículo</small></span></button>{selectedAccessDriver.active && !selectedAccessDriver.replaced_by && <button type="button" onClick={openDriverReplacement}><IconUserPlus size={18} /><span><strong>Sustituir conductor</strong><small>Crear el perfil del relevo</small></span></button>}<button type="button" onClick={() => toggleDriverAccess(selectedAccessDriver)}>{selectedAccessDriver.active ? <IconShieldCheck size={18} /> : <IconCircleCheck size={18} />}<span><strong>{selectedAccessDriver.active ? "Pausar acceso" : "Activar acceso"}</strong><small>{selectedAccessDriver.active ? "Bloquea el inicio de sesión" : "Permite iniciar sesión"}</small></span></button><button type="button" onClick={() => resetDriver(selectedAccessDriver)}><IconRefresh size={18} /><span><strong>Restablecer contraseña</strong><small>Genera una clave nueva</small></span></button></div>
          {editingDriverId === selectedAccessDriver.id && <form className="admin-driver-access-editor" onSubmit={(event) => saveDriverProfile(event, selectedAccessDriver)}><label>Nombre completo<input value={driverProfileForm.fullName} onChange={(event) => updateDriverProfileForm("fullName", event.target.value)} required /></label><label>Email de acceso<input type="email" value={driverProfileForm.email} onChange={(event) => updateDriverProfileForm("email", event.target.value)} required /></label><label>Vehículo asignado<select value={driverProfileForm.vehiclePlate} onChange={(event) => updateDriverProfileForm("vehiclePlate", event.target.value)}>{driverVehicleOptions.map((option) => <option key={option.plate} value={option.plate}>{option.plate} · {option.model}</option>)}</select></label><label className="admin-driver-access-editor__active"><input type="checkbox" checked={driverProfileForm.active} onChange={(event) => updateDriverProfileForm("active", event.target.checked)} />Acceso activo</label><div className="admin-driver-access-editor__actions"><button type="button" onClick={() => setEditingDriverId("")}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar acceso"}</button></div></form>}
+         {replacementOpen && <form className="admin-driver-access-editor admin-driver-access-editor--replacement" onSubmit={(event) => replaceDriver(event, selectedAccessDriver)}><header><strong>Nuevo perfil para {selectedAccessPlate}</strong><p>{selectedAccessDriver.full_name} conservará su historial hasta ayer. El relevo empieza hoy.</p></header><label>Nombre completo<input value={replacementForm.fullName} onChange={(event) => updateReplacementForm("fullName", event.target.value)} placeholder="Nombre y apellidos" required /></label><label>Email de acceso<input type="email" value={replacementForm.email} onChange={(event) => updateReplacementForm("email", event.target.value)} placeholder="conductor@email.com" required /></label><label>Contraseña inicial<input type="text" minLength={8} value={replacementForm.password} onChange={(event) => updateReplacementForm("password", event.target.value)} required /></label><label>Fecha de inicio<input type="date" value={replacementForm.effectiveFrom} readOnly aria-readonly="true" /></label><div className="admin-driver-access-editor__actions"><button type="button" onClick={() => setReplacementOpen(false)}>Cancelar</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Sustituyendo…" : "Crear perfil y sustituir"}</button></div></form>}
        </section>
      </div>}
      {adminFunctionWindow && <AdminFunctionWindow windowType={adminFunctionWindow} vehicleGroups={adminFunctionVehicleGroups} loading={loading} onClose={closeAdminFunctionWindow} onOpenDriverAccess={openDriverAccessFromFunction} onOpenCreateAccess={openCreateAccessFromFunction} onToggleDriverAccess={toggleDriverAccessFromFunction} onResetDriverAccess={resetDriverAccessFromFunction} />}

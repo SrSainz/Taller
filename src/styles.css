@@ -6485,6 +6485,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .admin-driver-access-sheet__identity small { color: #168878; font-size: 9px; font-weight: 900; letter-spacing: .12em; }
 .admin-driver-access-sheet__identity h2 { overflow: hidden; margin: 0; color: #17342d; font-size: 22px; font-weight: 900; line-height: 1.05; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .admin-driver-access-sheet__plate { color: #5b756d; font-size: 12px; font-weight: 850; }
+.admin-driver-access-sheet__identity .admin-driver-access-sheet__validity { color: #73867f; font-size: 9px; font-weight: 750; letter-spacing: 0; }
 .admin-driver-access-sheet__avatar { position: relative; display: grid; width: 68px; height: 68px; flex: 0 0 68px; place-items: center; overflow: visible; border: 3px solid #fff; border-radius: 50%; background: #dff2ec; color: #197c6e; font-size: 18px; font-weight: 900; box-shadow: 0 5px 15px rgba(27, 79, 68, .17); }
 .admin-driver-access-sheet__avatar img { width: 100%; height: 100%; display: block; border-radius: 50%; object-fit: cover; }
 .admin-driver-access-sheet__avatar > span { display: grid; width: 100%; height: 100%; place-items: center; }
@@ -6505,13 +6506,15 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .admin-driver-access-sheet__share-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .admin-driver-access-sheet__share-actions button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 10px; border: 1px solid #a9d4c7; border-radius: 10px; background: #fff; color: #146f60; font: inherit; font-size: 10px; font-weight: 850; cursor: pointer; }
 .admin-driver-access-sheet__share-actions button:hover, .admin-driver-access-sheet__share-actions button:focus-visible { border-color: #168c7d; background: #e5f5ef; outline: 0; }
+.admin-driver-access-sheet__preview { justify-self: start; display: inline-flex; align-items: center; gap: 7px; padding: 6px 2px; border: 0; background: transparent; color: #176f61; font: inherit; font-size: 10px; font-weight: 850; cursor: pointer; }
+.admin-driver-access-sheet__preview:hover, .admin-driver-access-sheet__preview:focus-visible { color: #104b42; text-decoration: underline; outline: 0; }
 .admin-driver-access-sheet__password { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-top: 12px; padding: 11px 38px 11px 12px; border: 1px solid #edd28a; border-radius: 13px; background: #fff9e8; color: #8b5a05; }
 .admin-driver-access-sheet__password > span { min-width: 0; display: grid; gap: 3px; }
 .admin-driver-access-sheet__password small { font-size: 8px; font-weight: 900; letter-spacing: .08em; }
 .admin-driver-access-sheet__password code { overflow: hidden; color: #4d3b13; font-size: 13px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
 .admin-driver-access-sheet__password > button:not(.admin-driver-access-sheet__password-close) { min-height: 32px; display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; border: 1px solid #e4c875; border-radius: 8px; background: #fff; color: #80530a; font: inherit; font-size: 9px; font-weight: 850; cursor: pointer; }
 .admin-driver-access-sheet__password-close { position: absolute; top: 7px; right: 7px; width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: #9b7b34; cursor: pointer; }
-.admin-driver-access-sheet__actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.admin-driver-access-sheet__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .admin-driver-access-sheet__actions > button { min-width: 0; min-height: 76px; display: flex; align-items: flex-start; gap: 8px; padding: 11px 9px; border: 1px solid #d7e4df; border-radius: 12px; background: #fff; color: #196d5f; font: inherit; text-align: left; cursor: pointer; }
 .admin-driver-access-sheet__actions > button:hover, .admin-driver-access-sheet__actions > button:focus-visible { border-color: #8ac8b9; background: #eff9f5; outline: 0; }
 .admin-driver-access-sheet__actions > button > span { min-width: 0; display: grid; gap: 4px; }
@@ -6526,6 +6529,11 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .admin-driver-access-editor__actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
 .admin-driver-access-editor__actions button { min-height: 36px; padding: 7px 13px; border: 1px solid #c9d9d3; border-radius: 9px; background: #fff; color: #31564c; font: inherit; font-size: 10px; font-weight: 850; cursor: pointer; }
 .admin-driver-access-editor__actions .primary-button { border-color: #137f6d; background: #137f6d; color: #fff; }
+.admin-driver-access-editor--replacement { border-color: #b9d5ca; background: #f4faf7; }
+.admin-driver-access-editor--replacement > header { grid-column: 1 / -1; }
+.admin-driver-access-editor--replacement > header strong { color: #173d33; font-size: 13px; }
+.admin-driver-access-editor--replacement > header p { margin: 4px 0 0; color: #62776e; font-size: 10px; line-height: 1.45; }
+.admin-driver-access-editor--replacement input[readonly] { background: #f2f5f3; color: #697b73; }
 
 /* El aviso de mantenimiento del conductor conserva una tipografía principal
    legible dentro de un botón compacto y no recorta el texto. */
