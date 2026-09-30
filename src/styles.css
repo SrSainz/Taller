@@ -10605,10 +10605,12 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
   .driver-performance__hours-button { min-width: 75px; min-height: 27px; padding: 5px 10px; font-size: 10px; }
 }
 
-/* Los dos indicadores personales comparten exactamente el formato del administrador. */
-.driver-mobile-preview-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.driver-mobile-preview-mini-grid > .driver-mobile-preview-history { grid-column: 1 / -1; order: 0; }
+/* Las tres vistas previas del conductor comparten una fila y se amplían al pulsarlas. */
+.driver-mobile-preview-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.driver-mobile-preview-mini-grid > .driver-mobile-preview-history { grid-column: auto; order: 0; }
 .driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown { position: relative; grid-column: auto; order: 1; display: block; min-height: 0; padding: 9px 8px; }
+.driver-mobile-preview-mini-grid > [role="button"] { cursor: zoom-in; }
+.driver-mobile-preview-mini-grid > [role="button"]:focus-visible { outline: 2px solid #2c6de9; outline-offset: 2px; }
 .driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown > svg { position: absolute; top: 9px; left: 8px; width: 18px; height: 18px; margin: 0; }
 .driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown > span { width: 100%; gap: 5px; }
 .driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown > span > small { min-height: 18px; padding-left: 23px; font-size: 10px; }
@@ -10619,8 +10621,16 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .driver-mobile-preview-mini-grid .driver-performance__weeks b { font-size: 10px; letter-spacing: -.03em; }
 .driver-mobile-preview-mini-grid .driver-performance__week-full { display: none; }
 .driver-mobile-preview-mini-grid .driver-performance__week-short { display: inline; }
+.driver-mobile-chart-dialog__chart--weekly { min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; }
+.driver-mobile-chart-dialog__chart--weekly > .recharts-responsive-container { min-height: 0; flex: 1 1 auto; }
+.driver-mobile-chart-dialog__weekly-total { margin: 8px 0 0; color: #173661; font-size: 16px; }
+.driver-mobile-chart-dialog__weekly-total strong { color: #0d2a51; }
 @media (max-width: 640px) {
   .driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown { padding: 9px 7px; }
+  .driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown > svg { width: 14px; height: 14px; }
+  .driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown > span > small { padding-left: 18px; font-size: 8px; }
+  .driver-mobile-preview-mini-grid > .driver-performance__metric--breakdown > span > strong { font-size: clamp(13px, 3vw, 18px); }
+  .driver-mobile-preview-mini-grid .driver-performance__weeks > span { flex-wrap: wrap; }
   .driver-mobile-preview-mini-grid .driver-performance__weeks small { font-size: 8px; }
   .driver-mobile-preview-mini-grid .driver-performance__weeks b { font-size: 9px; }
 }

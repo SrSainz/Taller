@@ -5907,8 +5907,8 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
           </div>
           {recordDeleteError && <p className="driver-mobile-record-delete-error" role="alert"><IconAlertTriangle size={14} />{recordDeleteError}</p>}
           <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
-            <article className="driver-mobile-preview-history" aria-label="Facturación mensual histórica"><div className="driver-mobile-history-scroll" role="region" tabIndex="0" aria-label="Histórico de facturación mensual de los últimos doce meses"><div className="driver-mobile-history-bars" role="list">{compactMonthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} aria-label={`${month.label}: ${formatCurrency(month.amount)}`} title={`${month.label}: ${formatCurrency(month.amount)}`} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></div></article>
-            <DriverPerformanceBreakdownCards summary={driverPerformanceSummary} />
+            <article className="driver-mobile-preview-history" role="button" tabIndex="0" aria-label="Ampliar gráfico de facturación mensual histórica"><div className="driver-mobile-history-scroll" aria-hidden="true"><div className="driver-mobile-history-bars">{compactMonthlyBillingHistory.map((month) => <div className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></div>)}</div></div></article>
+            <DriverPerformanceBreakdownCards summary={driverPerformanceSummary} onExpand={(metric) => openPreviewMetric(metric)} />
           </div>
           <div className="driver-mobile-mini-grid">
             <article className="driver-mobile-mini-card driver-mobile-mini-card--billing-history"><div className="driver-mobile-mini-card__header"><div><strong>Facturación histórica</strong><span>{formatCurrency(activeBillingMonth.amount)} · este conductor</span></div><button type="button" className="driver-mobile-reference-thumb" onClick={() => setReferenceOpen("billing")} aria-label="Abrir ejemplo de facturación"><img src={driverReferenceImages.billing} alt="" loading="lazy" /><span>Ejemplo</span></button></div><div className="driver-mobile-billing-history" role="list" aria-label="Histórico mensual de facturación de los últimos doce meses">{compactMonthlyBillingHistory.map((month) => <button type="button" className={`driver-mobile-billing-history__month${month.isCurrent ? " is-selected" : ""}`} role="listitem" aria-pressed={month.isCurrent} onClick={() => selectDriverPeriod(month.year, month.monthIndex)} key={month.key}><i style={{ height: `${month.barHeight}%` }}><strong>{formatDriverBarAmount(month.amount)}</strong></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></button>)}</div></article>
@@ -5967,7 +5967,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
           <div className="driver-mobile-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-mobile-chart-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreviewMetric(""); }}>
             <div className="driver-mobile-chart-dialog__panel">
               <header>
-                <div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "km" ? "KM/H realizados vs resto" : "Consumo comparado"}</h2></div>
+                <div><h2 id="driver-mobile-chart-dialog-title">{expandedPreviewMetric === "billing" ? "Facturación mensual" : expandedPreviewMetric === "averageConsumption" ? "Consumo medio semanal" : expandedPreviewMetric === "billingPerHour" ? "Facturación por hora semanal" : expandedPreviewMetric === "km" ? "KM/H realizados vs resto" : "Consumo comparado"}</h2></div>
                 <button type="button" aria-label="Cerrar gráfica ampliada" onClick={() => setExpandedPreviewMetric("")}><IconX size={18} /></button>
               </header>
               {expandedPreviewMetric === "billing" && (
@@ -5988,6 +5988,20 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
                     </div>
                   </div>
                   <p className="driver-mobile-chart-dialog__hint">Desliza a derecha e izquierda para consultar el resto de meses.</p>
+                </div>
+              )}
+              {["averageConsumption", "billingPerHour"].includes(expandedPreviewMetric) && (
+                <div className="driver-mobile-chart-dialog__chart driver-mobile-chart-dialog__chart--weekly">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={driverPerformanceSummary.weeks.map((week) => ({ label: `S${week.number} · ${week.startDay}–${week.endDay}`, amount: expandedPreviewMetric === "averageConsumption" ? week.averageConsumption : week.billingPerHour }))} margin={{ top: 38, right: 12, bottom: 55, left: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce5f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 13, fontWeight: 800, fill: "#173661" }} tickMargin={10} />
+                      <YAxis width={48} tick={{ fontSize: 13, fill: "#526783" }} domain={[0, "auto"]} />
+                      <Tooltip cursor={false} formatter={(value) => value == null ? "Sin lectura" : expandedPreviewMetric === "averageConsumption" ? `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100 km` : formatCurrency(Number(value))} />
+                      <Bar dataKey="amount" fill={expandedPreviewMetric === "averageConsumption" ? "#2c6de9" : "#c3382f"} radius={[5, 5, 0, 0]} minPointSize={3} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <p className="driver-mobile-chart-dialog__weekly-total">Media del mes: <strong>{expandedPreviewMetric === "averageConsumption" ? driverPerformanceSummary.averageConsumption == null ? "—" : `${driverPerformanceSummary.averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km` : driverPerformanceSummary.hours > 0 ? formatCurrency(driverPerformanceSummary.billingPerHour) : "—"}</strong></p>
                 </div>
               )}
               {expandedPreviewMetric === "km" && (
@@ -8015,11 +8029,12 @@ function DriverHoursDialog({ row, calendarRows, month, year, onClose }) {
   </div>, document.body);
 }
 
-function DriverPerformanceBreakdownCards({ summary }) {
+function DriverPerformanceBreakdownCards({ summary, onExpand }) {
   const formatConsumption = (value) => value === null ? "—" : `${value.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`;
+  const interactiveProps = (metric) => onExpand ? { role: "button", tabIndex: 0, "aria-label": `Ampliar ${metric === "averageConsumption" ? "consumo medio" : "facturación por hora"}`, onClick: () => onExpand(metric), onKeyDown: (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onExpand(metric); } } } : {};
   return <>
-    <div className="driver-performance__metric driver-performance__metric--breakdown"><IconChartBar aria-hidden="true" /><span><small>Consumo medio</small><strong>{formatConsumption(summary.averageConsumption)}</strong><span className="driver-performance__weeks">{summary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{formatConsumption(week.averageConsumption)}</b></span>)}</span></span></div>
-    <div className="driver-performance__metric driver-performance__metric--fuel driver-performance__metric--breakdown"><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{summary.hours > 0 ? formatCurrency(summary.billingPerHour) : "—"}</strong><span className="driver-performance__weeks">{summary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{week.billingPerHour === null ? "—" : formatCurrency(week.billingPerHour)}</b></span>)}</span></span></div>
+    <div className="driver-performance__metric driver-performance__metric--breakdown" {...interactiveProps("averageConsumption")}><IconChartBar aria-hidden="true" /><span><small>Consumo medio</small><strong>{formatConsumption(summary.averageConsumption)}</strong><span className="driver-performance__weeks">{summary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{formatConsumption(week.averageConsumption)}</b></span>)}</span></span></div>
+    <div className="driver-performance__metric driver-performance__metric--fuel driver-performance__metric--breakdown" {...interactiveProps("billingPerHour")}><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{summary.hours > 0 ? formatCurrency(summary.billingPerHour) : "—"}</strong><span className="driver-performance__weeks">{summary.weeks.map((week) => <span key={week.number}><small><span className="driver-performance__week-full">Semana {week.number} · {week.startDay}–{week.endDay}</span><span className="driver-performance__week-short">S{week.number} · {week.startDay}–{week.endDay}</span></small><b>{week.billingPerHour === null ? "—" : formatCurrency(week.billingPerHour)}</b></span>)}</span></span></div>
   </>;
 }
 
