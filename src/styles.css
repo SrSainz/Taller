@@ -10498,3 +10498,39 @@ body:has(.net-detail-backdrop) .topbar--reports .topbar-menu-button {
     line-height: .92;
   }
 }
+
+/* Resumen mensual al pie del detalle de Conductores. */
+body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscroll-behavior-y: contain; }
+.module-page.drivers-page--calendar-open { height: auto; min-height: 100%; overflow: visible; }
+.drivers-page--calendar-open > .drivers-calendar-card { flex: 0 0 auto; }
+.drivers-page--calendar-open .drivers-calendar-surface { flex: 0 0 auto; height: auto; }
+.drivers-page--calendar-open .drivers-calendar-track,
+.drivers-page--calendar-open .drivers-calendar-page { height: auto; }
+.drivers-page--calendar-open .drivers-calendar-grid { flex: 0 0 auto; grid-auto-rows: auto; }
+.drivers-page--calendar-open .drivers-calendar-day { height: clamp(28px, 3vw, 40px); }
+.drivers-page--calendar-open > .driver-performance { width: min(100%, 1240px); flex: 0 0 auto; margin-inline: auto; }
+.driver-performance { overflow: hidden; padding: 14px; border: 1px solid var(--billing-line); border-radius: 12px; background: #fff; box-shadow: 0 4px 12px rgba(38,67,58,.07); }
+.driver-performance__header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.driver-performance__avatar { width: 54px; height: 54px; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden; border: 2px solid #4bc9a8; border-radius: 50%; background: #e9f7f3; color: var(--billing-strong); font-size: 24px; font-weight: 850; }
+.driver-performance__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.driver-performance__identity { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.driver-performance__identity strong { color: var(--text); font-size: clamp(23px, 2.4vw, 34px); font-weight: 900; line-height: 1; text-transform: uppercase; }
+.driver-performance__identity small { color: var(--muted); font-size: 13px; }
+.driver-performance__header > button { width: 38px; height: 38px; display: grid; place-items: center; margin-left: auto; border: 1px solid var(--billing-line); border-radius: 9px; background: #fff; color: var(--billing-strong); cursor: pointer; }
+.driver-performance__header > button:hover, .driver-performance__header > button:focus-visible { background: var(--billing-soft); outline: 2px solid var(--billing-strong); outline-offset: 2px; }
+.driver-performance__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.driver-performance__metric { min-width: 0; min-height: 90px; display: flex; align-items: center; gap: 15px; padding: 14px 16px; border: 1px solid #d5e4ee; border-radius: 10px; background: #f2f8fc; }
+.driver-performance__metric > svg { width: 26px; height: 26px; flex: 0 0 auto; color: var(--billing-strong); }
+.driver-performance__metric--fuel > svg { color: #c3382f; }
+.driver-performance__metric > span { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.driver-performance__metric small { color: #405d70; font-size: 13px; line-height: 1.1; }
+.driver-performance__metric strong { color: var(--text); font-size: clamp(20px, 2vw, 28px); font-weight: 850; line-height: 1.1; white-space: nowrap; }
+@media (max-width: 640px) {
+  .driver-performance { padding: 10px; }
+  .driver-performance__avatar { width: 46px; height: 46px; }
+  .driver-performance__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .driver-performance__metric { min-height: 72px; gap: 8px; padding: 9px; }
+  .driver-performance__metric > svg { width: 21px; height: 21px; }
+  .driver-performance__metric small { font-size: 10px; }
+  .driver-performance__metric strong { font-size: clamp(15px, 4vw, 21px); }
+}

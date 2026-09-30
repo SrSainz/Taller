@@ -98,6 +98,7 @@ import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as get
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getMonthlyDriverBilling } from "./driverBillingTotals";
+import { getDriverPerformanceSummary } from "./driverPerformanceSummary";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
 import { findDriverNavigationRow } from "./driverNavigation";
@@ -8061,6 +8062,12 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   };
   const calendarRows = useMemo(() => selectedDriver ? getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, reportMonth, reportYear, documents, transactions) : [], [selectedDriver, reportMonth, reportYear, documents, transactions]);
   const periodKilometres = useMemo(() => calendarRows.reduce((sum, day) => sum + (Number(day.km) || 0), 0), [calendarRows]);
+  const performanceSummary = useMemo(() => getDriverPerformanceSummary({
+    calendarRows,
+    billing: selectedDriver?.revenue,
+    fuelCost: selectedDriver?.fuelCost,
+    daysInMonth: new Date(reportYear, reportMonth + 1, 0).getDate(),
+  }), [calendarRows, selectedDriver?.revenue, selectedDriver?.fuelCost, reportYear, reportMonth]);
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;
   const calendarPeriods = useMemo(() => {
     if (!selectedDriver) return [];
@@ -8382,6 +8389,21 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           {renderDayPanel("billing")}
           {renderDayPanel("fuel")}
           {renderDayPanel("mileage")}
+        </div>
+      </section>}
+      {selectedDriver && !calendarExpanded && <section className="driver-performance" aria-label={`Resumen mensual de ${selectedDriver.driver}`}>
+        <header className="driver-performance__header">
+          <span className="driver-performance__avatar" aria-hidden="true">{getDriverAvatarPath(selectedDriver.driver) ? <img src={getDriverAvatarPath(selectedDriver.driver)} alt="" /> : String(selectedDriver.driver).slice(0, 1)}</span>
+          <span className="driver-performance__identity"><strong>{selectedDriver.driver}</strong><small>Conductor {driverRows.findIndex((row) => row.key === selectedDriver.key) + 1} de {driverRows.length}</small></span>
+          <button type="button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar detalle de ${selectedDriver.driver}`}><IconChevronUp size={22} /></button>
+        </header>
+        <div className="driver-performance__grid">
+          <div className="driver-performance__metric"><IconClock aria-hidden="true" /><span><small>Horas</small><strong>{performanceSummary.hours.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</strong></span></div>
+          <div className="driver-performance__metric"><IconFileInvoice aria-hidden="true" /><span><small>Facturación</small><strong>{formatCurrency(selectedDriver.revenue)}</strong></span></div>
+          <div className="driver-performance__metric driver-performance__metric--fuel"><IconGasStation aria-hidden="true" /><span><small>Consumo</small><strong>{formatCurrency(selectedDriver.fuelCost)}</strong></span></div>
+          <div className="driver-performance__metric"><IconGauge aria-hidden="true" /><span><small>Eficiencia</small><strong>{performanceSummary.efficiency} %</strong></span></div>
+          <div className="driver-performance__metric"><IconChartBar aria-hidden="true" /><span><small>Consumo / fact.</small><strong>{performanceSummary.fuelToBilling.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %</strong></span></div>
+          <div className="driver-performance__metric driver-performance__metric--fuel"><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{formatCurrency(performanceSummary.billingPerHour)}</strong></span></div>
         </div>
       </section>}
       {expandedDayPanel && selectedDriver && selectedDayDetail && createPortal(<div className="driver-day-panel-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedDayPanel(""); }}><section className="driver-day-panel-overlay__surface" role="dialog" aria-modal="true" aria-label={`${expandedDayPanel === "billing" ? "Facturación" : expandedDayPanel === "fuel" ? "Repostaje" : "Kilómetros"} ampliado de ${selectedDriver.driver}`}>{renderDayPanel(expandedDayPanel, true)}</section></div>, document.body)}
