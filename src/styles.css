@@ -10568,6 +10568,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .drivers-page--calendar-open .drivers-calendar-day__values { margin-top: 0; padding-top: 0; gap: 2px; }
 .drivers-page--calendar-open .drivers-calendar-day__values small { max-width: 100%; font-size: clamp(10px, 1vw, 13px); line-height: 1; letter-spacing: -.04em; }
 .drivers-page--calendar-open .drivers-calendar-day__document { font-size: 10px !important; }
+.drivers-page--calendar-open .drivers-calendar-page:not(:nth-child(2)) { height: 0; overflow: visible; }
 .drivers-calendar-card__month { cursor: default; }
 .drivers-day-photo-strip { width: min(100%, 1240px); display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-inline: auto; padding: 7px 11px; border: 1px solid var(--billing-line); border-radius: 10px; background: #fff; color: var(--muted); font-size: 12px; }
 .drivers-day-photo-strip > strong { display: inline-flex; align-items: center; gap: 6px; color: var(--billing-strong); font-size: 12px; white-space: nowrap; }

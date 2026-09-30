@@ -8215,7 +8215,6 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const onCalendarPointerDown = (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (pendingCalendarShift.current) return;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
     beginCalendarSwipe(event.clientX);
   };
   const onCalendarPointerMove = (event) => moveCalendarSwipe(event.clientX);
