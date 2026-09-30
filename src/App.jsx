@@ -8066,10 +8066,11 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     calendarRows,
     billing: selectedDriver?.revenue,
     fuelCost: selectedDriver?.fuelCost,
+    fuelLiters: selectedDriver?.fuelLiters,
     daysInMonth: new Date(reportYear, reportMonth + 1, 0).getDate(),
     year: reportYear,
     month: reportMonth,
-  }), [calendarRows, selectedDriver?.revenue, selectedDriver?.fuelCost, reportYear, reportMonth]);
+  }), [calendarRows, selectedDriver?.revenue, selectedDriver?.fuelCost, selectedDriver?.fuelLiters, reportYear, reportMonth]);
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;
   const calendarPeriods = useMemo(() => {
     if (!selectedDriver) return [];
@@ -8400,10 +8401,10 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           <button type="button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar detalle de ${selectedDriver.driver}`}><IconChevronUp size={22} /></button>
         </header>
         <div className="driver-performance__grid">
-          <div className="driver-performance__metric"><IconClock aria-hidden="true" /><span><small>Horas</small><strong>{performanceSummary.hours.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</strong></span></div>
+          <div className="driver-performance__metric" title="Suma de las horas de conexión de las facturaciones diarias del conductor"><IconClock aria-hidden="true" /><span><small>Horas</small><strong>{performanceSummary.hours.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</strong></span></div>
           <div className="driver-performance__metric"><IconFileInvoice aria-hidden="true" /><span><small>Facturación</small><strong>{formatCurrency(selectedDriver.revenue)}</strong></span></div>
           <div className="driver-performance__metric driver-performance__metric--fuel"><IconGasStation aria-hidden="true" /><span><small>Consumo</small><strong>{formatCurrency(selectedDriver.fuelCost)}</strong></span></div>
-          <div className="driver-performance__metric"><IconGauge aria-hidden="true" /><span><small>Eficiencia</small><strong>{performanceSummary.efficiency} %</strong></span></div>
+          <div className="driver-performance__metric" title="Media de cuatro indicadores, cada uno limitado al 100 %: facturación por hora (30 €/h), facturación por kilómetro (0,80 €/km), consumo (5 l/100 km) y gasto de combustible (10 % de la facturación). Requiere todos los datos."><IconGauge aria-hidden="true" /><span><small>Eficiencia</small><strong>{performanceSummary.efficiency === null ? "—" : `${performanceSummary.efficiency} %`}</strong></span></div>
           <div className="driver-performance__metric driver-performance__metric--breakdown"><IconChartBar aria-hidden="true" /><span><small>Consumo / fact.</small><strong>{performanceSummary.fuelToBilling.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %</strong><span className="driver-performance__weeks">{performanceSummary.weeks.map((week) => <span key={week.number}><small>Semana {week.number} · {week.startDay}–{week.endDay}</small><b>{week.fuelToBilling === null ? "—" : `${week.fuelToBilling.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`}</b></span>)}</span></span></div>
           <div className="driver-performance__metric driver-performance__metric--fuel driver-performance__metric--breakdown"><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{formatCurrency(performanceSummary.billingPerHour)}</strong><span className="driver-performance__weeks">{performanceSummary.weeks.map((week) => <span key={week.number}><small>Semana {week.number} · {week.startDay}–{week.endDay}</small><b>{week.billingPerHour === null ? "—" : formatCurrency(week.billingPerHour)}</b></span>)}</span></span></div>
         </div>
