@@ -102,7 +102,7 @@ import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
 import { findDriverNavigationRow } from "./driverNavigation";
 import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift } from "./driverHoursReport";
-import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride } from "./driverDayOverrides";
+import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride, shouldApplyDriverBillingOverride } from "./driverDayOverrides";
 import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
 const BILLING_COLOR = "#74b9f2";
@@ -1238,7 +1238,7 @@ function getDriverBillingStatsByDate(documents = [], driverId, entries = []) {
     if (driverId && entry?.driver_id !== driverId) return;
     const override = getDriverDayOverride(entry, "billing");
     const dateKey = String(entry?.entry_date ?? "");
-    if (!override || !dateKey) return;
+    if (!override || !dateKey || !shouldApplyDriverBillingOverride(entry)) return;
     const current = statsByDate.get(dateKey) ?? {
       dateKey,
       connection: "",
@@ -4670,20 +4670,14 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const averageConsumption = partialKm2 > 0 ? (Number(selectedDayData.fuel_liters) || 0) / partialKm2 * 100 : 0;
   const monthlyBillingHistory = useMemo(() => {
     const monthly = new Map();
-    const documentedBillingMonths = new Set();
     entries.forEach((item) => {
       const entryDate = parseDriverDateKey(item.entry_date);
       if (!entryDate) return;
       const monthKey = String(item.entry_date).slice(0, 7);
-      monthly.set(monthKey, (monthly.get(monthKey) || 0) + getDriverEntryAmount(item, "billing"));
+      monthly.set(monthKey, 0);
     });
-    getDriverBillingDocumentsForDriver(documents, activeProfileId).forEach((document) => {
-      const stats = getDriverBillingDocumentStats(document);
-      if (!stats.dateKey || !stats.hasBillingAmount) return;
-      const monthKey = stats.dateKey.slice(0, 7);
-      if (!documentedBillingMonths.has(monthKey)) monthly.set(monthKey, 0);
-      documentedBillingMonths.add(monthKey);
-      monthly.set(monthKey, Number((monthly.get(monthKey) + stats.netAmount).toFixed(2)));
+    driverBillingStatsByDate.forEach((stats, dateKey) => {
+      if (stats.hasBillingAmount) monthly.set(dateKey.slice(0, 7), 0);
     });
     const currentMonthKey = `${driverPeriodYear}-${String(driverPeriodMonth + 1).padStart(2, "0")}`;
     if (!monthly.has(currentMonthKey)) monthly.set(currentMonthKey, 0);
@@ -4692,11 +4686,14 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     if (!monthly.has(calendarCurrentMonthKey)) monthly.set(calendarCurrentMonthKey, 0);
     const importedBillingByPeriod = getImportedBillingByPeriod(profile.full_name);
     if (importedBillingByPeriod) {
-      Object.entries(importedBillingByPeriod).forEach(([monthKey, amount]) => {
-        const recordedAmount = monthly.get(monthKey) || 0;
-        monthly.set(monthKey, documentedBillingMonths.has(monthKey) || recordedAmount > 0 ? recordedAmount : Number(amount) || 0);
-      });
+      Object.keys(importedBillingByPeriod).forEach((monthKey) => monthly.set(monthKey, 0));
     }
+    monthly.forEach((_, monthKey) => monthly.set(monthKey, getMonthlyDriverBilling({
+      entries,
+      billingStatsByDate: driverBillingStatsByDate,
+      periodKey: monthKey,
+      importedBilling: importedBillingByPeriod?.[monthKey] ?? 0,
+    }).amount));
     const currentDate = new Date(driverPeriodYear, driverPeriodMonth, 1);
     const calendarCurrentDate = new Date(calendarToday.getFullYear(), calendarToday.getMonth(), 1);
     const fallbackStartDate = new Date(driverPeriodYear, driverPeriodMonth - 11, 1);
@@ -4714,9 +4711,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     const months = [];
     for (let monthDate = new Date(startDate); monthDate <= endDate; monthDate.setMonth(monthDate.getMonth() + 1)) {
       const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
-      const recordedAmount = monthly.get(monthKey) || 0;
-      const importedAmount = importedBillingByPeriod?.[monthKey] ?? 0;
-      months.push([monthKey, documentedBillingMonths.has(monthKey) || recordedAmount > 0 ? recordedAmount : importedAmount]);
+      months.push([monthKey, monthly.get(monthKey) ?? importedBillingByPeriod?.[monthKey] ?? 0]);
     }
     const maximum = Math.max(1, ...months.map(([, amount]) => amount));
     return months.map(([monthKey, amount]) => {
@@ -4735,7 +4730,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
         isCurrent: monthKey === currentMonthKey,
       };
     });
-  }, [activeProfileId, documents, entries, driverPeriodMonth, driverPeriodYear, profile.full_name]);
+  }, [driverBillingStatsByDate, entries, driverPeriodMonth, driverPeriodYear, profile.full_name]);
   const imageDocument = (predicate) => documentPreviews.find((document) => predicate(document) && document.signedUrl)?.signedUrl ?? "";
   const uploadedDriverImages = {
     fuelReceipt: circlePreviewUrls.fuel || imageDocument((document) => document.extracted_data?.recordType === "fuel" || document.category === "consumption" && document.extracted_data?.metric === "fuel_receipt"),

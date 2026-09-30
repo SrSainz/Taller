@@ -24,6 +24,16 @@ export const getDriverDayOverride = (entry, mode) => {
   return override && typeof override === "object" && !Array.isArray(override) ? override : null;
 };
 
+// An approved billing document or a later ledger entry can restore a day's
+// amount after an empty editor draft was saved. That stale zero must not erase
+// a positive amount recorded for the same day. A real zero correction also
+// stores zero in the entry itself and remains authoritative.
+export const shouldApplyDriverBillingOverride = (entry) => {
+  const override = getDriverDayOverride(entry, "billing");
+  if (!override) return false;
+  return !(hasOwn(override, "netAmount") && roundMoney(override.netAmount) === 0 && roundMoney(entry?.billing) > 0);
+};
+
 export const mergeDriverDayOverride = (entry, mode, value) => ({
   ...getDriverDayOverrides(entry),
   [mode]: { ...objectOrEmpty(getDriverDayOverride(entry, mode)), ...objectOrEmpty(value) },

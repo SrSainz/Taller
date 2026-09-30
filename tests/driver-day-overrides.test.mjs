@@ -8,7 +8,16 @@ import {
   buildDriverMileageOverride,
   getDriverFuelEntriesForPeriod,
   mergeDriverDayOverride,
+  shouldApplyDriverBillingOverride,
 } from "../src/driverDayOverrides.js";
+
+test("un borrador de facturación a cero no borra un importe validado posterior", () => {
+  for (const billing of [233.96, 254.52]) {
+    assert.equal(shouldApplyDriverBillingOverride({ billing, manual_overrides: { billing: buildDriverBillingOverride() } }), false);
+  }
+  assert.equal(shouldApplyDriverBillingOverride({ billing: 0, manual_overrides: { billing: buildDriverBillingOverride() } }), true);
+  assert.equal(shouldApplyDriverBillingOverride({ billing: 250, manual_overrides: { billing: buildDriverBillingOverride({ baseNetAmount: 240 }) } }), true);
+});
 
 test("la corrección de facturación recalcula precio neto y ganancias sin perder los demás campos", () => {
   const override = buildDriverBillingOverride({
