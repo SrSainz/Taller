@@ -10639,10 +10639,10 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 /* Vehículos arriba y conductores debajo; el resumen conserva sus cuatro series. */
 .report-chart--summary { grid-template-rows: minmax(0, 1fr) 76px; }
 .report-chart-legend { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
-.report-chart-legend__button--consumptionAverage { --legend-color: #087f91; --legend-background: #eaf8fa; }
-.report-chart-legend__button--billingPerHour { --legend-color: #7950ae; --legend-background: #f5effb; }
-.report-chart-legend__swatch--consumptionAverage { background: #087f91; }
-.report-chart-legend__swatch--billingPerHour { background: #7950ae; }
+.report-chart-legend__button--consumptionAverage { --legend-color: #008c9a; --legend-background: #e5f7f8; }
+.report-chart-legend__button--billingPerHour { --legend-color: #36454f; --legend-background: #e9eef1; }
+.report-chart-legend__swatch--consumptionAverage { background: #008c9a; }
+.report-chart-legend__swatch--billingPerHour { background: #36454f; }
 @media (max-width: 720px) {
   .report-chart--summary { grid-template-rows: minmax(0, 1fr) 62px; }
   .report-chart-legend { gap: 3px; }

@@ -135,7 +135,7 @@ const selectableChartMetrics = chartMetricOptions.filter((option) => option.valu
 const allChartMetricValues = selectableChartMetrics.map((option) => option.value);
 const summaryChartMetricValues = ["billing", "maintenance", "fuel", "net"];
 const driverAverageChartMetrics = new Set(["consumptionAverage", "billingPerHour"]);
-const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c", consumptionAverage: "#087f91", billingPerHour: "#7950ae" };
+const chartMetricColors = { billing: BILLING_COLOR, maintenance: MAINTENANCE_COLOR, fuel: "#df4538", net: "#28923c", consumptionAverage: "#008c9a", billingPerHour: "#36454f" };
 
 const splitChartAxisLabel = (value) => {
   const words = String(value ?? "").trim().split(/\s+/).filter(Boolean);
@@ -7347,6 +7347,9 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     : chartMetric === "billingPerHour"
       ? `${Number(value).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} €/h`
       : formatCurrency(Number(value));
+  const formatChartBarNumber = (value) => Number(value).toLocaleString("es-ES", { maximumFractionDigits: 2 });
+  const chartYAxisDomain = chartMetric === "consumptionAverage" ? [3.7, 5.5] : chartMetric === "billingPerHour" ? [15, 45] : undefined;
+  const chartYAxisTicks = chartMetric === "consumptionAverage" ? [3.7, 4, 4.5, 5, 5.5] : chartMetric === "billingPerHour" ? [15, 20, 25, 30, 35, 40, 45] : undefined;
   const formatChartAxisValue = (value) => chartMetric === "consumptionAverage"
     ? Number(value).toLocaleString("es-ES", { maximumFractionDigits: 1 })
     : chartMetric === "billingPerHour"
@@ -7605,7 +7608,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                       {selectedChartBar && <ReferenceArea x1={selectedChartBar} x2={selectedChartBar} fill="#edf0ee" fillOpacity={0.9} stroke="none" ifOverflow="extendDomain" zIndex={-20} />}
                       <CartesianGrid stroke="#e9efed" vertical={false} />
                       <XAxis dataKey="label" interval={0} height={26} tickMargin={2} tick={<ChartAxisTick fontSize={8} fontWeight={chartMetric === "billing" || driverAverageChartMetrics.has(chartMetric) ? 500 : 750} />} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={formatChartAxisValue} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={formatChartAxisValue} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} domain={chartYAxisDomain} ticks={chartYAxisTicks} allowDataOverflow={Boolean(chartYAxisDomain)} />
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatChartValue(value), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
@@ -7614,7 +7617,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                         {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill="#df4538" maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="fuel" content={<ChartBarValueLabel />} /></Bar>}
                         {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="net" content={<ChartBarValueLabel />} /></Bar>}
                       </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} minPointSize={10} isAnimationActive={false} activeBar={false} onClick={selectChartBar}>
-                        <LabelList dataKey="value" content={<ChartBarValueLabel textFill={chartMetric === "billing" ? "#123e5f" : "#fff"} formatter={chartMetric === "consumptionAverage" || chartMetric === "billingPerHour" ? formatChartValue : formatShortCurrency} />} />
+                        <LabelList dataKey="value" content={<ChartBarValueLabel textFill={chartMetric === "billing" ? "#123e5f" : "#fff"} formatter={driverAverageChartMetrics.has(chartMetric) ? formatChartBarNumber : formatShortCurrency} />} />
                         {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
                       </Bar>}
                     </BarChart>
