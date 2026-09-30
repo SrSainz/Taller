@@ -1729,6 +1729,21 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
     const dateKey = getDriverDocumentDateKey(document);
     if (dateKey) documentsByDate.set(dateKey, [...(documentsByDate.get(dateKey) ?? []), document]);
   });
+  const consumptionByDate = new Map();
+  ownedDriverDocuments.forEach((document) => {
+    if (!["consumption", "consumption rate", "consumption_rate", "consumo"].includes(getDriverDocumentRecordType(document))) return;
+    const dateKey = getDriverDocumentDateKey(document);
+    if (!dateKey) return;
+    const data = document?.extracted_data ?? {};
+    const extracted = getExtractedDocumentFields(document);
+    const consumption = [data.consumption, data.consumptionRate, data.consumption_rate, extracted.consumption, extracted.consumptionRate, extracted.consumption_rate]
+      .map(getDriverDocumentNumber)
+      .find((value) => value > 0);
+    if (!consumption) return;
+    const count = Math.max(1, Math.round(getDriverDocumentNumber(data.consumptionCount ?? extracted.consumptionCount) || 1));
+    const previous = consumptionByDate.get(dateKey) ?? { total: 0, count: 0 };
+    consumptionByDate.set(dateKey, { total: previous.total + consumption * count, count: previous.count + count });
+  });
   const documentsById = new Map(ownedDriverDocuments.map((document) => [document.id, document]));
   const billingStatsByDate = new Map([...getDriverBillingStatsByDate(ownedDriverDocuments, row.driverId, realEntries)].filter(([dateKey]) => dateKey.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-`)));
   const mileageDocuments = ownedDriverDocuments
@@ -1842,6 +1857,7 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
     const km = dailyKmResolvedByDate.get(dateKey) ?? 0;
     const fuelLiters = fuelEntries.reduce((sum, entry) => sum + entry.liters, 0);
     const fuelCost = fuelEntries.reduce((sum, entry) => sum + entry.cost, 0);
+    const consumptionReading = consumptionByDate.get(dateKey);
     const totalKm = totalKmResolvedByDate.get(dateKey) ?? 0;
     const documentBillingStats = billingStatsByDate.get(dateKey);
     const billingStats = documentBillingStats ? { ...documentBillingStats } : {
@@ -1871,6 +1887,7 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
       fuelEntries,
       fuelLiters,
       fuelCost,
+      consumptionRate: consumptionReading ? consumptionReading.total / consumptionReading.count : null,
       notes: realEntries.find((entry) => String(entry.entry_date) === dateKey)?.notes || "",
       documents: documentsByDate.get(dateKey) ?? [],
       active: billing > 0 || fuelEntries.length > 0 || km > 0 || totalKm > 0 || documentsByDate.has(dateKey) || Boolean(entryForDate?.manual_overrides),
@@ -8405,7 +8422,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           <div className="driver-performance__metric"><IconFileInvoice aria-hidden="true" /><span><small>Facturación</small><strong>{formatCurrency(selectedDriver.revenue)}</strong></span></div>
           <div className="driver-performance__metric driver-performance__metric--fuel"><IconGasStation aria-hidden="true" /><span><small>Consumo</small><strong>{formatCurrency(selectedDriver.fuelCost)}</strong></span></div>
           <div className="driver-performance__metric" title="Media de cuatro indicadores, cada uno limitado al 100 %: facturación por hora (30 €/h), facturación por kilómetro (0,80 €/km), consumo (5 l/100 km) y gasto de combustible (10 % de la facturación). Requiere todos los datos."><IconGauge aria-hidden="true" /><span><small>Eficiencia</small><strong>{performanceSummary.efficiency === null ? "—" : `${performanceSummary.efficiency} %`}</strong></span></div>
-          <div className="driver-performance__metric driver-performance__metric--breakdown"><IconChartBar aria-hidden="true" /><span><small>Consumo / fact.</small><strong>{performanceSummary.fuelToBilling.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %</strong><span className="driver-performance__weeks">{performanceSummary.weeks.map((week) => <span key={week.number}><small>Semana {week.number} · {week.startDay}–{week.endDay}</small><b>{week.fuelToBilling === null ? "—" : `${week.fuelToBilling.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`}</b></span>)}</span></span></div>
+          <div className="driver-performance__metric driver-performance__metric--breakdown"><IconChartBar aria-hidden="true" /><span><small>Consumo medio</small><strong>{performanceSummary.averageConsumption === null ? "—" : `${performanceSummary.averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`}</strong><span className="driver-performance__weeks">{performanceSummary.weeks.map((week) => <span key={week.number}><small>Semana {week.number} · {week.startDay}–{week.endDay}</small><b>{week.averageConsumption === null ? "—" : `${week.averageConsumption.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`}</b></span>)}</span></span></div>
           <div className="driver-performance__metric driver-performance__metric--fuel driver-performance__metric--breakdown"><IconCurrencyEuro aria-hidden="true" /><span><small>Fact. por hora</small><strong>{formatCurrency(performanceSummary.billingPerHour)}</strong><span className="driver-performance__weeks">{performanceSummary.weeks.map((week) => <span key={week.number}><small>Semana {week.number} · {week.startDay}–{week.endDay}</small><b>{week.billingPerHour === null ? "—" : formatCurrency(week.billingPerHour)}</b></span>)}</span></span></div>
         </div>
       </section>}

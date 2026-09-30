@@ -11,6 +11,10 @@ const efficiencyTargets = Object.freeze({
 });
 
 const cappedScore = (value) => Math.min(1, Math.max(0, value));
+const averageConsumption = (rows) => {
+  const readings = rows.map((day) => finitePositive(day?.consumptionRate)).filter((value) => value > 0);
+  return readings.length > 0 ? readings.reduce((sum, value) => sum + value, 0) / readings.length : null;
+};
 
 export const getDriverPerformanceSummary = ({ calendarRows = [], billing = 0, fuelCost = 0, fuelLiters = 0, daysInMonth = 0, year, month }) => {
   // The calendar carries the validated daily billing reports and their saved corrections.
@@ -19,6 +23,7 @@ export const getDriverPerformanceSummary = ({ calendarRows = [], billing = 0, fu
   const monthlyBilling = finitePositive(billing);
   const monthlyFuel = finitePositive(fuelCost);
   const monthlyLitres = finitePositive(fuelLiters);
+  const monthlyConsumption = averageConsumption(calendarRows);
   const hasEfficiencyInputs = monthlyBilling > 0 && hours > 0 && kilometres > 0 && monthlyFuel > 0 && monthlyLitres > 0;
   const efficiency = hasEfficiencyInputs
     ? Math.round(25 * (
@@ -37,20 +42,19 @@ export const getDriverPerformanceSummary = ({ calendarRows = [], billing = 0, fu
     const endDay = Math.min(daysInMonth, firstDay + 6);
     const rows = calendarRows.filter((day) => Number(day?.day) >= startDay && Number(day?.day) <= endDay);
     const weekBilling = rows.reduce((sum, day) => sum + finitePositive(day?.billing), 0);
-    const weekFuel = rows.reduce((sum, day) => sum + finitePositive(day?.fuelCost), 0);
     const weekHours = rows.reduce((sum, day) => sum + finitePositive(day?.billingStats?.connectionHours), 0);
     weeks.push({
       number: weeks.length + 1,
       startDay,
       endDay,
-      fuelToBilling: weekBilling > 0 ? weekFuel / weekBilling * 100 : null,
+      averageConsumption: averageConsumption(rows),
       billingPerHour: weekHours > 0 ? weekBilling / weekHours : null,
     });
   }
   return {
     hours: Number(hours.toFixed(1)),
     efficiency,
-    fuelToBilling: monthlyBilling > 0 ? monthlyFuel / monthlyBilling * 100 : 0,
+    averageConsumption: monthlyConsumption,
     billingPerHour: hours > 0 ? monthlyBilling / hours : 0,
     weeks,
   };
