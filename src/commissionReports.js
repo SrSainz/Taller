@@ -36,7 +36,7 @@ export const getCommissionThresholdsForBilling = (billing = 0) => {
 
 export const isAlex = (name = "") => normalizeDriverName(name) === "alex";
 
-export const calculateDriverCommission = ({ driverName = "", billing = 0, tips = 0, tolls = 0, payroll = 0 } = {}) => {
+export const calculateDriverCommission = ({ driverName = "", billing = 0, refunds = 0, tips = 0, tolls = 0, payroll = 0 } = {}) => {
   const monthlyBilling = money(billing);
   const commissionRate = getDriverCommissionRate(driverName);
   const commissionEligible = commissionRate > 0 && monthlyBilling > FIRST_BONUS_THRESHOLD;
@@ -53,6 +53,7 @@ export const calculateDriverCommission = ({ driverName = "", billing = 0, tips =
     commissionBase,
     thresholdBonus,
     commission,
+    refunds: money(refunds),
     tips: money(tips),
     tolls: money(tolls),
     totalBenefitMonth,
@@ -61,7 +62,7 @@ export const calculateDriverCommission = ({ driverName = "", billing = 0, tips =
   };
 };
 
-export const calculateAlexCommission = ({ billing = 0, tips = 0, tolls = 0, payroll = 0 } = {}) => calculateDriverCommission({ driverName: "Alex", billing, tips, tolls, payroll });
+export const calculateAlexCommission = ({ billing = 0, refunds = 0, tips = 0, tolls = 0, payroll = 0 } = {}) => calculateDriverCommission({ driverName: "Alex", billing, refunds, tips, tolls, payroll });
 
 const ascii = (value = "") => String(value)
   .normalize("NFD")
@@ -128,9 +129,11 @@ export const buildAlexCommissionReportPdf = ({ driverName = "Alex", vehiclePlate
     textCommand("F2", 13, 430, 328, pdfMoney(report.tips), "0.14 0.20 0.24"),
     textCommand("F1", 12, 55, 296, "Peajes del mes", "0.14 0.20 0.24"),
     textCommand("F2", 13, 430, 296, pdfMoney(report.tolls), "0.14 0.20 0.24"),
-    boxCommand(42, 210, 511, 60, "0.86 0.95 0.89"),
-    textCommand("F2", 13, 58, 245, "TOTAL BENEFICIO MES", "0.06 0.23 0.14"),
-    textCommand("F2", 18, 405, 241, pdfMoney(report.totalBenefitMonth), "0.06 0.23 0.14"),
+    textCommand("F1", 12, 55, 264, "Reembolsos incluidos en la facturacion", "0.14 0.20 0.24"),
+    textCommand("F2", 13, 430, 264, pdfMoney(report.refunds), "0.14 0.20 0.24"),
+    boxCommand(42, 192, 511, 60, "0.86 0.95 0.89"),
+    textCommand("F2", 13, 58, 227, "TOTAL BENEFICIO MES", "0.06 0.23 0.14"),
+    textCommand("F2", 18, 405, 223, pdfMoney(report.totalBenefitMonth), "0.06 0.23 0.14"),
     textCommand("F1", 12, 55, 168, "Nomina", "0.14 0.20 0.24"),
     textCommand("F2", 13, 430, 168, pdfMoney(report.payroll), "0.14 0.20 0.24"),
     boxCommand(42, 73, 511, 63, "0.08 0.48 0.35"),

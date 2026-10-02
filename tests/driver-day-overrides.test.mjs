@@ -36,13 +36,22 @@ test("la corrección de facturación recalcula precio neto y ganancias sin perde
   });
 
   assert.equal(override.netAmount, 561.15);
-  assert.equal(override.total, 561.65);
+  assert.equal(override.total, 562.9);
   assert.equal(result.netAmount, 561.15);
-  assert.equal(result.total, 561.65);
+  assert.equal(result.total, 562.9);
   assert.equal(result.trips, 22);
   assert.equal(result.points, 66);
   assert.equal(result.refunds, 1.25);
   assert.equal(result.cashCollected, 120);
+});
+
+test("una corrección antigua actualiza sus ganancias con los reembolsos ya guardados", () => {
+  const result = applyDriverBillingOverride({ netAmount: 400, tips: 2, refunds: 25, total: 402 }, {
+    entry_date: "2026-09-01",
+    manual_overrides: { billing: { netAmount: 400, tips: 2, refunds: 25, total: 402 } },
+  });
+  assert.equal(result.billableAmount, 425);
+  assert.equal(result.total, 427);
 });
 
 test("conserva como positivo el efectivo cobrado aunque el documento lo extraiga con signo negativo", () => {

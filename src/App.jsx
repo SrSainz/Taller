@@ -98,7 +98,7 @@ import { GESTORIA_MONTHLY_FIXED_AMOUNT, gestoriaDocuments, gestoriaImportMeta, g
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
-import { getMonthlyDriverBilling } from "./driverBillingTotals";
+import { getDriverBillingAmount, getMonthlyDriverBilling } from "./driverBillingTotals";
 import { driverProfileCoversWholePeriod, isDriverProfileValidDuringPeriod, isDriverProfileValidOnDate, profileDateForPeriod } from "./driverProfilePeriods";
 import { getDriverPerformanceSummary } from "./driverPerformanceSummary";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
@@ -797,7 +797,7 @@ const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commission, peri
     const tips = monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0);
     const tolls = monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0);
     const payroll = payrollBreakdown[index]?.amount ?? 0;
-    const commissionCalculation = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, tips, tolls, payroll });
+    const commissionCalculation = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, refunds: row.refunds, tips, tolls, payroll });
     const calculation = isAlex(row.driver) ? commissionCalculation : null;
     return { driver: row.driver, driverId: row.driverId ?? "", amount: commissionCalculation.totalToCollect, commissionCalculation, calculation, periodStart, periodEnd, vehiclePlate: vehicle.plate };
   });
@@ -952,7 +952,7 @@ const buildDriverWeeklyRows = (days, entries, manualValues = {}, excludeRefunds 
   const total = (entry, key, index) => getDriverWeeklyAmount(entry, key, days[index]?.key, manualValues);
   const cumulativeTotals = accumulateDriverWeekTotals(days.map(({ key }, index) => getDriverDailyNetAmount(entries[index], key, manualValues, excludeRefunds)));
   return [
-    { key: "net", label: "Precio\nneto", values: entries.map((entry, index) => total(entry, "net", index)) },
+    { key: "net", label: "Facturación", values: entries.map((entry, index) => total(entry, "net", index)) },
     { key: "cash", label: "Efectivo", values: entries.map((entry, index) => total(entry, "cash_collected", index)) },
     { key: "fuel", label: "Repostaje", values: entries.map((entry, index) => total(entry, "fuel_cost", index)) },
     { key: "refunds", label: "Reembolsos", values: entries.map((entry, index) => total(entry, "refunds", index)) },
@@ -1184,7 +1184,8 @@ const getDriverBillingDocumentStats = (document) => {
     : totalValue !== ""
       ? Math.max(0, getDriverDocumentNumber(totalValue) - tips)
       : getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["billing", "amount"]));
-  const total = hasComputedNetAmount ? Number((netAmount + tips).toFixed(2)) : totalValue !== "" ? getDriverDocumentNumber(totalValue) : netAmount + tips;
+  const refunds = getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["refunds", "reimbursements", "reembolsos"]));
+  const total = ((hasComputedNetAmount || billingAmounts.hasNetAmount) ? Number((netAmount + tips).toFixed(2)) : totalValue !== "" ? getDriverDocumentNumber(totalValue) : netAmount + tips) + refunds;
   return {
     dateKey: getDriverDocumentDateKey(document),
     connection,
@@ -1196,7 +1197,8 @@ const getDriverBillingDocumentStats = (document) => {
     promotions: billingAmounts.promotions,
     tips,
     total,
-    refunds: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["refunds", "reimbursements", "reembolsos"])),
+    refunds,
+    billableAmount: getDriverBillingAmount({ billing: netAmount, refunds }),
     cashCollected: normalizeDriverCashCollected(getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["cashCollected", "cash_collected", "cash", "efectivo"]))),
     hasBillingAmount: hasDriverBillingAmount(fields),
   };
@@ -1238,6 +1240,7 @@ function getDriverBillingStatsByDate(documents = [], driverId, entries = []) {
       tips: 0,
       total: 0,
       refunds: 0,
+      billableAmount: 0,
       cashCollected: 0,
       hasBillingAmount: true,
     };
@@ -1253,6 +1256,7 @@ function getDriverBillingStatsByDate(documents = [], driverId, entries = []) {
       tips: Number((current.tips + stats.tips).toFixed(2)),
       total: Number((current.total + stats.total).toFixed(2)),
       refunds: Number((current.refunds + stats.refunds).toFixed(2)),
+      billableAmount: getDriverBillingAmount({ billing: current.netAmount + stats.netAmount, refunds: current.refunds + stats.refunds }),
       cashCollected: Number((current.cashCollected + stats.cashCollected).toFixed(2)),
     });
   });
@@ -1273,6 +1277,7 @@ function getDriverBillingStatsByDate(documents = [], driverId, entries = []) {
       tips: 0,
       total: 0,
       refunds: 0,
+      billableAmount: 0,
       cashCollected: 0,
       hasBillingAmount: true,
     };
@@ -1285,12 +1290,14 @@ function getDriverDailyLedgerEntry(entries = [], dateKey, billingStatsByDate = n
   const billingStats = billingStatsByDate.get(dateKey);
   const fuelOverride = getDriverDayOverride(existing, "fuel");
   const mileageOverride = getDriverMileageOverride(existing);
-  if (!billingStats && !fuelOverride && !mileageOverride) return existing;
+  const hasRefundAdjustment = Number(existing?.refunds) > 0;
+  if (!billingStats && !fuelOverride && !mileageOverride && !hasRefundAdjustment) return existing;
   return {
     ...(existing ?? {}),
     entry_date: dateKey,
+    ...(!billingStats && hasRefundAdjustment ? { billing: getDriverBillingAmount({ billing: existing?.billing, refunds: existing?.refunds }) } : {}),
     ...(billingStats ? {
-      billing: billingStats.netAmount,
+      billing: getDriverBillingAmount({ billing: billingStats.netAmount, refunds: billingStats.refunds }),
       billing_override: true,
       cash_collected: billingStats.cashCollected,
       tips: billingStats.tips,
@@ -1658,13 +1665,13 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year, documents = 
     const coversEntirePeriod = driverProfileCoversWholePeriod(profile, periodStart, periodEnd);
     const importedRevenue = coversEntirePeriod ? importedBillingByPeriod?.[periodKey] ?? 0 : 0;
     const importedTips = coversEntirePeriod ? importedTipsByPeriod?.[periodKey] ?? 0 : 0;
-    const { amount: revenue, hasRecordedBilling } = getMonthlyDriverBilling({ entries, billingStatsByDate, periodKey, importedBilling: importedRevenue });
+    const { amount: revenue, refunds: monthlyRefunds, hasRecordedBillingAmount, hasRecordedBilling } = getMonthlyDriverBilling({ entries, billingStatsByDate, periodKey, importedBilling: importedRevenue });
     const hasBillingOverride = entries.some((entry) => entry.billing_override === true);
     const eligibleImportedBillingByPeriod = importedBillingByPeriod
       ? Object.fromEntries(Object.entries(importedBillingByPeriod).filter(([period]) => driverProfileCoversWholePeriod(profile, `${period}-01`, `${period}-${String(new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0).getDate()).padStart(2, "0")}`)))
       : null;
     const billingByPeriod = eligibleImportedBillingByPeriod ? { ...eligibleImportedBillingByPeriod, ...(hasRecordedBilling ? { [periodKey]: revenue } : {}) } : null;
-    const importedPeriodEntry = !hasRecordedBilling && importedRevenue > 0
+    const importedPeriodEntry = !hasRecordedBillingAmount && importedRevenue > 0
       ? [{ id: `${String(driver).toLocaleLowerCase("es").replace(/\s+/g, "-")}-billing-${periodKey}`, driver_id: profile?.id ?? "", vehicle_plate: vehicle.plate, entry_date: `${periodKey}-01`, billing: importedRevenue, cash_collected: 0, tips: importedTips, tolls: 0, fuel_cost: 0, fuel_liters: 0, other_expenses: 0, odometer_km: 0, isImportedBilling: true }]
       : [];
     return {
@@ -1675,6 +1682,7 @@ const getDriverBillingRows = (vehicles, driverEntries, month, year, documents = 
       model: vehicle.model,
       trips: billingDocumentStats.reduce((sum, stats) => sum + stats.trips, 0),
       revenue,
+      refunds: monthlyRefunds,
       entries: [...rangedEntries, ...importedPeriodEntry],
       billingDocumentStats,
       billingByPeriod,
@@ -1697,9 +1705,9 @@ const getHistoricalBillingRowsForPeriod = (vehicles, driverEntries = [], month, 
     const periodStart = `${periodKey}-01`;
     const periodEnd = `${periodKey}-${String(new Date(year, month + 1, 0).getDate()).padStart(2, "0")}`;
     if (profile && !driverProfileCoversWholePeriod(profile, periodStart, periodEnd)) return null;
-    const recordedAmount = driverEntries
-      .filter((entry) => profile?.id && entry.driver_id === profile.id && String(entry.entry_date ?? "").startsWith(periodKey))
-      .reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0);
+    const recordedEntries = driverEntries.filter((entry) => profile?.id && entry.driver_id === profile.id && String(entry.entry_date ?? "").startsWith(periodKey));
+    const recordedAmount = recordedEntries.reduce((sum, entry) => sum + (Number(entry.billing) || 0), 0);
+    const recordedRefunds = recordedEntries.reduce((sum, entry) => sum + (Number(entry.refunds) || 0), 0);
     const importedTips = getImportedTipsByPeriod(source.label)?.[periodKey] ?? 0;
     if (!record || !(Number(record.amount) > 0)) return null;
     const hasVehicle = Boolean(vehicle);
@@ -1709,7 +1717,7 @@ const getHistoricalBillingRowsForPeriod = (vehicles, driverEntries = [], month, 
       driverId: "",
       plate: vehicle?.plate ?? sourcePlate,
       model: vehicle?.model ?? "Matrícula pendiente",
-      revenue: Number(record.amount) || 0,
+      revenue: Number(((Number(record.amount) || 0) + recordedRefunds).toFixed(2)),
       entries: [{ id: `historical-entry-${source.key}-${periodKey}`, entry_date: `${periodKey}-01`, billing: Number(record.amount) || 0, tips: Number(importedTips) || 0, tolls: 0, driver_id: "", isImportedBilling: true }],
       sourceFile: record.sourceFile ?? "Documento de facturación",
       extractedLabel: record.extractedLabel ?? "Total facturado",
@@ -1837,17 +1845,26 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
   });
   const periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
   const periodRevenue = row.billingByPeriod ? (row.billingByPeriod[periodKey] ?? 0) : row.revenue;
-  const billingEntries = realEntries.filter((entry) => Number(entry.billing) > 0);
-  const documentedBillingDays = new Map([...billingStatsByDate.entries()].map(([dateKey, stats]) => [Number(dateKey.slice(8, 10)), Number(stats.netAmount.toFixed(2))]));
-  const billingDays = documentedBillingDays.size > 0
-    ? documentedBillingDays
-    : billingEntries.length
-    ? billingEntries.reduce((days, entry) => {
+  const billingEntries = realEntries.filter((entry) => Number(entry.billing) > 0 || Number(entry.refunds) > 0);
+  const documentedBillingDays = new Map([...billingStatsByDate.entries()].map(([dateKey, stats]) => [Number(dateKey.slice(8, 10)), getDriverBillingAmount({ billing: stats.netAmount, refunds: stats.refunds })]));
+  const hasDailyBillingAmount = billingEntries.some((entry) => Number(entry.billing) > 0 || entry.billing_override === true);
+  const billingDays = (() => {
+    if (documentedBillingDays.size > 0) return documentedBillingDays;
+    if (!billingEntries.length) return row.hasBillingOverride ? new Map() : getDriverBillingDays(row.driver, row.plate, month, year, periodRevenue);
+    if (hasDailyBillingAmount) return billingEntries.reduce((days, entry) => {
       const day = Number(entry.entry_date.slice(8, 10));
-      days.set(day, Number(((days.get(day) ?? 0) + (Number(entry.billing) || 0)).toFixed(2)));
+      days.set(day, Number(((days.get(day) ?? 0) + getDriverBillingAmount({ billing: entry.billing, refunds: entry.refunds })).toFixed(2)));
       return days;
-    }, new Map())
-    : row.hasBillingOverride ? new Map() : getDriverBillingDays(row.driver, row.plate, month, year, periodRevenue);
+    }, new Map());
+    const refundTotal = billingEntries.reduce((sum, entry) => sum + (Number(entry.refunds) || 0), 0);
+    const importedBase = row.hasBillingOverride ? 0 : Math.max(0, periodRevenue - refundTotal);
+    const estimatedDays = importedBase > 0 ? getDriverBillingDays(row.driver, row.plate, month, year, importedBase) : new Map();
+    return billingEntries.reduce((days, entry) => {
+      const day = Number(entry.entry_date.slice(8, 10));
+      days.set(day, Number(((days.get(day) ?? 0) + Math.max(0, Number(entry.refunds) || 0)).toFixed(2)));
+      return days;
+    }, new Map(estimatedDays));
+  })();
   const billingDayKeys = [...billingDays.keys()];
   const seed = `${row.driver}-${row.plate}-${month}-${year}`.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0);
   const documentedTripsByDay = new Map([...billingStatsByDate.entries()].map(([dateKey, stats]) => [Number(dateKey.slice(8, 10)), stats.trips]));
@@ -1912,12 +1929,14 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
       tips: Number(entryForDate?.tips) || 0,
       total: billing + (Number(entryForDate?.tips) || 0),
       refunds: Number(entryForDate?.refunds) || 0,
+      billableAmount: billing,
       cashCollected: normalizeDriverCashCollected(entryForDate?.cash_collected),
       hasBillingAmount: billing > 0,
     };
     if (entryForDate?.billing_override === true) {
       billingStats.netAmount = Number(entryForDate.billing) || 0;
-      billingStats.total = billingStats.netAmount + billingStats.tips;
+      billingStats.billableAmount = getDriverBillingAmount({ billing: billingStats.netAmount, refunds: billingStats.refunds });
+      billingStats.total = billingStats.billableAmount + billingStats.tips;
     }
     return {
       day,
@@ -4575,7 +4594,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     const weeklyWash = weekEntries.reduce((sum, item) => sum + washFor(item), 0);
     const weeklyOther = total(weekEntries, "other_expenses") + weeklyWash;
     const monthlyWash = monthEntries.reduce((sum, item) => sum + washFor(item), 0);
-    const weeklyNet = weeklyCash - weeklyFuel - (profileVehiclePlate === "5754 MJV" ? 0 : weeklyRefunds) - weeklyOther;
+    const weeklyNet = weeklyCash + weeklyRefunds - weeklyFuel - weeklyOther;
     const weekEndLabel = new Date(weekEnd);
     weekEndLabel.setDate(weekEndLabel.getDate() - 1);
     const periodFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
@@ -4599,7 +4618,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       weeklyCash,
       weeklyFuel,
       weeklyRefunds,
-      excludeRefunds: profileVehiclePlate === "5754 MJV",
+      excludeRefunds: false,
       weeklyOther,
       weeklyNet,
       weeklyProgress: weeklyCash > 0 ? Math.max(0, Math.min(100, (weeklyNet / weeklyCash) * 100)) : 0,
@@ -4640,7 +4659,10 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const selectedDayFuelOverride = getDriverDayOverride(selectedDaySource, "fuel");
   const selectedDayMileageOverride = getDriverMileageOverride(selectedDaySource);
   const selectedDayData = {
-    billing: selectedDayBillingStats?.netAmount ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.billing : getDriverEntryAmount(selectedDaySource, "billing") || selectedDayDocumentData.billing),
+    billing: getDriverBillingAmount({
+      billing: selectedDayBillingStats?.netAmount ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.billing : getDriverEntryAmount(selectedDaySource, "billing") || selectedDayDocumentData.billing),
+      refunds: selectedDayBillingStats?.refunds ?? (selectedDayDocumentData.hasBilling ? selectedDayDocumentData.refunds : getDriverEntryAmount(selectedDaySource, "refunds") || selectedDayDocumentData.refunds),
+    }),
     odometer_km: Object.prototype.hasOwnProperty.call(selectedDayMileageOverride ?? {}, "odometerKm") ? Number(selectedDayMileageOverride.odometerKm) || 0 : getDriverEntryAmount(selectedDaySource, "odometer_km") || selectedDayDocumentData.odometerKm,
     fuel_cost: Object.prototype.hasOwnProperty.call(selectedDayFuelOverride ?? {}, "cost") ? Number(selectedDayFuelOverride.cost) || 0 : getDriverEntryAmount(selectedDaySource, "fuel_cost") || selectedDayDocumentData.fuelCost,
     fuel_liters: Object.prototype.hasOwnProperty.call(selectedDayFuelOverride ?? {}, "liters") ? Number(selectedDayFuelOverride.liters) || 0 : getDriverEntryAmount(selectedDaySource, "fuel_liters") || selectedDayDocumentData.fuelLiters,
@@ -5281,7 +5303,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
             <div className="driver-period-card__ledger">
               <span><small>Efectivo cobrado</small><strong>{formatCurrency(periodSummary.weeklyCash)}</strong></span>
               <span><small>− Gasolina</small><strong>− {formatCurrency(periodSummary.weeklyFuel)}</strong></span>
-              <span><small>{periodSummary.excludeRefunds ? "Reembolsos (informativo)" : "− Reembolsos"}</small><strong>{periodSummary.excludeRefunds ? "" : "− "}{formatCurrency(periodSummary.weeklyRefunds)}</strong></span>
+              <span><small>+ Reembolsos incluidos</small><strong>+ {formatCurrency(periodSummary.weeklyRefunds)}</strong></span>
               <span><small>− Otros gastos</small><strong>− {formatCurrency(periodSummary.weeklyOther)}</strong></span>
             </div>
           </article>
@@ -7137,6 +7159,7 @@ function AlexCommissionReportPanel({ report, periodLabel, archivedReports = [], 
       <div><span>32% de facturación</span><strong>{formatCurrency(calculation.commissionBase)}</strong></div>
       <div><span>Bonus por tramos</span><strong>{formatCurrency(calculation.thresholdBonus)}</strong><small>{reachedThresholds.length ? `Superados: ${reachedThresholds.join(" · ")} €` : "Sin tramos superados"}</small></div>
       <div><span>Comisión calculada</span><strong>{formatCurrency(calculation.commission)}</strong></div>
+      <div><span>Reembolsos incluidos en facturación</span><strong>{formatCurrency(calculation.refunds)}</strong></div>
       <div><span>+ Propinas</span><strong>{formatCurrency(calculation.tips)}</strong></div>
       <div><span>+ Peajes</span><strong>{formatCurrency(calculation.tolls)}</strong></div>
       <div className="alex-commission-report__total"><span>Total beneficio mes</span><strong>{formatCurrency(calculation.totalBenefitMonth)}</strong></div>
@@ -8056,6 +8079,7 @@ function DriverBillingCalendar({ row, vehicle, month, year, documents = [], tran
       {selectedDayDetail && <section className="driver-billing-calendar__selected-day" aria-label={`Día seleccionado ${formatDocumentDisplayDate(selectedDateKey)}`}>
         <div><span>Día seleccionado</span><strong>{formatDocumentDisplayDate(selectedDateKey)}</strong></div>
         <div><span>Facturación</span><strong>{formatCurrency(selectedDayDetail.billing)}</strong></div>
+        <div><span>Reembolsos incluidos</span><strong>{formatCurrency(selectedDayDetail.billingStats?.refunds)}</strong></div>
         <div><span>Efectivo cobrado</span><strong>{formatCurrency(selectedDayDetail.billingStats?.cashCollected)}</strong></div>
         {onEditDay && <button type="button" className="secondary-button" onClick={() => onEditDay({ row, vehicle: calendarVehicle, detail: selectedDayDetail, dateKey: selectedDateKey, documents: selectedDayDocuments, periodKilometres })}><IconFileInvoice size={14} />Editar día</button>}
       </section>}
@@ -8117,6 +8141,7 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
         <div><span>Porcentaje aplicado</span><strong>{rateLabel}</strong></div>
         <div><span>Comisión porcentual</span><strong>{formatCurrency(calculation.commissionBase)}</strong></div>
         <div><span>Bono por tramos</span><strong>{formatCurrency(calculation.thresholdBonus)}</strong></div>
+        <div><span>Reembolsos incluidos en facturación</span><strong>{formatCurrency(calculation.refunds)}</strong></div>
         <div><span>Propinas</span><strong>{formatCurrency(calculation.tips)}</strong></div>
         <div className="driver-commission-sheet__total"><span>TOTAL BENEFICIO MES</span><strong>{formatCurrency(calculation.totalBenefitMonth)}</strong></div>
         <label className="driver-commission-sheet__payroll"><span>Nómina</span><span><input type="number" min="0" step="0.01" inputMode="decimal" value={payrollDraft} onChange={(event) => onPayrollDraftChange(event.target.value)} aria-label={`Nómina mensual de ${row.driver}`} /><button type="button" onClick={onSavePayroll} disabled={payrollBusy}>{payrollBusy ? "Guardando…" : "Guardar"}</button></span><strong>{formatCurrency(payroll)}</strong></label>
@@ -8254,7 +8279,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     const monthEntries = (commissionDriver.entries ?? []).filter((entry) => String(entry.entry_date ?? "").startsWith(periodKey));
     const tips = monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0);
     const tolls = monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0);
-    return calculateDriverCommission({ driverName: commissionDriver.driver, billing: commissionDriver.revenue, tips, tolls, payroll: commissionPayroll });
+    return calculateDriverCommission({ driverName: commissionDriver.driver, billing: commissionDriver.revenue, refunds: commissionDriver.refunds, tips, tolls, payroll: commissionPayroll });
   }, [commissionDriver, commissionPayroll, reportMonth, reportYear]);
   useEffect(() => {
     setPayrollDraft(commissionDriver ? String(commissionPayroll.toFixed(2)) : "");
@@ -8547,7 +8572,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         <span><small>Puntos</small><strong>{selectedBillingStats.points}</strong></span>
         <span><small>Precio neto</small><strong>{formatCurrency(selectedBillingStats.netAmount)}</strong></span>
         <span><small>Propina</small><strong>{formatCurrency(selectedBillingStats.tips)}</strong></span>
-        <span><small>Ganancias totales</small><strong>{formatCurrency(selectedBillingStats.total)}</strong></span>
+        <span><small>Facturación total con reembolsos</small><strong>{formatCurrency(selectedBillingStats.billableAmount ?? getDriverBillingAmount({ billing: selectedBillingStats.netAmount, refunds: selectedBillingStats.refunds }))}</strong></span>
         <span><small>Reembolsos</small><strong>{formatCurrency(selectedBillingStats.refunds)}</strong></span>
         <span><small>Efectivo cobrado</small><strong>{formatCurrency(selectedBillingStats.cashCollected)}</strong></span>
       </div>}
@@ -8578,7 +8603,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         </div>
         <div className="drivers-calendar-card__identity">
           <strong id={expanded ? "drivers-calendar-expanded-title" : "drivers-calendar-title"}>{selectedDriver.driver}</strong>
-          <span className="drivers-calendar-card__month">{reportMonths[reportMonth]} {reportYear}</span>
+          <button type="button" className="drivers-calendar-card__month" onClick={() => setCalendarExpanded(true)} disabled={expanded} aria-expanded={expanded} aria-label={expanded ? `Calendario ampliado de ${selectedDriver.driver}` : `Ampliar calendario de ${selectedDriver.driver}`}>{reportMonths[reportMonth]} {reportYear}</button>
         </div>
         <div className="drivers-calendar-card__actions">
           <button type="button" className="drivers-calendar-nav" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><IconChevronRight size={18} /></button>
@@ -8611,7 +8636,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           const monthEntries = (row.entries ?? []).filter((entry) => String(entry.entry_date ?? "").startsWith(periodStart.slice(0, 7)));
           const tips = monthEntries.reduce((sum, entry) => sum + (Number(entry.tips) || 0), 0);
           const tolls = monthEntries.reduce((sum, entry) => sum + (Number(entry.tolls) || 0), 0);
-          const rowCommission = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, tips, tolls, payroll: getDriverPayroll(row) });
+          const rowCommission = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, refunds: row.refunds, tips, tolls, payroll: getDriverPayroll(row) });
           return <article className={selectedDriverKey === row.key ? "driver-list-card driver-list-card--active" : "driver-list-card"} key={row.key}>
           <span className="driver-list-card__identity"><button type="button" className="driver-list-card__select" onClick={() => selectDriver(row)} aria-pressed={selectedDriverKey === row.key} aria-label={`Ver calendario de ${row.driver}`}><span className="driver-list-card__avatar" aria-hidden="true">{getDriverAvatarPath(row.driver) ? <img src={getDriverAvatarPath(row.driver)} alt="" /> : String(row.driver ?? "?").trim().slice(0, 1).toLocaleUpperCase("es")}</span><span className="driver-list-card__identity-copy"><strong>{row.driver}</strong></span></button><button type="button" className="driver-list-card__commission-button" onClick={() => setCommissionDriverKey(row.key)} aria-label={`Ver total a cobrar en efectivo de ${row.driver}. Importe actual ${formatCurrency(rowCommission.totalToCollect)}`}><strong>{formatCurrency(rowCommission.totalToCollect)}</strong></button></span>
           <button type="button" className="driver-list-card__metric driver-list-card__metric--billing" onClick={() => selectDriver(row)} aria-label={`Ver calendario de ${row.driver}. Facturación ${formatCurrency(row.revenue)}`}><strong>{formatCurrency(row.revenue)}</strong></button>
@@ -8741,7 +8766,7 @@ function DriverDayEditWorkflow({ item, onCancel }) {
   const dateLabel = formatDocumentDisplayDate(item.dateKey);
   const editorNumber = (value) => Math.max(0, Number(String(value ?? "").replace(",", ".")) || 0);
   const billingNetPreview = Number((editorNumber(billingBaseNet) + editorNumber(billingPromotions)).toFixed(2));
-  const billingTotalPreview = Number((billingNetPreview + editorNumber(billingTips)).toFixed(2));
+  const billingTotalPreview = Number((billingNetPreview + editorNumber(billingTips) + editorNumber(billingRefunds)).toFixed(2));
   const mileagePeriodPreview = Number(Math.max(0, (Number(detail.periodKilometres) || 0) - (Number(detail.km) || 0) + editorNumber(dailyKm)).toFixed(2));
 
   const save = async () => {
@@ -8810,7 +8835,7 @@ function DriverDayEditWorkflow({ item, onCancel }) {
           <label>Promociones<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={billingPromotions} onChange={(event) => setBillingPromotions(event.target.value)} /><i>€</i></div></label>
           <label>Precio neto con promociones<div className="driver-day-edit-calculated" aria-live="polite"><strong>{formatCurrency(billingNetPreview)}</strong><small>Base + promociones</small></div></label>
           <label>Propina<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={billingTips} onChange={(event) => setBillingTips(event.target.value)} /><i>€</i></div></label>
-          <label>Ganancias totales<div className="driver-day-edit-calculated" aria-live="polite"><strong>{formatCurrency(billingTotalPreview)}</strong><small>Precio neto + propina</small></div></label>
+          <label>Ganancias totales<div className="driver-day-edit-calculated" aria-live="polite"><strong>{formatCurrency(billingTotalPreview)}</strong><small>Precio neto + propina + reembolsos</small></div></label>
           <label>Reembolsos<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={billingRefunds} onChange={(event) => setBillingRefunds(event.target.value)} /><i>€</i></div></label>
           <label>Efectivo cobrado<div className="driver-day-edit-input"><input type="number" min="0" step="0.01" inputMode="decimal" value={billingCashCollected} onChange={(event) => setBillingCashCollected(event.target.value)} /><i>€</i></div></label>
         </>}

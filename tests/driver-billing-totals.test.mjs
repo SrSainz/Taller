@@ -4,12 +4,14 @@ import { getMonthlyDriverBilling } from "../src/driverBillingTotals.js";
 
 test("a missing or late document does not remove its day's recorded billing", () => {
   const entries = [
-    { entry_date: "2026-09-02", billing: 200 },
+    { entry_date: "2026-09-02", billing: 200, refunds: 15 },
     { entry_date: "2026-09-03", billing: 233.96 },
   ];
-  const billingStatsByDate = new Map([["2026-09-02", { netAmount: 210, hasBillingAmount: true }]]);
+  const billingStatsByDate = new Map([["2026-09-02", { netAmount: 210, refunds: 17, hasBillingAmount: true }]]);
   assert.deepEqual(getMonthlyDriverBilling({ entries, billingStatsByDate, periodKey: "2026-09", importedBilling: 1000 }), {
-    amount: 443.96,
+    amount: 460.96,
+    refunds: 17,
+    hasRecordedBillingAmount: true,
     hasRecordedBilling: true,
   });
 });
@@ -18,4 +20,13 @@ test("document corrections and explicit zero overrides take priority over import
   const entries = [{ entry_date: "2026-09-01", billing: 0, billing_override: true }];
   assert.equal(getMonthlyDriverBilling({ entries, periodKey: "2026-09", importedBilling: 500 }).amount, 0);
   assert.equal(getMonthlyDriverBilling({ entries: [], periodKey: "2026-09", importedBilling: 500 }).amount, 500);
+});
+
+test("un reembolso diario se suma a la facturación histórica importada sin duplicarlo", () => {
+  const result = getMonthlyDriverBilling({
+    entries: [{ entry_date: "2026-09-04", billing: 0, refunds: 75 }],
+    periodKey: "2026-09",
+    importedBilling: 500,
+  });
+  assert.deepEqual(result, { amount: 575, refunds: 75, hasRecordedBillingAmount: false, hasRecordedBilling: true });
 });

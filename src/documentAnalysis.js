@@ -239,12 +239,17 @@ export const hasDriverBillingAmount = (fields = {}) => {
 
 export const normalizeDriverBillingAnalysisFields = (fields = []) => {
   const amounts = getDriverBillingAmounts(fields);
-  if (!amounts.hasBaseNetAmount && !amounts.hasPromotions) return fields;
   const tips = roundedAmount(getField(fields, ["tips", "tip"]));
+  const refunds = roundedAmount(getField(fields, ["refunds", "reimbursements", "reembolsos"]));
+  const totalValue = getField(fields, ["total", "earningsTotal", "grossTotal"]);
+  if (!amounts.hasNetAmount && !amounts.hasBaseNetAmount && !amounts.hasPromotions && totalValue === "") return fields;
+  const normalizedTotal = amounts.hasNetAmount || amounts.hasBaseNetAmount || amounts.hasPromotions
+    ? Number((amounts.netAmount + tips + refunds).toFixed(2))
+    : Number((roundedAmount(totalValue) + refunds).toFixed(2));
   return fields.map((field) => {
-    if (field.key === "baseNetAmount") return { ...field, value: amounts.baseNetAmount };
-    if (field.key === "netAmount") return { ...field, value: amounts.netAmount };
-    if (field.key === "total") return { ...field, value: Number((amounts.netAmount + tips).toFixed(2)) };
+    if (field.key === "baseNetAmount" && (amounts.hasBaseNetAmount || amounts.hasPromotions)) return { ...field, value: amounts.baseNetAmount };
+    if (field.key === "netAmount" && (amounts.hasNetAmount || amounts.hasBaseNetAmount || amounts.hasPromotions)) return { ...field, value: amounts.netAmount };
+    if (field.key === "total") return { ...field, value: normalizedTotal };
     return field;
   });
 };

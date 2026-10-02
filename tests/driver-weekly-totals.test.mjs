@@ -3,20 +3,20 @@ import test from "node:test";
 
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal } from "../src/driverWeeklyTotals.js";
 
-test("5754 MJV can retain refunds without deducting them from cash totals", () => {
-  assert.equal(calculateDriverDailyTotal({ cashCollected: 100, fuelCost: 20, refunds: 15, excludeRefunds: true }), 80);
-  assert.equal(calculateDriverDailyTotal({ cashCollected: 100, fuelCost: 20, refunds: 15 }), 65);
-  assert.deepEqual(accumulateDriverWeekTotals([80, 40]), [80, 120]);
+test("los reembolsos se suman a los ingresos diarios de todos los coches", () => {
+  assert.equal(calculateDriverDailyTotal({ cashCollected: 100, fuelCost: 20, refunds: 15, excludeRefunds: true }), 95);
+  assert.equal(calculateDriverDailyTotal({ cashCollected: 100, fuelCost: 20, refunds: 15 }), 95);
+  assert.deepEqual(accumulateDriverWeekTotals([95, 40]), [95, 135]);
 });
 
-test("calcula el total diario restando repostaje, reembolsos, lavados y varios al efectivo", () => {
+test("calcula el total diario sumando reembolsos y restando repostaje, lavados y varios", () => {
   assert.equal(calculateDriverDailyTotal({
     cashCollected: "150,00",
     fuelCost: 40.25,
     refunds: 5.5,
     washExpenses: 2.75,
     otherExpenses: 1.25,
-  }), 100.25);
+  }), 111.25);
 });
 
 test("acumula el total desde el lunes y el domingo contiene toda la semana", () => {

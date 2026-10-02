@@ -87,6 +87,22 @@ test("normaliza el Precio neto de una captura con promociones", () => {
   assert.equal(values.total, 109.5);
 });
 
+test("suma los reembolsos al total de facturación conservando el precio neto", () => {
+  const fields = normalizeDocumentAnalysis("billing", { fields: { baseNetAmount: 100, promotions: 7.5, tips: 2, refunds: 10, total: 102 } });
+  const normalized = normalizeDriverBillingAnalysisFields(fields);
+  const values = Object.fromEntries(normalized.map(({ key, value }) => [key, value]));
+  assert.equal(values.netAmount, 107.5);
+  assert.equal(values.refunds, 10);
+  assert.equal(values.total, 119.5);
+});
+
+test("suma los reembolsos cuando el documento solo aporta un total", () => {
+  const fields = normalizeDocumentAnalysis("billing", { fields: { total: 102, refunds: 10 } });
+  const normalized = normalizeDriverBillingAnalysisFields(fields);
+  const values = Object.fromEntries(normalized.map(({ key, value }) => [key, value]));
+  assert.equal(values.total, 112);
+});
+
 test("detecta importes de facturación sin depender de variables de renderizado", () => {
   assert.equal(hasDriverBillingAmount({ netAmount: 0 }), true);
   assert.equal(hasDriverBillingAmount({ baseNetAmount: 246.94, promotions: 12.5 }), true);

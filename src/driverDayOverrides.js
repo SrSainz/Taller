@@ -61,7 +61,7 @@ export const buildDriverBillingOverride = ({
     promotions: promotionAmount,
     netAmount,
     tips: tipAmount,
-    total: roundMoney(netAmount + tipAmount),
+    total: roundMoney(netAmount + tipAmount + roundMoney(refunds)),
     refunds: roundMoney(refunds),
     cashCollected: roundMoney(Math.abs(toNumber(cashCollected))),
   };
@@ -75,6 +75,7 @@ export const applyDriverBillingOverride = (stats = {}, entry) => {
   const promotions = roundMoney(hasOwn(override, "promotions") ? override.promotions : stats.promotions);
   const netAmount = roundMoney(hasOwn(override, "netAmount") ? override.netAmount : base + promotions);
   const tips = roundMoney(hasOwn(override, "tips") ? override.tips : stats.tips);
+  const refunds = roundMoney(hasOwn(override, "refunds") ? override.refunds : stats.refunds);
   return {
     ...stats,
     connection: hasOwn(override, "connection") ? String(override.connection ?? "").trim() : stats.connection ?? "",
@@ -87,8 +88,9 @@ export const applyDriverBillingOverride = (stats = {}, entry) => {
     promotions,
     netAmount,
     tips,
-    total: roundMoney(hasOwn(override, "total") ? override.total : netAmount + tips),
-    refunds: roundMoney(hasOwn(override, "refunds") ? override.refunds : stats.refunds),
+    total: roundMoney(netAmount + tips + refunds),
+    refunds,
+    billableAmount: roundMoney(netAmount + refunds),
     cashCollected: roundMoney(Math.abs(toNumber(hasOwn(override, "cashCollected") ? override.cashCollected : stats.cashCollected))),
     hasBillingAmount: true,
   };
