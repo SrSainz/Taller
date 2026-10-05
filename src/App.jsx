@@ -74,12 +74,13 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, fetchAllSupabaseRows, getDocumentRecord, getDriverEntryRecord, getMaintenanceReportRecord, getProfile, getTransactionRecord, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverPeriodFinancials, listMaintenanceReports, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, validateMaintenancePhotoFile } from "./supabase";
+import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, fetchAllSupabaseRows, getDocumentRecord, getDriverEntryRecord, getMaintenanceReportRecord, getProfile, getTransactionRecord, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverPeriodFinancials, listMaintenanceReports, listWeeklyBankDeposits, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, upsertWeeklyBankDeposit, validateMaintenancePhotoFile } from "./supabase";
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
 import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, isInstrumentClusterVehicle, isOilAndFilterMaintenance } from "./vehicleServiceTracking";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
+import { getWeeksTouchingMonth, sumWeeklyCollections } from "./weeklyCollections";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
 import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
 import { emailMaintenanceAmountOverrides, emailMaintenanceDocuments, emailMaintenanceTypeOverrides } from "./data/emailMaintenanceSummary";
@@ -7353,6 +7354,29 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   const totalDistance = 0;
   const periodDays = new Date(reportYear, reportMonth + 1, 0).getDate();
   const billingRows = getDriverBillingRows(vehicles, driverEntries, reportMonth, reportYear, documents);
+  const weeklyCollections = useMemo(() => {
+    const weeks = getWeeksTouchingMonth(reportMonth, reportYear);
+    const first = new Date(`${weeks[0].start}T12:00:00Z`);
+    const last = new Date(`${weeks.at(-1).end}T12:00:00Z`);
+    const dailyAmounts = [];
+    for (let year = first.getUTCFullYear(), month = first.getUTCMonth(); year < last.getUTCFullYear() || (year === last.getUTCFullYear() && month <= last.getUTCMonth());) {
+      const monthRows = getDriverBillingRows(vehicles, driverEntries, month, year, documents);
+      vehicles.filter((vehicle) => vehicle.use === "Profesional").forEach((vehicle) => {
+        const currentProfiles = vehicle.driverProfiles ?? [];
+        const currentIds = new Set(currentProfiles.map((profile) => profile.id).filter(Boolean));
+        const currentNames = new Set((currentProfiles.length ? currentProfiles.map((profile) => profile.full_name) : vehicle.drivers).map(getImportedDriverKey));
+        monthRows.filter((row) => row.plate === vehicle.plate && (currentIds.has(row.driverId) || currentNames.has(getImportedDriverKey(row.driver)))).forEach((row) => {
+          getDriverCalendarRows(vehicle, row, month, year, documents, transactions).forEach((day) => {
+            const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day.day).padStart(2, "0")}`;
+            dailyAmounts.push([dateKey, { billing: day.billing, cash: day.billingStats?.cashCollected ?? 0 }]);
+          });
+        });
+      });
+      month += 1;
+      if (month === 12) { month = 0; year += 1; }
+    }
+    return sumWeeklyCollections(weeks, dailyAmounts);
+  }, [vehicles, driverEntries, documents, transactions, reportMonth, reportYear]);
   const historicalBillingRows = getHistoricalBillingRowsForPeriod(vehicles, driverEntries, reportMonth, reportYear);
   const unassignedBillingByPlate = vehicles.reduce((result, vehicle) => {
     result[vehicle.plate] = periodTransactions
@@ -7754,7 +7778,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
               <div className="report-stat-grid">
                 <ReportFleetSummaryCard billing={formatMainAmount(periodTotals.billing)} fuel={formatMainAmount(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
                 <ReportStatCard icon={IconTool} label="Mantenimiento" value={formatMainAmount(periodTotals.maintenance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
-                <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatMainAmount(periodTotals.net)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
+                <NetWeeklyCard value={formatMainAmount(periodTotals.net)} weeks={weeklyCollections} adminUserId={adminUserId} realtimeRevision={realtimeRevision} onOpenNet={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
               </div>
               <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
                 <header className="report-chart-card__top">
@@ -7853,6 +7877,77 @@ function ReportStatCard({ icon: Icon, label, value, tone, active, actionLabel, o
       </span>
     </button>
   );
+}
+
+function NetWeeklyCard({ value, weeks, adminUserId, realtimeRevision, onOpenNet }) {
+  const [selectedWeekStart, setSelectedWeekStart] = useState("");
+  const [deposits, setDeposits] = useState({});
+  const [bankDraft, setBankDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const selectedWeek = weeks.find((week) => week.start === selectedWeekStart)
+    ?? weeks.find((week) => week.start <= todayKey && todayKey <= week.end)
+    ?? weeks[0];
+  const firstWeekStart = weeks[0]?.start ?? "";
+  const lastWeekStart = weeks.at(-1)?.start ?? "";
+
+  useEffect(() => {
+    if (!firstWeekStart || !lastWeekStart) return undefined;
+    let cancelled = false;
+    listWeeklyBankDeposits(firstWeekStart, lastWeekStart).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) { setMessage("No se pudieron cargar los ingresos bancarios."); return; }
+      setDeposits(Object.fromEntries((data ?? []).map((item) => [item.week_start, Number(item.amount)])));
+    }).catch(() => { if (!cancelled) setMessage("No se pudieron cargar los ingresos bancarios."); });
+    return () => { cancelled = true; };
+  }, [firstWeekStart, lastWeekStart, realtimeRevision]);
+
+  useEffect(() => {
+    setBankDraft(deposits[selectedWeek?.start] === undefined ? "" : String(deposits[selectedWeek.start]));
+    setMessage("");
+  }, [selectedWeek?.start, deposits]);
+
+  const saveBankDeposit = async () => {
+    const amount = Number(String(bankDraft).trim().replace(",", "."));
+    if (!bankDraft.trim() || !Number.isFinite(amount) || amount < 0) {
+      setMessage("Introduce un importe válido, incluido 0 si no hubo ingreso.");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      const saved = await upsertWeeklyBankDeposit({ weekStart: selectedWeek.start, amount: Math.round(amount * 100) / 100, createdBy: adminUserId });
+      setDeposits((current) => ({ ...current, [saved.week_start]: Number(saved.amount) }));
+      setMessage("Ingreso guardado.");
+    } catch {
+      setMessage("No se pudo guardar el ingreso bancario.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const shortDate = (dateKey) => new Date(`${dateKey}T12:00:00Z`).toLocaleDateString("es-ES", { day: "numeric", month: "short", timeZone: "UTC" });
+  return <section className="report-stat-card report-stat-card--wide report-stat-card--green net-weekly-card" aria-label="Neto y cobros semanales">
+    <button type="button" className="net-weekly-card__heading report-stat-card__topline" onClick={onOpenNet} aria-label="Abrir detalle de Neto">
+      <span className="report-stat-card__header"><span className="report-stat-card__icon"><IconCurrencyEuro size={18} /></span><strong>NETO</strong></span>
+      <span className="report-stat-card__total"><small>Total</small><strong>{value}</strong></span>
+    </button>
+    <div className="net-weekly-card__weeks" role="group" aria-label="Semanas de lunes a domingo">
+      {weeks.map((week, index) => <button type="button" key={week.start} className={selectedWeek?.start === week.start ? "is-active" : ""} aria-pressed={selectedWeek?.start === week.start} aria-label={`Semana ${index + 1}: ${shortDate(week.start)} a ${shortDate(week.end)}`} onClick={() => setSelectedWeekStart(week.start)}>{shortDate(week.start)}–{shortDate(week.end)}</button>)}
+    </div>
+    <div className="net-weekly-card__amounts">
+      <div><small>COBRADO EN EFECTIVO</small><strong>{formatCurrency(selectedWeek?.cash ?? 0)}</strong></div>
+      <div><small>COBRADO EN APP</small><strong>{formatCurrency(selectedWeek?.app ?? 0)}</strong></div>
+    </div>
+    <div className="net-weekly-card__bank">
+      <label htmlFor="weekly-bank-amount">INGRESADO EN BANCO</label>
+      <input id="weekly-bank-amount" type="text" inputMode="decimal" value={bankDraft} placeholder="0,00 €" onChange={(event) => setBankDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveBankDeposit(); }} />
+      <button type="button" onClick={saveBankDeposit} disabled={saving}>{saving ? "Guardando…" : "Guardar"}</button>
+    </div>
+    {message && <small className="net-weekly-card__message" role="status">{message}</small>}
+  </section>;
 }
 
 function FuelVehicleOverview({ stats, billingRows = [], selected, onSelectVehicle, month, year, menuOpen, onToggleMonth, onSelectMonth, onCloseMenu, mode = "fuel" }) {

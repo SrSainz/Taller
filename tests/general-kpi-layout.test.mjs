@@ -5,14 +5,17 @@ import fs from "node:fs";
 const app = fs.readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 
-test("Mantenimiento y Neto muestran solo el total en una línea", () => {
+test("Mantenimiento sigue compacto y Neto incorpora el desglose semanal", () => {
   const card = app.match(/function ReportStatCard\([^]*?\n}\n/)?.[0] ?? "";
   assert.match(card, /report-stat-card--single-line/);
   assert.match(card, /report-stat-card__topline/);
   assert.match(card, /<small>Total<\/small><strong>\{value\}<\/strong>/);
   assert.doesNotMatch(card, /Por día|Por km|daily|perKm/);
   assert.match(app, /<ReportStatCard icon=\{IconTool\} label="Mantenimiento"/);
-  assert.match(app, /<ReportStatCard icon=\{IconCurrencyEuro\} label="Neto"/);
+  assert.match(app, /<NetWeeklyCard value=\{formatMainAmount\(periodTotals\.net\)\}/);
+  assert.match(app, /COBRADO EN EFECTIVO/);
+  assert.match(app, /COBRADO EN APP/);
+  assert.match(app, /INGRESADO EN BANCO/);
 });
 
 test("Conductores gana altura frente a las tarjetas compactas", () => {

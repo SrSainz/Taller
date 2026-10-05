@@ -506,6 +506,25 @@ export const listCommissionReports = async ({ periodStart = "" } = {}) => {
   return fetchAllSupabaseRows(queryFactory);
 };
 
+export const listWeeklyBankDeposits = async (firstWeekStart, lastWeekStart) => {
+  if (!supabase) return { data: [], error: null };
+  return supabase.from("weekly_bank_deposits")
+    .select("week_start, amount")
+    .gte("week_start", firstWeekStart)
+    .lte("week_start", lastWeekStart)
+    .order("week_start");
+};
+
+export const upsertWeeklyBankDeposit = async ({ weekStart, amount, createdBy }) => {
+  if (!supabase || !weekStart || !createdBy) throw new Error("Faltan datos para guardar el ingreso bancario.");
+  const { data, error } = await supabase.from("weekly_bank_deposits")
+    .upsert({ week_start: weekStart, amount: Number(amount), created_by: createdBy, updated_at: new Date().toISOString() }, { onConflict: "week_start" })
+    .select("week_start, amount")
+    .single();
+  if (error) throw error;
+  return data;
+};
+
 export const uploadCommissionReport = async ({ report, pdfBlob, createdBy }) => {
   if (!supabase || !report?.driverId || !report?.periodStart || !pdfBlob || !createdBy) throw new Error("No se puede archivar el informe sin una sesión de administrador.");
   const path = `admin/${report.driverId}/${report.periodStart}.pdf`;
