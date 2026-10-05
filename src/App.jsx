@@ -100,6 +100,7 @@ import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from 
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getDriverBillingAmount, getMonthlyDriverBilling } from "./driverBillingTotals";
 import { getAccumulatedDriverKmThroughDay } from "./driverMileageTotals";
+import { getDriverRunningTotalsThroughDay } from "./driverRunningTotals";
 import { driverProfileCoversWholePeriod, isDriverProfileValidDuringPeriod, isDriverProfileValidOnDate, profileDateForPeriod } from "./driverProfilePeriods";
 import { getDriverPerformanceSummary } from "./driverPerformanceSummary";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
@@ -8320,6 +8321,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   }), [calendarRows, selectedDriver?.revenue, selectedDriver?.fuelCost, selectedDriver?.fuelLiters, reportYear, reportMonth]);
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;
   const accumulatedKilometresToSelectedDay = getAccumulatedDriverKmThroughDay(calendarRows, selectedDay);
+  const runningTotalsToSelectedDay = useMemo(() => getDriverRunningTotalsThroughDay(calendarRows, selectedDay), [calendarRows, selectedDay]);
   const calendarPeriods = useMemo(() => {
     if (!selectedDriver) return [];
     return [-1, 0, 1].map((delta) => {
@@ -8666,9 +8668,9 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           <button type="button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar detalle de ${selectedDriver.driver}`}><IconChevronUp size={22} /></button>
         </header>
         <div className="driver-performance__grid">
-          <div className="driver-performance__metric" title="Suma de las horas de conexión de las facturaciones diarias del conductor"><IconClock aria-hidden="true" /><span><small>Horas</small><strong>{performanceSummary.hours.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</strong></span></div>
+          <div className="driver-performance__metric" title="Horas de conexión acumuladas desde el día 1 hasta el día seleccionado"><IconClock aria-hidden="true" /><span><small>Horas</small><strong>{runningTotalsToSelectedDay.hours.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</strong></span></div>
           <div className="driver-performance__metric"><IconFileInvoice aria-hidden="true" /><span><small>Facturación</small><strong>{formatCurrency(selectedDriver.revenue)}</strong></span></div>
-          <div className="driver-performance__metric driver-performance__metric--fuel"><IconGasStation aria-hidden="true" /><span><small>Consumo</small><strong>{formatCurrency(selectedDriver.fuelCost)}</strong></span></div>
+          <div className="driver-performance__metric driver-performance__metric--fuel" title="Consumo acumulado desde el día 1 hasta el día seleccionado"><IconGasStation aria-hidden="true" /><span><small>Consumo</small><strong>{formatCurrency(runningTotalsToSelectedDay.fuelCost)}</strong></span></div>
           <div className="driver-performance__metric" title="Media de cuatro indicadores, cada uno limitado al 100 %: facturación por hora (30 €/h), facturación por kilómetro (0,80 €/km), consumo (5 l/100 km) y gasto de combustible (10 % de la facturación). Requiere todos los datos."><IconGauge aria-hidden="true" /><span><small>Eficiencia</small><strong>{performanceSummary.efficiency === null ? "—" : `${performanceSummary.efficiency} %`}</strong></span></div>
           <DriverPerformanceBreakdownCards summary={performanceSummary} />
         </div>
