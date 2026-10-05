@@ -7753,8 +7753,8 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
             <div className="report-general-grid">
               <div className="report-stat-grid">
                 <ReportFleetSummaryCard billing={formatMainAmount(periodTotals.billing)} fuel={formatMainAmount(periodTotals.fuel)} onClick={() => onNavigate(conductorNavItem)} />
-                <ReportStatCard wide icon={IconTool} label="Mantenimiento" value={formatMainAmount(periodTotals.maintenance)} daily={formatMainAmount(periodTotals.maintenance / periodDays)} perKm={formatMainAmount(totalDistance > 0 ? periodTotals.maintenance / totalDistance : 0)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
-                <ReportStatCard wide netLayout icon={IconCurrencyEuro} label="Neto" value={formatMainAmount(periodTotals.net)} daily={formatMainAmount(periodTotals.net / periodDays)} perKm={formatMainAmount(totalDistance > 0 ? periodTotals.net / totalDistance : 0)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
+                <ReportStatCard icon={IconTool} label="Mantenimiento" value={formatMainAmount(periodTotals.maintenance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
+                <ReportStatCard icon={IconCurrencyEuro} label="Neto" value={formatMainAmount(periodTotals.net)} tone="green" active={chartMetric === "net"} actionLabel="Abrir detalle de Neto" onClick={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
               </div>
               <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
                 <header className="report-chart-card__top">
@@ -7844,31 +7844,13 @@ function ReportFleetSummaryCard({ billing, fuel, onClick }) {
   );
 }
 
-function ReportStatCard({ wide = false, netLayout = false, icon: Icon, label, value, daily, perKm, tone, active, actionLabel, onClick }) {
+function ReportStatCard({ icon: Icon, label, value, tone, active, actionLabel, onClick }) {
   return (
-    <button type="button" className={`report-stat-card report-stat-card--${tone}${wide ? " report-stat-card--wide" : ""}${netLayout ? " report-stat-card--net-layout" : ""}${active ? " report-stat-card--active" : ""}`} onClick={onClick} aria-label={actionLabel ?? `Mostrar gráfico de ${label}`} aria-pressed={active}>
-      {wide && netLayout ? <>
-        <span className="report-stat-card__net-topline">
-          <span className="report-stat-card__header"><span className="report-stat-card__icon"><Icon size={18} /></span><strong>{label.toLocaleUpperCase("es")}</strong></span>
-          <span className="report-stat-card__net-total"><small>Total</small><strong>{value}</strong></span>
-        </span>
-        <span className="report-stat-card__inline-metrics report-stat-card__inline-metrics--two">
-          <span><small>Por día</small><strong>{daily}</strong></span>
-          <span><small>Por km</small><strong>{perKm}</strong></span>
-        </span>
-      </> : wide ? <>
+    <button type="button" className={`report-stat-card report-stat-card--wide report-stat-card--single-line report-stat-card--${tone}${active ? " report-stat-card--active" : ""}`} onClick={onClick} aria-label={actionLabel ?? `Mostrar gráfico de ${label}`} aria-pressed={active}>
+      <span className="report-stat-card__topline">
         <span className="report-stat-card__header"><span className="report-stat-card__icon"><Icon size={18} /></span><strong>{label.toLocaleUpperCase("es")}</strong></span>
-        <span className="report-stat-card__inline-metrics">
-          <span><small>Total</small><strong>{value}</strong></span>
-          <span><small>Por día</small><strong>{daily}</strong></span>
-          <span><small>Por km</small><strong>{perKm}</strong></span>
-        </span>
-      </> : <>
-        <span className="report-stat-card__header"><span className="report-stat-card__icon"><Icon size={18} /></span><strong>{label}</strong></span>
-        <small>Total</small>
-        <strong className="report-stat-value">{value}</strong>
-        <span className="report-stat-card__footer"><span><small>Por día</small><strong>{daily}</strong></span><span><small>Por km</small><strong>{perKm}</strong></span></span>
-      </>}
+        <span className="report-stat-card__total"><small>Total</small><strong>{value}</strong></span>
+      </span>
     </button>
   );
 }

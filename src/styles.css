@@ -1471,6 +1471,70 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
   .photo-preview img, .photo-preview__placeholder { height: 245px; }
 }
 
+/* General: Conductores ocupa el espacio liberado por Mantenimiento y Neto. */
+.page-scroll--dashboard .report-stat-card--wide.report-stat-card--drivers {
+  min-height: 160px;
+}
+
+.page-scroll--dashboard .report-stat-card--wide.report-stat-card--single-line {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  padding-block: 9px;
+}
+
+.report-stat-card__topline {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.report-stat-card__topline .report-stat-card__header {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.report-stat-card__total {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 7px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.report-stat-card__total small {
+  color: #7e8a85;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.report-stat-card__total strong {
+  overflow: hidden;
+  font-size: clamp(17px, 3vw, 29px);
+  font-weight: 900;
+  text-overflow: ellipsis;
+}
+
+.report-stat-card--orange .report-stat-card__total strong { color: var(--maintenance-orange-strong); }
+.report-stat-card--green .report-stat-card__total strong { color: #278c3b; }
+
+@media (max-width: 820px) {
+  .page-scroll--dashboard .report-stat-card--wide.report-stat-card--drivers { min-height: 132px; }
+  .page-scroll--dashboard .report-stat-card--wide.report-stat-card--single-line { min-height: 52px; padding-block: 6px; }
+}
+
+@media (max-width: 520px) and (max-height: 700px) {
+  .page-scroll--dashboard .report-stat-card--wide.report-stat-card--drivers { min-height: 80px; }
+  .page-scroll--dashboard .report-stat-card--wide.report-stat-card--single-line { min-height: 42px; padding-block: 4px; }
+  .report-stat-card__total strong { font-size: 16px; }
+}
+
 @media (max-width: 520px) {
   .topbar { height: 64px; overflow-x: clip; padding-inline: 12px; }
   .profile { display: none; }
