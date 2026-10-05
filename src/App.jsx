@@ -99,6 +99,7 @@ import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as get
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getDriverBillingAmount, getMonthlyDriverBilling } from "./driverBillingTotals";
+import { getAccumulatedDriverKmThroughDay } from "./driverMileageTotals";
 import { driverProfileCoversWholePeriod, isDriverProfileValidDuringPeriod, isDriverProfileValidOnDate, profileDateForPeriod } from "./driverProfilePeriods";
 import { getDriverPerformanceSummary } from "./driverPerformanceSummary";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
@@ -1160,7 +1161,7 @@ const driverDocumentCircleLabels = Object.freeze({
   billing: "Efectivo / facturación",
   fuel: "Repostaje",
   "daily-km": "Km diarios",
-  "total-km": "Km acumulados",
+  "total-km": "Km cuadro",
   consumption: "Consumo",
 });
 const getDriverDocumentCircleLabel = (document) => driverDocumentCircleLabels[getDriverDocumentCircleKey(document)] ?? getDriverDocumentKindLabel(document);
@@ -4877,7 +4878,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     { key: "fuel", label: "Gasolina", value: formatCurrency(selectedDayData.fuel_cost), image: driverImages.fuelReceipt, hasAttachment: Boolean(uploadedDriverImages.fuelReceipt || latestCircleDocument("fuel")), document: latestCircleDocument("fuel"), Icon: IconGasStation, alt: "Justificante de gasolina" },
     { key: "billing", label: "Facturación", value: formatCurrency(selectedDayData.billing), image: driverImages.billingReceipt, hasAttachment: Boolean(uploadedDriverImages.billingReceipt || latestCircleDocument("billing")), document: latestCircleDocument("billing"), Icon: IconFileInvoice, alt: "Foto de facturación diaria" },
     { key: "daily-km", label: "Km diarios", value: formatKm(directCircleValues.dailyKm ?? partialKm2), image: driverImages.dailyKm, hasAttachment: Boolean(uploadedDriverImages.dailyKm || latestCircleDocument("daily-km")), document: latestCircleDocument("daily-km"), Icon: IconGauge, alt: "Lectura de kilómetros diarios" },
-    { key: "total-km", label: "Km acumulados", value: formatKm(directCircleValues.totalKm ?? vehicle?.odometer ?? selectedOdometer), image: driverImages.totalKm, hasAttachment: Boolean(uploadedDriverImages.totalKm || latestCircleDocument("total-km")), document: latestCircleDocument("total-km"), Icon: IconGauge, alt: "Lectura de kilómetros acumulados" },
+    { key: "total-km", label: "Km cuadro", value: formatKm(directCircleValues.totalKm ?? vehicle?.odometer ?? selectedOdometer), image: driverImages.totalKm, hasAttachment: Boolean(uploadedDriverImages.totalKm || latestCircleDocument("total-km")), document: latestCircleDocument("total-km"), Icon: IconGauge, alt: "Lectura de kilómetros del cuadro" },
     { key: "consumption", label: "Consumo", value: `${Number(directCircleValues.consumption || averageConsumption).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${directCircleValues.consumptionUnit || "l/100 km"}`, image: driverImages.consumption, hasAttachment: Boolean(uploadedDriverImages.consumption || latestCircleDocument("consumption")), document: latestCircleDocument("consumption"), Icon: IconChartBar, alt: "Historial de consumo del vehículo" },
   ];
   const driverReferenceImages = {
@@ -8308,7 +8309,6 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     }
   };
   const calendarRows = useMemo(() => selectedDriver ? getDriverCalendarRows(selectedDriver.vehicle, selectedDriver, reportMonth, reportYear, documents, transactions) : [], [selectedDriver, reportMonth, reportYear, documents, transactions]);
-  const periodKilometres = useMemo(() => calendarRows.reduce((sum, day) => sum + (Number(day.km) || 0), 0), [calendarRows]);
   const performanceSummary = useMemo(() => getDriverPerformanceSummary({
     calendarRows,
     billing: selectedDriver?.revenue,
@@ -8319,6 +8319,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     month: reportMonth,
   }), [calendarRows, selectedDriver?.revenue, selectedDriver?.fuelCost, selectedDriver?.fuelLiters, reportYear, reportMonth]);
   const selectedDayDetail = calendarRows.find((row) => row.day === selectedDay) ?? null;
+  const accumulatedKilometresToSelectedDay = getAccumulatedDriverKmThroughDay(calendarRows, selectedDay);
   const calendarPeriods = useMemo(() => {
     if (!selectedDriver) return [];
     return [-1, 0, 1].map((delta) => {
@@ -8543,7 +8544,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         driver: selectedDriver.driver,
         driverId: selectedDriver.driverId,
         vehiclePlate: selectedDriver.plate,
-        detail: { ...selectedDayDetail, periodKilometres },
+        detail: { ...selectedDayDetail, periodKilometres: accumulatedKilometresToSelectedDay },
         documents: modeDocuments,
         onSave: (values) => onSaveDriverDay?.({ driverId: selectedDriver.driverId, vehiclePlate: selectedDriver.plate, dateKey: selectedDateKey, mode, amount: values.amount, liters: values.liters, refuels: values.refuels, dailyKm: values.dailyKm, odometerKm: values.odometerKm, dailyKmChanged: values.dailyKmChanged, odometerChanged: values.odometerChanged, billingStats: values.billingStats, notes: values.notes }),
         onDeleteDocument: (document) => onDeleteDriverDocument?.(document),
@@ -8580,7 +8581,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
         <div className="driver-day-panel__metrics"><span><small>Importe total</small><strong>{formatCurrency(selectedDayDetail.fuelCost)}</strong></span><span><small>Repostajes</small><strong>{selectedDayDetail.fuelEntries.length}</strong></span></div>
         {selectedDayDetail.fuelEntries.length > 0 && <div className="driver-day-fuel-list">{selectedDayDetail.fuelEntries.map((entry, index) => <div key={`${entry.date}-${entry.time}-${index}`}><span><strong>{entry.time || "Repostaje"}</strong><small>{formatCurrency(entry.cost)}</small></span><button type="button" className="fuel-invoice-button drivers-day-invoice-button" onClick={() => openFuelInvoice(entry, index)}><IconFileInvoice size={13} />Factura</button></div>)}</div>}
       </>}
-      {mode === "mileage" && <div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Total del mes</small><strong>{formatKm(periodKilometres)}</strong></span><span><small>Km acumulados</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div>}
+      {mode === "mileage" && <div className="driver-day-panel__metrics"><span><small>Km diarios</small><strong>{formatKm(selectedDayDetail.km)}</strong></span><span><small>Acumulado del Mes</small><strong>{formatKm(accumulatedKilometresToSelectedDay)}</strong></span><span><small>Km cuadro</small><strong>{formatKm(selectedDayDetail.totalKm)}</strong></span></div>}
     </article>;
   };
   const renderCalendarPage = (period) => (
@@ -8848,7 +8849,7 @@ function DriverDayEditWorkflow({ item, onCancel }) {
         {mode === "mileage" && <>
           <label>Km diarios<div className="driver-day-edit-input"><input type="number" min="0" step="1" inputMode="numeric" value={dailyKm} onChange={(event) => setDailyKm(event.target.value)} /><i>km</i></div></label>
           <label>Kilometraje acumulado<div className="driver-day-edit-input"><input type="number" min="0" step="1" inputMode="numeric" value={odometerKm} onChange={(event) => setOdometerKm(event.target.value)} /><i>km</i></div></label>
-          <label>Total del mes<div className="driver-day-edit-calculated" aria-live="polite"><strong>{formatKm(mileagePeriodPreview)}</strong><small>Se recalcula con los km diarios</small></div></label>
+          <label>Acumulado del Mes<div className="driver-day-edit-calculated" aria-live="polite"><strong>{formatKm(mileagePeriodPreview)}</strong><small>Se recalcula con los km diarios</small></div></label>
         </>}
         <label className="driver-day-edit-form__wide">Notas del registro<textarea rows="2" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Añade una aclaración para este día (opcional)" /></label>
       </div>
