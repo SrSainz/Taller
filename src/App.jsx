@@ -7934,19 +7934,22 @@ function NetWeeklyCard({ value, weeks, adminUserId, realtimeRevision, onOpenNet 
       <span className="report-stat-card__header"><span className="report-stat-card__icon"><IconCurrencyEuro size={18} /></span><strong>NETO</strong></span>
       <span className="report-stat-card__total"><small>Total</small><strong>{value}</strong></span>
     </button>
-    <div className="net-weekly-card__weeks" role="group" aria-label="Semanas de lunes a domingo">
-      {weeks.map((week, index) => <button type="button" key={week.start} className={selectedWeek?.start === week.start ? "is-active" : ""} aria-pressed={selectedWeek?.start === week.start} aria-label={`Semana ${index + 1}: ${shortDate(week.start)} a ${shortDate(week.end)}`} onClick={() => setSelectedWeekStart(week.start)}>{shortDate(week.start)}–{shortDate(week.end)}</button>)}
+    <div className="net-weekly-card__details">
+      <div className="net-weekly-card__section-title"><strong>COBROS SEMANALES</strong><span>De lunes a domingo</span></div>
+      <div className="net-weekly-card__weeks" role="group" aria-label="Semanas de lunes a domingo">
+        {weeks.map((week, index) => <button type="button" key={week.start} className={selectedWeek?.start === week.start ? "is-active" : ""} aria-pressed={selectedWeek?.start === week.start} aria-label={`Semana ${index + 1}: ${shortDate(week.start)} a ${shortDate(week.end)}`} onClick={() => setSelectedWeekStart(week.start)}>{shortDate(week.start)}–{shortDate(week.end)}</button>)}
+      </div>
+      <div className="net-weekly-card__amounts">
+        <div><small>COBRADO EN EFECTIVO</small><strong>{formatCurrency(selectedWeek?.cash ?? 0)}</strong></div>
+        <div><small>COBRADO EN APP</small><strong>{formatCurrency(selectedWeek?.app ?? 0)}</strong></div>
+      </div>
+      <div className="net-weekly-card__bank">
+        <label htmlFor="weekly-bank-amount">INGRESADO EN BANCO</label>
+        <input id="weekly-bank-amount" type="text" inputMode="decimal" value={bankDraft} placeholder="0,00 €" onChange={(event) => setBankDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveBankDeposit(); }} />
+        <button type="button" onClick={saveBankDeposit} disabled={saving}>{saving ? "Guardando…" : "Guardar"}</button>
+      </div>
+      {message && <small className="net-weekly-card__message" role="status">{message}</small>}
     </div>
-    <div className="net-weekly-card__amounts">
-      <div><small>COBRADO EN EFECTIVO</small><strong>{formatCurrency(selectedWeek?.cash ?? 0)}</strong></div>
-      <div><small>COBRADO EN APP</small><strong>{formatCurrency(selectedWeek?.app ?? 0)}</strong></div>
-    </div>
-    <div className="net-weekly-card__bank">
-      <label htmlFor="weekly-bank-amount">INGRESADO EN BANCO</label>
-      <input id="weekly-bank-amount" type="text" inputMode="decimal" value={bankDraft} placeholder="0,00 €" onChange={(event) => setBankDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveBankDeposit(); }} />
-      <button type="button" onClick={saveBankDeposit} disabled={saving}>{saving ? "Guardando…" : "Guardar"}</button>
-    </div>
-    {message && <small className="net-weekly-card__message" role="status">{message}</small>}
   </section>;
 }
 

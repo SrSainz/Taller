@@ -16,6 +16,9 @@ test("Mantenimiento sigue compacto y Neto incorpora el desglose semanal", () => 
   assert.match(app, /COBRADO EN EFECTIVO/);
   assert.match(app, /COBRADO EN APP/);
   assert.match(app, /INGRESADO EN BANCO/);
+  assert.match(app, /net-weekly-card__heading[^]*?net-weekly-card__details/);
+  assert.match(css, /net-weekly-card__heading\s*\{[^}]*border-bottom:/);
+  assert.match(css, /net-weekly-card__details\s*\{[^}]*background:/);
 });
 
 test("Conductores gana altura frente a las tarjetas compactas", () => {
