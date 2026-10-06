@@ -22,9 +22,14 @@ const WORKERS_5043_MLC = Object.freeze({
   tirso: Object.freeze({ name: "Tirso Rafael Rojano Gutiérrez", nif: "Z2451698H", affiliation: "28/16614610-02" }),
 });
 
-export const getDriverHoursWorker = (name, plate) => String(plate ?? "").trim().toUpperCase() === "5043 MLC"
-  ? WORKERS_5043_MLC[driverKey(name)] ?? { name: String(name ?? ""), nif: "", affiliation: "" }
-  : { name: String(name ?? ""), nif: "", affiliation: "" };
+const WORKERS_5754_MJV = Object.freeze({
+  fernando: Object.freeze({ name: "Fernando Herrera Jiménez", nif: "05236080S", affiliation: "28/03298802-20" }),
+});
+
+const WORKERS_BY_PLATE = Object.freeze({ "5043 MLC": WORKERS_5043_MLC, "5754 MJV": WORKERS_5754_MJV });
+
+export const getDriverHoursWorker = (name, plate) => WORKERS_BY_PLATE[String(plate ?? "").trim().toUpperCase()]?.[driverKey(name)]
+  ?? { name: String(name ?? ""), nif: "", affiliation: "" };
 
 export const buildDriverHoursRows = ({ calendarRows = [], month, year, driverName = "", today = new Date() }) => {
   const todayKey = isoDate(today.getFullYear(), today.getMonth(), today.getDate());
