@@ -4,7 +4,8 @@ import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift
 
 test("el registro de jornada de Álex muestra su identidad laboral completa", () => {
   assert.deepEqual(getDriverHoursWorker("ÁLEX", "5043 MLC"), { name: "Alexandru Florin Radu", nif: "Y3789801J", affiliation: "28/14202868-68" });
-  assert.deepEqual(getDriverHoursWorker("Tirso", "5043 MLC"), { name: "Tirso", nif: "", affiliation: "" });
+  assert.deepEqual(getDriverHoursWorker("Tirso", "5043 MLC"), { name: "Tirso Rafael Rojano Gutiérrez", nif: "Z2451698H", affiliation: "28/16614610-02" });
+  assert.deepEqual(getDriverHoursWorker("Tirso", "5750 MJV"), { name: "Tirso", nif: "", affiliation: "" });
 });
 
 test("assigns the requested company to each professional plate", () => {

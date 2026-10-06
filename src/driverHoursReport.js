@@ -17,8 +17,13 @@ export const getDriverHoursCompany = (plate) => COMPANY_BY_PLATE[String(plate ??
 
 const driverKey = (name) => String(name ?? "").trim().toLocaleLowerCase("es").normalize("NFD").replace(/\p{Diacritic}/gu, "").split(/\s+/)[0];
 
-export const getDriverHoursWorker = (name, plate) => driverKey(name) === "alex" && String(plate ?? "").trim().toUpperCase() === "5043 MLC"
-  ? { name: "Alexandru Florin Radu", nif: "Y3789801J", affiliation: "28/14202868-68" }
+const WORKERS_5043_MLC = Object.freeze({
+  alex: Object.freeze({ name: "Alexandru Florin Radu", nif: "Y3789801J", affiliation: "28/14202868-68" }),
+  tirso: Object.freeze({ name: "Tirso Rafael Rojano Gutiérrez", nif: "Z2451698H", affiliation: "28/16614610-02" }),
+});
+
+export const getDriverHoursWorker = (name, plate) => String(plate ?? "").trim().toUpperCase() === "5043 MLC"
+  ? WORKERS_5043_MLC[driverKey(name)] ?? { name: String(name ?? ""), nif: "", affiliation: "" }
   : { name: String(name ?? ""), nif: "", affiliation: "" };
 
 export const buildDriverHoursRows = ({ calendarRows = [], month, year, driverName = "", today = new Date() }) => {
