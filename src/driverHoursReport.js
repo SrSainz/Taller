@@ -26,7 +26,11 @@ const WORKERS_5754_MJV = Object.freeze({
   fernando: Object.freeze({ name: "Fernando Herrera Jiménez", nif: "05236080S", affiliation: "28/03298802-20" }),
 });
 
-const WORKERS_BY_PLATE = Object.freeze({ "5043 MLC": WORKERS_5043_MLC, "5754 MJV": WORKERS_5754_MJV });
+const WORKERS_5750_MJV = Object.freeze({
+  mauricio: Object.freeze({ name: "Mauricio Marchant Román", nif: "X0431578Y", affiliation: "28/04367992-CT6" }),
+});
+
+const WORKERS_BY_PLATE = Object.freeze({ "5043 MLC": WORKERS_5043_MLC, "5750 MJV": WORKERS_5750_MJV, "5754 MJV": WORKERS_5754_MJV });
 
 export const getDriverHoursWorker = (name, plate) => WORKERS_BY_PLATE[String(plate ?? "").trim().toUpperCase()]?.[driverKey(name)]
   ?? { name: String(name ?? ""), nif: "", affiliation: "" };
