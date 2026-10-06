@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift } from "../src/driverHoursReport.js";
+import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift, getDriverHoursWorker } from "../src/driverHoursReport.js";
+
+test("el registro de jornada de Álex muestra su identidad laboral completa", () => {
+  assert.deepEqual(getDriverHoursWorker("ÁLEX", "5043 MLC"), { name: "Alexandru Florin Radu", nif: "Y3789801J", affiliation: "28/14202868-68" });
+  assert.deepEqual(getDriverHoursWorker("Tirso", "5043 MLC"), { name: "Tirso", nif: "", affiliation: "" });
+});
 
 test("assigns the requested company to each professional plate", () => {
   assert.equal(getDriverHoursCompany("5754 MJV").name, "Aida Pérez Sal");

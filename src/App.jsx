@@ -107,7 +107,7 @@ import { getDriverPerformanceSummary } from "./driverPerformanceSummary";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
 import { findDriverNavigationRow } from "./driverNavigation";
-import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift } from "./driverHoursReport";
+import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift, getDriverHoursWorker } from "./driverHoursReport";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride, shouldApplyDriverBillingOverride } from "./driverDayOverrides";
 import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
@@ -8254,14 +8254,16 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
 
 function DriverHoursDialog({ row, calendarRows, month, year, onClose }) {
   const company = getDriverHoursCompany(row.plate);
+  const worker = getDriverHoursWorker(row.driver, row.plate);
   const hoursRows = buildDriverHoursRows({ calendarRows, month, year, driverName: row.driver });
   const monthLabel = `${reportMonths[month]} ${year}`;
   const signedDate = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "long", year: "numeric" }).format(new Date());
   const storageKey = `sobre-ruedas:driver-hours:v2:${row.driverId || row.key}:${year}-${String(month + 1).padStart(2, "0")}`;
   const defaults = useMemo(() => Object.fromEntries(hoursRows.map((item) => [item.dateKey, getDriverHoursDefaultShift(row.driver, item.date, item.status)])), [row.driver, month, year, calendarRows]);
   const [fields, setFields] = useState(() => {
-    try { return { workerNif: "", affiliation: "", ccc: "", rows: defaults, ...JSON.parse(window.localStorage.getItem(storageKey) || "{}") }; }
-    catch { return { workerNif: "", affiliation: "", ccc: "", rows: defaults }; }
+    const initial = { workerNif: worker.nif, affiliation: worker.affiliation, ccc: "", rows: defaults };
+    try { const saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}"); return { ...initial, ...saved, workerNif: saved.workerNif || worker.nif, affiliation: saved.affiliation || worker.affiliation }; }
+    catch { return initial; }
   });
   useEffect(() => {
     try { window.localStorage.setItem(storageKey, JSON.stringify(fields)); } catch { /* El formulario sigue siendo editable aunque el navegador bloquee el almacenamiento. */ }
@@ -8273,7 +8275,7 @@ function DriverHoursDialog({ row, calendarRows, month, year, onClose }) {
     <section className="driver-hours-sheet" role="dialog" aria-modal="true" aria-labelledby="driver-hours-title">
       <header><div><h2 id="driver-hours-title">Listado resumen mensual del registro de jornada</h2></div><button type="button" onClick={onClose} aria-label="Cerrar registro de jornada"><IconX size={19} /></button></header>
       <div className="driver-hours-sheet__details">
-        <label><small>EMPRESA</small><input value={company.name} readOnly /></label><label><small>TRABAJADOR</small><input value={row.driver} readOnly /></label>
+        <label><small>EMPRESA</small><input value={company.name} readOnly /></label><label><small>TRABAJADOR</small><input value={worker.name} readOnly /></label>
         <label><small>C.I.F./N.I.F.</small><input value={company.cif} readOnly /></label><label><small>N.I.F.</small><input value={fields.workerNif} onChange={(event) => setHeaderField("workerNif", event.target.value)} /></label>
         <label><small>CENTRO DE TRABAJO</small><input value={company.workplace} readOnly /></label><label><small>N.º AFILIACIÓN</small><input value={fields.affiliation} onChange={(event) => setHeaderField("affiliation", event.target.value)} /></label>
         <label><small>C.C.C.</small><input value={fields.ccc} onChange={(event) => setHeaderField("ccc", event.target.value)} /></label><label><small>MES Y AÑO</small><input value={monthLabel} readOnly /></label>
