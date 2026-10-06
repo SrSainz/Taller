@@ -10764,3 +10764,12 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
   .report-chart-legend__button { min-height: 0; padding: 3px 2px; font-size: 6.5px; white-space: normal; line-height: 1.05; }
   .report-chart-legend__button > span { overflow: visible; text-overflow: clip; }
 }
+
+/* En pantallas bajas, no ocultar la fila bancaria bajo la navegación fija. */
+@media (max-height: 720px) {
+  .page-scroll--dashboard:has(.net-weekly-card) { overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
+  .page-scroll--dashboard:has(.net-weekly-card) .fuel-reports-page,
+  .page-scroll--dashboard:has(.net-weekly-card) .fuel-report-canvas { height: auto; min-height: 0; flex: 0 0 auto; overflow: visible; }
+  .page-scroll--dashboard:has(.net-weekly-card) .report-general-grid { flex: 0 0 auto; }
+  .page-scroll--dashboard:has(.net-weekly-card) .report-chart-card--compact-preview { min-height: 180px; flex: 0 0 180px; }
+}

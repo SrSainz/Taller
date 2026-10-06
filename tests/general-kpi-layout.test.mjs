@@ -19,6 +19,7 @@ test("Mantenimiento sigue compacto y Neto incorpora el desglose semanal", () => 
   assert.match(app, /net-weekly-card__heading[^]*?net-weekly-card__details/);
   assert.match(css, /net-weekly-card__heading\s*\{[^}]*border-bottom:/);
   assert.match(css, /net-weekly-card__details\s*\{[^}]*background:/);
+  assert.match(css, /@media \(max-height: 720px\)[^]*?page-scroll--dashboard:has\(\.net-weekly-card\)\s*\{[^}]*overflow-y: auto/);
 });
 
 test("Conductores gana altura frente a las tarjetas compactas", () => {
