@@ -28,6 +28,7 @@ const WORKERS_5754_MJV = Object.freeze({
 
 const WORKERS_5750_MJV = Object.freeze({
   mauricio: Object.freeze({ name: "Mauricio Marchant Román", nif: "X0431578Y", affiliation: "28/04367992-CT6" }),
+  amin: Object.freeze({ name: "Amin Sellami EL HASSANAOUI", nif: "05732189Z", affiliation: "28/13198435-70" }),
 });
 
 const WORKERS_BY_PLATE = Object.freeze({ "5043 MLC": WORKERS_5043_MLC, "5750 MJV": WORKERS_5750_MJV, "5754 MJV": WORKERS_5754_MJV });

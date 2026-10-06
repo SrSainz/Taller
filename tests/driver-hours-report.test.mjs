@@ -8,6 +8,7 @@ test("el registro de jornada de Álex muestra su identidad laboral completa", ()
   assert.deepEqual(getDriverHoursWorker("Tirso", "5750 MJV"), { name: "Tirso", nif: "", affiliation: "" });
   assert.deepEqual(getDriverHoursWorker("Fernando", "5754 MJV"), { name: "Fernando Herrera Jiménez", nif: "05236080S", affiliation: "28/03298802-20" });
   assert.deepEqual(getDriverHoursWorker("Mauricio", "5750 MJV"), { name: "Mauricio Marchant Román", nif: "X0431578Y", affiliation: "28/04367992-CT6" });
+  assert.deepEqual(getDriverHoursWorker("Amin", "5750 MJV"), { name: "Amin Sellami EL HASSANAOUI", nif: "05732189Z", affiliation: "28/13198435-70" });
 });
 
 test("assigns the requested company to each professional plate", () => {
