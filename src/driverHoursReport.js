@@ -77,7 +77,7 @@ export const getDriverHoursDefaultShift = (driverName, date, status) => {
   if (!["alex", "amin"].includes(key)) return { entry: "", exit: "", ordinary: "", agreed: "", voluntary: "" };
   const fridayOrSaturday = [5, 6].includes(date.getDay());
   return fridayOrSaturday
-    ? { entry: "18:00 / 00:00", exit: "22:00 / 05:00", ordinary: "9", agreed: "", voluntary: "" }
+    ? { entry: "18:00 / 00:00 (+1 día)", exit: "22:00 / 05:00 (+1 día)", ordinary: "9", agreed: "", voluntary: "" }
     : { entry: "18:00", exit: "01:00 (+1 día)", ordinary: "7", agreed: "", voluntary: "" };
 };
 
@@ -96,8 +96,10 @@ export const migrateNightShiftRows = (driverName, rows = {}, defaults = {}, year
       : { entry: "19:00 / 00:00", exit: "00:00 / 03:00", ordinary: "8" };
     const next = { ...values };
     const previousTemplate = ["entry", "exit", "ordinary"].every((field) => next[field] === old[field]);
+    const previousSplitShift = ["alex", "amin"].includes(key) && [5, 6].includes(weekday)
+      && next.entry === "18:00 / 00:00" && next.exit === "22:00 / 05:00" && next.ordinary === "9";
     const emptyOldRest = ["entry", "exit", "ordinary"].every((field) => !next[field]) && Boolean(defaults[dateKey]?.entry);
-    if (previousTemplate || emptyOldRest) {
+    if (previousTemplate || previousSplitShift || emptyOldRest) {
       for (const field of ["entry", "exit", "ordinary"]) next[field] = defaults[dateKey]?.[field] ?? "";
     }
     return [dateKey, next];

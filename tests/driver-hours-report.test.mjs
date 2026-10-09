@@ -18,7 +18,7 @@ test("assigns the requested company to each professional plate", () => {
 });
 
 test("Álex y Amin reciben los turnos nocturnos indicados y los descansos quedan vacíos", () => {
-  assert.deepEqual(getDriverHoursDefaultShift("Amin", new Date(2026, 8, 25, 12), "Trabajado"), { entry: "18:00 / 00:00", exit: "22:00 / 05:00", ordinary: "9", agreed: "", voluntary: "" });
+  assert.deepEqual(getDriverHoursDefaultShift("Amin", new Date(2026, 8, 25, 12), "Trabajado"), { entry: "18:00 / 00:00 (+1 día)", exit: "22:00 / 05:00 (+1 día)", ordinary: "9", agreed: "", voluntary: "" });
   assert.deepEqual(getDriverHoursDefaultShift("Álex", new Date(2026, 8, 27, 12), "Trabajado"), { entry: "18:00", exit: "01:00 (+1 día)", ordinary: "7", agreed: "", voluntary: "" });
   assert.equal(getDriverHoursDefaultShift("Amin", new Date(2026, 8, 25, 12), "Sin datos").entry, "");
   assert.equal(getDriverHoursDefaultShift("Álex", new Date(2026, 8, 28, 12), "Trabajado").entry, "");
@@ -47,9 +47,22 @@ test("la plantilla antigua se actualiza sin sobrescribir horarios editados", () 
     "2026-10-10": { entry: "20:00", exit: "02:00", ordinary: "6" },
     "2026-10-11": { entry: "", exit: "", ordinary: "" },
   }, defaults, 2026, 9);
-  assert.equal(migrated["2026-10-09"].entry, "18:00 / 00:00");
+  assert.equal(migrated["2026-10-09"].entry, "18:00 / 00:00 (+1 día)");
   assert.deepEqual(migrated["2026-10-10"], { entry: "20:00", exit: "02:00", ordinary: "6" });
   assert.equal(migrated["2026-10-11"].entry, "18:00");
+});
+
+test("los turnos partidos guardados muestran el día siguiente sin alterar ediciones", () => {
+  for (const driverName of ["Álex", "Amin"]) {
+    const defaults = Object.fromEntries(["2026-10-09", "2026-10-10"].map((dateKey) => [dateKey, getDriverHoursDefaultShift(driverName, new Date(`${dateKey}T12:00:00`), "Trabajado")]));
+    const migrated = migrateNightShiftRows(driverName, {
+      "2026-10-09": { entry: "18:00 / 00:00", exit: "22:00 / 05:00", ordinary: "9" },
+      "2026-10-10": { entry: "19:00 / 00:00", exit: "22:00 / 05:00", ordinary: "9" },
+    }, defaults, 2026, 9);
+    assert.equal(migrated["2026-10-09"].entry, "18:00 / 00:00 (+1 día)");
+    assert.equal(migrated["2026-10-09"].exit, "22:00 / 05:00 (+1 día)");
+    assert.deepEqual(migrated["2026-10-10"], { entry: "19:00 / 00:00", exit: "22:00 / 05:00", ordinary: "9" });
+  }
 });
 
 test("aplica los turnos de Fernando, Andrés, Mauricio y Tirso", () => {
