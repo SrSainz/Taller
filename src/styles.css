@@ -10869,13 +10869,6 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .report-chart--summary .report-chart-legend__button--active:hover { transform: scale(1.04); }
 .report-chart--summary .report-chart-legend__button:focus-visible { outline: 2px solid var(--legend-color); outline-offset: 1px; }
 .report-chart--summary .report-chart-legend__swatch { display: none; }
-@media (max-height: 850px) {
-  .page-scroll--dashboard:has(.net-weekly-card) { overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
-  .page-scroll--dashboard:has(.net-weekly-card) .fuel-reports-page,
-  .page-scroll--dashboard:has(.net-weekly-card) .fuel-report-canvas { height: auto; min-height: 0; flex: 0 0 auto; overflow: visible; }
-  .page-scroll--dashboard:has(.net-weekly-card) .report-general-grid { flex: 0 0 auto; }
-  .page-scroll--dashboard:has(.net-weekly-card) .report-chart-card--compact-preview { min-height: 190px; flex: 0 0 190px; }
-}
 .report-chart-legend__button--consumptionAverage { --legend-color: #008c9a; --legend-background: #e5f7f8; }
 .report-chart-legend__button--billingPerHour { --legend-color: #36454f; --legend-background: #e9eef1; }
 .report-chart-legend__swatch--consumptionAverage { background: #008c9a; }
@@ -10887,11 +10880,10 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
   .report-chart-legend__button > span { overflow: visible; text-overflow: clip; }
 }
 
-/* En pantallas bajas, no ocultar la fila bancaria bajo la navegación fija. */
-@media (max-height: 720px) {
-  .page-scroll--dashboard:has(.net-weekly-card) { overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
-  .page-scroll--dashboard:has(.net-weekly-card) .fuel-reports-page,
-  .page-scroll--dashboard:has(.net-weekly-card) .fuel-report-canvas { height: auto; min-height: 0; flex: 0 0 auto; overflow: visible; }
-  .page-scroll--dashboard:has(.net-weekly-card) .report-general-grid { flex: 0 0 auto; }
-  .page-scroll--dashboard:has(.net-weekly-card) .report-chart-card--compact-preview { min-height: 180px; flex: 0 0 180px; }
-}
+/* General puede desplazarse siempre, sin que la barra inferior tape la gráfica. */
+.page-scroll--dashboard { overflow-x: hidden; overflow-y: auto; touch-action: pan-y; overscroll-behavior-y: contain; }
+.page-scroll--dashboard .fuel-reports-page,
+.page-scroll--dashboard .fuel-report-canvas { height: auto; min-height: 0; flex: 0 0 auto; overflow: visible; }
+.page-scroll--dashboard .fuel-report-canvas { padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+.page-scroll--dashboard .report-general-grid { flex: 0 0 auto; }
+.page-scroll--dashboard .report-chart-card--compact-preview { height: clamp(300px, 55vh, 600px); min-height: 300px; flex: 0 0 auto; }
