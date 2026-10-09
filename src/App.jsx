@@ -7579,10 +7579,6 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       ? `${Math.round(Number(value))}`
       : `${Math.round(Number(value) / 1000)}k`;
   const visibleChartMetrics = selectedChartMetrics.length > 0 ? selectedChartMetrics : summaryChartMetricValues;
-  const chartIconMetricColors = selectedChartMetrics.length === 0 ? { ...chartMetricColors, billing: SUMMARY_CHART_COLOR } : chartMetricColors;
-  const chartIconBackground = visibleChartMetrics.length === 1
-    ? chartIconMetricColors[visibleChartMetrics[0]]
-    : `conic-gradient(from 45deg, ${visibleChartMetrics.map((metric, index) => `${chartIconMetricColors[metric]} ${index * 100 / visibleChartMetrics.length}% ${(index + 1) * 100 / visibleChartMetrics.length}%`).join(", ")})`;
   const selectedFuelStats = vehicleStats.find(({ vehicle }) => vehicle.plate === selected.plate) ?? vehicleStats[0];
   const selectedBillingDriver = billingRows.find((row) => row.key === billingDriverKey) ?? null;
   const selectedBillingDriverVehicle = vehicles.find((vehicle) => vehicle.plate === selectedBillingDriver?.plate) ?? null;
@@ -7820,14 +7816,11 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                 <ReportStatCard icon={IconTool} label="Mantenimiento" value={formatMainAmount(periodTotals.maintenance)} tone="orange" active={false} actionLabel="Abrir Mantenimiento" onClick={() => onNavigate(fleetSubItems[0])} />
                 <NetWeeklyCard value={formatMainAmount(periodTotals.net)} weeks={weeklyCollections} adminUserId={adminUserId} realtimeRevision={realtimeRevision} onOpenNet={() => { setChartMetric("net"); setNetDetailOpen(true); }} />
               </div>
-              <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static">
-                <header className="report-chart-card__top">
-                  <div><span className={`report-chart-icon report-chart-icon--${chartMetric}`} style={{ background: chartIconBackground }}><IconChartBar size={18} /></span><span><strong className={`report-chart-title${chartMetric === "summary" ? " report-chart-title--summary" : ""}${driverAverageChartMetrics.has(chartMetric) ? " report-chart-title--driver" : ""}`}>{activeChart.title}</strong>{activeChart.description && <small>{activeChart.description}</small>}</span></div>
-                </header>
+              <section className="report-chart-card report-chart-card--compact-preview report-chart-card--static" aria-label={`Gráfica: ${activeChart.title}`}>
                 <div className="report-chart report-chart--summary">
                   {hasChartData ? <>
                     <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={activeChart.data} margin={{ top: 12, right: 0, left: 0, bottom: 4 }} barCategoryGap="18%" barGap={3} onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
+                    <BarChart data={activeChart.data} margin={{ top: 2, right: 0, left: 0, bottom: 4 }} barCategoryGap="18%" barGap={3} onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
                       {selectedChartBar && <ReferenceArea x1={selectedChartBar} x2={selectedChartBar} fill="#edf0ee" fillOpacity={0.9} stroke="none" ifOverflow="extendDomain" zIndex={-20} />}
                       <CartesianGrid stroke="#e9efed" vertical={false} />
                       <XAxis dataKey="label" interval={0} height={26} tickMargin={2} tick={<ChartAxisTick fontSize={8} fontWeight={chartMetric === "billing" || driverAverageChartMetrics.has(chartMetric) ? 500 : 750} />} axisLine={false} tickLine={false} />
@@ -7847,7 +7840,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                     </ResponsiveContainer>
                     <div className="report-chart-legend" aria-label="Seleccionar métricas del resumen general">
                       {selectableChartMetrics.map((option) => {
-                        const active = visibleChartMetrics.includes(option.value);
+                        const active = selectedChartMetrics.includes(option.value);
                         return <button type="button" className={`report-chart-legend__button report-chart-legend__button--${option.value}${active ? " report-chart-legend__button--active" : ""}`} aria-pressed={active} aria-label={`${active ? "Ocultar" : "Mostrar"} ${option.label}`} onClick={(event) => toggleLegendMetric(event, option.value)} key={option.value}>
                           <i className={`report-chart-legend__swatch report-chart-legend__swatch--${option.value}`} aria-hidden="true" /><span>{option.label}</span>
                         </button>;

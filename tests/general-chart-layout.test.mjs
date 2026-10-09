@@ -17,6 +17,11 @@ test("los seis filtros rectangulares muestran sus nombres a la izquierda sin red
   assert.match(css, /\.report-chart-legend \{ grid-template-columns: minmax\(0, 1fr\); grid-template-rows: repeat\(6,/);
   assert.match(css, /\.report-chart-legend__button \{ width: 100%; max-width: 100%; height: 100%;/);
   assert.match(css, /\.report-chart--summary \.report-chart-legend__swatch \{ display: none; \}/);
+  assert.doesNotMatch(app, /<header className="report-chart-card__top">\s*<div><span className=\{`report-chart-icon/);
+  assert.match(app, /className="report-chart-card report-chart-card--compact-preview report-chart-card--static" aria-label=\{`Gráfica: \$\{activeChart\.title\}`\}/);
+  assert.match(app, /margin=\{\{ top: 2, right: 0, left: 0, bottom: 4 \}\}/);
+  assert.match(app, /const active = selectedChartMetrics\.includes\(option\.value\);/);
+  assert.match(css, /\.report-chart--summary \.report-chart-legend__button--active \{[^}]*transform: scale\(1\.04\);[^}]*filter: saturate\(1\.35\)/);
   assert.match(css, /max-height: 850px[\s\S]*report-chart-card--compact-preview \{ min-height: 190px;/);
   assert.match(app, /const fontSize = Math\.min\(11\.5, \(barWidth - 4\) \* 0\.8, \(barHeight - 8\) \/ \(label\.length \* 0\.58\)\)/);
 });
