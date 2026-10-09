@@ -7848,7 +7848,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                       {selectableChartMetrics.map((option) => {
                         const active = visibleChartMetrics.includes(option.value);
                         return <button type="button" className={`report-chart-legend__button report-chart-legend__button--${option.value}${active ? " report-chart-legend__button--active" : ""}`} aria-pressed={active} aria-label={`${active ? "Ocultar" : "Mostrar"} ${option.label}`} onClick={(event) => toggleLegendMetric(event, option.value)} key={option.value}>
-                          <i className={`report-chart-legend__swatch report-chart-legend__swatch--${option.value}`} aria-hidden="true" /><span>{option.label}</span>
+                          <i className={`report-chart-legend__swatch report-chart-legend__swatch--${option.value}`} aria-hidden="true" /><span>{({ billing: "FACT", maintenance: "MANT", fuel: "COMB", net: "NETO", consumptionAverage: "CONS", billingPerHour: "€/H" })[option.value] ?? option.label}</span>
                         </button>;
                       })}
                     </div>
