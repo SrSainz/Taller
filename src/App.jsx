@@ -37,6 +37,7 @@ import {
   IconMenu2,
   IconMessageCircle,
   IconPlus,
+  IconPencil,
   IconPrinter,
   IconRefresh,
   IconLogout,
@@ -79,6 +80,7 @@ import { enablePushNotifications, getPushNotificationState } from "./pushNotific
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
 import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, isInstrumentClusterVehicle, isOilAndFilterMaintenance } from "./vehicleServiceTracking";
+import { formatMaintenanceItvDate, maintenanceVehicleDetailsStorageKey, normalizeMaintenanceVehicleDetails, normalizeMaintenanceVehicleDetailsMap } from "./maintenanceVehicleDetails";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { getWeeksTouchingMonth, sumWeeklyCollections } from "./weeklyCollections";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
@@ -516,6 +518,11 @@ const loadMaintenanceEdits = () => {
   } catch {
     return {};
   }
+};
+
+const loadMaintenanceVehicleDetails = () => {
+  try { return normalizeMaintenanceVehicleDetailsMap(JSON.parse(window.localStorage.getItem(maintenanceVehicleDetailsStorageKey) ?? "{}")); }
+  catch { return {}; }
 };
 
 const normalizeText = (value = "") => String(value).normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
@@ -9398,6 +9405,9 @@ function formatMaintenanceReportDate(value) {
 
 function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed, onOpenMaintenanceReports, onRefreshMaintenanceReports, onDeleteMaintenanceDocument }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
+  const [vehicleDetails, setVehicleDetails] = useState(loadMaintenanceVehicleDetails);
+  const [editingVehiclePlate, setEditingVehiclePlate] = useState("");
+  const [vehicleDetailsDraft, setVehicleDetailsDraft] = useState({ instrumentKm: "", remainingKm: "", itvDate: "" });
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
   const [reportsPlate, setReportsPlate] = useState("");
@@ -9418,6 +9428,32 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
     const details = invoice?.items?.length ? invoice.items : [{ concept: item.concept, amount: item.amount }];
     return { item, invoice, details, key: getMaintenanceRecordKey(item, index) };
   });
+  const openVehicleDetailsEditor = (vehicle) => {
+    const current = vehicleDetails[vehicle.plate] ?? {};
+    setVehicleDetailsDraft({
+      instrumentKm: current.instrumentKm ?? "",
+      remainingKm: current.remainingKm ?? "",
+      itvDate: current.itvDate ?? "",
+    });
+    setEditingVehiclePlate(vehicle.plate);
+  };
+  const saveVehicleDetails = (event) => {
+    event.preventDefault();
+    const details = normalizeMaintenanceVehicleDetails(editingVehiclePlate, vehicleDetailsDraft);
+    if (!details) return;
+    const next = { ...vehicleDetails, [editingVehiclePlate]: details };
+    try { window.localStorage.setItem(maintenanceVehicleDetailsStorageKey, JSON.stringify(next)); }
+    catch { notify("No se han podido guardar los datos en este dispositivo."); return; }
+    setVehicleDetails(next);
+    setEditingVehiclePlate("");
+    notify(`Datos de ${editingVehiclePlate} guardados.`);
+  };
+  useEffect(() => {
+    if (!editingVehiclePlate) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setEditingVehiclePlate(""); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editingVehiclePlate]);
   useEffect(() => {
     setWorkshopPlate(initialPlate);
   }, [initialPlate]);
@@ -9632,27 +9668,42 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
           const vehicleReports = maintenanceReports.filter((report) => isMaintenanceReportForVehicle(report, vehicle.plate));
           const reportCounts = getMaintenanceReportCounts(vehicleReports);
           const pendingReports = reportCounts.pending;
+          const isParticular = vehicle.use === "Particular";
+          const details = vehicleDetails[vehicle.plate] ?? {};
+          const instrumentKm = vehicle.serviceTracking?.instrumentKm ?? details.instrumentKm;
+          const remainingKm = vehicle.serviceTracking?.remainingKm ?? details.remainingKm;
           return (
-            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}${pendingReports ? " has-pending" : ""}${vehicle.serviceTracking ? " has-service-tracking" : ""}`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
+            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}${pendingReports ? " has-pending" : ""} has-service-tracking`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
               <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
                 <span className="maintenance-vehicle-number">{index + 1}</span>
                 <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
-                <span className="maintenance-vehicle-identity"><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" />
-                  {!vehicle.serviceTracking && <span>{vehicle.model}</span>}
+                <span className="maintenance-vehicle-identity"><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" /></span>
+                <span className="maintenance-vehicle-km-tracking">
+                  <strong>Km cuadro: {instrumentKm == null ? "—" : formatKm(instrumentKm)}</strong>
+                  {!isParticular && <strong>Km reales: {formatKm(vehicle.serviceTracking.realKm)}</strong>}
+                  <strong>Revisión: {remainingKm == null ? "—" : formatKm(remainingKm)}</strong>
+                  <strong>ITV: {formatMaintenanceItvDate(details.itvDate)}</strong>
                 </span>
-                {vehicle.serviceTracking && <span className="maintenance-vehicle-km-tracking" aria-label={`Kilometraje del cuadro ${formatKm(vehicle.serviceTracking.instrumentKm)}, kilometraje real ${formatKm(vehicle.serviceTracking.realKm)}, faltan ${formatKm(vehicle.serviceTracking.remainingKm)} para la próxima revisión`}>
-                  <strong>Km cuadro: {formatKm(vehicle.serviceTracking.instrumentKm)}</strong>
-                  <strong>Km reales: {formatKm(vehicle.serviceTracking.realKm)}</strong>
-                  <strong>Revisión: {formatKm(vehicle.serviceTracking.remainingKm)}</strong>
-                </span>}
                 <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
                 <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
               </button>
+              <button type="button" className="maintenance-vehicle-edit" onClick={() => openVehicleDetailsEditor(vehicle)} aria-label={`Editar ${isParticular ? "kilómetros e ITV" : "ITV"} de ${vehicle.plate}`} title={`Editar datos de ${vehicle.plate}`}><IconPencil size={17} /></button>
               <button type="button" className={`maintenance-pending-review-button${pendingReports ? " has-pending" : ""}${reportCounts.total ? " has-history" : ""}`} onClick={() => { void openMaintenanceReports(vehicle.plate); }} aria-haspopup="dialog" aria-busy={reportsRefreshing && reportsPlate === vehicle.plate} aria-label={`Abrir histórico de pendientes de revisión de ${vehicle.plate}${pendingReports ? `, ${pendingReports} pendientes` : ""}${reportCounts.total ? `, ${reportCounts.total} avisos registrados` : ""}`} title={reportCounts.total ? `${reportCounts.total} aviso${reportCounts.total === 1 ? "" : "s"} registrado${reportCounts.total === 1 ? "" : "s"}. Pulsa para consultar el histórico.` : "Abrir histórico de pendientes de revisión, aunque todavía esté vacío"}><IconAlertTriangle size={16} /><span>PENDIENTE DE REVISIÓN</span><small>{reportCounts.total > 0 ? `HISTÓRICO ${reportCounts.total}` : "VER HISTÓRICO"}</small>{pendingReports > 0 && <b>{pendingReports}</b>}</button>
             </div>
           );
         })}
       </nav>
+      {editingVehiclePlate && createPortal(<div className="maintenance-vehicle-editor-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingVehiclePlate(""); }}>
+        <form className="maintenance-vehicle-editor" role="dialog" aria-modal="true" aria-labelledby="maintenance-vehicle-editor-title" onSubmit={saveVehicleDetails}>
+          <header><h2 id="maintenance-vehicle-editor-title">Datos de {editingVehiclePlate}</h2><button type="button" onClick={() => setEditingVehiclePlate("")} aria-label="Cerrar editor"><IconX size={20} /></button></header>
+          {!["5043 MLC", "5750 MJV", "5754 MJV"].includes(editingVehiclePlate) && <>
+            <label>Km cuadro<input type="number" min="0" step="1" inputMode="numeric" value={vehicleDetailsDraft.instrumentKm} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, instrumentKm: event.target.value }))} placeholder="Introducir km del cuadro" /></label>
+            <label>Revisión (km restantes)<input type="number" min="0" step="1" inputMode="numeric" value={vehicleDetailsDraft.remainingKm} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, remainingKm: event.target.value }))} placeholder="Introducir km hasta la revisión" /></label>
+          </>}
+          <label>ITV<input type="date" value={vehicleDetailsDraft.itvDate} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, itvDate: event.target.value }))} /></label>
+          <footer><button type="button" className="secondary-button" onClick={() => setEditingVehiclePlate("")}>Cancelar</button><button type="submit" className="primary-button">Guardar</button></footer>
+        </form>
+      </div>, document.body)}
       <div className="maintenance-vehicle-divider" aria-hidden="true" />
       <section className="content-card maintenance-history-panel" id="historial-mantenimiento">
         <header className="maintenance-history-header">
