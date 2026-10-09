@@ -21,7 +21,7 @@ test("los seis filtros rectangulares muestran sus nombres a la izquierda sin red
   assert.match(app, /className="report-chart-card report-chart-card--compact-preview report-chart-card--static" aria-label=\{`Gráfica: \$\{activeChart\.title\}`\}/);
   assert.match(app, /margin=\{\{ top: 2, right: 0, left: 0, bottom: 4 \}\}/);
   assert.match(app, /const active = selectedChartMetrics\.includes\(option\.value\);/);
-  assert.match(css, /\.report-chart--summary \.report-chart-legend__button--active \{[^}]*transform: scale\(1\.04\);[^}]*filter: saturate\(1\.35\)/);
+  assert.match(css, /\.report-chart--summary \.report-chart-legend__button--active \{[^}]*transform: scale\(1\.07\);[^}]*background: color-mix\([^}]*filter: saturate\(1\.55\)/);
   assert.match(css, /\.page-scroll--dashboard \.report-chart-card--compact-preview \{ height: clamp\(300px, 55vh, 600px\); min-height: 300px; flex: 0 0 auto; \}/);
   assert.match(app, /const fontSize = Math\.min\(11\.5, \(barWidth - 4\) \* 0\.8, \(barHeight - 8\) \/ \(label\.length \* 0\.58\)\)/);
 });
