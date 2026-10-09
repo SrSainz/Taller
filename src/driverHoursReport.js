@@ -46,19 +46,19 @@ export const buildDriverHoursRows = ({ calendarRows = [], month, year, driverNam
   });
   const key = driverKey(driverName);
   const fixedNightRest = ["alex", "amin"].includes(key);
-  const dynamicTwoDayRest = ["mauricio", "tirso"].includes(key);
+  const fixedRestDays = { alex: [1, 2], amin: [1, 2], fernando: [0, 6], william: [0, 1], tirso: [0, 1], mauricio: [0, 4] }[key];
   const selectedRestDates = new Set();
   const weeks = new Map();
   rows.filter((row) => !row.future).forEach((row) => weeks.set(row.weekKey, [...(weeks.get(row.weekKey) ?? []), row]));
   weeks.forEach((weekRows) => {
-    if (fixedNightRest || key === "fernando") return;
+    if (fixedRestDays) return;
     const emptyDays = weekRows.filter((row) => !row.active).length;
-    const restNeeded = dynamicTwoDayRest ? Math.max(0, 2 - emptyDays) : 1;
+    const restNeeded = 1;
     weekRows.filter((row) => row.active).sort((a, b) => a.billing - b.billing || a.day - b.day).slice(0, restNeeded).forEach((row) => selectedRestDates.add(row.dateKey));
   });
   return rows.map((row) => {
     const weeklyLowest = selectedRestDates.has(row.dateKey);
-    const fixedRest = (fixedNightRest && [1, 2].includes(row.date.getDay())) || (key === "fernando" && [0, 6].includes(row.date.getDay()));
+    const fixedRest = fixedRestDays?.includes(row.date.getDay());
     const status = row.future ? "Pendiente" : fixedRest ? "Descanso" : !row.active ? "Sin datos" : weeklyLowest ? "Menor facturación semanal" : "Trabajado";
     const hours = status === "Trabajado" ? (fixedNightRest ? ([5, 6].includes(row.date.getDay()) ? 9 : 7) : 8) : 0;
     return { ...row, weeklyLowest, hours, status };
@@ -68,11 +68,12 @@ export const buildDriverHoursRows = ({ calendarRows = [], month, year, driverNam
 export const getDriverHoursDefaultShift = (driverName, date, status) => {
   const key = driverKey(driverName);
   const weekday = date.getDay();
-  const fixedRest = (key === "fernando" && [0, 6].includes(weekday)) || (key === "andres" && [0, 1].includes(weekday)) || (["alex", "amin"].includes(key) && [1, 2].includes(weekday));
+  const fixedRest = ({ fernando: [0, 6], william: [0, 1], tirso: [0, 1], mauricio: [0, 4], alex: [1, 2], amin: [1, 2], andres: [0, 1] }[key] ?? []).includes(weekday);
   if (status !== "Trabajado" || fixedRest) return { entry: "", exit: "", ordinary: "", agreed: "", voluntary: "" };
   if (key === "fernando") return { entry: "17:00", exit: "01:00 (+1 día)", ordinary: "8", agreed: "", voluntary: "" };
+  if (key === "william") return { entry: "05:00 / 11:00", exit: "09:00 / 15:00", ordinary: "8", agreed: "", voluntary: "" };
   if (key === "andres") return { entry: "05:00 / 10:00", exit: "09:00 / 14:00", ordinary: "8", agreed: "", voluntary: "" };
-  if (["mauricio", "tirso"].includes(key)) return { entry: "06:30 / 12:00", exit: "10:30 / 16:00", ordinary: "8", agreed: "", voluntary: "" };
+  if (["mauricio", "tirso"].includes(key)) return { entry: "07:00 / 13:00", exit: "11:00 / 17:00", ordinary: "8", agreed: "", voluntary: "" };
   if (!["alex", "amin"].includes(key)) return { entry: "", exit: "", ordinary: "", agreed: "", voluntary: "" };
   const fridayOrSaturday = [5, 6].includes(date.getDay());
   return fridayOrSaturday
@@ -82,12 +83,14 @@ export const getDriverHoursDefaultShift = (driverName, date, status) => {
 
 export const migrateNightShiftRows = (driverName, rows = {}, defaults = {}, year, month) => {
   const key = driverKey(driverName);
-  if (!["alex", "amin", "fernando"].includes(key)) return rows;
+  if (!["alex", "amin", "fernando", "william", "tirso", "mauricio"].includes(key)) return rows;
   return Object.fromEntries(Object.entries(rows).map(([dateKey, values]) => {
     const day = Number(dateKey.slice(-2));
     const weekday = new Date(year, month, day, 12).getDay();
     const old = key === "fernando"
       ? { entry: "16:30 / 21:30", exit: "20:30 / 02:30", ordinary: "9" }
+      : ["tirso", "mauricio"].includes(key)
+      ? { entry: "06:30 / 12:00", exit: "10:30 / 16:00", ordinary: "8" }
       : [5, 6].includes(weekday)
       ? { entry: "19:00 / 00:30", exit: "23:00 / 04:30", ordinary: "8" }
       : { entry: "19:00 / 00:00", exit: "00:00 / 03:00", ordinary: "8" };

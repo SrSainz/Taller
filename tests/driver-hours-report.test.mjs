@@ -58,8 +58,8 @@ test("aplica los turnos de Fernando, Andrés, Mauricio y Tirso", () => {
   assert.equal(getDriverHoursDefaultShift("Fernando", new Date(2026, 8, 26, 12), "Trabajado").entry, "");
   assert.equal(getDriverHoursDefaultShift("Andrés", new Date(2026, 8, 29, 12), "Trabajado").exit, "09:00 / 14:00");
   assert.equal(getDriverHoursDefaultShift("Andrés", new Date(2026, 8, 28, 12), "Trabajado").entry, "");
-  assert.equal(getDriverHoursDefaultShift("Mauricio", new Date(2026, 8, 29, 12), "Trabajado").entry, "06:30 / 12:00");
-  assert.equal(getDriverHoursDefaultShift("Tirso", new Date(2026, 8, 29, 12), "Trabajado").exit, "10:30 / 16:00");
+  assert.equal(getDriverHoursDefaultShift("Mauricio", new Date(2026, 8, 29, 12), "Trabajado").entry, "07:00 / 13:00");
+  assert.equal(getDriverHoursDefaultShift("Tirso", new Date(2026, 8, 29, 12), "Trabajado").exit, "11:00 / 17:00");
 });
 
 test("Fernando libra sábado y domingo sin descanso adicional por facturación", () => {
@@ -74,13 +74,17 @@ test("Fernando libra sábado y domingo sin descanso adicional por facturación",
   assert.equal(migrated["2026-10-09"].entry, "17:00");
 });
 
-test("Mauricio y Tirso completan dos descansos semanales con los días de menor facturación", () => {
-  const rows = buildDriverHoursRows({ driverName: "Mauricio", month: 8, year: 2026, today: new Date(2026, 8, 30, 12), calendarRows: [
-    { day: 1, active: false, billing: 0 }, { day: 2, active: true, billing: 90 }, { day: 3, active: true, billing: 40 }, { day: 4, active: true, billing: 120 },
-  ] });
-  assert.equal(rows.find((row) => row.day === 1).status, "Sin datos");
-  assert.equal(rows.find((row) => row.day === 3).status, "Menor facturación semanal");
-  assert.equal(rows.find((row) => row.day === 2).status, "Trabajado");
+test("William, Tirso y Mauricio tienen turnos y descansos fijos sin escoger la menor facturación", () => {
+  const calendarRows = Array.from({ length: 7 }, (_, index) => ({ day: index + 5, active: true, billing: index === 2 ? 1 : 100 }));
+  for (const [driverName, restDays] of [["William", [5, 11]], ["Tirso", [5, 11]], ["Mauricio", [8, 11]]]) {
+    const rows = buildDriverHoursRows({ driverName, month: 9, year: 2026, today: new Date(2026, 9, 12, 12), calendarRows });
+    for (const row of rows) assert.equal(row.status, restDays.includes(row.day) ? "Descanso" : "Trabajado");
+  }
+  assert.deepEqual(getDriverHoursDefaultShift("William", new Date(2026, 9, 6, 12), "Trabajado"), { entry: "05:00 / 11:00", exit: "09:00 / 15:00", ordinary: "8", agreed: "", voluntary: "" });
+  assert.deepEqual(getDriverHoursDefaultShift("Tirso", new Date(2026, 9, 6, 12), "Trabajado"), { entry: "07:00 / 13:00", exit: "11:00 / 17:00", ordinary: "8", agreed: "", voluntary: "" });
+  assert.equal(getDriverHoursDefaultShift("Mauricio", new Date(2026, 9, 8, 12), "Trabajado").entry, "");
+  const defaults = { "2026-10-06": getDriverHoursDefaultShift("Mauricio", new Date(2026, 9, 6, 12), "Trabajado") };
+  assert.equal(migrateNightShiftRows("Mauricio", { "2026-10-06": { entry: "06:30 / 12:00", exit: "10:30 / 16:00", ordinary: "8" } }, defaults, 2026, 9)["2026-10-06"].entry, "07:00 / 13:00");
 });
 
 test("records no-data days and one lowest-billing active day in each week", () => {
