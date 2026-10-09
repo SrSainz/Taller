@@ -170,9 +170,9 @@ function ChartBarValueLabel({ x, y, width, height, value, textFill = "#fff", for
   const barHeight = Number(height);
   const centerX = Number(x) + barWidth / 2;
   const centerY = Number(y) + barHeight / 2;
-  const vertical = true;
-  const fontSize = Math.max(5.8, Math.min(11.5, barWidth * 0.38, barHeight * 0.28));
   const label = formatter(numericValue);
+  const fontSize = Math.min(11.5, (barWidth - 4) * 0.8, (barHeight - 8) / (label.length * 0.58));
+  if (fontSize < 5.8) return null;
   const stroke = textFill === "#fff" ? "rgba(0,0,0,.2)" : "rgba(255,255,255,.72)";
   return (
     <text
@@ -183,7 +183,7 @@ function ChartBarValueLabel({ x, y, width, height, value, textFill = "#fff", for
       fontWeight={850}
       textAnchor="middle"
       dominantBaseline="central"
-      transform={vertical ? `rotate(-90 ${centerX} ${centerY})` : undefined}
+      transform={`rotate(-90 ${centerX} ${centerY})`}
       style={{ paintOrder: "stroke", stroke, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }}
     >
       {label}
@@ -7432,6 +7432,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
       .filter((vehicle) => (unassignedBillingByPlate[vehicle.plate] ?? 0) > 0)
       .map((vehicle) => ({ label: "Sin conductor", detail: vehicle.plate, value: unassignedBillingByPlate[vehicle.plate] })),
   ];
+  const displayedBillingChartData = billingChartData.map((row) => ({ ...row, value: getDriverMonthlyChartAmount(row.label, `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}`, row.value) }));
   const driverPerformanceChartRows = billingRows.map((row) => {
     const vehicle = vehicles.find((candidate) => candidate.plate === row.plate);
     if (!vehicle) return { label: row.driver, detail: row.plate, consumptionAverage: null, billingPerHour: null };
@@ -7555,13 +7556,13 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     net: "Neto",
   };
   const chartOptions = {
-    summary: { title: "RESUMEN GENERAL POR COCHE", description: "Una barra por coche con Facturación, Mantenimiento, Combustible y Neto.", color: SUMMARY_CHART_COLOR, data: summaryChartData },
-    billing: { title: "FACTURACIÓN POR CONDUCTOR", description: "", color: BILLING_COLOR, data: billingChartData },
-    maintenance: { title: "MANTENIMIENTO POR COCHE", description: "", color: MAINTENANCE_COLOR, data: maintenanceChartData },
-    fuel: { title: "COMBUSTIBLE POR COCHE", description: "", color: "#df4538", data: fuelChartData },
-    net: { title: "BENEFICIO NETO POR COCHE", description: "", color: "#28923c", data: netChartData },
-    consumptionAverage: { title: "CONSUMO MEDIO POR CONDUCTOR", description: "", color: chartMetricColors.consumptionAverage, data: consumptionAverageChartData },
-    billingPerHour: { title: "FACTURACIÓN POR HORA POR CONDUCTOR", description: "", color: chartMetricColors.billingPerHour, data: billingPerHourChartData },
+    summary: { title: "RESUMEN GENERAL", description: "", color: SUMMARY_CHART_COLOR, data: summaryChartData },
+    billing: { title: "FACTURACIÓN", description: "", color: BILLING_COLOR, data: displayedBillingChartData },
+    maintenance: { title: "MANTENIMIENTO", description: "", color: MAINTENANCE_COLOR, data: maintenanceChartData },
+    fuel: { title: "COMBUSTIBLE", description: "", color: "#df4538", data: fuelChartData },
+    net: { title: "BENEFICIO NETO", description: "", color: "#28923c", data: netChartData },
+    consumptionAverage: { title: "CONSUMO MEDIO", description: "", color: chartMetricColors.consumptionAverage, data: consumptionAverageChartData },
+    billingPerHour: { title: "FACTURACIÓN POR HORA", description: "", color: chartMetricColors.billingPerHour, data: billingPerHourChartData },
   };
   const activeChart = chartOptions[chartMetric];
   const formatChartValue = (value) => chartMetric === "consumptionAverage"
@@ -7848,7 +7849,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                       {selectableChartMetrics.map((option) => {
                         const active = visibleChartMetrics.includes(option.value);
                         return <button type="button" className={`report-chart-legend__button report-chart-legend__button--${option.value}${active ? " report-chart-legend__button--active" : ""}`} aria-pressed={active} aria-label={`${active ? "Ocultar" : "Mostrar"} ${option.label}`} onClick={(event) => toggleLegendMetric(event, option.value)} key={option.value}>
-                          <i className={`report-chart-legend__swatch report-chart-legend__swatch--${option.value}`} aria-hidden="true" /><span>{({ billing: "FACT", maintenance: "MANT", fuel: "COMB", net: "NETO", consumptionAverage: "CONS", billingPerHour: "€/H" })[option.value] ?? option.label}</span>
+                          <i className={`report-chart-legend__swatch report-chart-legend__swatch--${option.value}`} aria-hidden="true" /><span>{option.label}</span>
                         </button>;
                       })}
                     </div>

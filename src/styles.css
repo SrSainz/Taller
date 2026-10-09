@@ -10858,13 +10858,14 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
   .driver-mobile-preview-mini-grid .driver-performance__weeks b { font-size: 9px; }
 }
 
-/* Seis controles cuadrados a la izquierda; las barras aprovechan toda la altura disponible. */
-.report-chart--summary { grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 6px; }
+/* Seis filtros rectangulares a la izquierda y la gráfica junto a ellos. */
+.report-chart--summary { grid-template-columns: 144px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 2px; }
 .report-chart--summary > .recharts-responsive-container { grid-column: 2; grid-row: 1; min-width: 0; min-height: 0; }
 .report-chart--summary > .report-chart-legend { grid-column: 1; grid-row: 1; min-height: 0; }
 .report-chart-legend { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(6, minmax(0, 1fr)); gap: 4px; }
-.report-chart-legend__button { width: auto; max-width: 100%; height: 100%; min-height: 0; aspect-ratio: 1; justify-self: center; flex-direction: column; gap: 2px; padding: 2px; font-size: 7px; line-height: 1; }
-.report-chart-legend__swatch { width: 7px; height: 7px; flex-basis: 7px; }
+.report-chart-legend__button { width: 100%; max-width: 100%; height: 100%; min-height: 0; justify-self: stretch; flex-direction: row; gap: 4px; padding: 2px 6px; font-size: 9px; line-height: 1.05; }
+.report-chart--summary .report-chart-legend__button { flex-direction: row; gap: 0; font-size: 9px; letter-spacing: 0; }
+.report-chart--summary .report-chart-legend__swatch { display: none; }
 @media (max-height: 850px) {
   .page-scroll--dashboard:has(.net-weekly-card) { overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
   .page-scroll--dashboard:has(.net-weekly-card) .fuel-reports-page,
@@ -10877,9 +10878,9 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .report-chart-legend__swatch--consumptionAverage { background: #008c9a; }
 .report-chart-legend__swatch--billingPerHour { background: #36454f; }
 @media (max-width: 720px) {
-  .report-chart--summary { grid-template-columns: 36px minmax(0, 1fr); gap: 3px; }
+  .report-chart--summary { grid-template-columns: 108px minmax(0, 1fr); gap: 2px; }
   .report-chart-legend { gap: 2px; }
-  .report-chart-legend__button { min-height: 0; padding: 1px; font-size: 5.5px; white-space: normal; line-height: 1; }
+  .report-chart-legend__button { min-height: 0; padding: 1px 3px; font-size: 7px; white-space: normal; line-height: 1; }
   .report-chart-legend__button > span { overflow: visible; text-overflow: clip; }
 }
 
