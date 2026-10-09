@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift, getDriverHoursWorker } from "../src/driverHoursReport.js";
+import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift, getDriverHoursWorker, migrateNightShiftRows } from "../src/driverHoursReport.js";
 
 test("el registro de jornada de Álex muestra su identidad laboral completa", () => {
   assert.deepEqual(getDriverHoursWorker("ÁLEX", "5043 MLC"), { name: "Alexandru Florin Radu", nif: "Y3789801J", affiliation: "28/14202868-68" });
@@ -18,9 +18,38 @@ test("assigns the requested company to each professional plate", () => {
 });
 
 test("Álex y Amin reciben los turnos nocturnos indicados y los descansos quedan vacíos", () => {
-  assert.deepEqual(getDriverHoursDefaultShift("Amin", new Date(2026, 8, 25, 12), "Trabajado"), { entry: "19:00 / 00:30", exit: "23:00 / 04:30", ordinary: "8", agreed: "", voluntary: "" });
-  assert.deepEqual(getDriverHoursDefaultShift("Álex", new Date(2026, 8, 27, 12), "Trabajado"), { entry: "19:00 / 00:00", exit: "00:00 / 03:00", ordinary: "8", agreed: "", voluntary: "" });
+  assert.deepEqual(getDriverHoursDefaultShift("Amin", new Date(2026, 8, 25, 12), "Trabajado"), { entry: "18:00 / 00:00", exit: "22:00 / 05:00", ordinary: "9", agreed: "", voluntary: "" });
+  assert.deepEqual(getDriverHoursDefaultShift("Álex", new Date(2026, 8, 27, 12), "Trabajado"), { entry: "18:00", exit: "01:00 (+1 día)", ordinary: "7", agreed: "", voluntary: "" });
   assert.equal(getDriverHoursDefaultShift("Amin", new Date(2026, 8, 25, 12), "Sin datos").entry, "");
+  assert.equal(getDriverHoursDefaultShift("Álex", new Date(2026, 8, 28, 12), "Trabajado").entry, "");
+  assert.equal(getDriverHoursDefaultShift("Amin", new Date(2026, 8, 29, 12), "Trabajado").entry, "");
+});
+
+test("Álex y Amin descansan lunes y martes sin seleccionar días por menor facturación", () => {
+  for (const driverName of ["Álex", "Amin"]) {
+    const rows = buildDriverHoursRows({ driverName, month: 9, year: 2026, today: new Date(2026, 9, 12, 12), calendarRows: [
+      { day: 4, active: true, billing: 5 }, { day: 5, active: true, billing: 100 }, { day: 6, active: true, billing: 100 },
+      { day: 7, active: true, billing: 3 }, { day: 8, active: true, billing: 4 }, { day: 9, active: true, billing: 6 }, { day: 10, active: true, billing: 7 },
+    ] });
+    assert.equal(rows.find((row) => row.day === 4).hours, 7);
+    assert.equal(rows.find((row) => row.day === 5).status, "Descanso");
+    assert.equal(rows.find((row) => row.day === 6).status, "Descanso");
+    assert.equal(rows.find((row) => row.day === 7).hours, 7);
+    assert.equal(rows.find((row) => row.day === 9).hours, 9);
+    assert.equal(rows.find((row) => row.day === 10).hours, 9);
+  }
+});
+
+test("la plantilla antigua se actualiza sin sobrescribir horarios editados", () => {
+  const defaults = { "2026-10-09": getDriverHoursDefaultShift("Álex", new Date(2026, 9, 9, 12), "Trabajado"), "2026-10-11": getDriverHoursDefaultShift("Álex", new Date(2026, 9, 11, 12), "Trabajado") };
+  const migrated = migrateNightShiftRows("Álex", {
+    "2026-10-09": { entry: "19:00 / 00:30", exit: "23:00 / 04:30", ordinary: "8" },
+    "2026-10-10": { entry: "20:00", exit: "02:00", ordinary: "6" },
+    "2026-10-11": { entry: "", exit: "", ordinary: "" },
+  }, defaults, 2026, 9);
+  assert.equal(migrated["2026-10-09"].entry, "18:00 / 00:00");
+  assert.deepEqual(migrated["2026-10-10"], { entry: "20:00", exit: "02:00", ordinary: "6" });
+  assert.equal(migrated["2026-10-11"].entry, "18:00");
 });
 
 test("aplica los turnos de Fernando, Andrés, Mauricio y Tirso", () => {

@@ -107,7 +107,7 @@ import { getDriverPerformanceSummary } from "./driverPerformanceSummary";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
 import { findDriverNavigationRow } from "./driverNavigation";
-import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift, getDriverHoursWorker } from "./driverHoursReport";
+import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift, getDriverHoursWorker, migrateNightShiftRows } from "./driverHoursReport";
 import { applyDriverBillingOverride, buildDriverBillingOverride, buildDriverFuelOverrideEntries, buildDriverMileageOverride, getDriverDayOverride, getDriverFuelEntriesForPeriod as getCorrectedDriverFuelEntriesForPeriod, getDriverMileageOverride, mergeDriverDayOverride, shouldApplyDriverBillingOverride } from "./driverDayOverrides";
 import { getLatestPendingMaintenanceNote, getMaintenanceReportCounts, getMaintenanceReportDisplayMessage, getMaintenanceReportNote, getMaintenanceReportRecordedAt, getMaintenanceReportReporterName, getMaintenanceReportStatusLabel, getMaintenanceReportVehiclePlate, isMaintenanceReportForVehicle, sortMaintenanceReportsByRecordedAt } from "./maintenanceReports";
 
@@ -8264,7 +8264,7 @@ function DriverHoursDialog({ row, calendarRows, month, year, onClose }) {
   const defaults = useMemo(() => Object.fromEntries(hoursRows.map((item) => [item.dateKey, getDriverHoursDefaultShift(row.driver, item.date, item.status)])), [row.driver, month, year, calendarRows]);
   const [fields, setFields] = useState(() => {
     const initial = { workerNif: worker.nif, affiliation: worker.affiliation, ccc: "", rows: defaults };
-    try { const saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}"); return { ...initial, ...saved, workerNif: saved.workerNif || worker.nif, affiliation: saved.affiliation || worker.affiliation }; }
+    try { const saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}"); return { ...initial, ...saved, rows: { ...defaults, ...migrateNightShiftRows(row.driver, saved.rows ?? {}, defaults, year, month) }, workerNif: saved.workerNif || worker.nif, affiliation: saved.affiliation || worker.affiliation }; }
     catch { return initial; }
   });
   useEffect(() => {
