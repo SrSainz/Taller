@@ -11,4 +11,5 @@ test("los seis filtros se mantienen a la izquierda y las barras ganan altura sin
   assert.match(css, /\.report-chart--summary > \.report-chart-legend \{ grid-column: 1; grid-row: 1;/);
   assert.match(css, /\.report-chart-legend \{ grid-template-columns: minmax\(0, 1fr\); grid-template-rows: repeat\(6,/);
   assert.match(css, /\.report-chart-legend__button \{[^}]*aspect-ratio: 1;/);
+  assert.match(css, /max-height: 850px[\s\S]*report-chart-card--compact-preview \{ min-height: 190px;/);
 });
