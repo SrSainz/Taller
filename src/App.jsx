@@ -102,6 +102,7 @@ import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as get
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
 import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getDriverBillingAmount, getMonthlyDriverBilling } from "./driverBillingTotals";
+import { getDriverMonthlyChartAmount } from "./driverMonthlyChartCorrections";
 import { getAccumulatedDriverKmThroughDay } from "./driverMileageTotals";
 import { getDriverRunningTotalsThroughDay } from "./driverRunningTotals";
 import { driverProfileCoversWholePeriod, isDriverProfileValidDuringPeriod, isDriverProfileValidOnDate, profileDateForPeriod } from "./driverProfilePeriods";
@@ -4839,12 +4840,12 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     if (importedBillingByPeriod) {
       Object.keys(importedBillingByPeriod).forEach((monthKey) => monthly.set(monthKey, 0));
     }
-    monthly.forEach((_, monthKey) => monthly.set(monthKey, getMonthlyDriverBilling({
+    monthly.forEach((_, monthKey) => monthly.set(monthKey, getDriverMonthlyChartAmount(profile.full_name, monthKey, getMonthlyDriverBilling({
       entries,
       billingStatsByDate: driverBillingStatsByDate,
       periodKey: monthKey,
       importedBilling: importedBillingByPeriod?.[monthKey] ?? 0,
-    }).amount));
+    }).amount)));
     const currentDate = new Date(driverPeriodYear, driverPeriodMonth, 1);
     const calendarCurrentDate = new Date(calendarToday.getFullYear(), calendarToday.getMonth(), 1);
     const fallbackStartDate = new Date(driverPeriodYear, driverPeriodMonth - 11, 1);
