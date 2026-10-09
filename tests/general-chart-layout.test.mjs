@@ -10,7 +10,8 @@ test("los seis filtros rectangulares muestran sus nombres a la izquierda sin red
   assert.match(app, /billing: \{ title: "FACTURACIÓN", description: "", color: BILLING_COLOR, data: displayedBillingChartData \}/);
   assert.match(app, /value: getDriverMonthlyChartAmount\(row\.label,/);
   assert.doesNotMatch(app, /RESUMEN GENERAL POR COCHE/);
-  assert.match(css, /\.report-chart--summary \{ grid-template-columns: 144px minmax\(0, 1fr\); grid-template-rows: minmax\(0, 1fr\)/);
+  assert.match(css, /\.report-chart--summary \{ grid-template-columns: 122px minmax\(0, 1fr\); grid-template-rows: minmax\(0, 1fr\); gap: 1px;/);
+  assert.match(css, /@media \(max-width: 720px\) \{\s*\.report-chart--summary \{ grid-template-columns: 92px minmax\(0, 1fr\); gap: 1px; \}/);
   assert.match(css, /\.report-chart--summary > \.recharts-responsive-container \{ grid-column: 2; grid-row: 1;/);
   assert.match(css, /\.report-chart--summary > \.report-chart-legend \{ grid-column: 1; grid-row: 1;/);
   assert.match(css, /\.report-chart-legend \{ grid-template-columns: minmax\(0, 1fr\); grid-template-rows: repeat\(6,/);
