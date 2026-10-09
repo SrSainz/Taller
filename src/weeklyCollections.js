@@ -13,15 +13,25 @@ export function getWeeksTouchingMonth(month, year) {
   return weeks;
 }
 
-export function sumWeeklyCollections(weeks, dailyAmounts) {
+export function sumWeeklyCollections(weeks, dailyAmounts, vehiclePlates = []) {
   return weeks.map((week) => {
     let billingCents = 0;
     let cashCents = 0;
+    const vehicleCents = new Map(vehiclePlates.map((plate) => [plate, { billing: 0, cash: 0 }]));
     for (const [day, amounts] of dailyAmounts) {
       if (day < week.start || day > week.end) continue;
-      billingCents += Math.round((Number(amounts.billing) || 0) * 100);
-      cashCents += Math.round((Number(amounts.cash) || 0) * 100);
+      const dailyBilling = Math.round((Number(amounts.billing) || 0) * 100);
+      const dailyCash = Math.round((Number(amounts.cash) || 0) * 100);
+      billingCents += dailyBilling;
+      cashCents += dailyCash;
+      if (amounts.plate) {
+        const vehicle = vehicleCents.get(amounts.plate) ?? { billing: 0, cash: 0 };
+        vehicle.billing += dailyBilling;
+        vehicle.cash += dailyCash;
+        vehicleCents.set(amounts.plate, vehicle);
+      }
     }
-    return { ...week, cash: cashCents / 100, app: (billingCents - cashCents) / 100 };
+    return { ...week, cash: cashCents / 100, app: (billingCents - cashCents) / 100,
+      vehicles: [...vehicleCents].map(([plate, amounts]) => ({ plate, cash: amounts.cash / 100, app: (amounts.billing - amounts.cash) / 100 })) };
   });
 }

@@ -7368,14 +7368,14 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         monthRows.filter((row) => row.plate === vehicle.plate && (currentIds.has(row.driverId) || currentNames.has(getImportedDriverKey(row.driver)))).forEach((row) => {
           getDriverCalendarRows(vehicle, row, month, year, documents, transactions).forEach((day) => {
             const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day.day).padStart(2, "0")}`;
-            dailyAmounts.push([dateKey, { billing: day.billing, cash: day.billingStats?.cashCollected ?? 0 }]);
+            dailyAmounts.push([dateKey, { plate: vehicle.plate, billing: day.billing, cash: day.billingStats?.cashCollected ?? 0 }]);
           });
         });
       });
       month += 1;
       if (month === 12) { month = 0; year += 1; }
     }
-    return sumWeeklyCollections(weeks, dailyAmounts);
+    return sumWeeklyCollections(weeks, dailyAmounts, vehicles.filter((vehicle) => vehicle.use === "Profesional").map((vehicle) => vehicle.plate));
   }, [vehicles, driverEntries, documents, transactions, reportMonth, reportYear]);
   const historicalBillingRows = getHistoricalBillingRowsForPeriod(vehicles, driverEntries, reportMonth, reportYear);
   const unassignedBillingByPlate = vehicles.reduce((result, vehicle) => {
@@ -7945,8 +7945,8 @@ function NetWeeklyCard({ value, weeks, adminUserId, realtimeRevision, onOpenNet 
       {weeks.map((week, index) => <button type="button" key={week.start} className={selectedWeek?.start === week.start ? "is-active" : ""} aria-pressed={selectedWeek?.start === week.start} aria-label={`Semana ${index + 1}: ${shortDate(week.start)} a ${shortDate(week.end)}`} onClick={() => setSelectedWeekStart(week.start)}>{shortDate(week.start)}–{shortDate(week.end)}</button>)}
     </div>
     <div className="net-weekly-card__amounts">
-      <div><small>COBRADO EN EFECTIVO</small><strong>{formatCurrency(selectedWeek?.cash ?? 0)}</strong></div>
-      <div><small>COBRADO EN APP</small><strong>{formatCurrency(selectedWeek?.app ?? 0)}</strong></div>
+      <div className="net-weekly-card__amount"><span><small>COBRADO EN EFECTIVO</small><strong>{formatCurrency(selectedWeek?.cash ?? 0)}</strong></span>{weeklyExpanded && <ul>{selectedWeek?.vehicles?.map((vehicle) => <li key={vehicle.plate}><span>{vehicle.plate}</span><strong>{formatCurrency(vehicle.cash)}</strong></li>)}</ul>}</div>
+      <div className="net-weekly-card__amount"><span><small>COBRADO EN APP</small><strong>{formatCurrency(selectedWeek?.app ?? 0)}</strong></span>{weeklyExpanded && <ul>{selectedWeek?.vehicles?.map((vehicle) => <li key={vehicle.plate}><span>{vehicle.plate}</span><strong>{formatCurrency(vehicle.app)}</strong></li>)}</ul>}</div>
     </div>
     <div className="net-weekly-card__bank">
       <label htmlFor="weekly-bank-amount">INGRESADO EN BANCO</label>

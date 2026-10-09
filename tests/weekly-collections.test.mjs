@@ -22,3 +22,18 @@ test("weekly cash and APP sum all driver days in cents", () => {
   assert.equal(totals[1].cash, 5);
   assert.equal(totals[1].app, 20);
 });
+
+test("weekly cash and APP break down by professional vehicle without changing totals", () => {
+  const [week] = sumWeeklyCollections(getWeeksTouchingMonth(9, 2026), [
+    ["2026-09-30", { plate: "5043 MLC", billing: 100.25, cash: 30.10 }],
+    ["2026-10-01", { plate: "5043 MLC", billing: 200, cash: 70 }],
+    ["2026-10-01", { plate: "5750 MJV", billing: 50, cash: 10 }],
+  ], ["5043 MLC", "5750 MJV", "5754 MJV"]);
+  assert.deepEqual(week.vehicles, [
+    { plate: "5043 MLC", cash: 100.10, app: 200.15 },
+    { plate: "5750 MJV", cash: 10, app: 40 },
+    { plate: "5754 MJV", cash: 0, app: 0 },
+  ]);
+  assert.equal(week.vehicles.reduce((sum, vehicle) => sum + vehicle.cash, 0), week.cash);
+  assert.equal(week.vehicles.reduce((sum, vehicle) => sum + vehicle.app, 0), week.app);
+});
