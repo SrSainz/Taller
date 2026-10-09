@@ -53,12 +53,25 @@ test("la plantilla antigua se actualiza sin sobrescribir horarios editados", () 
 });
 
 test("aplica los turnos de Fernando, Andrés, Mauricio y Tirso", () => {
-  assert.equal(getDriverHoursDefaultShift("Fernando", new Date(2026, 8, 29, 12), "Trabajado").entry, "16:30 / 21:30");
+  assert.deepEqual(getDriverHoursDefaultShift("Fernando", new Date(2026, 8, 29, 12), "Trabajado"), { entry: "17:00", exit: "01:00 (+1 día)", ordinary: "8", agreed: "", voluntary: "" });
   assert.equal(getDriverHoursDefaultShift("Fernando", new Date(2026, 8, 27, 12), "Trabajado").entry, "");
+  assert.equal(getDriverHoursDefaultShift("Fernando", new Date(2026, 8, 26, 12), "Trabajado").entry, "");
   assert.equal(getDriverHoursDefaultShift("Andrés", new Date(2026, 8, 29, 12), "Trabajado").exit, "09:00 / 14:00");
   assert.equal(getDriverHoursDefaultShift("Andrés", new Date(2026, 8, 28, 12), "Trabajado").entry, "");
   assert.equal(getDriverHoursDefaultShift("Mauricio", new Date(2026, 8, 29, 12), "Trabajado").entry, "06:30 / 12:00");
   assert.equal(getDriverHoursDefaultShift("Tirso", new Date(2026, 8, 29, 12), "Trabajado").exit, "10:30 / 16:00");
+});
+
+test("Fernando libra sábado y domingo sin descanso adicional por facturación", () => {
+  const rows = buildDriverHoursRows({ driverName: "Fernando", month: 9, year: 2026, today: new Date(2026, 9, 12, 12), calendarRows: [
+    { day: 5, active: true, billing: 1 }, { day: 6, active: true, billing: 2 }, { day: 7, active: true, billing: 3 },
+    { day: 8, active: true, billing: 4 }, { day: 9, active: true, billing: 5 }, { day: 10, active: true, billing: 6 }, { day: 11, active: true, billing: 7 },
+  ] });
+  for (const day of [5, 6, 7, 8, 9]) assert.equal(rows.find((row) => row.day === day).status, "Trabajado");
+  for (const day of [10, 11]) assert.equal(rows.find((row) => row.day === day).status, "Descanso");
+  const defaults = { "2026-10-09": getDriverHoursDefaultShift("Fernando", new Date(2026, 9, 9, 12), "Trabajado") };
+  const migrated = migrateNightShiftRows("Fernando", { "2026-10-09": { entry: "16:30 / 21:30", exit: "20:30 / 02:30", ordinary: "9" } }, defaults, 2026, 9);
+  assert.equal(migrated["2026-10-09"].entry, "17:00");
 });
 
 test("Mauricio y Tirso completan dos descansos semanales con los días de menor facturación", () => {
