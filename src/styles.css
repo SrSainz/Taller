@@ -6177,6 +6177,7 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .admin-vehicle-card__summary strong { color: #37675d; font-size: 9px; letter-spacing: .08em; }
 .admin-vehicle-card__summary small { color: #84958f; font-size: 8px; }
 .admin-vehicle-card__drivers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px; }
+.admin-vehicle-card__loading { grid-column: 1 / -1; display: grid; min-height: 148px; place-items: center; color: #60786f; font-size: 13px; font-weight: 700; }
 .admin-driver-card { position: relative; min-width: 0; overflow: visible; border: 1px solid #e1ebe7; border-radius: 13px; background: #fbfdfc; transition: border-color .18s ease, box-shadow .18s ease, background .18s ease; }
 .admin-driver-card.is-open { z-index: 3; border-color: #8bcbbd; background: #f7fcfa; box-shadow: 0 7px 18px rgba(24, 104, 88, .1); }
 .admin-driver-card__trigger { display: grid; width: 100%; min-height: 148px; justify-items: center; align-content: center; gap: 5px; padding: 14px 8px 12px; border: 0; border-radius: 12px; background: transparent; color: #1e3b33; cursor: pointer; touch-action: manipulation; user-select: none; }

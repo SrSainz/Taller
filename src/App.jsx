@@ -258,10 +258,14 @@ const formatDriverProfileDate = (value) => {
 };
 const orderAdminDriverCardsForVehicle = (vehicle, profiles = []) => {
   const orderedProfiles = [...profiles];
-  if (canonicalizeVehiclePlate(vehicle?.plate) !== "5043 MLC") return orderedProfiles;
-  const visualRank = { tirso: 0, alex: 1 };
+  const visualRank = {
+    "5043 MLC": { tirso: 0, alex: 1 },
+    "5750 MJV": { mauricio: 0, amin: 1 },
+    "5754 MJV": { william: 0, fernando: 1 },
+  }[canonicalizeVehiclePlate(vehicle?.plate)] ?? {};
   return orderedProfiles.sort((left, right) => (visualRank[normalizeDriverAvatarKey(left.full_name)] ?? 2) - (visualRank[normalizeDriverAvatarKey(right.full_name)] ?? 2));
 };
+const adminDriverOrderStorageKey = "sobre-ruedas-admin-driver-order-v2";
 
 const netVehicleImages = {
   "5043 MLC": { src: "/net-vehicles/toyota-corolla-blue.png", tone: "silver", view: "lateral" },
@@ -6155,6 +6159,7 @@ const copyTextToClipboard = async (value) => {
 function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], adminFunctionWindow = "", onAdminFunctionWindowChange }) {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [profilesReady, setProfilesReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState(null);
@@ -6171,7 +6176,7 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
   const [copiedDriverKey, setCopiedDriverKey] = useState("");
   const [driverOrder, setDriverOrder] = useState(() => {
     try {
-      const saved = JSON.parse(window.localStorage.getItem("sobre-ruedas-admin-driver-order") || "[]");
+      const saved = JSON.parse(window.localStorage.getItem(adminDriverOrderStorageKey) || "[]");
       return Array.isArray(saved) ? saved.map(String) : [];
     } catch {
       return [];
@@ -6200,8 +6205,10 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
       const response = await invokeAdminUsers({ action: "list" });
       savedDriverAvatarPaths.clear();
       setDrivers(await loadDriverAvatarUrls((response.profiles ?? []).map(normalizeDriverProfileRecord)));
+      setProfilesReady(true);
     } catch (error) {
       setMessage(error.message);
+      setProfilesReady(true);
     } finally {
       setLoading(false);
     }
@@ -6228,9 +6235,9 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
       document.removeEventListener("visibilitychange", refreshOnReturn);
     };
   }, [loadDrivers]);
-  useEffect(() => { onDriversChange?.(drivers); }, [drivers, onDriversChange]);
+  useEffect(() => { if (profilesReady) onDriversChange?.(drivers); }, [drivers, onDriversChange, profilesReady]);
   useEffect(() => {
-    window.localStorage.setItem("sobre-ruedas-admin-driver-order", JSON.stringify(driverOrder));
+    window.localStorage.setItem(adminDriverOrderStorageKey, JSON.stringify(driverOrder));
   }, [driverOrder]);
   useEffect(() => {
     const closeDriverMenu = (event) => {
@@ -6414,15 +6421,9 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
   };
   const driversForVehicle = (vehicle) => {
     const rank = new Map(driverOrder.map((id, index) => [id, index]));
-    const assigned = orderDriverProfilesForVehicle(vehicle, drivers.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate && (!driver.replaced_by || driver.active)))
+    const assigned = orderDriverProfilesForVehicle(vehicle, drivers.filter((driver) => canonicalizeVehiclePlate(driver.vehicle_plate) === vehicle.plate && !driver.replaced_by))
       .sort((left, right) => (rank.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.id) ?? Number.MAX_SAFE_INTEGER));
-    const assignedNames = new Set(assigned.map((driver) => normalizeDriverAvatarKey(driver.full_name)));
-    const replacedNames = new Set(drivers.filter((driver) => driver.replaced_by).map((driver) => normalizeDriverAvatarKey(driver.full_name)));
-    const fallback = (vehicle.drivers ?? [])
-      .map((name, index) => ({ id: `seed-${vehicle.plate.replace(/\s/g, "-")}-${index}`, full_name: name, email: "", vehicle_plate: vehicle.plate, active: true, isSeed: true }))
-      .filter((driver) => !assignedNames.has(normalizeDriverAvatarKey(driver.full_name)) && !replacedNames.has(normalizeDriverAvatarKey(driver.full_name)));
-    const cards = [...assigned, ...fallback];
-    return driverOrder.length ? cards : orderAdminDriverCardsForVehicle(vehicle, cards);
+    return driverOrder.length ? assigned : orderAdminDriverCardsForVehicle(vehicle, assigned);
   };
   const resetDriverDrag = () => {
     dragRef.current = { driver: null, startX: 0, startY: 0, moved: false, vehiclePlate: "", driverId: "" };
@@ -6564,9 +6565,10 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
               <VehiclePlateLabel vehicleOrPlate={vehicle} className="admin-vehicle-plate" />
            </header>
            <div className="admin-vehicle-card__drivers">
-             {vehicleDrivers.map((driver) => {
+             {!profilesReady && <div className="admin-vehicle-card__loading" role="status">Cargando conductores…</div>}
+             {profilesReady && vehicleDrivers.map((driver) => {
                const driverKey = driverActionKey(driver);
-               const avatarPath = getDriverAvatarPath(driver.full_name);
+               const avatarPath = driver.avatar_url || (!driver.avatar_path ? driverAvatarPaths[normalizeDriverAvatarKey(driver.full_name)] : "");
                const menuOpen = driverActionId === driverKey;
                const monthlyDocuments = driverDocumentCount(driver);
                return <article className={`admin-driver-card${menuOpen ? " is-open" : ""}${draggingDriverId === driver.id ? " is-dragging" : ""}${dragTarget.driverId === driver.id ? " is-drop-before" : ""}`} key={driverKey} data-driver-drop-id={driver.id || undefined}>

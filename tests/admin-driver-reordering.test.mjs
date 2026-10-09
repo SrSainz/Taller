@@ -26,3 +26,14 @@ test("un toque abre la aplicación del conductor y mantener pulsada la foto abre
   assert.match(app, /event\.target\.closest\("\.admin-driver-card__avatar"\)/);
   assert.match(app, /longPressRef\.current\.triggered = true;\s*setDriverActionId\(driverKey\)/);
 });
+
+test("administración muestra los perfiles vigentes juntos y en el orden inicial acordado", () => {
+  assert.match(app, /"5043 MLC": \{ tirso: 0, alex: 1 \}/);
+  assert.match(app, /"5750 MJV": \{ mauricio: 0, amin: 1 \}/);
+  assert.match(app, /"5754 MJV": \{ william: 0, fernando: 1 \}/);
+  assert.match(app, /setDrivers\(await loadDriverAvatarUrls/);
+  assert.match(app, /profilesReady && vehicleDrivers\.map/);
+  assert.match(app, /vehicle\.plate && !driver\.replaced_by/);
+  assert.doesNotMatch(app.slice(app.indexOf("const driversForVehicle ="), app.indexOf("const resetDriverDrag =")), /vehicle\.drivers/);
+  assert.match(app, /driver\.avatar_url \|\| \(!driver\.avatar_path/);
+});
