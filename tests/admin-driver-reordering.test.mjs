@@ -36,4 +36,10 @@ test("administración muestra los perfiles vigentes juntos y en el orden inicial
   assert.match(app, /vehicle\.plate && !driver\.replaced_by/);
   assert.doesNotMatch(app.slice(app.indexOf("const driversForVehicle ="), app.indexOf("const resetDriverDrag =")), /vehicle\.drivers/);
   assert.match(app, /driver\.avatar_url \|\| \(!driver\.avatar_path/);
+  assert.match(app, /onProfile=\{openAdminProfile\}/);
+  assert.match(app, /if \(isAdmin && !driverProfilesReady\) \{/);
+  assert.match(app, /await Promise\.all\(avatarUrls\.map/);
+  assert.match(app, /<AdminView initialDrivers=\{driverProfiles\} initialReady=\{driverProfilesReady\}/);
+  assert.match(app, /const \[drivers, setDrivers\] = useState\(initialDrivers\)/);
+  assert.doesNotMatch(app, /Cargando conductores/);
 });

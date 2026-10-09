@@ -2277,6 +2277,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const profileInitials = profileName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U";
   const [previewDriver, setPreviewDriver] = useState(null);
   const [driverProfiles, setDriverProfiles] = useState([]);
+  const [driverProfilesReady, setDriverProfilesReady] = useState(false);
   const [driverEntries, setDriverEntries] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [activeNav, setActiveNav] = useState(initialAppNav);
@@ -2494,6 +2495,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     }));
     adminDriverProfilesRef.current = nextProfiles;
     setDriverProfiles(nextProfiles);
+    setDriverProfilesReady(true);
   }, [isAdmin]);
 
   const announceAdminDataChanges = useCallback(({ source, nextTransactions = [], nextDocuments = [], nextDriverEntries = [], nextMaintenanceReports = [], incremental = false, eventType = "" }) => {
@@ -3575,6 +3577,26 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     if (window.location.hash !== `#/${item.slug}`) window.location.hash = `/${item.slug}`;
   };
 
+  const openAdminProfile = async () => {
+    if (isAdmin && !driverProfilesReady) {
+      try { await refreshDriverProfiles(); }
+      catch (error) { notify(`No se han podido abrir los conductores: ${error.message}`); return; }
+    }
+    if (isAdmin) {
+      const avatarUrls = adminDriverProfilesRef.current
+        .filter((driver) => !driver.replaced_by)
+        .map((driver) => driver.avatar_url || (!driver.avatar_path ? driverAvatarPaths[normalizeDriverAvatarKey(driver.full_name)] : ""))
+        .filter(Boolean);
+      await Promise.all(avatarUrls.map((url) => new Promise((resolve) => {
+        const avatar = new Image();
+        avatar.onload = resolve;
+        avatar.onerror = resolve;
+        avatar.src = url;
+      })));
+    }
+    navigate(adminNavItem);
+  };
+
   const openMaintenanceSearchRecord = (record) => {
     setMaintenanceSearchOpen(false);
     setMaintenanceSearchQuery(record.item.concept);
@@ -3726,7 +3748,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
           {activeNav === "Lecturas" && <ReadingsView setModal={setModal} />}
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} notify={notify} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} onOpenMaintenanceReports={markMaintenanceReportNotificationsSeen} onRefreshMaintenanceReports={refreshMaintenanceReports} onDeleteMaintenanceDocument={removeAdminDriverDocument} />}
-          {activeNav === "Administración" && isAdmin && <AdminView notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} documents={documentRecords} adminFunctionWindow={adminFunctionWindow} onAdminFunctionWindowChange={setAdminFunctionWindow} />}
+          {activeNav === "Administración" && isAdmin && <AdminView initialDrivers={driverProfiles} initialReady={driverProfilesReady} notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} documents={documentRecords} adminFunctionWindow={adminFunctionWindow} onAdminFunctionWindowChange={setAdminFunctionWindow} />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}
@@ -3751,7 +3773,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         />
       )}
 
-      <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} onHome={openGeneral} onProfile={() => navigate(adminNavItem)} profileLabel={isAdmin ? "Abrir administración" : "Abrir perfil de usuario"} />
+      <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} onHome={openGeneral} onProfile={openAdminProfile} profileLabel={isAdmin ? "Abrir administración" : "Abrir perfil de usuario"} />
       {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoiceCentral} onSaveDocument={saveProcessedDocumentCentral} onSaveMaintenance={saveMaintenanceEdit} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
     </div>
@@ -6156,10 +6178,10 @@ const copyTextToClipboard = async (value) => {
   if (!copied) throw new Error("El navegador no permite copiar el enlace.");
 };
 
-function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], adminFunctionWindow = "", onAdminFunctionWindowChange }) {
-  const [drivers, setDrivers] = useState([]);
+function AdminView({ initialDrivers = [], initialReady = false, notify, onPreviewDriver, onDriversChange, documents = [], adminFunctionWindow = "", onAdminFunctionWindowChange }) {
+  const [drivers, setDrivers] = useState(initialDrivers);
   const [loading, setLoading] = useState(true);
-  const [profilesReady, setProfilesReady] = useState(false);
+  const [profilesReady, setProfilesReady] = useState(initialReady);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState(null);
@@ -6223,6 +6245,12 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
     return () => URL.revokeObjectURL(previewUrl);
   }, [driverPhotoFile]);
   useEffect(() => { loadDrivers(); }, [loadDrivers]);
+  useEffect(() => {
+    if (initialReady && !profilesReady) {
+      setDrivers(initialDrivers);
+      setProfilesReady(true);
+    }
+  }, [initialDrivers, initialReady, profilesReady]);
   useEffect(() => {
     const refreshOnReturn = () => {
       if (document.visibilityState !== "visible") return;
@@ -6565,7 +6593,6 @@ function AdminView({ notify, onPreviewDriver, onDriversChange, documents = [], a
               <VehiclePlateLabel vehicleOrPlate={vehicle} className="admin-vehicle-plate" />
            </header>
            <div className="admin-vehicle-card__drivers">
-             {!profilesReady && <div className="admin-vehicle-card__loading" role="status">Cargando conductores…</div>}
              {profilesReady && vehicleDrivers.map((driver) => {
                const driverKey = driverActionKey(driver);
                const avatarPath = driver.avatar_url || (!driver.avatar_path ? driverAvatarPaths[normalizeDriverAvatarKey(driver.full_name)] : "");
