@@ -40,6 +40,17 @@ test("cuenta el histórico completo aunque algunos avisos ya estén revisados", 
   ]), { total: 4, pending: 2, reviewed: 1, resolved: 1 });
 });
 
+test("el contador del conductor usa solo pendientes y el histórico conserva los revisados", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const stylesSource = readFileSync(new URL("../src/maintenance-dialog.css", import.meta.url), "utf8");
+  assert.match(appSource, /pendingMaintenanceReportCount = getMaintenanceReportCounts\(maintenanceReports\)\.pending/);
+  assert.match(appSource, /pendingMaintenanceReportCount > 0 && <b className="driver-mobile-maintenance-note__count">/);
+  assert.match(appSource, /sortedMaintenanceReports\.map\(\(report, index\) =>/);
+  assert.match(appSource, /await onMarkReviewed\?\.\(report\.id, "reviewed"\)/);
+  assert.match(appSource, /const latestNote = getLatestPendingMaintenanceNote\(nextReports, activeProfileId\)/);
+  assert.match(stylesSource, /\.maintenance-report-card__review \{[^}]*background: #dc8611;/);
+});
+
 test("encuentra el histórico aunque la matrícula use otro formato", () => {
   assert.equal(isMaintenanceReportForVehicle({ vehicle_plate: "5043MLC" }, "5043 MLC"), true);
   assert.equal(isMaintenanceReportForVehicle({ vehiclePlate: "5750 MJV" }, "5754 MJV"), false);

@@ -4293,8 +4293,9 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       setMaintenanceReports(nextReports);
       const reportBelongsToCurrentDriver = (report) => String(report?.reporterId ?? report?.reporter_id ?? "") === String(activeProfileId);
       if (previousReport?.status === "pending" && normalized && normalized.status !== "pending" && reportBelongsToCurrentDriver(normalized)) {
-        setMaintenanceNote("");
-        saveDriverMaintenanceNote(profileVehiclePlate || activeProfileId, "");
+        const latestNote = getLatestPendingMaintenanceNote(nextReports, activeProfileId);
+        setMaintenanceNote(latestNote);
+        saveDriverMaintenanceNote(profileVehiclePlate || activeProfileId, latestNote);
       }
     }
   }, [activeProfileId, canQueryDriverData, profileVehiclePlate, refreshDriverComparison]);
@@ -5496,6 +5497,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const driverAvatarInitials = String(profile.full_name ?? "?").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
   const maintenanceHistoryDrivers = (vehicle?.drivers ?? []).filter(Boolean).join(" · ") || profile.full_name || "Conductores del coche";
   const sortedMaintenanceReports = sortMaintenanceReportsByRecordedAt(maintenanceReports);
+  const pendingMaintenanceReportCount = getMaintenanceReportCounts(maintenanceReports).pending;
   const renderMaintenanceHistory = () => <section id="driver-maintenance-history" className="driver-mobile-maintenance-history" aria-label={`Histórico de mantenimiento de ${vehicle?.plate ?? "este coche"}`}>
     <header className="driver-mobile-maintenance-history__header">
       <div><strong>HISTÓRICO DEL COCHE</strong><span>{maintenanceHistoryDrivers}</span></div>
@@ -6001,7 +6003,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
                       <strong>{formatCurrency(periodSummary.monthlyTips)}</strong>
                     </button>
                   </div>
-                   <button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note driver-maintenance-history" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNotePhoto(null); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span>{maintenanceReports.length > 0 && <b className="driver-mobile-maintenance-note__count">{maintenanceReports.length}</b>}</button>
+                   <button type="button" className="driver-mobile-maintenance-note__trigger" aria-expanded={maintenanceNoteOpen} aria-controls="driver-maintenance-note driver-maintenance-history" onClick={() => { setMaintenanceNoteDraft(maintenanceNote ?? ""); setMaintenanceNotePhoto(null); setMaintenanceNoteOpen((current) => !current); }}><IconTool size={14} /><span>Pendiente de mantenimiento</span>{pendingMaintenanceReportCount > 0 && <b className="driver-mobile-maintenance-note__count">{pendingMaintenanceReportCount}</b>}</button>
                 </div>
                 {tipsBreakdownOpen && <section id="driver-monthly-tips-breakdown" className="driver-mobile-tips-breakdown" aria-label={`Desglose diario de propinas de ${periodSummary.monthLabel}`}>
                   <header><strong>DESGLOSE DIARIO</strong><button type="button" aria-label="Cerrar desglose de propinas" onClick={() => setTipsBreakdownOpen(false)}><IconX size={14} /></button></header>
@@ -9249,6 +9251,7 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   const [note, setNote] = useState("");
   const [photo, setPhoto] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [reviewingId, setReviewingId] = useState("");
   const [message, setMessage] = useState("");
   const photoInputRef = useRef(null);
   const dialogRef = useRef(null);
@@ -9355,10 +9358,15 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
   };
 
   const markReviewed = async (report) => {
+    if (reviewingId) return;
+    setReviewingId(report.id);
+    setMessage("");
     try {
       await onMarkReviewed?.(report.id, "reviewed");
     } catch (error) {
       setMessage(error.message || "No se ha podido actualizar el aviso.");
+    } finally {
+      setReviewingId("");
     }
   };
 
@@ -9389,7 +9397,7 @@ function MaintenanceReportsDialog({ vehicle, reports = [], driverProfiles = [], 
             <div className="maintenance-report-card__message"><small>{reportNote ? "Texto completo del aviso" : reportPhotoPath ? "Aviso sin texto · fotografía adjunta" : "Aviso sin texto"}</small><p>{getMaintenanceReportDisplayMessage(report)}</p></div>
             {reportPhotoPath && <MaintenanceReportPhoto report={report} />}
             {reportPhotoPath && report.photoName && <small className="maintenance-report-card__attachment">Archivo adjunto: {report.photoName}</small>}
-            {report.status === "pending" && <button type="button" className="maintenance-report-card__review" onClick={() => markReviewed(report)}><IconCheck size={14} />Marcar revisado</button>}
+            {report.status === "pending" && <button type="button" className="maintenance-report-card__review" onClick={() => markReviewed(report)} disabled={Boolean(reviewingId)} aria-busy={reviewingId === report.id}><IconCheck size={16} />{reviewingId === report.id ? "Guardando…" : "Marcar revisado"}</button>}
           </article>; })}
         </div>
       </section>
