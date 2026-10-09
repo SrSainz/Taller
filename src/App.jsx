@@ -7824,7 +7824,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                       {selectedChartBar && <ReferenceArea x1={selectedChartBar} x2={selectedChartBar} fill="#edf0ee" fillOpacity={0.9} stroke="none" ifOverflow="extendDomain" zIndex={-20} />}
                       <CartesianGrid stroke="#e9efed" vertical={false} />
                       <XAxis dataKey="label" interval={0} height={26} tickMargin={2} tick={<ChartAxisTick fontSize={8} fontWeight={chartMetric === "billing" || driverAverageChartMetrics.has(chartMetric) ? 500 : 750} />} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={formatChartAxisValue} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} domain={chartYAxisDomain} ticks={chartYAxisTicks} allowDataOverflow={Boolean(chartYAxisDomain)} />
+                      <YAxis width={24} tickMargin={2} tickFormatter={formatChartAxisValue} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} domain={chartYAxisDomain} ticks={chartYAxisTicks} allowDataOverflow={Boolean(chartYAxisDomain)} />
                       <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatChartValue(value), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
