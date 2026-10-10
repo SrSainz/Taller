@@ -23,6 +23,8 @@ test("los seis filtros rectangulares muestran sus nombres a la izquierda sin red
   assert.match(app, /<YAxis width=\{24\} tickMargin=\{2\} tickFormatter=\{formatChartAxisValue\}/);
   assert.match(app, /const active = selectedChartMetrics\.includes\(option\.value\);/);
   assert.match(css, /\.report-chart--summary \.report-chart-legend__button--active \{[^}]*transform: scale\(1\.07\);[^}]*background: color-mix\([^}]*filter: saturate\(1\.55\)/);
-  assert.match(css, /\.page-scroll--dashboard \.report-chart-card--compact-preview \{ height: clamp\(300px, 55vh, 600px\); min-height: 300px; flex: 0 0 auto; \}/);
+  assert.match(css, /\.page-scroll--dashboard \.report-chart-card--compact-preview \{ height: auto; min-height: 0; max-height: min\(28dvh, 220px\); flex: 1 1 auto; \}/);
+  assert.doesNotMatch(app, /<ReferenceArea x1=\{selectedChartBar\}/);
+  assert.doesNotMatch(app, /<Tooltip cursor=\{false\} wrapperStyle=\{\{ pointerEvents: "none", outline: "none" \}\} formatter=\{\(value, name\)/);
   assert.match(app, /const fontSize = Math\.min\(11\.5, \(barWidth - 4\) \* 0\.8, \(barHeight - 8\) \/ \(label\.length \* 0\.58\)\)/);
 });

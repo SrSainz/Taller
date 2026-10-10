@@ -10880,10 +10880,13 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
   .report-chart-legend__button > span { overflow: visible; text-overflow: clip; }
 }
 
-/* General puede desplazarse siempre, sin que la barra inferior tape la gráfica. */
-.page-scroll--dashboard { overflow-x: hidden; overflow-y: auto; touch-action: pan-y; overscroll-behavior-y: contain; }
+/* General vuelve a caber en el alto disponible, incluida la gráfica y sus filtros. */
+.page-scroll--dashboard { overflow: hidden; touch-action: auto; overscroll-behavior: none; }
 .page-scroll--dashboard .fuel-reports-page,
-.page-scroll--dashboard .fuel-report-canvas { height: auto; min-height: 0; flex: 0 0 auto; overflow: visible; }
-.page-scroll--dashboard .fuel-report-canvas { padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
-.page-scroll--dashboard .report-general-grid { flex: 0 0 auto; }
-.page-scroll--dashboard .report-chart-card--compact-preview { height: clamp(300px, 55vh, 600px); min-height: 300px; flex: 0 0 auto; }
+.page-scroll--dashboard .fuel-report-canvas { height: 100%; min-height: 0; flex: 1 1 auto; overflow: hidden; }
+.page-scroll--dashboard .fuel-report-canvas { padding-bottom: 4px; }
+.page-scroll--dashboard .report-general-grid { min-height: 0; flex: 1 1 auto; overflow: hidden; }
+.page-scroll--dashboard .report-chart-card--compact-preview { height: auto; min-height: 0; max-height: min(28dvh, 220px); flex: 1 1 auto; }
+.page-scroll--dashboard .report-chart-card--compact-preview .report-chart { min-height: 0; }
+.page-scroll--dashboard .report-chart-legend { gap: 2px; }
+.page-scroll--dashboard .report-chart--summary .report-chart-legend__button { min-height: 0; padding-block: 1px; font-size: clamp(6px, .65vw, 8px); line-height: 1; }

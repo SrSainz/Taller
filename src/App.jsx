@@ -56,7 +56,7 @@ import {
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   documentCategoryLabels,
   documentFieldDefinitions,
@@ -7228,7 +7228,6 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   const setReportMonth = onReportMonthChange ?? setInternalReportMonth;
   const setReportYear = onReportYearChange ?? setInternalReportYear;
   const [periodMenu, setPeriodMenu] = useState("");
-  const [selectedChartBar, setSelectedChartBar] = useState("");
   const [netDetailOpen, setNetDetailOpen] = useState(false);
   const [manualNetExpenses, setManualNetExpenses] = useState(() => loadManualNetExpenses());
   const [manualNetBreakdowns, setManualNetBreakdowns] = useState(() => loadManualNetBreakdowns());
@@ -7240,9 +7239,6 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   const [billingVehiclePlate, setBillingVehiclePlate] = useState("");
   const periodFinancialsPeriodRef = useRef("");
   const commissionReportsPeriodRef = useRef("");
-  useEffect(() => {
-    setSelectedChartBar("");
-  }, [chartMetric, reportMonth, reportYear]);
   useEffect(() => {
     if (chartMetric !== "net" && netDetailOpen) setNetDetailOpen(false);
   }, [chartMetric, netDetailOpen]);
@@ -7549,12 +7545,6 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     fuel: fuelChartData[index].value,
     net: netChartData[index].value,
   }));
-  const summaryMetricLabels = {
-    billing: "Facturación",
-    maintenance: "Mantenimiento",
-    fuel: "Combustible",
-    net: "Neto",
-  };
   const chartOptions = {
     summary: { title: "RESUMEN GENERAL", description: "", color: SUMMARY_CHART_COLOR, data: summaryChartData },
     billing: { title: "FACTURACIÓN", description: "", color: BILLING_COLOR, data: displayedBillingChartData },
@@ -7565,11 +7555,6 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     billingPerHour: { title: "FACTURACIÓN POR HORA", description: "", color: chartMetricColors.billingPerHour, data: billingPerHourChartData },
   };
   const activeChart = chartOptions[chartMetric];
-  const formatChartValue = (value) => chartMetric === "consumptionAverage"
-    ? `${Number(value).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} l/100 km`
-    : chartMetric === "billingPerHour"
-      ? `${Number(value).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} €/h`
-      : formatCurrency(Number(value));
   const formatChartBarNumber = (value) => Number(value).toLocaleString("es-ES", { maximumFractionDigits: 2 });
   const chartYAxisDomain = chartMetric === "consumptionAverage" ? [3.7, 5.5] : chartMetric === "billingPerHour" ? [15, 45] : undefined;
   const chartYAxisTicks = chartMetric === "consumptionAverage" ? [3.7, 4, 4.5, 5, 5.5] : chartMetric === "billingPerHour" ? [15, 20, 25, 30, 35, 40, 45] : undefined;
@@ -7640,10 +7625,6 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     });
   };
   const hasChartData = true;
-  const selectChartBar = (entry) => {
-    const label = entry?.payload?.label ?? entry?.label;
-    if (label) setSelectedChartBar(label);
-  };
   const selectChartMetrics = (nextMetrics) => {
     const normalized = allChartMetricValues.filter((metric) => nextMetrics.includes(metric));
     if (!normalized.length) {
@@ -7820,19 +7801,17 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                 <div className="report-chart report-chart--summary">
                   {hasChartData ? <>
                     <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={activeChart.data} margin={{ top: 2, right: 0, left: 0, bottom: 4 }} barCategoryGap="18%" barGap={3} onClick={(state) => { if (state?.activeLabel) setSelectedChartBar(state.activeLabel); }}>
-                      {selectedChartBar && <ReferenceArea x1={selectedChartBar} x2={selectedChartBar} fill="#edf0ee" fillOpacity={0.9} stroke="none" ifOverflow="extendDomain" zIndex={-20} />}
+                    <BarChart data={activeChart.data} margin={{ top: 2, right: 0, left: 0, bottom: 4 }} barCategoryGap="18%" barGap={3}>
                       <CartesianGrid stroke="#e9efed" vertical={false} />
                       <XAxis dataKey="label" interval={0} height={26} tickMargin={2} tick={<ChartAxisTick fontSize={8} fontWeight={chartMetric === "billing" || driverAverageChartMetrics.has(chartMetric) ? 500 : 750} />} axisLine={false} tickLine={false} />
                       <YAxis width={24} tickMargin={2} tickFormatter={formatChartAxisValue} tick={{ fontSize: 8, fill: "#87918d" }} axisLine={false} tickLine={false} domain={chartYAxisDomain} ticks={chartYAxisTicks} allowDataOverflow={Boolean(chartYAxisDomain)} />
-                      <Tooltip cursor={false} wrapperStyle={{ pointerEvents: "none", outline: "none" }} formatter={(value, name) => [formatChartValue(value), chartMetric === "summary" ? summaryMetricLabels[name] : activeChart.title]} labelFormatter={(label, payload) => payload?.[0]?.payload?.detail ? `${label} · ${payload[0].payload.detail}` : label} contentStyle={{ borderRadius: 10, borderColor: "#dce5e1", fontSize: 10 }} />
                       {(chartMetric === "net" || (chartMetric === "summary" && visibleChartMetrics.includes("net"))) && <ReferenceLine y={0} stroke="#aab5b1" />}
                       {chartMetric === "summary" ? <>
-                        {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : BILLING_COLOR} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="billing" content={<ChartBarValueLabel textFill={selectedChartMetrics.length === 0 ? "#fff" : "#123e5f"} />} /></Bar>}
-                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" fill={MAINTENANCE_COLOR} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="maintenance" content={<ChartBarValueLabel />} /></Bar>}
-                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill="#df4538" maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="fuel" content={<ChartBarValueLabel />} /></Bar>}
-                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false} onClick={selectChartBar}><LabelList dataKey="net" content={<ChartBarValueLabel />} /></Bar>}
-                      </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} minPointSize={10} isAnimationActive={false} activeBar={false} onClick={selectChartBar}>
+                        {visibleChartMetrics.includes("billing") && <Bar dataKey="billing" name="billing" fill={selectedChartMetrics.length === 0 ? SUMMARY_CHART_COLOR : BILLING_COLOR} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false}><LabelList dataKey="billing" content={<ChartBarValueLabel textFill={selectedChartMetrics.length === 0 ? "#fff" : "#123e5f"} />} /></Bar>}
+                        {visibleChartMetrics.includes("maintenance") && <Bar dataKey="maintenance" name="maintenance" fill={MAINTENANCE_COLOR} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false}><LabelList dataKey="maintenance" content={<ChartBarValueLabel />} /></Bar>}
+                        {visibleChartMetrics.includes("fuel") && <Bar dataKey="fuel" name="fuel" fill="#df4538" maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false}><LabelList dataKey="fuel" content={<ChartBarValueLabel />} /></Bar>}
+                        {visibleChartMetrics.includes("net") && <Bar dataKey="net" name="net" fill="#28923c" radius={[5, 5, 0, 0]} maxBarSize={30} minPointSize={22} isAnimationActive={false} activeBar={false}><LabelList dataKey="net" content={<ChartBarValueLabel />} /></Bar>}
+                      </> : <Bar dataKey="value" name={activeChart.title} fill={activeChart.color} radius={[5, 5, 0, 0]} maxBarSize={76} minPointSize={10} isAnimationActive={false} activeBar={false}>
                         <LabelList dataKey="value" content={<ChartBarValueLabel textFill={chartMetric === "billing" ? "#123e5f" : "#fff"} formatter={driverAverageChartMetrics.has(chartMetric) ? formatChartBarNumber : formatShortCurrency} />} />
                         {activeChart.data.map((entry) => <Cell key={`${chartMetric}-${entry.label}`} fill={chartMetric === "net" && entry.value < 0 ? "#df4538" : activeChart.color} />)}
                       </Bar>}
