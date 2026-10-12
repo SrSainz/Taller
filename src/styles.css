@@ -10771,13 +10771,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .driver-performance__metric { min-width: 0; min-height: 90px; display: flex; align-items: center; gap: 15px; padding: 14px 16px; border: 1px solid #d5e4ee; border-radius: 10px; background: #f2f8fc; }
 .driver-performance__metric > svg { width: 26px; height: 26px; flex: 0 0 auto; color: var(--billing-strong); }
 .driver-performance__metric--fuel > svg { color: #c3382f; }
-.driver-performance__grid { grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(100px, .55fr); }
-.driver-performance__metric--billing > span { gap: 3px; }
-.driver-performance__metric--billing small:not(:first-child) { font-size: 11px; font-weight: 750; }
 .driver-performance__metric--efficiency small:not(:first-child) { font-size: 10px; font-weight: 750; white-space: normal; }
-.driver-performance__metric--fines { border-color: #eab4ae; background: #fff3f1; color: #a8221c; text-align: left; cursor: pointer; }
-.driver-performance__metric--fines strong, .driver-performance__metric--fines small { color: #a8221c; }
-.driver-performance__metric--fines:hover, .driver-performance__metric--fines:focus-visible { background: #ffe6e2; outline: 2px solid #c6312a; outline-offset: 2px; }
 .drivers-calendar-day--fine { border: 2px solid #d13b32 !important; background: #fff0ee !important; }
 .drivers-calendar-day__fine { align-self: center; padding: 1px 4px; border-radius: 3px; background: #c83028; color: white; font-size: 9px; font-weight: 850; }
 .drivers-vehicle-cost-details { margin: 8px 0 14px; padding: 12px; border: 1px solid #a8cbeb; border-radius: 12px; background: #f6fbff; }
@@ -10816,7 +10810,6 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .driver-fines-dialog--preview img { display: block; max-width: 100%; max-height: 75vh; margin: 12px auto 0; object-fit: contain; }
 @media (max-width: 640px) {
   .drivers-vehicle-cost-details > div { grid-template-columns: 1fr; }
-  .driver-performance__metric--fines { min-height: 56px; }
 }
 .driver-performance__metric > span { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .driver-performance__metric small { color: #405d70; font-size: 13px; line-height: 1.1; }
@@ -10896,6 +10889,9 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .driver-performance__name-row > strong { color: var(--text); font-size: clamp(23px, 2.4vw, 34px); font-weight: 900; line-height: 1; text-transform: uppercase; }
 .driver-performance__hours-button { min-width: 88px; min-height: 30px; padding: 5px 13px; border: 0; border-radius: 5px; background: #050505; color: #e3362d; font: 900 12px/1 Inter, sans-serif; text-transform: uppercase; cursor: pointer; }
 .driver-performance__hours-button:hover, .driver-performance__hours-button:focus-visible { background: #252525; outline: 2px solid #e2b43b; outline-offset: 2px; }
+.driver-performance__fines-button { min-height: 28px; display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border: 1px solid #d66962; border-radius: 5px; background: #fff1ef; color: #a8221c; font: 850 10px/1 Inter, sans-serif; text-transform: uppercase; cursor: pointer; }
+.driver-performance__fines-button span { min-width: 17px; display: grid; place-items: center; padding: 2px 3px; border-radius: 4px; background: #c83028; color: #fff; }
+.driver-performance__fines-button:hover, .driver-performance__fines-button:focus-visible { background: #ffe0dc; outline: 2px solid #c83028; outline-offset: 2px; }
 @media (max-width: 640px) {
   .driver-performance__name-row { gap: 8px; }
   .driver-performance__hours-button { min-width: 75px; min-height: 27px; padding: 5px 10px; font-size: 10px; }
@@ -10963,9 +10959,3 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .page-scroll--dashboard .report-chart-card--compact-preview .report-chart { min-height: 0; }
 .page-scroll--dashboard .report-chart-legend { gap: 2px; }
 .page-scroll--dashboard .report-chart--summary .report-chart-legend__button { min-height: 0; padding-block: 1px; font-size: clamp(6px, .65vw, 8px); line-height: 1; }
-
-.driver-performance__metric.driver-performance__metric--fines strong,
-.driver-performance__metric.driver-performance__metric--fines small { color: #a8221c; }
-@media (max-width: 640px) {
-  .driver-performance__metric.driver-performance__metric--fines { min-height: 56px; }
-}
