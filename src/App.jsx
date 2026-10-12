@@ -100,7 +100,7 @@ import { averagePositive, buildDriverWeeklyComparison, parseConnectionHours } fr
 import { GESTORIA_MONTHLY_FIXED_AMOUNT, gestoriaDocuments, gestoriaImportMeta, gestoriaOwnerByKey, gestoriaSender } from "./data/gestoriaSummary";
 import { canonicalizeVehiclePlate, getVehicleDriverNames, getVehicleOwner as getCanonicalVehicleOwner, vehicleDriverNamesByPlate, vehicleOrder, vehicleOwnerByPlate } from "./data/vehicleRegistry";
 import { administratorEditableWeeklyRowKeys, driverEditableWeeklyRowKeys } from "./driverWeeklyEditing";
-import { accumulateDriverWeekTotals, calculateDriverDailyTotal, normalizeDriverCashCollected } from "./driverWeeklyTotals";
+import { accumulateDriverWeekTotals, calculateDriverDailyTotal, getDriverWeekBillingToDate, normalizeDriverCashCollected } from "./driverWeeklyTotals";
 import { getDriverBillingAmount, getMonthlyDriverBilling } from "./driverBillingTotals";
 import { getDriverMonthlyChartAmount } from "./driverMonthlyChartCorrections";
 import { getAccumulatedDriverKmThroughDay } from "./driverMileageTotals";
@@ -4659,6 +4659,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       excludeRefunds: false,
       weeklyOther,
       weeklyNet,
+      weeklyBillingByDate: new Map(getDriverDailyLedgerEntries(entries, driverBillingStatsByDate).map((item) => [item.entry_date, getDriverWeeklyAmount(item, "net", item.entry_date)])),
       weeklyProgress: weeklyCash > 0 ? Math.max(0, Math.min(100, (weeklyNet / weeklyCash) * 100)) : 0,
       weekEntries: weekEntries.length,
     };
@@ -5739,6 +5740,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
     const lastWeekStart = getDriverWeekStart(periodEnd);
     const currentWeekStart = currentWeekPage?.days?.[0]?.date ? getDriverWeekStart(currentWeekPage.days[0].date) : firstWeekStart;
     const rangeFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
+    const todayKey = getDriverDateKey(new Date());
     const options = [];
     for (let start = new Date(firstWeekStart); start <= lastWeekStart; start.setDate(start.getDate() + 7)) {
       const startDate = new Date(start);
@@ -5749,6 +5751,11 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
         offset: Math.round((startDate.getTime() - currentWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000)),
         label: `SEMANA DEL ${startDate.getDate()}`,
         range: `${rangeFormatter.format(startDate).replace(/\./g, "")} – ${rangeFormatter.format(endDate).replace(/\./g, "")}`,
+        billing: getDriverWeekBillingToDate(Array.from({ length: 7 }, (_, dayOffset) => {
+          const date = new Date(startDate);
+          date.setDate(date.getDate() + dayOffset);
+          return getDriverDateKey(date);
+        }), periodSummary.weeklyBillingByDate, todayKey),
       });
     }
     return options;
@@ -6052,7 +6059,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
                 <IconChevronDown size={14} aria-hidden="true" />
               </button>
               {weekPickerOpen && <div id="driver-mobile-week-picker-menu" className="driver-period-picker__menu driver-mobile-week-picker__menu" role="listbox" aria-label="Semanas del mes">
-                {weekPickerOptions.map((option) => <button type="button" role="option" aria-selected={option.offset === 0} className={option.offset === 0 ? "is-selected" : ""} onClick={() => selectDriverWeek(option.offset)} key={option.key}><span>{option.label}</span><small>{option.range}</small></button>)}
+                {weekPickerOptions.map((option) => <button type="button" role="option" aria-selected={option.offset === 0} className={option.offset === 0 ? "is-selected" : ""} onClick={() => selectDriverWeek(option.offset)} key={option.key}><span>{option.label}</span><strong>{formatCurrency(option.billing)}</strong><small>{option.range}</small></button>)}
               </div>}
               <small>Selecciona un día para revisar sus registros</small>
             </div>

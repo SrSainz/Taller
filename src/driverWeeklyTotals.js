@@ -54,3 +54,8 @@ export const accumulateDriverWeekTotals = (dailyTotals = []) => {
     return runningTotal;
   });
 };
+
+/** Billing accrued from Monday through the earlier of Sunday or today. */
+export const getDriverWeekBillingToDate = (mondayDateKeys = [], billingByDate = new Map(), todayKey = "") => roundCurrency(
+  (mondayDateKeys ?? []).reduce((sum, dateKey) => sum + (dateKey <= todayKey ? toAmount(billingByDate.get(dateKey)) : 0), 0),
+);

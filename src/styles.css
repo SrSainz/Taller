@@ -7652,22 +7652,30 @@ body:has(.net-detail-backdrop) .topbar--reports {
   top: calc(100% + 4px);
   left: 0;
   right: auto;
-  width: 216px;
-  max-width: min(216px, calc(100vw - 24px));
+  width: 264px;
+  max-width: min(264px, calc(100vw - 24px));
   max-height: 226px;
   padding: 5px;
 }
 .driver-mobile-week-picker__menu button {
   min-height: 38px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-content: center;
-  gap: 2px;
+  column-gap: 8px;
+  row-gap: 2px;
   font-size: 10px;
   font-weight: 850;
   line-height: 1.05;
 }
+.driver-mobile-week-picker__menu button strong {
+  text-align: right;
+  font-size: 11px;
+  white-space: nowrap;
+}
 .driver-mobile-week-picker__menu button small {
   display: block;
+  grid-column: 1 / -1;
   color: #718099;
   font-size: 8px;
   font-weight: 700;

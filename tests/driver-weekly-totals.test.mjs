@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { accumulateDriverWeekTotals, calculateDriverDailyTotal } from "../src/driverWeeklyTotals.js";
+import { accumulateDriverWeekTotals, calculateDriverDailyTotal, getDriverWeekBillingToDate } from "../src/driverWeeklyTotals.js";
 
 test("los reembolsos reducen el efectivo diario de todos los coches", () => {
   assert.equal(calculateDriverDailyTotal({ cashCollected: 100, fuelCost: 20, refunds: 15 }), 65);
@@ -61,4 +61,23 @@ test("reproduce el acumulado diario del calendario mostrado en la captura", () =
 
 test("los siete días sin datos muestran cero y no arrastran valores", () => {
   assert.deepEqual(accumulateDriverWeekTotals([undefined, null, "", 0, "0,00", NaN, ""]), [0, 0, 0, 0, 0, 0, 0]);
+});
+
+test("la facturación del desplegable crece día a día y se reinicia cada lunes", () => {
+  const firstWeek = ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11"];
+  const nextWeek = ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"];
+  const billing = new Map([["2026-10-05", 100.25], ["2026-10-06", 50.5], ["2026-10-07", 25], ["2026-10-11", 10], ["2026-10-12", 40], ["2026-10-13", 20]]);
+  assert.equal(getDriverWeekBillingToDate(firstWeek, billing, "2026-10-05"), 100.25);
+  assert.equal(getDriverWeekBillingToDate(firstWeek, billing, "2026-10-06"), 150.75);
+  assert.equal(getDriverWeekBillingToDate(firstWeek, billing, "2026-10-11"), 185.75);
+  assert.equal(getDriverWeekBillingToDate(nextWeek, billing, "2026-10-12"), 40);
+  assert.equal(getDriverWeekBillingToDate(nextWeek, billing, "2026-10-13"), 60);
+});
+
+test("incluye semanas de dos meses y no adelanta facturación futura", () => {
+  const days = ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"];
+  const billing = new Map([["2026-09-28", "20,50"], ["2026-10-01", 100], ["2026-10-04", 30]]);
+  assert.equal(getDriverWeekBillingToDate(days, billing, "2026-10-01"), 120.5);
+  assert.equal(getDriverWeekBillingToDate(days, billing, "2026-10-04"), 150.5);
+  assert.equal(getDriverWeekBillingToDate(["2026-10-12", "2026-10-13"], billing, "2026-10-04"), 0);
 });
