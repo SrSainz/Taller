@@ -30,3 +30,11 @@ test("el gasto y la foto se eliminan juntos", () => {
   assert.match(storage, /from\("net_expenses"\)\.delete\(\)\.eq\("id", expense\.id\)/);
   assert.match(storage, /from\("net-expense-documents"\)\.remove\(\[expense\.photo_path\]\)/);
 });
+
+test("la cámara de consulta aparece junto a la papelera solo si hay foto", () => {
+  assert.match(app, /expense\.manualPhotos\?\.map\(\(photo, index\) => <button[^>]+className="net-detail-card__photo-action"/);
+  const camera = app.indexOf('className="net-detail-card__photo-action"');
+  const trash = app.indexOf('aria-label={`Eliminar gasto manual de ${expense.label}`}');
+  assert.ok(camera > 0 && trash > camera);
+  assert.match(app, /onClick=\{\(\) => openExpensePhoto\(photo\)\}/);
+});

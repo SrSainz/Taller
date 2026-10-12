@@ -536,6 +536,8 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .net-detail-card__expense-value > strong { color: #394c43; font-size: 8px; white-space: nowrap; }
 .net-detail-card__expense-value > button { width: 19px; height: 19px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #bd6b61; cursor: pointer; }
 .net-detail-card__expense-value > button:hover { background: #fff0ed; color: #bd3f32; }
+.net-detail-card__expense-value > .net-detail-card__photo-action { background: #edf6ff; color: #176cba; }
+.net-detail-card__expense-value > .net-detail-card__photo-action:hover, .net-detail-card__expense-value > .net-detail-card__photo-action:focus-visible { background: #d6ebff; color: #0b4e91; outline: 2px solid #82b9ed; outline-offset: 1px; }
 .net-detail-card__result { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 2px 8px; padding: 8px; margin-top: auto; border-radius: 8px; background: #f0f5f2; }
 .net-detail-card__result > span { color: #51635a; font-size: 7px; font-weight: 800; text-transform: uppercase; }
 .net-detail-card__result > strong { font-size: 14px; white-space: nowrap; }
