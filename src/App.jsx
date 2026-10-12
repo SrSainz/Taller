@@ -77,6 +77,7 @@ import {
 } from "./documentAnalysis";
 import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionReportDownloadUrl, createDriverFine, createMaintenanceReport, createMaintenanceReportPhotoUrl, createNetExpense, deleteDocumentRecord, deleteDriverFine, deleteNetExpense, fetchAllSupabaseRows, getDocumentRecord, getDriverEntryRecord, getMaintenanceReportRecord, getProfile, getTransactionRecord, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverFines, listDriverPeriodFinancials, listMaintenanceReports, listNetExpenses, listWeeklyBankDeposits, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, upsertWeeklyBankDeposit, validateMaintenancePhotoFile } from "./supabase";
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
+import UsageView from "./UsageView";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
 import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, isInstrumentClusterVehicle, isOilAndFilterMaintenance } from "./vehicleServiceTracking";
@@ -213,6 +214,7 @@ const utilityItems = [
 ];
 
 const adminNavItem = { label: "Administraci\u00f3n", slug: "administracion", icon: IconShieldCheck };
+const usageNavItem = { label: "Consumos", slug: "consumos", icon: IconGauge };
 const topbarItems = [navItems[4], ...utilityItems];
 
 const vehicleBrandLogos = {
@@ -1975,7 +1977,7 @@ const getDriverCalendarRows = (vehicle, row, month, year, documents = [], transa
 const navFromHash = () => {
   const slug = window.location.hash.replace(/^#\/?/, "");
   if (slug === "gasolina") return "Vehículos";
-  return [...navItems, conductorNavItem, ...fleetSubItems, adminNavItem, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Informes";
+  return [...navItems, conductorNavItem, ...fleetSubItems, adminNavItem, usageNavItem, ...utilityItems].find((item) => item.slug === slug)?.label ?? "Informes";
 };
 
 const passwordRecoveryPath = "/reset-password";
@@ -3717,6 +3719,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
                 const active = activeNav === item.label;
                 return <button className={active ? "topbar-management-menu__item topbar-management-menu__item--active" : "topbar-management-menu__item"} key={item.label} onClick={() => navigate(item)} aria-current={active ? "page" : undefined}><Icon size={18} /><span>{item.label}</span></button>;
               })}
+              {isAdmin && <button className={activeNav === usageNavItem.label ? "topbar-management-menu__item topbar-management-menu__item--active" : "topbar-management-menu__item"} onClick={() => navigate(usageNavItem)} aria-current={activeNav === usageNavItem.label ? "page" : undefined}><IconGauge size={18} /><span>Consumos</span></button>}
               <button className="topbar-management-menu__item" onClick={onSignOut}><IconLogout size={18} /><span>Cerrar sesión</span></button>
             </aside>
           )}
@@ -3758,6 +3761,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
           {activeNav === "Facturas" && <InvoicesView invoices={invoices} setModal={setModal} />}
           {activeNav === "Mantenimiento" && <MaintenanceView initialPlate={maintenancePlate} invoices={invoices} setModal={setModal} notify={notify} vehicles={vehicles} maintenanceSearchSelection={maintenanceSearchSelection} maintenanceReports={maintenanceReports} driverProfiles={driverProfiles} onSaveMaintenanceReport={saveAdminMaintenanceReport} onMarkMaintenanceReportReviewed={markMaintenanceReportReviewed} onOpenMaintenanceReports={markMaintenanceReportNotificationsSeen} onRefreshMaintenanceReports={refreshMaintenanceReports} onDeleteMaintenanceDocument={removeAdminDriverDocument} />}
           {activeNav === "Administración" && isAdmin && <AdminView initialDrivers={driverProfiles} initialReady={driverProfilesReady} notify={notify} onPreviewDriver={setPreviewDriver} onDriversChange={setDriverProfiles} documents={documentRecords} adminFunctionWindow={adminFunctionWindow} onAdminFunctionWindowChange={setAdminFunctionWindow} />}
+          {activeNav === "Consumos" && isAdmin && <UsageView />}
           {activeNav === "Automatizaciones" && <AutomationsView enabled={automationEnabled} setEnabled={setAutomationEnabled} notify={notify} />}
           {activeNav === "Ajustes" && <SettingsView settings={settings} setSettings={setSettings} notify={notify} />}
           {activeNav === "Ayuda" && <HelpView openFaq={openFaq} setOpenFaq={setOpenFaq} setModal={setModal} />}

@@ -165,6 +165,23 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .topbar-management-menu__meta { min-height: 34px; display: flex; align-items: center; gap: 10px; padding: 0 11px; color: rgba(255,255,255,.72); font-size: 8px; }
 .topbar-management-menu__meta svg { color: rgba(255,255,255,.82); }
 .topbar-management-menu__divider { height: 1px; margin: 3px 4px; background: #343434; }
+.usage-page { max-width: 1100px; margin: 0 auto; padding: 24px 24px 90px; color: #092322; }
+.usage-page__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.usage-page__header h1 { margin: 0 0 6px; font-size: clamp(25px, 3vw, 36px); }
+.usage-page__header p, .usage-card p, .usage-page__updated { color: #536967; }
+.usage-page__header button { display: inline-flex; align-items: center; gap: 7px; padding: 10px 15px; border: 1px solid #bad3d0; border-radius: 9px; background: #fff; color: #113e3a; font-weight: 700; cursor: pointer; }
+.usage-page__header button:disabled { opacity: .55; cursor: wait; }
+.usage-page__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.usage-card { padding: 22px; border: 1px solid #d6e4e2; border-radius: 16px; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.04); }
+.usage-card h2 { margin: 0 0 6px; font-size: 22px; }
+.usage-card__scope { margin: 0 0 14px; font-size: 13px; }
+.usage-card__value { display: block; margin: 12px 0; color: #087d59; font-size: clamp(30px, 4vw, 48px); }
+.usage-card ul { margin: 18px 0 0; padding: 0; list-style: none; }
+.usage-card li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #e4eeec; }
+.usage-card li b { white-space: nowrap; }
+.usage-card__warning, .usage-page__error { padding: 14px; border: 1px solid #efc6a3; border-radius: 9px; background: #fff6ec; color: #874413 !important; }
+.usage-page__updated { margin-top: 16px; font-size: 12px; }
+@media (max-width: 700px) { .usage-page { padding: 18px 14px 90px; } .usage-page__grid { grid-template-columns: 1fr; } .usage-page__header { align-items: center; } }
 .notification-popover { position: absolute; top: 62px; right: 80px; width: 330px; padding: 9px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: var(--shadow); }
 .notification-popover header { min-height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 5px 6px 10px; }
 .notification-popover header strong { font-size: 12px; }
