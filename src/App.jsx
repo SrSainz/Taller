@@ -75,7 +75,7 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, deleteDocumentRecord, fetchAllSupabaseRows, getDocumentRecord, getDriverEntryRecord, getMaintenanceReportRecord, getProfile, getTransactionRecord, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverPeriodFinancials, listMaintenanceReports, listWeeklyBankDeposits, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, upsertWeeklyBankDeposit, validateMaintenancePhotoFile } from "./supabase";
+import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, createNetExpense, deleteDocumentRecord, deleteNetExpense, fetchAllSupabaseRows, getDocumentRecord, getDriverEntryRecord, getMaintenanceReportRecord, getProfile, getTransactionRecord, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverPeriodFinancials, listMaintenanceReports, listNetExpenses, listWeeklyBankDeposits, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, upsertWeeklyBankDeposit, validateMaintenancePhotoFile } from "./supabase";
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
@@ -6887,7 +6887,7 @@ function WheelPickerMenu({ options, value, onChange, ariaLabel, className = "" }
   );
 }
 
-function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBillingRows = [], periodKey, periodLabel, reportMonth, reportYear, onSelectMonth, onSelectYear, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onSaveBreakdown, onOpenDriver, onClose }) {
+function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBillingRows = [], periodKey, periodLabel, reportMonth, reportYear, onSelectMonth, onSelectYear, commissionReports = [], commissionReportBusy = false, commissionReportMessage = "", netExpenseLoadError = "", onSaveAlexPayroll, onGenerateAlexReport, onDownloadCommissionReport, onAddExpense, onRemoveExpense, onSaveBreakdown, onOpenDriver, onClose }) {
   const closeButtonRef = useRef(null);
   const breakdownAmountRef = useRef(null);
   const breakdownPressTimerRef = useRef(null);
@@ -6897,6 +6897,13 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
   const [activeFormPlate, setActiveFormPlate] = useState("");
   const [formState, setFormState] = useState({ category: "", label: "", amount: "", date: "" });
   const [formError, setFormError] = useState("");
+  const expensePhotoInputRef = useRef(null);
+  const expenseAnalysisAbortRef = useRef(null);
+  const [expensePhotoFile, setExpensePhotoFile] = useState(null);
+  const [expenseExtraction, setExpenseExtraction] = useState({});
+  const [expenseAnalysisStatus, setExpenseAnalysisStatus] = useState("");
+  const [expenseSaving, setExpenseSaving] = useState(false);
+  const [expensePhotoPreview, setExpensePhotoPreview] = useState(null);
   const [activeBreakdownEditor, setActiveBreakdownEditor] = useState("");
   const [breakdownFormState, setBreakdownFormState] = useState({ expenseKey: "", breakdownKey: "", driverLabel: "", concept: "", amount: "", date: "" });
   const [breakdownFormError, setBreakdownFormError] = useState("");
@@ -6907,6 +6914,7 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
   }, []);
   useEffect(() => () => {
     if (breakdownPressTimerRef.current) window.clearTimeout(breakdownPressTimerRef.current);
+    expenseAnalysisAbortRef.current?.abort();
   }, []);
   useEffect(() => {
     if (!focusBreakdownAmount || !activeBreakdownEditor) return undefined;
@@ -6930,6 +6938,12 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
       document.removeEventListener("pointerdown", closeOnPointerDown);
     };
   }, [periodMenu]);
+  useEffect(() => {
+    if (!expensePhotoPreview) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setExpensePhotoPreview(null); };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [expensePhotoPreview]);
   const total = details.reduce((sum, detail) => sum + detail.net, 0);
   const orderedDetails = [...details].sort((left, right) => vehicleOrder.indexOf(left.vehicle.plate) - vehicleOrder.indexOf(right.vehicle.plate));
   const selectedDetail = orderedDetails.find((detail) => detail.vehicle.plate === selectedPlate) ?? null;
@@ -6961,18 +6975,81 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
     });
   };
   const openExpenseForm = (plate) => {
+    expenseAnalysisAbortRef.current?.abort();
     setActiveFormPlate(plate);
     setActiveBreakdownEditor("");
     setFormState({ category: "", label: "", amount: "", date: getNetExpenseDateForPeriod("", periodKey) });
     setFormError("");
+    setExpensePhotoFile(null);
+    setExpenseExtraction({});
+    setExpenseAnalysisStatus("");
   };
   const closeExpenseForm = () => {
+    expenseAnalysisAbortRef.current?.abort();
     setActiveFormPlate("");
     setFormState({ category: "", label: "", amount: "", date: "" });
     setFormError("");
+    setExpensePhotoFile(null);
+    setExpenseExtraction({});
+    setExpenseAnalysisStatus("");
   };
-  const handleExpenseSubmit = (event, plate) => {
+  const handleExpensePhotoChange = async (event) => {
+    const selectedFile = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!selectedFile) return;
+    expenseAnalysisAbortRef.current?.abort();
+    const validation = validateDocumentFile(selectedFile, "camera");
+    if (!validation.valid) { setFormError(validation.message); return; }
+    setFormError("");
+    setExpenseExtraction({});
+    setExpensePhotoFile(selectedFile);
+    setExpenseAnalysisStatus("Preparando la foto…");
+    const controller = new AbortController();
+    expenseAnalysisAbortRef.current = controller;
+    try {
+      const optimizedFile = await prepareDocumentFile(selectedFile);
+      if (controller.signal.aborted) return;
+      setExpensePhotoFile(optimizedFile);
+      setExpenseAnalysisStatus("Analizando el justificante…");
+      const dataUrl = await readFileAsDataUrl(optimizedFile);
+      if (new TextEncoder().encode(dataUrl).byteLength > documentMaxRequestSize) throw new Error("La foto se archivará, pero es demasiado grande para analizarla. Puedes rellenar el gasto a mano.");
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session?.access_token) throw new Error("La foto se archivará, pero inicia sesión de nuevo para analizarla.");
+      const response = await fetch("/api/analyze-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${sessionData.session.access_token}` },
+        body: JSON.stringify({ category: "billing", fileName: optimizedFile.name, fileType: optimizedFile.type, dataUrl }),
+        signal: controller.signal,
+      });
+      const analysis = await response.json();
+      if (!response.ok) throw new Error(analysis?.message || "No se ha podido analizar la foto.");
+      if (controller.signal.aborted) return;
+      setExpenseExtraction(analysis);
+      const fields = analysis?.fields ?? {};
+      const categoryText = fields.expenseCategory || fields.concept || "";
+      const categoryKey = getNetExpenseCategoryKey(categoryText);
+      const normalizedCategory = normalizeNetExpenseCategory(categoryText);
+      const category = expenseCategories.find((candidate) => (categoryKey && candidate.canonicalKey === categoryKey) || normalizeNetExpenseCategory(candidate.label) === normalizedCategory)
+        ?? (/lavado|limpieza/.test(normalizedCategory) ? expenseCategories.find((candidate) => candidate.label === "Limpieza coche") : null)
+        ?? (/reparacion|mantenimiento|neumatic|aceite/.test(normalizedCategory) ? expenseCategories.find((candidate) => candidate.label === "Taller") : null)
+        ?? (/otros|varios/.test(normalizedCategory) ? expenseCategories.find((candidate) => candidate.label === "Varios") : null);
+      const extractedAmount = Number(fields.total ?? fields.netAmount);
+      const extractedDate = [fields.serviceDate, fields.issueDate, fields.date].find((value) => isNetExpenseDateInPeriod(value, periodKey));
+      setFormState((current) => ({
+        ...current,
+        category: current.category || category?.label || "",
+        amount: current.amount || (Number.isFinite(extractedAmount) && extractedAmount > 0 ? String(extractedAmount) : ""),
+        date: current.date === netExpenseDateRange.min && extractedDate ? extractedDate : current.date,
+      }));
+      setExpenseAnalysisStatus(category ? "Foto adjunta. Categoría e importe propuestos por la IA: revísalos antes de guardar." : "Foto adjunta. Revisa y selecciona la categoría antes de guardar.");
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setExpenseAnalysisStatus(`Foto adjunta. ${error.message} Puedes completar el gasto manualmente.`);
+    }
+  };
+  const handleExpenseSubmit = async (event, plate) => {
     event.preventDefault();
+    if (expenseSaving) return;
     const selectedCategory = expenseCategories.find((category) => category.label === formState.category);
     const label = formState.category === "__custom__" ? formState.label.trim() : selectedCategory?.label ?? "";
     const amount = Number(String(formState.amount).replace(",", "."));
@@ -6980,9 +7057,22 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
       setFormError("Selecciona una categoría, un día del periodo y un importe mayor que cero.");
       return;
     }
-    onAddExpense({ periodKey, plate, label, category: selectedCategory?.label ?? label, categoryKey: formState.category === "__custom__" ? "" : selectedCategory?.canonicalKey ?? "", cadence: selectedCategory?.cadence ?? "Manual", amount: Number(amount.toFixed(2)), date: formState.date });
-    setSelectedPlate(plate);
-    closeExpenseForm();
+    setExpenseSaving(true);
+    setFormError("");
+    try {
+      await onAddExpense({ periodKey, plate, label, category: selectedCategory?.label ?? label, categoryKey: formState.category === "__custom__" ? "" : selectedCategory?.canonicalKey ?? "", cadence: selectedCategory?.cadence ?? "Manual", amount: Number(amount.toFixed(2)), date: formState.date, photoFile: expensePhotoFile, extraction: expenseExtraction });
+      setSelectedPlate(plate);
+      closeExpenseForm();
+    } catch (error) {
+      setFormError(`No se ha podido guardar el gasto y su justificante: ${error.message}`);
+    } finally {
+      setExpenseSaving(false);
+    }
+  };
+  const openExpensePhoto = async (photo) => {
+    setExpensePhotoPreview({ path: photo.path, name: photo.name, url: "", error: "" });
+    const { signedUrl, error } = await createCachedStorageUrl({ bucket: "net-expense-documents", path: photo.path, expiresIn: 600 });
+    setExpensePhotoPreview((current) => current?.path === photo.path ? { path: photo.path, name: photo.name, url: signedUrl, error: error?.message || "" } : current);
   };
   const closeBreakdownEditor = () => {
     setActiveBreakdownEditor("");
@@ -7084,6 +7174,7 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
             })}
           </div>}
           {breakdownOpen && expense.commissionReport && <AlexCommissionReportPanel report={expense.commissionReport} periodLabel={periodLabel} archivedReports={commissionReports} busy={commissionReportBusy} message={commissionReportMessage} onSavePayroll={onSaveAlexPayroll} onGenerate={onGenerateAlexReport} onDownload={onDownloadCommissionReport} />}
+          {expense.manualPhotos?.length > 0 && <div className="net-detail-card__expense-photos">{expense.manualPhotos.map((photo) => <button type="button" onClick={() => openExpensePhoto(photo)} key={photo.path}><IconCamera size={16} />Ver justificante{expense.manualPhotos.length > 1 ? ` · ${photo.name}` : ""}</button>)}</div>}
         </div>;
       })}
     </div>
@@ -7177,18 +7268,23 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
           <article className={`net-detail-expanded__card net-detail-expanded__card--tone-${selectedTone}`}>
             {renderDriverBillingRows(selectedDetail)}
             {renderExpenseRows(selectedDetail)}
+            {netExpenseLoadError && <p className="net-detail-card__archive-error" role="alert">{netExpenseLoadError}</p>}
             {activeFormPlate === selectedDetail.vehicle.plate && <form className="net-detail-card__add-form" onSubmit={(event) => handleExpenseSubmit(event, selectedDetail.vehicle.plate)}>
               <label className="net-detail-card__add-form-category"><span>Categoría del gasto</span><select value={formState.category} onChange={(event) => setFormState((current) => ({ ...current, category: event.target.value, label: "" }))} autoFocus><option value="">Selecciona una categoría…</option>{expenseCategories.map((category) => <option value={category.label} key={category.label}>{category.label}</option>)}<option value="__custom__">+ Crear nueva categoría</option></select></label>
               {formState.category === "__custom__" && <label className="net-detail-card__add-form-custom"><span>Nueva categoría</span><input type="text" value={formState.label} onChange={(event) => setFormState((current) => ({ ...current, label: event.target.value }))} placeholder="Ej. Nóminas · Andrés" maxLength={42} /></label>}
               <label className="net-detail-card__add-form-date"><span>Día del gasto</span><input type="date" value={formState.date} min={netExpenseDateRange.min} max={netExpenseDateRange.max} onChange={(event) => setFormState((current) => ({ ...current, date: event.target.value }))} /></label>
               <label><span>Importe</span><input type="number" value={formState.amount} onChange={(event) => setFormState((current) => ({ ...current, amount: event.target.value }))} placeholder="0,00" min="0.01" step="0.01" inputMode="decimal" /></label>
-              <div><button type="button" className="net-detail-card__form-cancel" onClick={closeExpenseForm}>Cancelar</button><button type="submit" className="net-detail-card__form-save">Guardar gasto</button></div>
-              {formError && <p>{formError}</p>}
+              <input ref={expensePhotoInputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" aria-label="Tomar foto del justificante" onChange={handleExpensePhotoChange} />
+              <div><button type="button" className="net-detail-card__form-camera" onClick={() => expensePhotoInputRef.current?.click()} disabled={expenseSaving}><IconCamera size={17} />{expensePhotoFile ? "Cambiar foto" : "Hacer foto"}</button><button type="button" className="net-detail-card__form-cancel" onClick={closeExpenseForm} disabled={expenseSaving}>Cancelar</button><button type="submit" className="net-detail-card__form-save" disabled={expenseSaving || expenseAnalysisStatus === "Preparando la foto…"}>{expenseSaving ? "Guardando…" : "Guardar gasto"}</button></div>
+              {expensePhotoFile && <p className="net-detail-card__photo-status" role="status"><IconCamera size={14} />{expensePhotoFile.name} · {expenseAnalysisStatus}</p>}
+              {netExpenseLoadError && <p role="alert">{netExpenseLoadError}</p>}
+              {formError && <p role="alert">{formError}</p>}
             </form>}
             <footer className="net-detail-expanded__actions"><button type="button" className="net-detail-expanded__hide" onClick={() => setSelectedPlate("")}><span>Ocultar gastos</span><IconChevronUp size={17} /></button><button type="button" className="net-detail-expanded__add" onClick={() => openExpenseForm(selectedDetail.vehicle.plate)}><IconPlus size={18} />Añadir gastos</button></footer>
           </article>
         </div>}
       </section>
+      {expensePhotoPreview && <div className="net-detail-photo-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpensePhotoPreview(null); }}><section className="net-detail-photo-dialog" role="dialog" aria-modal="true" aria-label={`Justificante ${expensePhotoPreview.name}`}><header><strong>{expensePhotoPreview.name}</strong><button type="button" onClick={() => setExpensePhotoPreview(null)} aria-label="Cerrar justificante"><IconX size={20} /></button></header>{expensePhotoPreview.error ? <p role="alert">No se ha podido abrir el justificante: {expensePhotoPreview.error}</p> : expensePhotoPreview.url ? <img src={expensePhotoPreview.url} alt={`Justificante ${expensePhotoPreview.name}`} /> : <p>Abriendo justificante…</p>}</section></div>}
     </div>
   );
 }
@@ -7237,6 +7333,8 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   const [periodMenu, setPeriodMenu] = useState("");
   const [netDetailOpen, setNetDetailOpen] = useState(false);
   const [manualNetExpenses, setManualNetExpenses] = useState(() => loadManualNetExpenses());
+  const [cloudNetExpenses, setCloudNetExpenses] = useState([]);
+  const [netExpenseLoadError, setNetExpenseLoadError] = useState("");
   const [manualNetBreakdowns, setManualNetBreakdowns] = useState(() => loadManualNetBreakdowns());
   const [periodFinancials, setPeriodFinancials] = useState([]);
   const [commissionReports, setCommissionReports] = useState([]);
@@ -7280,6 +7378,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     if (!netDetailOpen) return undefined;
     const closeOnEscape = (event) => {
       if (event.key !== "Escape") return;
+      if (document.querySelector(".net-detail-photo-backdrop")) return;
       setNetDetailOpen(false);
     };
     const previousOverflow = document.body.style.overflow;
@@ -7293,6 +7392,46 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
   useEffect(() => {
     saveManualNetExpenses(manualNetExpenses);
   }, [manualNetExpenses]);
+  useEffect(() => {
+    if (!adminUserId) return undefined;
+    let active = true;
+    listNetExpenses().then(({ data, error }) => {
+      if (!active) return;
+      if (error) setNetExpenseLoadError("No se han podido cargar los gastos archivados.");
+      else { setCloudNetExpenses(data ?? []); setNetExpenseLoadError(""); }
+    }).catch(() => { if (active) setNetExpenseLoadError("No se han podido cargar los gastos archivados."); });
+    return () => { active = false; };
+  }, [adminUserId, netDetailOpen]);
+  const addNetExpense = async (expense) => {
+    const saved = await createNetExpense({
+      createdBy: adminUserId,
+      periodKey: netPeriodKey,
+      plate: expense.plate,
+      label: expense.label,
+      categoryKey: expense.categoryKey,
+      cadence: expense.cadence,
+      amount: expense.amount,
+      date: expense.date,
+      photoFile: expense.photoFile,
+      extraction: expense.extraction,
+    });
+    setCloudNetExpenses((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
+    setNetExpenseLoadError("");
+  };
+  const removeNetExpenses = async (ids) => {
+    const targetIds = new Set(Array.isArray(ids) ? ids : [ids]);
+    for (const expense of cloudNetExpenses.filter((candidate) => targetIds.has(candidate.id))) {
+      try {
+        const result = await deleteNetExpense(expense);
+        setCloudNetExpenses((current) => current.filter((candidate) => candidate.id !== expense.id));
+        if (result.warning) setNetExpenseLoadError(result.warning);
+      } catch (error) {
+        setNetExpenseLoadError(`No se ha podido borrar ${expense.label}: ${error.message}`);
+        return;
+      }
+    }
+    setManualNetExpenses((current) => current.filter((expense) => !targetIds.has(expense.id)));
+  };
   useEffect(() => {
     saveManualNetBreakdowns(manualNetBreakdowns);
   }, [manualNetBreakdowns]);
@@ -7488,9 +7627,22 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         reportMonth,
         reportYear,
       });
-      const manualExpenses = manualNetExpenses
+      const archivedNetExpenses = cloudNetExpenses.map((expense) => ({
+        id: expense.id,
+        periodKey: expense.period_key,
+        plate: canonicalizeVehiclePlate(expense.vehicle_plate),
+        label: expense.label,
+        category: expense.label,
+        categoryKey: expense.category_key,
+        cadence: expense.cadence,
+        amount: Number(expense.amount),
+        date: expense.expense_date,
+        photoPath: expense.photo_path,
+        photoName: expense.photo_name,
+      }));
+      const manualExpenses = [...manualNetExpenses, ...archivedNetExpenses]
         .filter((expense) => expense.periodKey === netPeriodKey && expense.plate === vehicle.plate)
-        .map((expense) => ({ ...expense, key: `manual-${expense.id}`, cadence: expense.cadence || "Manual", category: expense.category || expense.label, manual: true }));
+        .map((expense) => ({ ...expense, key: `manual-${expense.id}`, cadence: expense.cadence || "Manual", category: expense.category || expense.label, manual: true, manualPhotos: expense.photoPath ? [{ path: expense.photoPath, name: expense.photoName || "Justificante" }] : [] }));
       const standaloneManualExpenses = [];
       manualExpenses.forEach((manualExpense) => {
         const categoryKey = Object.prototype.hasOwnProperty.call(manualExpense, "categoryKey")
@@ -7505,6 +7657,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         canonicalExpense.amount = Number((canonicalExpense.amount + amount).toFixed(2));
         canonicalExpense.manualExpenseIds = [...(canonicalExpense.manualExpenseIds ?? []), manualExpense.id];
         canonicalExpense.manualExpenseDates = [...(canonicalExpense.manualExpenseDates ?? []), manualExpense.date].filter(Boolean);
+        canonicalExpense.manualPhotos = [...(canonicalExpense.manualPhotos ?? []), ...(manualExpense.manualPhotos ?? [])];
         if (Array.isArray(canonicalExpense.breakdown)) {
           const manualBreakdown = canonicalExpense.breakdown.find((breakdown) => breakdown.label === "Añadido a mano");
           if (manualBreakdown) {
@@ -7835,7 +7988,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
                   </> : <><div className="report-chart-empty"><IconChartBar size={24} /><strong>Sin datos en este periodo</strong><span>No hay movimientos de {activeChart.title.toLocaleLowerCase("es")} en {selectedPeriodLabel.toLocaleLowerCase("es")}.</span></div><div className="report-chart-legend report-chart-legend--placeholder" aria-hidden="true" /></>}
                 </div>
               </section>
-              {netDetailOpen && <NetDetailModal details={netVehicleDetails} historicalBillingRows={historicalBillingRows} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} reportMonth={reportMonth} reportYear={reportYear} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={(expense) => setManualNetExpenses((current) => [...current, { ...expense, id: `manual-${Date.now()}-${current.length}`, periodKey: netPeriodKey }])} onRemoveExpense={(ids) => setManualNetExpenses((current) => { const idsToRemove = new Set(Array.isArray(ids) ? ids : [ids]); return current.filter((expense) => !idsToRemove.has(expense.id)); })} onSaveBreakdown={(breakdown) => setManualNetBreakdowns((current) => { const next = current.filter((candidate) => !(candidate.periodKey === netPeriodKey && candidate.plate === breakdown.plate && candidate.expenseKey === breakdown.expenseKey && candidate.breakdownKey === breakdown.breakdownKey)); return [...next, { ...breakdown, id: `breakdown-${Date.now()}-${current.length}`, periodKey: netPeriodKey }]; })} onOpenDriver={(row) => { setNetDetailOpen(false); onOpenDriver?.(row); }} onClose={() => setNetDetailOpen(false)} />}
+              {netDetailOpen && <NetDetailModal details={netVehicleDetails} historicalBillingRows={historicalBillingRows} periodKey={netPeriodKey} periodLabel={selectedPeriodLabel} reportMonth={reportMonth} reportYear={reportYear} onSelectMonth={(month) => { setReportMonth(month); setPeriodMenu(""); }} onSelectYear={(year) => { setReportYear(year); setPeriodMenu(""); }} commissionReports={commissionReports} commissionReportBusy={commissionReportBusy} commissionReportMessage={commissionReportMessage} netExpenseLoadError={netExpenseLoadError} onSaveAlexPayroll={handleSaveAlexPayroll} onGenerateAlexReport={handleGenerateAlexReport} onDownloadCommissionReport={handleDownloadCommissionReport} onAddExpense={addNetExpense} onRemoveExpense={removeNetExpenses} onSaveBreakdown={(breakdown) => setManualNetBreakdowns((current) => { const next = current.filter((candidate) => !(candidate.periodKey === netPeriodKey && candidate.plate === breakdown.plate && candidate.expenseKey === breakdown.expenseKey && candidate.breakdownKey === breakdown.breakdownKey)); return [...next, { ...breakdown, id: `breakdown-${Date.now()}-${current.length}`, periodKey: netPeriodKey }]; })} onOpenDriver={(row) => { setNetDetailOpen(false); onOpenDriver?.(row); }} onClose={() => setNetDetailOpen(false)} />}
             </div>
           </>
         )}

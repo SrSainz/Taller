@@ -510,6 +510,21 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .net-detail-card__form-cancel { border: 1px solid #cbd9d0; background: #fff; color: #66776d; }
 .net-detail-card__form-save { border: 1px solid #278c3b; background: #278c3b; color: #fff; }
 .net-detail-card__add-form p { grid-column: 1 / -1; margin: 0; color: #bd4d3e; font-size: 6.5px; }
+.net-detail-card__form-camera { min-height: 25px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid #0a56ad; border-radius: 6px; background: #0869ce; color: #fff; font-size: 8px; font-weight: 850; box-shadow: 0 2px 5px rgba(8, 105, 206, .22); cursor: pointer; }
+.net-detail-card__form-camera:hover, .net-detail-card__form-camera:focus-visible { background: #0754ae; outline: 2px solid #a9d4ff; outline-offset: 2px; }
+.net-detail-card__form-camera:disabled { opacity: .55; cursor: wait; }
+.net-detail-card__photo-status { display: flex; align-items: center; gap: 6px; color: #1760a7 !important; font-weight: 750; }
+.net-detail-card__archive-error { margin: 3px 10px; color: #a2362a; font-size: 11px; }
+.net-detail-card__expense-photos { display: flex; flex-wrap: wrap; gap: 5px; padding: 3px 5px 6px 42px; }
+.net-detail-card__expense-photos button { display: inline-flex; align-items: center; gap: 5px; min-height: 25px; padding: 2px 7px; border: 1px solid #a7cbea; border-radius: 6px; background: #edf6ff; color: #14599a; font-size: 10px; font-weight: 800; cursor: pointer; }
+.net-detail-card__expense-photos button:hover, .net-detail-card__expense-photos button:focus-visible { border-color: #2971bd; background: #dfefff; outline-offset: 2px; }
+.net-detail-photo-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 14px; background: rgba(5, 17, 30, .75); }
+.net-detail-photo-dialog { width: min(760px, 96vw); max-height: 94dvh; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; background: #fff; box-shadow: 0 16px 60px rgba(0,0,0,.35); }
+.net-detail-photo-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid #dbe4ee; color: #173854; }
+.net-detail-photo-dialog header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.net-detail-photo-dialog header button { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid #c6d5e4; border-radius: 7px; background: #fff; cursor: pointer; }
+.net-detail-photo-dialog img { max-width: 100%; max-height: calc(94dvh - 55px); object-fit: contain; }
+.net-detail-photo-dialog p { padding: 16px; }
 .net-detail-card__expenses { min-height: 0; display: flex; flex-direction: column; }
 .net-detail-card__expenses-heading, .net-detail-card__expense { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; }
 .net-detail-card__expenses-heading { padding: 2px 1px 5px; border-bottom: 1px solid #dce8e2; color: #52635b; font-size: 7px; letter-spacing: .08em; text-transform: uppercase; }
@@ -1949,6 +1964,7 @@ body:has(.app-shell--dashboard) { overflow: hidden; }
 .net-detail-card__add-form label span { font-size: 9px; }
 .net-detail-card__add-form input, .net-detail-card__add-form select { height: 38px; padding-inline: 9px; font-size: 12px; }
 .net-detail-card__form-cancel, .net-detail-card__form-save { min-height: 34px; padding-inline: 11px; font-size: 11px; }
+.net-detail-card__form-camera { min-height: 34px; padding-inline: 12px; font-size: 11px; }
 .net-detail-card__expenses-heading { padding-block: 4px 7px; font-size: 10px; }
 .net-detail-card__expense { min-height: 34px; padding-block: 6px; }
 .net-detail-card__expense > span { gap: 2px; font-size: 13px; }

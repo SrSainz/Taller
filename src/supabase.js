@@ -351,6 +351,58 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
   return data;
 };
 
+const netExpenseColumns = "id, created_by, period_key, vehicle_plate, label, category_key, cadence, amount, expense_date, photo_path, photo_name, photo_mime_type, extraction, created_at";
+
+export const listNetExpenses = () => {
+  if (!supabase) return Promise.resolve({ data: [], error: new Error("No hay sesión activa.") });
+  return fetchAllSupabaseRows(() => supabase.from("net_expenses").select(netExpenseColumns).order("created_at", { ascending: false }));
+};
+
+export const createNetExpense = async ({ createdBy, periodKey, plate, label, categoryKey = "", cadence = "Manual", amount, date, photoFile = null, extraction = {} }) => {
+  if (!supabase || !createdBy) throw new Error("Inicia sesión para guardar el gasto.");
+  let photoPath = null;
+  let photoMimeType = null;
+  if (photoFile) {
+    const validation = validateDocumentFile(photoFile, "camera");
+    if (!validation.valid) throw new Error(validation.message);
+    photoMimeType = getDocumentMimeType(photoFile);
+    photoPath = `${createdBy}/net-expenses/${randomUploadToken()}-${safeFileName(photoFile.name || "justificante.jpg")}`;
+    const { error: uploadError } = await supabase.storage.from("net-expense-documents").upload(photoPath, photoFile, { contentType: photoMimeType, upsert: false });
+    if (uploadError) throw uploadError;
+  }
+  const { data, error } = await supabase.from("net_expenses").insert({
+    created_by: createdBy,
+    period_key: periodKey,
+    vehicle_plate: plate,
+    label,
+    category_key: categoryKey,
+    cadence,
+    amount,
+    expense_date: date,
+    photo_path: photoPath,
+    photo_name: photoFile?.name ?? null,
+    photo_mime_type: photoMimeType,
+    extraction,
+  }).select(netExpenseColumns).single();
+  if (error) {
+    if (photoPath) await supabase.storage.from("net-expense-documents").remove([photoPath]);
+    throw error;
+  }
+  return data;
+};
+
+export const deleteNetExpense = async (expense) => {
+  if (!supabase || !expense?.id) throw new Error("No se puede borrar el gasto sin una sesión activa.");
+  const { error } = await supabase.from("net_expenses").delete().eq("id", expense.id);
+  if (error) throw error;
+  if (expense.photo_path) {
+    const { error: storageError } = await supabase.storage.from("net-expense-documents").remove([expense.photo_path]);
+    clearCachedStorageUrl({ bucket: "net-expense-documents", path: expense.photo_path });
+    if (storageError) return { warning: "Se borró el gasto, pero no se pudo retirar su archivo privado." };
+  }
+  return { warning: "" };
+};
+
 export const confirmDocumentTransactions = async (documentId, operations) => {
   if (!supabase || !documentId || !Array.isArray(operations)) throw new Error("No hay operaciones válidas para guardar.");
   const { data, error } = await supabase.rpc("confirm_document_transactions", { p_document_id: documentId, p_operations: operations });
