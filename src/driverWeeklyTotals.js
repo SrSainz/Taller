@@ -25,8 +25,8 @@ export const normalizeDriverCashCollected = (value) => roundCurrency(Math.abs(to
 /**
  * Calculates the amount shown in one driver's daily Total cell.
  *
- * Reimbursements are positive revenue adjustments for every vehicle; only
- * fuel, wash, and other expenses reduce the driver's daily total.
+ * The driver's cash balance deducts every expense displayed in the calendar,
+ * including reimbursements, regardless of vehicle or reporting month.
  */
 export const calculateDriverDailyTotal = ({
   cashCollected = 0,
@@ -36,7 +36,7 @@ export const calculateDriverDailyTotal = ({
   otherExpenses = 0,
 } = {}) => roundCurrency(
   normalizeDriverCashCollected(cashCollected)
-  + toAmount(refunds)
+  - toAmount(refunds)
   - toAmount(fuelCost)
   - toAmount(washExpenses)
   - toAmount(otherExpenses),

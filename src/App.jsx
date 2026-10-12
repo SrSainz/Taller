@@ -4630,9 +4630,9 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     const weeklyFuel = total(weekEntries, "fuel_cost");
     const weeklyRefunds = total(weekEntries, "refunds");
     const weeklyWash = weekEntries.reduce((sum, item) => sum + washFor(item), 0);
-    const weeklyOther = total(weekEntries, "other_expenses") + weeklyWash;
+    const weeklyOther = weekEntries.reduce((sum, item) => sum + getDriverWeeklyAmount(item, "other_expenses", item.entry_date, weeklyManualValues), 0) + weeklyWash;
     const monthlyWash = monthEntries.reduce((sum, item) => sum + washFor(item), 0);
-    const weeklyNet = weeklyCash + weeklyRefunds - weeklyFuel - weeklyOther;
+    const weeklyNet = weekEntries.reduce((sum, item) => sum + getDriverDailyNetAmount(item, item.entry_date, weeklyManualValues), 0);
     const weekEndLabel = new Date(weekEnd);
     weekEndLabel.setDate(weekEndLabel.getDate() - 1);
     const periodFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
@@ -5341,7 +5341,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
             <div className="driver-period-card__ledger">
               <span><small>Efectivo cobrado</small><strong>{formatCurrency(periodSummary.weeklyCash)}</strong></span>
               <span><small>− Gasolina</small><strong>− {formatCurrency(periodSummary.weeklyFuel)}</strong></span>
-              <span><small>+ Reembolsos incluidos</small><strong>+ {formatCurrency(periodSummary.weeklyRefunds)}</strong></span>
+              <span><small>− Reembolsos</small><strong>− {formatCurrency(periodSummary.weeklyRefunds)}</strong></span>
               <span><small>− Otros gastos</small><strong>− {formatCurrency(periodSummary.weeklyOther)}</strong></span>
             </div>
           </article>
