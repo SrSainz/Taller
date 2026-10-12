@@ -403,6 +403,39 @@ export const deleteNetExpense = async (expense) => {
   return { warning: "" };
 };
 
+const driverFineColumns = "id, created_by, driver_id, vehicle_plate, fine_date, amount, note, photo_path, photo_name, photo_mime_type, created_at";
+
+export const listDriverFines = () => {
+  if (!supabase) return Promise.resolve({ data: [], error: new Error("No hay sesión activa.") });
+  return fetchAllSupabaseRows(() => supabase.from("driver_fines").select(driverFineColumns).order("fine_date", { ascending: false }));
+};
+
+export const createDriverFine = async ({ createdBy, driverId, plate, date, amount = 0, note = "", photoFile }) => {
+  if (!supabase || !createdBy || !driverId || !photoFile) throw new Error("Selecciona un conductor y una foto para registrar la multa.");
+  const validation = validateDocumentFile(photoFile, "camera");
+  if (!validation.valid) throw new Error(validation.message);
+  const photoMimeType = getDocumentMimeType(photoFile);
+  const photoPath = `${createdBy}/driver-fines/${randomUploadToken()}-${safeFileName(photoFile.name || "multa.jpg")}`;
+  const { error: uploadError } = await supabase.storage.from("driver-fines").upload(photoPath, photoFile, { contentType: photoMimeType, upsert: false });
+  if (uploadError) throw uploadError;
+  const { data, error } = await supabase.from("driver_fines").insert({
+    created_by: createdBy, driver_id: driverId, vehicle_plate: plate, fine_date: date,
+    amount: Math.max(0, Number(amount) || 0), note: String(note).trim(),
+    photo_path: photoPath, photo_name: photoFile.name, photo_mime_type: photoMimeType,
+  }).select(driverFineColumns).single();
+  if (error) { await supabase.storage.from("driver-fines").remove([photoPath]); throw error; }
+  return data;
+};
+
+export const deleteDriverFine = async (fine) => {
+  if (!supabase || !fine?.id) throw new Error("No se puede borrar la multa sin una sesión activa.");
+  const { error } = await supabase.from("driver_fines").delete().eq("id", fine.id);
+  if (error) throw error;
+  const { error: storageError } = await supabase.storage.from("driver-fines").remove([fine.photo_path]);
+  clearCachedStorageUrl({ bucket: "driver-fines", path: fine.photo_path });
+  return storageError?.message || "";
+};
+
 export const confirmDocumentTransactions = async (documentId, operations) => {
   if (!supabase || !documentId || !Array.isArray(operations)) throw new Error("No hay operaciones válidas para guardar.");
   const { data, error } = await supabase.rpc("confirm_document_transactions", { p_document_id: documentId, p_operations: operations });

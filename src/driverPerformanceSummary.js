@@ -53,6 +53,10 @@ export const getDriverPerformanceSummary = ({ calendarRows = [], billing = 0, fu
   }
   return {
     hours: Number(hours.toFixed(1)),
+    kilometres,
+    litresPer100Km: kilometres > 0 && monthlyLitres > 0 ? monthlyLitres / kilometres * 100 : null,
+    billingPerKm: kilometres > 0 ? monthlyBilling / kilometres : null,
+    fuelCostShare: monthlyBilling > 0 ? monthlyFuel / monthlyBilling * 100 : null,
     efficiency,
     averageConsumption: monthlyConsumption,
     billingPerHour: hours > 0 ? monthlyBilling / hours : 0,

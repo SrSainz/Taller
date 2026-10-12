@@ -75,7 +75,7 @@ import {
   readFileAsDataUrl,
   validateDocumentFile,
 } from "./documentAnalysis";
-import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionReportDownloadUrl, createMaintenanceReport, createMaintenanceReportPhotoUrl, createNetExpense, deleteDocumentRecord, deleteNetExpense, fetchAllSupabaseRows, getDocumentRecord, getDriverEntryRecord, getMaintenanceReportRecord, getProfile, getTransactionRecord, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverPeriodFinancials, listMaintenanceReports, listNetExpenses, listWeeklyBankDeposits, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, upsertWeeklyBankDeposit, validateMaintenancePhotoFile } from "./supabase";
+import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionReportDownloadUrl, createDriverFine, createMaintenanceReport, createMaintenanceReportPhotoUrl, createNetExpense, deleteDocumentRecord, deleteDriverFine, deleteNetExpense, fetchAllSupabaseRows, getDocumentRecord, getDriverEntryRecord, getMaintenanceReportRecord, getProfile, getTransactionRecord, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverFines, listDriverPeriodFinancials, listMaintenanceReports, listNetExpenses, listWeeklyBankDeposits, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, upsertWeeklyBankDeposit, validateMaintenancePhotoFile } from "./supabase";
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
@@ -107,6 +107,7 @@ import { getAccumulatedDriverKmThroughDay } from "./driverMileageTotals";
 import { getDriverRunningTotalsThroughDay } from "./driverRunningTotals";
 import { driverProfileCoversWholePeriod, isDriverProfileValidDuringPeriod, isDriverProfileValidOnDate, profileDateForPeriod } from "./driverProfilePeriods";
 import { getDriverPerformanceSummary } from "./driverPerformanceSummary";
+import { calculateVehicleCostMetrics } from "./vehicleCostMetrics";
 import { getDriverDateKey, resolveDriverUploadDate } from "./driverUploadDate";
 import { getDriverEditableMonthRange, isDriverDateInEditableWindow } from "./driverEditWindow";
 import { findDriverNavigationRow } from "./driverNavigation";
@@ -8484,6 +8485,27 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const [commissionDriverKey, setCommissionDriverKey] = useState("");
   const [hoursDriverKey, setHoursDriverKey] = useState("");
   const [periodFinancials, setPeriodFinancials] = useState([]);
+  const [billingSummaryOpen, setBillingSummaryOpen] = useState(false);
+  const [archivedNetExpenses, setArchivedNetExpenses] = useState([]);
+  const [driverFines, setDriverFines] = useState([]);
+  const [fineDialogOpen, setFineDialogOpen] = useState(false);
+  const [fineDate, setFineDate] = useState("");
+  const [fineAmount, setFineAmount] = useState("");
+  const [fineNote, setFineNote] = useState("");
+  const [finePhoto, setFinePhoto] = useState(null);
+  const [finePreview, setFinePreview] = useState(null);
+  const [fineBusy, setFineBusy] = useState(false);
+  const [fineError, setFineError] = useState("");
+  useEffect(() => {
+    if (!fineDialogOpen && !finePreview) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape") return;
+      if (finePreview) setFinePreview(null);
+      else setFineDialogOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [fineDialogOpen, finePreview]);
   const [payrollDraft, setPayrollDraft] = useState("");
   const [payrollBusy, setPayrollBusy] = useState(false);
   const [payrollMessage, setPayrollMessage] = useState("");
@@ -8523,6 +8545,15 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const hoursDriver = driverRows.find((row) => row.key === hoursDriverKey) ?? null;
   const hoursCalendarRows = useMemo(() => hoursDriver ? getDriverCalendarRows(hoursDriver.vehicle, hoursDriver, reportMonth, reportYear, documents, transactions) : [], [hoursDriver, reportMonth, reportYear, documents, transactions]);
   const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
+  useEffect(() => {
+    let active = true;
+    Promise.all([listNetExpenses(), listDriverFines()]).then(([expenses, fines]) => {
+      if (!active) return;
+      if (!expenses.error) setArchivedNetExpenses(expenses.data ?? []);
+      if (!fines.error) setDriverFines(fines.data ?? []);
+    }).catch(() => { if (active) setFineError("No se han podido cargar los documentos archivados."); });
+    return () => { active = false; };
+  }, [realtimeRevision]);
   useEffect(() => {
     let mounted = true;
     if (!supabase) return undefined;
@@ -8607,6 +8638,64 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   }, [selectedDriver, reportMonth, reportYear, documents, transactions]);
   const totalBilling = billingRows.reduce((sum, row) => sum + row.revenue, 0);
   const totalFuel = fuelSummaries.reduce((sum, summary) => sum + summary.cost, 0);
+  const formatCostRate = (value) => value == null ? "—" : `${value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 3 })} €/km`;
+  const vehicleCostMetrics = useMemo(() => {
+    const periodKey = `${reportYear}-${reportMonth}`;
+    const manualExpenses = loadManualNetExpenses();
+    const manualBreakdowns = loadManualNetBreakdowns();
+    return professionalVehicles.map((vehicle) => {
+      const rows = driverRows.filter((row) => row.plate === vehicle.plate);
+      const billing = rows.reduce((sum, row) => sum + row.revenue, 0);
+      const kilometres = rows.reduce((sum, row) => sum + getDriverCalendarRows(vehicle, row, reportMonth, reportYear, documents, transactions).reduce((daily, day) => daily + (Number(day.km) || 0), 0), 0);
+      const fuelSummary = fuelSummaries.find((summary) => summary.vehicle.plate === vehicle.plate);
+      const maintenance = transactions.filter((transaction) => transaction.type === "maintenance" && transaction.vehicle_plate === vehicle.plate && String(transaction.occurred_on ?? "").startsWith(periodStart.slice(0, 7))).reduce((sum, transaction) => sum + (Number(transaction.amount) || 0), 0);
+      const expenses = buildNetExpenseBreakdown({
+        vehicle, fuel: fuelSummary?.cost ?? 0, fuelEntries: rows.flatMap((row) => row.fuelEntries), maintenance,
+        commission: 0, periodFactor, driverRows: rows, driverNames: rows.map((row) => row.driver),
+        periodFinancials, manualBreakdowns: manualBreakdowns.filter((item) => item.periodKey === periodKey && item.plate === vehicle.plate),
+        reportMonth, reportYear,
+      });
+      const fuelExpense = expenses.find((expense) => expense.key === "fuel");
+      if (fuelExpense) fuelExpense.amount = fuelSummary?.cost ?? 0;
+      [...manualExpenses, ...archivedNetExpenses.map((item) => ({
+        periodKey: item.period_key, plate: canonicalizeVehiclePlate(item.vehicle_plate), categoryKey: item.category_key,
+        category: item.label, label: item.label, amount: item.amount,
+      }))].filter((item) => item.periodKey === periodKey && item.plate === vehicle.plate).forEach((item) => {
+        const key = item.categoryKey || getNetExpenseCategoryKey(item.category || item.label);
+        const expense = expenses.find((candidate) => candidate.key === key);
+        if (expense) expense.amount += Number(item.amount) || 0;
+      });
+      return { vehicle, metrics: calculateVehicleCostMetrics({ expenses, kilometres, billing }) };
+    });
+  }, [professionalVehicles, driverRows, fuelSummaries, transactions, documents, reportMonth, reportYear, periodStart, periodFactor, periodFinancials, archivedNetExpenses]);
+  const openFineDialog = (date = "") => {
+    setFineDate(date || `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(selectedDay || 1).padStart(2, "0")}`);
+    setFineAmount(""); setFineNote(""); setFinePhoto(null); setFineError(""); setFineDialogOpen(true);
+  };
+  const saveFine = async (event) => {
+    event.preventDefault();
+    if (!selectedDriver?.driverId || !finePhoto || !fineDate || !fineDate.startsWith(periodStart.slice(0, 7))) { setFineError("Selecciona un día de este mes y una foto de la multa."); return; }
+    setFineBusy(true); setFineError("");
+    try {
+      const preparedPhoto = await prepareDocumentFile(finePhoto, { allowHeic: true });
+      const saved = await createDriverFine({ createdBy: adminUserId, driverId: selectedDriver.driverId, plate: selectedDriver.plate, date: fineDate, amount: Number(String(fineAmount).replace(",", ".")) || 0, note: fineNote, photoFile: preparedPhoto });
+      setDriverFines((current) => [saved, ...current]); setFinePhoto(null); setFineAmount(""); setFineNote("");
+    } catch (error) { setFineError(error.message); } finally { setFineBusy(false); }
+  };
+  const openFinePreview = async (fine) => {
+    setFinePreview({ name: fine.photo_name, url: "", error: "" });
+    const { signedUrl, error } = await createCachedStorageUrl({ bucket: "driver-fines", path: fine.photo_path, expiresIn: 600 });
+    setFinePreview({ name: fine.photo_name, url: signedUrl || "", error: error?.message || "" });
+  };
+  const removeFine = async (fine) => {
+    if (!window.confirm("¿Borrar esta multa y su foto?")) return;
+    setFineBusy(true); setFineError("");
+    try {
+      const warning = await deleteDriverFine(fine);
+      setDriverFines((current) => current.filter((item) => item.id !== fine.id));
+      if (warning) setFineError(`Multa borrada; no se pudo retirar la foto: ${warning}`);
+    } catch (error) { setFineError(error.message); } finally { setFineBusy(false); }
+  };
 
   useEffect(() => {
     if (!selectedDriver) {
@@ -8646,6 +8735,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   }, []);
 
   const selectDriver = (row) => {
+    setBillingSummaryOpen(false);
     setSelectedDriverKey(row.key);
     const today = new Date();
     setReportMonth(today.getMonth());
@@ -8859,7 +8949,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       <div className="drivers-calendar-grid" role="grid" aria-label={`Facturación y consumo de ${selectedDriver.driver} en ${reportMonths[period.month]} de ${period.year}`}>
         {period.cells.map((cell) => cell.empty
           ? <span className="drivers-calendar-day drivers-calendar-day--empty" aria-hidden="true" key={cell.key} />
-          : <button type="button" className={`drivers-calendar-day${cell.billing > 0 ? " drivers-calendar-day--billing" : ""}${cell.fuelCost > 0 ? " drivers-calendar-day--fuel" : ""}${cell.km > 0 ? " drivers-calendar-day--mileage" : ""}${cell.documents?.length ? " drivers-calendar-day--document" : ""}${period.delta === 0 && selectedDay === cell.day ? " drivers-calendar-day--selected" : ""}`} role="gridcell" tabIndex={period.delta === 0 ? 0 : -1} onClick={() => period.delta === 0 && setSelectedDay(cell.day)} aria-label={`${cell.day} de ${reportMonths[period.month]}: ${formatCurrency(cell.billing)} de facturación, ${formatCurrency(cell.fuelCost)} de repostaje y ${formatKm(cell.km)} realizados${cell.documents?.length ? `, ${cell.documents.length} foto${cell.documents.length === 1 ? "" : "s"} original${cell.documents.length === 1 ? "" : "es"} archivada${cell.documents.length === 1 ? "" : "s"}` : ""}`} key={cell.key}><span>{cell.day}</span><span className="drivers-calendar-day__values"><small className="drivers-calendar-day__billing">{formatShortCurrency(cell.billing)}</small><small className="drivers-calendar-day__fuel">{formatShortCurrency(cell.fuelCost)}</small>{cell.documents?.length > 0 && <small className="drivers-calendar-day__document" aria-hidden="true"><IconCamera size={11} />{cell.documents.length}</small>}</span></button>)}
+          : <button type="button" className={`drivers-calendar-day${cell.billing > 0 ? " drivers-calendar-day--billing" : ""}${cell.fuelCost > 0 ? " drivers-calendar-day--fuel" : ""}${cell.km > 0 ? " drivers-calendar-day--mileage" : ""}${cell.documents?.length ? " drivers-calendar-day--document" : ""}${driverFines.some((fine) => fine.driver_id === selectedDriver.driverId && fine.fine_date === `${period.year}-${String(period.month + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`) ? " drivers-calendar-day--fine" : ""}${period.delta === 0 && selectedDay === cell.day ? " drivers-calendar-day--selected" : ""}`} role="gridcell" tabIndex={period.delta === 0 ? 0 : -1} onClick={() => { if (period.delta !== 0) return; setSelectedDay(cell.day); const dayKey = `${period.year}-${String(period.month + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`; if (driverFines.some((fine) => fine.driver_id === selectedDriver.driverId && fine.fine_date === dayKey)) openFineDialog(dayKey); }} aria-label={`${cell.day} de ${reportMonths[period.month]}: ${formatCurrency(cell.billing)} de facturación, ${formatCurrency(cell.fuelCost)} de repostaje y ${formatKm(cell.km)} realizados${driverFines.some((fine) => fine.driver_id === selectedDriver.driverId && fine.fine_date === `${period.year}-${String(period.month + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`) ? ", multa registrada; abre la foto al pulsar" : ""}${cell.documents?.length ? `, ${cell.documents.length} foto${cell.documents.length === 1 ? "" : "s"} original${cell.documents.length === 1 ? "" : "es"} archivada${cell.documents.length === 1 ? "" : "s"}` : ""}`} key={cell.key}><span>{cell.day}</span><span className="drivers-calendar-day__values"><small className="drivers-calendar-day__billing">{formatShortCurrency(cell.billing)}</small><small className="drivers-calendar-day__fuel">{formatShortCurrency(cell.fuelCost)}</small>{cell.documents?.length > 0 && <small className="drivers-calendar-day__document" aria-hidden="true"><IconCamera size={11} />{cell.documents.length}</small>}{driverFines.some((fine) => fine.driver_id === selectedDriver.driverId && fine.fine_date === `${period.year}-${String(period.month + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`) && <small className="drivers-calendar-day__fine" aria-hidden="true">Multa</small>}</span></button>)}
       </div>
     </div>
   );
@@ -8890,7 +8980,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   return (
     <section className={`module-page drivers-page${selectedDriver ? " drivers-page--calendar-open" : ""}`}>
       <div className="drivers-summary-grid">
-        <button type="button" className="drivers-summary-card drivers-summary-card--billing" onClick={scrollToDrivers}>
+        <button type="button" className="drivers-summary-card drivers-summary-card--billing" onClick={() => setBillingSummaryOpen((open) => !open)} aria-expanded={billingSummaryOpen} aria-controls="drivers-vehicle-cost-details">
           <header><span className="drivers-summary-card__icon"><IconFileInvoice size={16} /></span><span><strong>Facturación</strong><small><span className="drivers-summary-card__period">{reportMonths[reportMonth]} {reportYear}</span> · 3 coches</small></span><strong className="drivers-summary-card__total">{formatCurrency(totalBilling)}</strong></header>
           <div>{professionalVehicles.map((vehicle) => { const total = billingRows.filter((row) => row.plate === vehicle.plate).reduce((sum, row) => sum + row.revenue, 0); return <span key={vehicle.plate}><VehiclePlateLabel vehicleOrPlate={vehicle} className="drivers-summary-card__vehicle-plate" /><strong className="drivers-summary-card__vehicle-total">{formatCurrency(total)}</strong></span>; })}</div>
         </button>
@@ -8899,6 +8989,10 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           <div>{fuelSummaries.map((summary) => <span key={summary.vehicle.plate}><VehiclePlateLabel vehicleOrPlate={summary.vehicle} className="drivers-summary-card__vehicle-plate" /><strong className="drivers-summary-card__vehicle-total">{formatCurrency(summary.cost)}</strong></span>)}</div>
         </button>
       </div>
+      {billingSummaryOpen && <section id="drivers-vehicle-cost-details" className="drivers-vehicle-cost-details" aria-label="Costes reales y combustible por coche">
+        <header><strong>Costes por coche · {reportMonths[reportMonth]} {reportYear}</strong><button type="button" onClick={() => setBillingSummaryOpen(false)} aria-label="Cerrar costes por coche"><IconX size={18} /></button></header>
+        <div>{vehicleCostMetrics.map(({ vehicle, metrics }) => <article key={vehicle.plate}><h3>{vehicle.plate}</h3><dl><div><dt>Coste real por kilómetro</dt><dd>{formatCostRate(metrics.realCostPerKm)}</dd></div><div><dt>Combustible por kilómetro</dt><dd>{formatCostRate(metrics.fuelPerKm)}</dd></div><div><dt>Combustible / facturación</dt><dd>{metrics.fuelPerBilling == null ? "—" : `${metrics.fuelPerBilling.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`}</dd></div></dl><small>{formatCurrency(metrics.cost)} de costes · {formatKm(metrics.kilometres)} · {formatCurrency(metrics.billing)} facturados</small></article>)}</div>
+      </section>}
 
       <div ref={driverGridRef} className="drivers-list" aria-label="Conductores profesionales">
         {driverRows.map((row) => {
@@ -8934,10 +9028,11 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           <button type="button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar detalle de ${selectedDriver.driver}`}><IconChevronUp size={22} /></button>
         </header>
         <div className="driver-performance__grid">
-          <div className="driver-performance__metric" title="Horas de conexión acumuladas desde el día 1 hasta el día seleccionado"><IconClock aria-hidden="true" /><span><small>Horas</small><strong>{runningTotalsToSelectedDay.hours.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</strong></span></div>
-          <div className="driver-performance__metric"><IconFileInvoice aria-hidden="true" /><span><small>Facturación</small><strong>{formatCurrency(selectedDriver.revenue)}</strong></span></div>
-          <div className="driver-performance__metric driver-performance__metric--fuel" title="Consumo acumulado desde el día 1 hasta el día seleccionado"><IconGasStation aria-hidden="true" /><span><small>Consumo</small><strong>{formatCurrency(runningTotalsToSelectedDay.fuelCost)}</strong></span></div>
-          <div className="driver-performance__metric" title="Media de cuatro indicadores, cada uno limitado al 100 %: facturación por hora (30 €/h), facturación por kilómetro (0,80 €/km), consumo (5 l/100 km) y gasto de combustible (10 % de la facturación). Requiere todos los datos."><IconGauge aria-hidden="true" /><span><small>Eficiencia</small><strong>{performanceSummary.efficiency === null ? "—" : `${performanceSummary.efficiency} %`}</strong></span></div>
+          <div className="driver-performance__metric" title="Horas de conexión acumuladas desde el día 1 hasta el día seleccionado"><span><small>Horas</small><strong>{runningTotalsToSelectedDay.hours.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</strong></span></div>
+          <div className="driver-performance__metric driver-performance__metric--billing"><span><small>Facturación</small><strong>{formatCurrency(selectedDriver.revenue)}</strong><small>Por hora: {performanceSummary.hours > 0 ? `${performanceSummary.billingPerHour.toLocaleString("es-ES", { maximumFractionDigits: 2 })} €/h` : "—"}</small><small>Por km: {formatCostRate(performanceSummary.billingPerKm)}</small></span></div>
+          <div className="driver-performance__metric driver-performance__metric--fuel" title="Consumo acumulado desde el día 1 hasta el día seleccionado"><span><small>Consumo</small><strong>{formatCurrency(runningTotalsToSelectedDay.fuelCost)}</strong></span></div>
+          <div className="driver-performance__metric driver-performance__metric--efficiency" title="Media de cuatro indicadores: facturación por hora frente a 30 €/h, facturación por kilómetro frente a 0,80 €/km, litros por 100 km frente a 5 y gasto de combustible sobre facturación frente al 10 %. Cada indicador se limita al 100 %."><span><small>Eficacia</small><strong>{performanceSummary.efficiency === null ? "—" : `${performanceSummary.efficiency} %`}</strong><small>{performanceSummary.hours > 0 ? `${performanceSummary.billingPerHour.toLocaleString("es-ES", { maximumFractionDigits: 1 })} €/h` : "— €/h"} · {performanceSummary.billingPerKm == null ? "— €/km" : formatCostRate(performanceSummary.billingPerKm)}</small><small>{performanceSummary.litresPer100Km == null ? "— l/100" : `${performanceSummary.litresPer100Km.toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100`} · {performanceSummary.fuelCostShare == null ? "— %" : `${performanceSummary.fuelCostShare.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`} combustible</small></span></div>
+          <button type="button" className="driver-performance__metric driver-performance__metric--fines" onClick={() => openFineDialog()}><span><small>Multas</small><strong>{driverFines.filter((fine) => fine.driver_id === selectedDriver.driverId && String(fine.fine_date).startsWith(periodStart.slice(0, 7))).length}</strong><small>Foto y registro</small></span></button>
           <DriverPerformanceBreakdownCards summary={performanceSummary} />
         </div>
       </section>}
@@ -8945,6 +9040,8 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
       {calendarExpanded && selectedDriver && createPortal(<div className="drivers-calendar-overlay" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setCalendarExpanded(false); }}><div className="drivers-calendar-overlay__surface" role="dialog" aria-modal="true" aria-label={`Calendario ampliado de ${selectedDriver.driver}`}>{renderDriversCalendar(true)}</div></div>, document.body)}
       {commissionDriver && commissionCalculation && <DriverCommissionDialog row={commissionDriver} calculation={commissionCalculation} month={reportMonth} year={reportYear} payroll={commissionPayroll} payrollDraft={payrollDraft} onPayrollDraftChange={setPayrollDraft} onSavePayroll={saveCommissionPayroll} payrollBusy={payrollBusy} payrollMessage={payrollMessage} onClose={() => setCommissionDriverKey("")} />}
       {hoursDriver && <DriverHoursDialog row={hoursDriver} calendarRows={hoursCalendarRows} month={reportMonth} year={reportYear} onClose={() => setHoursDriverKey("")} />}
+      {fineDialogOpen && selectedDriver && createPortal(<div className="driver-fines-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFineDialogOpen(false); }}><section className="driver-fines-dialog" role="dialog" aria-modal="true" aria-label={`Multas de ${selectedDriver.driver}`}><header><h2>Multas · {selectedDriver.driver}</h2><button type="button" onClick={() => setFineDialogOpen(false)} aria-label="Cerrar multas"><IconX size={21} /></button></header><div className="driver-fines-dialog__list">{driverFines.filter((fine) => fine.driver_id === selectedDriver.driverId && String(fine.fine_date).startsWith(periodStart.slice(0, 7))).sort((a, b) => b.fine_date.localeCompare(a.fine_date)).map((fine) => <div className={fine.fine_date === fineDate ? "is-selected" : ""} key={fine.id}><span><strong>{formatNetExpenseDate(fine.fine_date)}</strong><small>{fine.note || "Multa registrada"} · {formatCurrency(fine.amount)}</small></span><button type="button" onClick={() => openFinePreview(fine)} aria-label={`Ver foto de la multa del ${formatNetExpenseDate(fine.fine_date)}`}><IconCamera size={19} /></button><button type="button" onClick={() => removeFine(fine)} aria-label={`Borrar multa del ${formatNetExpenseDate(fine.fine_date)}`} disabled={fineBusy}><IconTrash size={17} /></button></div>)}{!driverFines.some((fine) => fine.driver_id === selectedDriver.driverId && String(fine.fine_date).startsWith(periodStart.slice(0, 7))) && <p>Sin multas registradas este mes.</p>}</div><form onSubmit={saveFine}><h3>Registrar multa</h3><label>Fecha<input type="date" min={periodStart} max={`${periodStart.slice(0, 7)}-${String(new Date(reportYear, reportMonth + 1, 0).getDate()).padStart(2, "0")}`} value={fineDate} onChange={(event) => setFineDate(event.target.value)} required /></label><label>Importe (€)<input type="number" min="0" step="0.01" inputMode="decimal" value={fineAmount} onChange={(event) => setFineAmount(event.target.value)} placeholder="0,00" /></label><label>Nota<input type="text" maxLength={180} value={fineNote} onChange={(event) => setFineNote(event.target.value)} placeholder="Concepto o referencia" /></label><label className="driver-fines-dialog__camera"><IconCamera size={19} />{finePhoto ? finePhoto.name : "Hacer foto de la multa"}<input type="file" accept="image/*,.heic,.heif" capture="environment" onChange={(event) => setFinePhoto(event.target.files?.[0] ?? null)} /></label>{fineError && <p role="alert">{fineError}</p>}<button type="submit" disabled={fineBusy || !finePhoto}>{fineBusy ? "Guardando…" : "Guardar multa"}</button></form></section></div>, document.body)}
+      {finePreview && createPortal(<div className="driver-fines-backdrop driver-fines-backdrop--preview" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFinePreview(null); }}><section className="driver-fines-dialog driver-fines-dialog--preview" role="dialog" aria-modal="true" aria-label={`Documento ${finePreview.name}`}><header><h2>{finePreview.name}</h2><button type="button" onClick={() => setFinePreview(null)} aria-label="Cerrar documento"><IconX size={21} /></button></header>{finePreview.error ? <p role="alert">{finePreview.error}</p> : finePreview.url ? <img src={finePreview.url} alt={`Documento de multa ${finePreview.name}`} /> : <p>Abriendo documento…</p>}</section></div>, document.body)}
     </section>
   );
 }
