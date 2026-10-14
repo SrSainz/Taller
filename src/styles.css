@@ -10807,7 +10807,8 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .driver-fines-dialog { width: min(580px, 100%); max-height: min(90vh, 800px); overflow: auto; padding: 18px; border-radius: 15px; background: white; box-shadow: 0 18px 50px rgba(0,0,0,.25); }
 .driver-fines-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .driver-fines-dialog h2 { margin: 0; font-size: 22px; }
-.driver-fines-dialog__list { display: grid; gap: 6px; margin: 13px 0; }
+.driver-fines-dialog__history-label { margin: 9px 0 0; color: #6e5250; font-size: 12px; font-weight: 700; }
+.driver-fines-dialog__list { display: grid; gap: 6px; max-height: min(46vh, 390px); margin: 13px 0; overflow-y: auto; }
 .driver-fines-dialog__list > div { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid #e8d8d5; border-radius: 8px; }
 .driver-fines-dialog__list > div.is-selected { border-color: #c83028; background: #fff5f3; }
 .driver-fines-dialog__list span { min-width: 0; flex: 1; display: grid; gap: 2px; }
@@ -10903,6 +10904,7 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 
 /* Horario vive junto al nombre en el detalle del conductor. */
 .driver-performance__name-row { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.driver-performance__header-actions { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .driver-performance__name-row > strong { color: var(--text); font-size: clamp(23px, 2.4vw, 34px); font-weight: 900; line-height: 1; text-transform: uppercase; }
 .driver-performance__hours-button { min-width: 88px; min-height: 30px; padding: 5px 13px; border: 0; border-radius: 5px; background: #050505; color: #e3362d; font: 900 12px/1 Inter, sans-serif; text-transform: uppercase; cursor: pointer; }
 .driver-performance__hours-button:hover, .driver-performance__hours-button:focus-visible { background: #252525; outline: 2px solid #e2b43b; outline-offset: 2px; }
