@@ -16,7 +16,7 @@ test("la cámara destacada está antes de Cancelar y conserva la revisión edita
 });
 
 test("el justificante se archiva de forma privada y puede consultarse después", () => {
-  assert.match(storage, /from\("net-expense-documents"\)\.upload\(photoPath, photoFile/);
+  assert.match(storage, /from\("net-expense-documents"\)\.upload\(photoPath, storedPhoto/);
   assert.match(storage, /photo_path: photoPath/);
   assert.match(app, /createCachedStorageUrl\(\{ bucket: "net-expense-documents", path: photo\.path/);
   assert.match(app, /Ver justificante/);

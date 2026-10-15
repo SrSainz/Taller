@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prepareDriverPhotoFile } from "../src/documentAnalysis.js";
+import { prepareDocumentFile, prepareDriverPhotoFile } from "../src/documentAnalysis.js";
 
 test("las fotos del conductor se archivan como WebP con nombre y MIME coherentes", async () => {
   const previousBitmap = globalThis.createImageBitmap;
@@ -38,6 +38,28 @@ test("un PDF se mantiene intacto y un navegador sin codificador WebP da un error
   try {
     const photo = new File(["jpeg"], "foto.jpg", { type: "image/jpeg" });
     await assert.rejects(prepareDriverPhotoFile(photo), /WebP/);
+  } finally {
+    globalThis.createImageBitmap = previousBitmap;
+    globalThis.document = previousDocument;
+  }
+});
+
+test("las imágenes del administrador también se convierten a WebP y los PDF permanecen intactos", async () => {
+  const previousBitmap = globalThis.createImageBitmap;
+  const previousDocument = globalThis.document;
+  globalThis.createImageBitmap = async () => ({ width: 800, height: 600, close() {} });
+  globalThis.document = { createElement: () => ({
+    getContext: () => ({ drawImage() {} }),
+    toBlob: (callback, type) => callback(new Blob(["webp-admin"], { type })),
+  }) };
+  try {
+    const original = new File(["png-admin"], "factura.png", { type: "image/png" });
+    const prepared = await prepareDocumentFile(original);
+    assert.equal(prepared.name, "factura.webp");
+    assert.equal(prepared.type, "image/webp");
+    assert.equal(await prepared.text(), "webp-admin");
+    const pdf = new File(["%PDF"], "factura.pdf", { type: "application/pdf" });
+    assert.equal(await prepareDocumentFile(pdf), pdf);
   } finally {
     globalThis.createImageBitmap = previousBitmap;
     globalThis.document = previousDocument;

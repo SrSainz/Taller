@@ -11,7 +11,7 @@ test("las multas quedan archivadas con fecha y foto privada", () => {
   assert.match(migration, /create table if not exists public\.driver_fines/);
   assert.match(migration, /'driver-fines', 'driver-fines', false/);
   assert.match(migration, /alter table public\.driver_fines enable row level security/);
-  assert.match(storage, /from\("driver-fines"\)\.upload\(photoPath, photoFile/);
+  assert.match(storage, /from\("driver-fines"\)\.upload\(photoPath, storedPhoto/);
   assert.match(app, /createCachedStorageUrl\(\{ bucket: "driver-fines", path: fine\.photo_path/);
 });
 

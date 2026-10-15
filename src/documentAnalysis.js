@@ -94,7 +94,7 @@ export const validateDocumentFile = (file, source = "upload") => {
   return { valid: true, kind };
 };
 
-export const prepareDocumentFile = async (file, { outputMimeType = "image/jpeg", requireOutputType = false, allowHeic = false } = {}) => {
+export const prepareDocumentFile = async (file, { outputMimeType = "image/webp", requireOutputType = true, allowHeic = true } = {}) => {
   const validation = validateDocumentFile(file);
   const heicImage = allowHeic && (/^image\/hei[cf]$/i.test(String(file?.type ?? "")) || /\.hei[cf]$/i.test(String(file?.name ?? "")));
   if (!heicImage && (!validation.valid || validation.kind !== "image")) return file;

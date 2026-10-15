@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { getDocumentMimeType, validateDocumentFile } from "./documentAnalysis.js";
+import { getDocumentMimeType, prepareDocumentFile, validateDocumentFile } from "./documentAnalysis.js";
 import { hashDocumentFile } from "./transactions.js";
 import { createStorageThumbnail, thumbnailPath } from "./storageThumbnails.js";
 
@@ -291,9 +291,10 @@ const refreshPendingDocument = async (document, values) => {
 
 export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, file, fileHash = null, documentDate = null, extractedData = {}, fieldConfidence = {}, overallConfidence = null, status = "review" }) => {
   if (!supabase || !ownerId || !file) throw new Error("No se puede guardar el documento sin una sesión activa.");
-  const validation = validateDocumentFile(file, "upload");
+  const storedFile = await prepareDocumentFile(file);
+  const validation = validateDocumentFile(storedFile, "upload");
   if (!validation.valid) throw new Error(validation.message);
-  const mimeType = getDocumentMimeType(file);
+  const mimeType = getDocumentMimeType(storedFile);
   let resolvedFileHash = fileHash;
   if (!resolvedFileHash) {
     try {
@@ -305,9 +306,9 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
   const documentValues = {
     category,
     vehicle_plate: vehiclePlate || null,
-    file_name: file.name || "documento",
+    file_name: storedFile.name || "documento",
     mime_type: mimeType,
-    file_size: file.size || 0,
+    file_size: storedFile.size || 0,
     document_date: documentDate || null,
     extracted_data: extractedData,
     field_confidence: fieldConfidence,
@@ -320,13 +321,13 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
   // the same current-week rule as the documents and ledger tables before the
   // document row exists.
   const safeDocumentDate = /^\d{4}-\d{2}-\d{2}$/.test(String(documentDate ?? "")) ? String(documentDate) : "undated";
-  const path = `${ownerId}/${category}/${safeDocumentDate}/${randomUploadToken()}-${safeFileName(file.name)}`;
+  const path = `${ownerId}/${category}/${safeDocumentDate}/${randomUploadToken()}-${safeFileName(storedFile.name)}`;
   const { error: uploadError } = await supabase.storage
     .from("documents")
-    .upload(path, file, { contentType: mimeType, upsert: false });
+    .upload(path, storedFile, { contentType: mimeType, upsert: false });
   if (uploadError) throw uploadError;
 
-  await uploadStorageThumbnail("documents", path, file).catch(() => undefined);
+  await uploadStorageThumbnail("documents", path, storedFile).catch(() => undefined);
 
   const { data, error } = await supabase
     .from("documents")
@@ -360,14 +361,15 @@ export const listNetExpenses = () => {
 
 export const createNetExpense = async ({ createdBy, periodKey, plate, label, categoryKey = "", cadence = "Manual", amount, date, photoFile = null, extraction = {} }) => {
   if (!supabase || !createdBy) throw new Error("Inicia sesión para guardar el gasto.");
+  const storedPhoto = photoFile ? await prepareDocumentFile(photoFile) : null;
   let photoPath = null;
   let photoMimeType = null;
-  if (photoFile) {
-    const validation = validateDocumentFile(photoFile, "camera");
+  if (storedPhoto) {
+    const validation = validateDocumentFile(storedPhoto, "camera");
     if (!validation.valid) throw new Error(validation.message);
-    photoMimeType = getDocumentMimeType(photoFile);
-    photoPath = `${createdBy}/net-expenses/${randomUploadToken()}-${safeFileName(photoFile.name || "justificante.jpg")}`;
-    const { error: uploadError } = await supabase.storage.from("net-expense-documents").upload(photoPath, photoFile, { contentType: photoMimeType, upsert: false });
+    photoMimeType = getDocumentMimeType(storedPhoto);
+    photoPath = `${createdBy}/net-expenses/${randomUploadToken()}-${safeFileName(storedPhoto.name || "justificante.webp")}`;
+    const { error: uploadError } = await supabase.storage.from("net-expense-documents").upload(photoPath, storedPhoto, { contentType: photoMimeType, upsert: false });
     if (uploadError) throw uploadError;
   }
   const { data, error } = await supabase.from("net_expenses").insert({
@@ -380,7 +382,7 @@ export const createNetExpense = async ({ createdBy, periodKey, plate, label, cat
     amount,
     expense_date: date,
     photo_path: photoPath,
-    photo_name: photoFile?.name ?? null,
+    photo_name: storedPhoto?.name ?? null,
     photo_mime_type: photoMimeType,
     extraction,
   }).select(netExpenseColumns).single();
@@ -412,16 +414,17 @@ export const listDriverFines = () => {
 
 export const createDriverFine = async ({ createdBy, driverId, plate, date, amount = 0, note = "", photoFile }) => {
   if (!supabase || !createdBy || !driverId || !photoFile) throw new Error("Selecciona un conductor y una foto para registrar la multa.");
-  const validation = validateDocumentFile(photoFile, "camera");
+  const storedPhoto = await prepareDocumentFile(photoFile);
+  const validation = validateDocumentFile(storedPhoto, "camera");
   if (!validation.valid) throw new Error(validation.message);
-  const photoMimeType = getDocumentMimeType(photoFile);
-  const photoPath = `${createdBy}/driver-fines/${randomUploadToken()}-${safeFileName(photoFile.name || "multa.jpg")}`;
-  const { error: uploadError } = await supabase.storage.from("driver-fines").upload(photoPath, photoFile, { contentType: photoMimeType, upsert: false });
+  const photoMimeType = getDocumentMimeType(storedPhoto);
+  const photoPath = `${createdBy}/driver-fines/${randomUploadToken()}-${safeFileName(storedPhoto.name || "multa.webp")}`;
+  const { error: uploadError } = await supabase.storage.from("driver-fines").upload(photoPath, storedPhoto, { contentType: photoMimeType, upsert: false });
   if (uploadError) throw uploadError;
   const { data, error } = await supabase.from("driver_fines").insert({
     created_by: createdBy, driver_id: driverId, vehicle_plate: plate, fine_date: date,
     amount: Math.max(0, Number(amount) || 0), note: String(note).trim(),
-    photo_path: photoPath, photo_name: photoFile.name, photo_mime_type: photoMimeType,
+    photo_path: photoPath, photo_name: storedPhoto.name, photo_mime_type: photoMimeType,
   }).select(driverFineColumns).single();
   if (error) { await supabase.storage.from("driver-fines").remove([photoPath]); throw error; }
   return data;
@@ -489,18 +492,19 @@ export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note =
   const trimmedNote = String(note ?? "").trim();
   if (!trimmedNote && !photoFile) throw new Error("Escribe una incidencia o añade una fotografía.");
   const normalizedStatus = ["pending", "reviewed", "resolved"].includes(status) ? status : "pending";
-  const photoValidation = photoFile ? validateMaintenancePhotoFile(photoFile) : { valid: true, mimeType: "" };
+  const storedPhoto = photoFile ? await prepareDocumentFile(photoFile) : null;
+  const photoValidation = storedPhoto ? validateMaintenancePhotoFile(storedPhoto) : { valid: true, mimeType: "" };
   if (!photoValidation.valid) throw new Error(photoValidation.message);
 
   let photoPath = null;
-  if (photoFile) {
+  if (storedPhoto) {
     const pathPlate = safeFileName(vehiclePlate).toLowerCase() || "vehiculo";
-    photoPath = `${reporterId}/${pathPlate}/${randomUploadToken()}-${safeFileName(photoFile.name || "incidencia.jpg")}`;
+    photoPath = `${reporterId}/${pathPlate}/${randomUploadToken()}-${safeFileName(storedPhoto.name || "incidencia.webp")}`;
     const { error: uploadError } = await supabase.storage
       .from("maintenance-reports")
-      .upload(photoPath, photoFile, { contentType: photoValidation.mimeType, upsert: false });
+      .upload(photoPath, storedPhoto, { contentType: photoValidation.mimeType, upsert: false });
     if (uploadError) throw uploadError;
-    await uploadStorageThumbnail("maintenance-reports", photoPath, photoFile).catch(() => undefined);
+    await uploadStorageThumbnail("maintenance-reports", photoPath, storedPhoto).catch(() => undefined);
   }
 
   const { data, error } = await supabase
@@ -510,9 +514,9 @@ export const createMaintenanceReport = async ({ reporterId, vehiclePlate, note =
       vehicle_plate: vehiclePlate,
       note: trimmedNote,
       photo_path: photoPath,
-      photo_name: photoFile?.name || null,
-      photo_mime_type: photoFile ? photoValidation.mimeType : null,
-      photo_size: photoFile?.size || 0,
+      photo_name: storedPhoto?.name || null,
+      photo_mime_type: storedPhoto ? photoValidation.mimeType : null,
+      photo_size: storedPhoto?.size || 0,
       status: normalizedStatus,
       updated_at: new Date().toISOString(),
     })
