@@ -80,3 +80,33 @@ test("verified admin receives provider data but never receives provider tokens",
     for (const name of names) if (previous[name] === undefined) delete process.env[name]; else process.env[name] = previous[name];
   }
 });
+
+test("explains unavailable Vercel billing without inventing a zero", async () => {
+  const originalFetch = globalThis.fetch;
+  const names = ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY", "VERCEL_USAGE_TOKEN", "VERCEL_USAGE_TEAM_ID", "SUPABASE_MANAGEMENT_TOKEN", "SUPABASE_PROJECT_REF"];
+  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  Object.assign(process.env, {
+    VITE_SUPABASE_URL: "https://project.supabase.co", VITE_SUPABASE_PUBLISHABLE_KEY: "publishable",
+    VERCEL_USAGE_TOKEN: "vercel-secret", VERCEL_USAGE_TEAM_ID: "team-test",
+    SUPABASE_MANAGEMENT_TOKEN: "supabase-secret", SUPABASE_PROJECT_REF: "project-ref",
+  });
+  globalThis.fetch = async (url) => {
+    const value = String(url);
+    if (value.endsWith("/auth/v1/user")) return new Response(JSON.stringify({ id: "admin-id" }), { status: 200 });
+    if (value.includes("profiles")) return new Response(JSON.stringify([{ active: true, role: "admin" }]), { status: 200 });
+    if (value.includes("billing/charges")) return new Response("Not Found", { status: 404 });
+    if (value.includes("usage.api-counts")) return new Response(JSON.stringify({ result: [] }), { status: 200 });
+    throw new Error("Unexpected request");
+  };
+  try {
+    const response = makeResponse();
+    await handler({ method: "GET", headers: { authorization: "Bearer admin-jwt" } }, response);
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.vercel.status, "error");
+    assert.match(response.body.vercel.message, /Hobby/);
+    assert.equal(response.body.vercel.total, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const name of names) if (previous[name] === undefined) delete process.env[name]; else process.env[name] = previous[name];
+  }
+});

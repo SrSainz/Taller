@@ -52,7 +52,7 @@ async function readVercel(from, to) {
   url.search = new URLSearchParams({ teamId, from, to }).toString();
   try {
     const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(15000) });
-    if (!response.ok) return { status: "error", message: response.status === 403 ? "Vercel no autoriza a este token a leer la facturación del equipo." : `No se pudo consultar Vercel (${response.status}).` };
+    if (!response.ok) return { status: "error", message: response.status === 404 ? "Vercel no ofrece los cargos por API para este equipo Hobby. Consulta el uso actualizado en su panel." : response.status === 403 ? "Vercel no autoriza a este token a leer la facturación del equipo." : `No se pudo consultar Vercel (${response.status}).` };
     const data = summarizeVercelCharges(await response.text());
     return { status: "ready", scope: "equipo", ...data };
   } catch {
