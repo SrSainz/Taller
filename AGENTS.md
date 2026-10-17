@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Consumos incluye también el gasto mensual real de la API de OpenAI, consultado solo desde el servidor mediante una clave de administración con lectura de Usage API. Conserva la moneda de OpenAI y el periodo UTC, diferencia gasto de saldo prepago, y muestra falta de configuración o error sin inventar importes.
+
 - Consumos se centra en Supabase: muestra el espacio actual de archivos en MB y el margen respecto a la cuota Free compartida, distingue esa lectura de la media del periodo y actualiza al entrar, volver y cada minuto visible. Las solicitudes se consultan para las últimas 24 horas; una respuesta vacía o fallida nunca se presenta como cero.
 
 - En los cinco registros fotográficos del conductor (gasolina, facturación, kilómetros diarios, km cuadro y consumo), ofrecer elección explícita entre cámara y fotos/archivos en Android e iPhone; aceptar fotos HEIC/HEIF de iPhone y convertirlas a WebP antes de analizarlas y archivarlas.

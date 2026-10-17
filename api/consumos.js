@@ -6,6 +6,64 @@ const asNumber = (value) => {
   return Number.isFinite(number) ? number : 0;
 };
 
+export function summarizeOpenAICosts(buckets, todayStart) {
+  if (!Array.isArray(buckets) || !buckets.length) throw new Error("No hay estadísticas de costes disponibles.");
+  let total = 0;
+  let today = null;
+  let currency = null;
+  for (const bucket of buckets) {
+    if (!Number.isFinite(bucket?.start_time) || !Array.isArray(bucket.results)) throw new Error("Formato de costes no válido.");
+    const isToday = bucket.start_time === todayStart;
+    if (isToday) today ??= 0;
+    for (const row of bucket.results) {
+      const amount = row?.amount;
+      if (!amount || amount.value === null || amount.value === undefined || amount.value === "" || !Number.isFinite(Number(amount.value)) || !/^[a-z]{3}$/i.test(amount.currency || "")) throw new Error("Importe de costes no válido.");
+      const nextCurrency = amount.currency.toUpperCase();
+      if (currency && currency !== nextCurrency) throw new Error("Los costes utilizan monedas distintas.");
+      currency = nextCurrency;
+      total += Number(amount.value);
+      if (isToday) today += Number(amount.value);
+    }
+  }
+  // Empty result buckets are a valid zero; a missing data array is not.
+  return { total: Number(total.toFixed(8)), today: today === null ? null : Number(today.toFixed(8)), currency: currency || "USD" };
+}
+
+async function readOpenAICosts(now) {
+  const token = process.env.OPENAI_USAGE_ADMIN_KEY;
+  const projectId = process.env.OPENAI_USAGE_PROJECT_ID?.trim();
+  if (!token) return { status: "unconfigured", message: "Falta conectar la lectura de costes de OpenAI. El administrador debe configurar la clave de consulta en el servidor." };
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const todayStart = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 1000);
+  const signal = AbortSignal.timeout(15000);
+  const buckets = [];
+  const cursors = new Set();
+  let cursor;
+  try {
+    for (let page = 0; page < 4; page += 1) {
+      const url = new URL("https://api.openai.com/v1/organization/costs");
+      url.searchParams.set("start_time", String(Math.floor(start.getTime() / 1000)));
+      url.searchParams.set("end_time", String(Math.floor(now.getTime() / 1000)));
+      url.searchParams.set("bucket_width", "1d");
+      url.searchParams.set("limit", "31");
+      if (projectId) url.searchParams.append("project_ids", projectId);
+      if (cursor) url.searchParams.set("page", cursor);
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal });
+      if (!response.ok) return { status: "error", message: [401, 403].includes(response.status) ? "La clave de OpenAI no permite consultar costes. Revisa su acceso de lectura a Usage API." : `No se pudieron consultar los costes de OpenAI (${response.status}).` };
+      const payload = await response.json();
+      if (payload.error || !Array.isArray(payload.data)) throw new Error("Respuesta de costes incompleta.");
+      buckets.push(...payload.data);
+      if (!payload.has_more) return { status: "ready", ...summarizeOpenAICosts(buckets, todayStart), from: start.toISOString(), to: now.toISOString(), scope: projectId ? "proyecto" : "organización", checkedAt: new Date().toISOString() };
+      if (typeof payload.next_page !== "string" || !payload.next_page || cursors.has(payload.next_page)) throw new Error("Paginación incompleta.");
+      cursor = payload.next_page;
+      cursors.add(cursor);
+    }
+    throw new Error("Paginación incompleta.");
+  } catch {
+    return { status: "unavailable", message: "No se pudo obtener el gasto completo de OpenAI. Vuelve a actualizar o consulta su panel de facturación." };
+  }
+}
+
 export function summarizeVercelCharges(jsonl) {
   const services = new Map();
   let currency = "";
@@ -117,6 +175,6 @@ export default async function handler(req, res) {
   const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
   const to = now.toISOString();
   const supabaseOnly = req.query?.provider === "supabase";
-  const [vercel, supabase, supabaseStorage] = await Promise.all([supabaseOnly ? null : readVercel(from, to), readSupabase(), readSupabaseStorage(req)]);
-  return res.status(200).json({ checkedAt: new Date().toISOString(), ...(supabaseOnly ? {} : { vercelPeriodStart: from, vercel }), supabase, supabaseStorage });
+  const [vercel, supabase, supabaseStorage, openai] = await Promise.all([supabaseOnly ? null : readVercel(from, to), readSupabase(), readSupabaseStorage(req), readOpenAICosts(now)]);
+  return res.status(200).json({ checkedAt: new Date().toISOString(), ...(supabaseOnly ? {} : { vercelPeriodStart: from, vercel }), supabase, supabaseStorage, openai });
 }
