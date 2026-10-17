@@ -1,0 +1,32 @@
+.driver-photo-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 9px 0;
+  padding: 10px;
+  border: 1px solid #b8d3ec;
+  border-radius: 12px;
+  background: #f4f9ff;
+}
+.driver-photo-picker > span { flex: 1 0 100%; font-size: 13px; font-weight: 700; color: #193b60; }
+.driver-photo-picker__choice {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: #1263b4;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  overflow: hidden;
+}
+.driver-photo-picker__choice:nth-of-type(2) { background: #176b4a; }
+.driver-photo-picker__choice input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.driver-photo-picker__choice:focus-within { outline: 3px solid #f7b438; outline-offset: 2px; }
+.driver-photo-picker > button { margin-left: auto; border: 0; background: transparent; color: #193b60; cursor: pointer; }

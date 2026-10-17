@@ -74,7 +74,9 @@ import {
   prepareDriverPhotoFile,
   readFileAsDataUrl,
   validateDocumentFile,
+  validateSelectedDocumentFile,
 } from "./documentAnalysis";
+import "./driverPhotoPicker.css";
 import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionReportDownloadUrl, createDriverFine, createMaintenanceReport, createMaintenanceReportPhotoUrl, createNetExpense, deleteDocumentRecord, deleteDriverFine, deleteNetExpense, fetchAllSupabaseRows, getDocumentRecord, getDriverEntryRecord, getMaintenanceReportRecord, getProfile, getTransactionRecord, initialPasswordRecoveryIntent, invokeAdminUsers, isSupabaseConfigured, listCommissionReports, listDriverDailyComparisons, listDriverFines, listDriverPeriodFinancials, listMaintenanceReports, listNetExpenses, listWeeklyBankDeposits, reassignDriverDocumentDate, roleFromUser, subscribeToAppChanges, supabase, updateMaintenanceReportStatus, uploadCommissionReport, uploadDocumentRecord, upsertDriverPeriodFinancial, upsertWeeklyBankDeposit, validateMaintenancePhotoFile } from "./supabase";
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { getDriverFineHistory, isValidFineDate } from "./driverFineHistory";
@@ -4020,8 +4022,6 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const [maintenanceNote, setMaintenanceNote] = useState(() => supabase ? "" : loadDriverMaintenanceNote(profileVehiclePlate || activeProfileId));
   const [maintenanceReports, setMaintenanceReports] = useState([]);
   const [maintenanceReportSaving, setMaintenanceReportSaving] = useState(false);
-  const circleFileInputRef = useRef(null);
-  const circleUploadKeyRef = useRef("");
   const circlePreviewUrlsRef = useRef({});
   const vehicle = vehiclesSeed.find((candidate) => candidate.plate === profileVehiclePlate);
   const driverEditableRange = getDriverEditableMonthRange();
@@ -4932,25 +4932,12 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
   const openCirclePicker = (recordKey) => {
     if (!preview && !isDriverDateInEditableWindow(selectedDate)) {
       setMessage(DRIVER_EDITABLE_MONTHS_MESSAGE);
-      return;
+      return false;
     }
-    circleUploadKeyRef.current = recordKey;
-    const input = circleFileInputRef.current;
-    if (!input) return;
-    input.value = "";
-    try {
-      if (typeof input.showPicker === "function") {
-        input.showPicker();
-        return;
-      }
-    } catch {
-      // Algunos navegadores móviles solo permiten abrir el selector con click().
-    }
-    input.click();
+    return Boolean(recordKey);
   };
-  const handleCircleFile = async (event) => {
+  const handleCircleFile = async (event, recordKey) => {
     const file = event.target.files?.[0];
-    const recordKey = circleUploadKeyRef.current;
     event.target.value = "";
     if (!file || !recordKey) return;
     if (!preview && !isDriverDateInEditableWindow(selectedDate)) {
@@ -4958,7 +4945,7 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
       setMessage(DRIVER_EDITABLE_MONTHS_MESSAGE);
       return;
     }
-    const validation = validateDocumentFile(file, "upload");
+    const validation = validateSelectedDocumentFile(file, "upload");
     if (!validation.valid) {
       setCircleUpload({ key: recordKey, status: "error", fileName: file.name });
       setMessage(validation.message);
@@ -5298,7 +5285,6 @@ function DriverApp({ session, profile, onSignOut, onProfileChange, onInstall, is
     circleUpload={circleUpload}
     circleReview={circleReview}
     closeCircleReview={() => { setCircleReview(null); setCircleUpload((current) => ({ ...current, status: "idle" })); }}
-    circleFileInputRef={circleFileInputRef}
     openCirclePicker={openCirclePicker}
     handleCircleFile={handleCircleFile}
     saveCircleReview={saveCircleReview}
@@ -5463,7 +5449,7 @@ function DriverBillingTarget({ periodSummary }) {
   </div>;
 }
 
-function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, onRefresh, refreshing = false, isStandalone = false, profile, vehicle, periodSummary, driverPerformanceSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverCalendarDocuments = {}, driverDayDocumentsLoading = false, onDeleteDriverDocument, driverEditableRange, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, circleFileInputRef, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
+function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, onRefresh, refreshing = false, isStandalone = false, profile, vehicle, periodSummary, driverPerformanceSummary, driverPeriodMonth, driverPeriodYear, driverPeriodYears, reportMonths, periodPickerOpen, setPeriodPickerOpen, periodPickerRef, periodPickerOptionRef, selectDriverPeriod, driverWeekDays, driverWeekPages, weeklyRows, weeklyChartData, monthlyBillingHistory, weeklyConsumptionData, weeklyKmPerConnectionHourData, weeklyKmPerConnectionHourAverage, weeklyConsumptionAverage, otherDriversConsumptionAverage, otherDriversKmPerConnectionHourAverage, dailyPhotoRecords, driverDayDocuments = [], driverCalendarDocuments = {}, driverDayDocumentsLoading = false, onDeleteDriverDocument, driverEditableRange, canEditSelectedDate, driverReferenceImages, averageConsumption, selectedDate, setSelectedDate, driverPeriodDate, shiftDriverWeek, message, setMessage, entryFormOpen, setEntryFormOpen, entry, updateEntry, saveEntry, saving, file, setFile, setFileCapturedAt, driverMenuOpen, setDriverMenuOpen, driverNoticeOpen, setDriverNoticeOpen, driverNavSection, setDriverNavSection, circleUpload, circleReview, closeCircleReview, openCirclePicker, handleCircleFile, saveCircleReview, saveWeeklyAmount, maintenanceNote, maintenanceReports = [], maintenanceReportSaving = false, saveMaintenanceNote, saveMaintenanceReport }) {
   const weekSwipeDuration = 440;
   const kmChartMax = 45;
   const kmChartTicks = [0, 15, 20, 25, 30, 35, 40, 45];
@@ -5478,6 +5464,7 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
   const weekSwipeDirectionRef = useRef(0);
   const weekSuppressClickRef = useRef(false);
   const [referenceOpen, setReferenceOpen] = useState("");
+  const [photoPickerKey, setPhotoPickerKey] = useState("");
   const [expandedPreviewMetric, setExpandedPreviewMetric] = useState("");
   const [activeDriverChartTooltip, setActiveDriverChartTooltip] = useState("");
   const billingChartScrollRef = useRef(null);
@@ -6003,7 +5990,6 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
       <div className="driver-mobile-body">
         {!preview && !isStandalone && <div className="driver-mobile-install-card"><div className="driver-mobile-install-card__copy"><IconDownload size={17} /><span><strong>Instala SOBRE RUEDAS</strong><small>Ábrela desde el icono de la rueda sin buscar el enlace.</small></span></div><button type="button" onClick={() => void onInstall?.(setMessage)}>Instalar aplicación</button></div>}
         {message && <div className="driver-mobile-message" role="status">{message}</div>}
-        <input ref={circleFileInputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" aria-label="Elegir cámara o archivo para el registro" onChange={handleCircleFile} />
         <section ref={homeRef} className="driver-mobile-section driver-mobile-section--home" aria-label="Resumen del conductor">
           <article className="driver-mobile-month-summary">
             <div className="driver-mobile-month-summary__heading"><strong>ACUMULADO · {periodSummary.monthLabel} {driverPeriodYear}</strong><span className="driver-mobile-owner"><strong>{vehicle?.owner?.name ?? ""}</strong><b>{(vehicle?.owner?.dni ?? "").replaceAll("-", "")}</b></span></div>
@@ -6038,10 +6024,16 @@ function DriverMobileExperience({ preview, onExitPreview, onSignOut, onInstall, 
               const isAttached = hasAttachment || circleUpload.key === key && ["saved", "local"].includes(circleUpload.status);
               const statusLabel = isUploading ? "Guardando…" : isAttached ? "Justificante archivado" : "Sin adjunto";
               return <div className={`driver-mobile-record-card driver-mobile-record-card--${key}${isAttached ? " is-attached" : ""}`} key={key}>
-                <button type="button" className="driver-mobile-record-card__upload" onClick={() => openCirclePicker(key)} disabled={isUploading || (!preview && !canEditSelectedDate)} aria-label={`${label}: ${statusLabel}`} title={!preview && !canEditSelectedDate ? DRIVER_EDITABLE_MONTHS_MESSAGE : `Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>
+                <button type="button" className="driver-mobile-record-card__upload" onClick={() => { if (openCirclePicker(key)) setPhotoPickerKey((current) => current === key ? "" : key); }} disabled={isUploading || (!preview && !canEditSelectedDate)} aria-expanded={photoPickerKey === key} aria-label={`${label}: ${statusLabel}`} title={!preview && !canEditSelectedDate ? DRIVER_EDITABLE_MONTHS_MESSAGE : `Abrir cámara o adjuntar archivo de ${label.toLowerCase()}`}><div className="driver-mobile-record-card__image">{image ? <img src={image} alt={alt} loading="lazy" /> : <RecordIcon size={30} stroke={1.7} aria-hidden="true" />}{isUploading && <i className="driver-mobile-record-card__loader" aria-hidden="true" />}</div><span>{label}</span></button>
               </div>;
             })}
           </div>
+          {photoPickerKey && <div className="driver-photo-picker" role="group" aria-label={`Añadir foto de ${dailyPhotoRecords.find((item) => item.key === photoPickerKey)?.label || "registro"}`}>
+            <span>¿Cómo quieres añadir la foto?</span>
+            <label className="driver-photo-picker__choice"><IconCamera size={18} />Hacer foto<input type="file" accept="image/*" capture="environment" onChange={(event) => { void handleCircleFile(event, photoPickerKey); setPhotoPickerKey(""); }} /></label>
+            <label className="driver-photo-picker__choice"><IconUpload size={18} />Fotos o archivos<input type="file" accept="image/*,.heic,.heif,.pdf,application/pdf" onChange={(event) => { void handleCircleFile(event, photoPickerKey); setPhotoPickerKey(""); }} /></label>
+            <button type="button" onClick={() => setPhotoPickerKey("")} aria-label="Cerrar opciones de foto"><IconX size={18} /></button>
+          </div>}
           {recordDeleteError && <p className="driver-mobile-record-delete-error" role="alert"><IconAlertTriangle size={14} />{recordDeleteError}</p>}
           <div className="driver-mobile-preview-mini-grid" onClick={handlePreviewGridClick} onKeyDown={handlePreviewGridKeyDown}>
             <article className="driver-mobile-preview-history" role="button" tabIndex="0" aria-label="Ampliar gráfico de facturación mensual histórica"><div className="driver-mobile-history-scroll" aria-hidden="true"><div className="driver-mobile-history-bars">{compactMonthlyBillingHistory.map((month) => <div className={`driver-mobile-history-bar${month.isCurrent ? " is-selected" : ""}`} key={month.key}><i style={{ height: `${month.barHeight}%` }}><span>{formatDriverBarAmount(month.amount)}</span></i><small><b>{String(month.shortLabel).slice(0, 2)}</b><em>{String(month.year).slice(-2)}</em></small></div>)}</div></div></article>
@@ -10675,7 +10667,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
     setProgress(8);
     setError(null);
     try {
-      const validation = validateDocumentFile(file, source);
+      const validation = validateSelectedDocumentFile(file, source);
       if (!validation.valid) {
         const validationError = new Error(validation.message);
         validationError.code = "INVALID_DOCUMENT";
@@ -10689,6 +10681,8 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
       setProgress(20);
       const optimized = driverId ? await prepareDriverPhotoFile(file) : await prepareDocumentFile(file);
       if (controller.signal.aborted) return;
+      const preparedValidation = validateDocumentFile(optimized, source);
+      if (!preparedValidation.valid) throw new Error(preparedValidation.message);
       setPreparedFile(optimized);
       setProgress(35);
       const dataUrl = await readFileAsDataUrl(optimized);

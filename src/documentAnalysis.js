@@ -94,23 +94,46 @@ export const validateDocumentFile = (file, source = "upload") => {
   return { valid: true, kind };
 };
 
+export const validateSelectedDocumentFile = (file, source = "upload") => {
+  if (!file) return validateDocumentFile(file, source);
+  const isHeic = /^image\/hei[cf]$/i.test(String(file.type || "")) || /\.hei[cf]$/i.test(String(file.name || ""));
+  if (!isHeic) return validateDocumentFile(file, source);
+  if (file.size > 30 * 1024 * 1024) return { valid: false, message: "La foto supera el límite de 30 MB. Elige una imagen más ligera." };
+  return { valid: true, kind: "image" };
+};
+
 export const prepareDocumentFile = async (file, { outputMimeType = "image/webp", requireOutputType = true, allowHeic = true } = {}) => {
   const validation = validateDocumentFile(file);
   const heicImage = allowHeic && (/^image\/hei[cf]$/i.test(String(file?.type ?? "")) || /\.hei[cf]$/i.test(String(file?.name ?? "")));
   if (!heicImage && (!validation.valid || validation.kind !== "image")) return file;
-  if (typeof createImageBitmap !== "function" || typeof document === "undefined") {
+  if (typeof document === "undefined") {
     if (requireOutputType && getDocumentMimeType(file) !== outputMimeType) throw new Error("Este navegador no puede convertir la fotografía a WebP.");
     return file;
   }
 
   let bitmap;
+  let objectUrl;
   try {
-    bitmap = await createImageBitmap(file);
+    if (typeof createImageBitmap === "function") {
+      try { bitmap = await createImageBitmap(file); } catch { /* Safari puede decodificar la foto mediante Image. */ }
+    }
+    if (!bitmap && typeof Image !== "undefined" && typeof URL?.createObjectURL === "function") {
+      objectUrl = URL.createObjectURL(file);
+      bitmap = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("No se puede abrir esta foto en el dispositivo."));
+        image.src = objectUrl;
+      });
+    }
+    if (!bitmap) throw new Error("Este navegador no puede abrir la fotografía.");
     const maxDimension = 1800;
-    const scale = Math.min(1, maxDimension / bitmap.width, maxDimension / bitmap.height);
+    const width = bitmap.naturalWidth || bitmap.width;
+    const height = bitmap.naturalHeight || bitmap.height;
+    const scale = Math.min(1, maxDimension / width, maxDimension / height);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
     canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, outputMimeType, outputMimeType === "image/webp" ? 0.78 : 0.82));
     if (!blob || blob.type !== outputMimeType) {
@@ -129,6 +152,7 @@ export const prepareDocumentFile = async (file, { outputMimeType = "image/webp",
     return file;
   } finally {
     bitmap?.close?.();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
   }
 };
 

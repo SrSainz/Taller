@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- En los cinco registros fotográficos del conductor (gasolina, facturación, kilómetros diarios, km cuadro y consumo), ofrecer elección explícita entre cámara y fotos/archivos en Android e iPhone; aceptar fotos HEIC/HEIF de iPhone y convertirlas a WebP antes de analizarlas y archivarlas.
+
 Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
 
 Every completed application change must be committed, pushed to the connected GitHub repository, and deployed to the linked Vercel production project after validation; do not leave completed app changes only in the local worktree.

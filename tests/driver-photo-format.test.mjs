@@ -1,6 +1,34 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prepareDocumentFile, prepareDriverPhotoFile } from "../src/documentAnalysis.js";
+import { prepareDocumentFile, prepareDriverPhotoFile, validateSelectedDocumentFile } from "../src/documentAnalysis.js";
+
+test("las fotos HEIC del iPhone se aceptan para convertir, pero no se envían sin conversión", async () => {
+  const photo = new File(["heic"], "IMG_1234.HEIC", { type: "image/heic" });
+  assert.equal(validateSelectedDocumentFile(photo).valid, true);
+  assert.equal(validateSelectedDocumentFile(photo).kind, "image");
+  assert.equal(validateSelectedDocumentFile(new File(["x"], "foto.gif", { type: "image/gif" })).valid, false);
+});
+
+test("Safari puede convertir HEIC mediante Image cuando createImageBitmap falla", async () => {
+  const previous = { bitmap: globalThis.createImageBitmap, document: globalThis.document, Image: globalThis.Image, URL: globalThis.URL };
+  let revoked = false;
+  globalThis.createImageBitmap = async () => { throw new Error("unsupported"); };
+  globalThis.Image = class { naturalWidth = 2400; naturalHeight = 1200; set src(_) { queueMicrotask(() => this.onload()); } };
+  globalThis.URL = { createObjectURL: () => "blob:photo", revokeObjectURL: () => { revoked = true; } };
+  globalThis.document = { createElement: () => ({ getContext: () => ({ drawImage() {} }), toBlob: (callback, type) => callback(new Blob(["webp"], { type })) }) };
+  try {
+    const photo = new File(["heic"], "IMG_1234.HEIC", { type: "image/heic" });
+    const result = await prepareDriverPhotoFile(photo);
+    assert.equal(result.name, "IMG_1234.webp");
+    assert.equal(result.type, "image/webp");
+    assert.equal(revoked, true);
+  } finally {
+    globalThis.createImageBitmap = previous.bitmap;
+    globalThis.document = previous.document;
+    globalThis.Image = previous.Image;
+    globalThis.URL = previous.URL;
+  }
+});
 
 test("las fotos del conductor se archivan como WebP con nombre y MIME coherentes", async () => {
   const previousBitmap = globalThis.createImageBitmap;
