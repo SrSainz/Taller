@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Consumos se centra en Supabase: muestra el espacio actual de archivos en MB y el margen respecto a la cuota Free compartida, distingue esa lectura de la media del periodo y actualiza al entrar, volver y cada minuto visible. Las solicitudes se consultan para las últimas 24 horas; una respuesta vacía o fallida nunca se presenta como cero.
+
 - En los cinco registros fotográficos del conductor (gasolina, facturación, kilómetros diarios, km cuadro y consumo), ofrecer elección explícita entre cámara y fotos/archivos en Android e iPhone; aceptar fotos HEIC/HEIF de iPhone y convertirlas a WebP antes de analizarlas y archivarlas.
 
 Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
