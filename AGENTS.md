@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- En Neto, todos los gastos manuales guardados se pueden pulsar para consultar concepto, categoría, día, importe, vehículo, periodo y justificante si existe. Cuando se suman a una categoría canónica, se conserva el detalle individual de cada entrada, también para gastos antiguos.
+
 - En iPhone/Safari, cuando el navegador no puede codificar WebP y devuelve PNG, la conversión usa un codificador WebP local alternativo antes de analizar o guardar la foto. Se admiten originales JPEG/PNG/HEIC de hasta 30 MB para optimizarlos; el archivo final conserva los límites de subida y siempre debe ser WebP auténtico.
 
 - Consumos incluye también el gasto mensual real de la API de OpenAI, consultado solo desde el servidor mediante una clave de administración con lectura de Usage API. Conserva la moneda de OpenAI y el periodo UTC, diferencia gasto de saldo prepago, y muestra falta de configuración o error sin inventar importes.

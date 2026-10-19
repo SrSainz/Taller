@@ -81,6 +81,8 @@ import { confirmDocumentTransactions, createCachedStorageUrl, createCommissionRe
 import { enablePushNotifications, getPushNotificationState } from "./pushNotifications";
 import { getDriverFineHistory, isValidFineDate } from "./driverFineHistory";
 import UsageView from "./UsageView";
+import ManualNetExpenseDetails from "./ManualNetExpenseDetails.jsx";
+import { getManualNetExpenseEntries } from "./manualNetExpenseDetails";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
 import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, isInstrumentClusterVehicle, isOilAndFilterMaintenance } from "./vehicleServiceTracking";
@@ -7146,14 +7148,15 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
     <div className="net-detail-card__expenses-scroll">
       {detail.expenses.map((expense) => {
         const rowKey = `${detail.vehicle.plate}-${expense.key}`;
-        const expandable = Array.isArray(expense.breakdown) && expense.breakdown.length > 0;
+        const manualEntries = getManualNetExpenseEntries(expense);
+        const expandable = (Array.isArray(expense.breakdown) && expense.breakdown.length > 0) || manualEntries.length > 0;
         const breakdownOpen = expandedExpenseRows.has(rowKey);
         const ExpenseIcon = getExpenseIcon(expense.key);
         const rowClass = `net-detail-card__expense${expandable ? " net-detail-card__expense--expandable" : ""}${breakdownOpen ? " is-expanded" : ""}`;
         return <div className="net-detail-card__expense-group" key={expense.key}>
           {expandable ? <button type="button" className={rowClass} aria-expanded={breakdownOpen} aria-controls={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} onClick={() => toggleExpenseRow(rowKey)}><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{getExpenseCadence(expense)}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong><IconChevronRight size={15} /></span></button> : <div className={rowClass} role="row"><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{getExpenseCadence(expense)}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manualPhotos?.map((photo, index) => <button type="button" className="net-detail-card__photo-action" onClick={() => openExpensePhoto(photo)} aria-label={`Ver justificante ${index + 1} de ${expense.label}`} title={`Ver justificante ${photo.name}`} key={photo.path}><IconCamera size={16} /></button>)}{(expense.manual || expense.manualExpenseIds?.length > 0) && <button type="button" onClick={() => onRemoveExpense(expense.manual ? expense.id : expense.manualExpenseIds)} aria-label={`Eliminar gasto manual de ${expense.label}`}><IconTrash size={12} /></button>}</span></div>}
           {breakdownOpen && <div className="net-detail-card__expense-breakdown" id={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} role="rowgroup" aria-label={`Detalle de ${expense.label}`}>
-            {expense.breakdown.map((breakdown, breakdownIndex) => {
+            {(expense.breakdown ?? []).map((breakdown, breakdownIndex) => {
               const breakdownEditorKey = getBreakdownEditorKey(rowKey, breakdown, breakdownIndex);
               const breakdownEditorId = `net-breakdown-editor-${rowKey.replace(/\s/g, "-")}-${breakdownIndex}`;
               const editingBreakdown = activeBreakdownEditor === breakdownEditorKey;
@@ -7170,9 +7173,10 @@ function NetDetailModal({ details, historicalBillingRows: unassignedHistoricalBi
                 </form>}
               </div>;
             })}
+            {manualEntries.length > 0 && <ManualNetExpenseDetails entries={manualEntries} plate={detail.vehicle.plate} periodLabel={periodLabel} onOpenPhoto={openExpensePhoto} onRemoveExpense={onRemoveExpense} />}
           </div>}
           {breakdownOpen && expense.commissionReport && <AlexCommissionReportPanel report={expense.commissionReport} periodLabel={periodLabel} archivedReports={commissionReports} busy={commissionReportBusy} message={commissionReportMessage} onSavePayroll={onSaveAlexPayroll} onGenerate={onGenerateAlexReport} onDownload={onDownloadCommissionReport} />}
-          {expandable && expense.manualPhotos?.length > 0 && <div className="net-detail-card__expense-photos">{expense.manualPhotos.map((photo) => <button type="button" onClick={() => openExpensePhoto(photo)} key={photo.path}><IconCamera size={16} />Ver justificante{expense.manualPhotos.length > 1 ? ` · ${photo.name}` : ""}</button>)}</div>}
+          {expandable && manualEntries.length === 0 && expense.manualPhotos?.length > 0 && <div className="net-detail-card__expense-photos">{expense.manualPhotos.map((photo) => <button type="button" onClick={() => openExpensePhoto(photo)} key={photo.path}><IconCamera size={16} />Ver justificante{expense.manualPhotos.length > 1 ? ` · ${photo.name}` : ""}</button>)}</div>}
         </div>;
       })}
     </div>
@@ -7654,6 +7658,7 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
         const amount = Number(manualExpense.amount) || 0;
         canonicalExpense.amount = Number((canonicalExpense.amount + amount).toFixed(2));
         canonicalExpense.manualExpenseIds = [...(canonicalExpense.manualExpenseIds ?? []), manualExpense.id];
+        canonicalExpense.manualEntries = [...(canonicalExpense.manualEntries ?? []), manualExpense];
         canonicalExpense.manualExpenseDates = [...(canonicalExpense.manualExpenseDates ?? []), manualExpense.date].filter(Boolean);
         canonicalExpense.manualPhotos = [...(canonicalExpense.manualPhotos ?? []), ...(manualExpense.manualPhotos ?? [])];
         if (Array.isArray(canonicalExpense.breakdown)) {

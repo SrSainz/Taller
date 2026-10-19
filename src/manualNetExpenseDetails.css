@@ -1,0 +1,17 @@
+.net-manual-details { padding: 12px; color: #243a30; }
+.net-manual-details h3 { margin: 0 0 8px; font-size: 12px; }
+.net-manual-details__entry { margin: 8px 0 0; padding: 12px; border: 1px solid #d4e5da; border-radius: 9px; background: #fff; }
+.net-manual-details__entry > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 14px; }
+.net-manual-details__entry > header > strong:first-child { min-width: 0; overflow-wrap: anywhere; }
+.net-manual-details__entry > header > strong:last-child { color: var(--net-accent, #278c3b); white-space: nowrap; }
+.net-manual-details dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin: 12px 0; font-size: 12px; }
+.net-manual-details dl div { min-width: 0; }
+.net-manual-details dt { margin-bottom: 3px; color: #62796d; font-size: 11px; }
+.net-manual-details dd { margin: 0; font-weight: 650; overflow-wrap: anywhere; }
+.net-manual-details footer, .net-manual-details footer > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.net-manual-details footer { justify-content: space-between; gap: 10px; }
+.net-manual-details footer small { color: #62796d; font-size: 11px; }
+.net-manual-details footer button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 6px 10px; border: 1px solid #c7ddce; border-radius: 6px; background: #f5faf7; color: #26723b; font: inherit; font-size: 12px; cursor: pointer; }
+.net-manual-details footer .net-manual-details__remove { min-width: 36px; color: #b33a32; border-color: #e9cfcc; background: #fff7f6; }
+.net-manual-details button:focus-visible { outline: 2px solid #26723b; outline-offset: 2px; }
+@media (max-width: 480px) { .net-manual-details { padding: 8px; } }
