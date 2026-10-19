@@ -16,6 +16,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ["react", "react-dom/client"],
+    exclude: ["@jsquash/webp"],
   },
   server: {
     host: "0.0.0.0",

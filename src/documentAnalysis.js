@@ -97,15 +97,19 @@ export const validateDocumentFile = (file, source = "upload") => {
 export const validateSelectedDocumentFile = (file, source = "upload") => {
   if (!file) return validateDocumentFile(file, source);
   const isHeic = /^image\/hei[cf]$/i.test(String(file.type || "")) || /\.hei[cf]$/i.test(String(file.name || ""));
-  if (!isHeic) return validateDocumentFile(file, source);
+  if (!isHeic && getDocumentKind(file) !== "image") return validateDocumentFile(file, source);
   if (file.size > 30 * 1024 * 1024) return { valid: false, message: "La foto supera el límite de 30 MB. Elige una imagen más ligera." };
   return { valid: true, kind: "image" };
 };
 
-export const prepareDocumentFile = async (file, { outputMimeType = "image/webp", requireOutputType = true, allowHeic = true } = {}) => {
-  const validation = validateDocumentFile(file);
-  const heicImage = allowHeic && (/^image\/hei[cf]$/i.test(String(file?.type ?? "")) || /\.hei[cf]$/i.test(String(file?.name ?? "")));
-  if (!heicImage && (!validation.valid || validation.kind !== "image")) return file;
+const portableWebPEncode = async (imageData) => {
+  const { encodeWebP } = await import("./webpEncoder.js");
+  return encodeWebP(imageData);
+};
+
+export const prepareDocumentFile = async (file, { outputMimeType = "image/webp", requireOutputType = true, allowHeic = true, encodeWebp = portableWebPEncode } = {}) => {
+  const validation = validateSelectedDocumentFile(file);
+  if (!validation.valid || validation.kind !== "image" || (!allowHeic && getDocumentKind(file) === "unsupported")) return file;
   if (typeof document === "undefined") {
     if (requireOutputType && getDocumentMimeType(file) !== outputMimeType) throw new Error("Este navegador no puede convertir la fotografía a WebP.");
     return file;
@@ -113,6 +117,7 @@ export const prepareDocumentFile = async (file, { outputMimeType = "image/webp",
 
   let bitmap;
   let objectUrl;
+  let canvas;
   try {
     if (typeof createImageBitmap === "function") {
       try { bitmap = await createImageBitmap(file); } catch { /* Safari puede decodificar la foto mediante Image. */ }
@@ -131,11 +136,19 @@ export const prepareDocumentFile = async (file, { outputMimeType = "image/webp",
     const width = bitmap.naturalWidth || bitmap.width;
     const height = bitmap.naturalHeight || bitmap.height;
     const scale = Math.min(1, maxDimension / width, maxDimension / height);
-    const canvas = document.createElement("canvas");
+    canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(width * scale));
     canvas.height = Math.max(1, Math.round(height * scale));
-    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, outputMimeType, outputMimeType === "image/webp" ? 0.78 : 0.82));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("No se ha podido preparar la imagen.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    let blob;
+    try {
+      blob = await new Promise((resolve) => canvas.toBlob(resolve, outputMimeType, outputMimeType === "image/webp" ? 0.78 : 0.82));
+    } catch { /* Some mobile browsers cannot encode the requested format. */ }
+    if (outputMimeType === "image/webp" && blob?.type !== "image/webp") {
+      blob = await encodeWebp(context.getImageData(0, 0, canvas.width, canvas.height));
+    }
     if (!blob || blob.type !== outputMimeType) {
       if (requireOutputType) throw new Error("Este navegador no ha podido convertir la fotografía a WebP.");
       return file;
@@ -153,6 +166,7 @@ export const prepareDocumentFile = async (file, { outputMimeType = "image/webp",
   } finally {
     bitmap?.close?.();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
+    if (canvas) { canvas.width = 1; canvas.height = 1; }
   }
 };
 

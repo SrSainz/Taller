@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- En iPhone/Safari, cuando el navegador no puede codificar WebP y devuelve PNG, la conversión usa un codificador WebP local alternativo antes de analizar o guardar la foto. Se admiten originales JPEG/PNG/HEIC de hasta 30 MB para optimizarlos; el archivo final conserva los límites de subida y siempre debe ser WebP auténtico.
+
 - Consumos incluye también el gasto mensual real de la API de OpenAI, consultado solo desde el servidor mediante una clave de administración con lectura de Usage API. Conserva la moneda de OpenAI y el periodo UTC, diferencia gasto de saldo prepago, y muestra falta de configuración o error sin inventar importes.
 
 - Consumos se centra en Supabase: muestra el espacio actual de archivos en MB y el margen respecto a la cuota Free compartida, distingue esa lectura de la media del periodo y actualiza al entrar, volver y cada minuto visible. Las solicitudes se consultan para las últimas 24 horas; una respuesta vacía o fallida nunca se presenta como cero.

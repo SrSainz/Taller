@@ -34,11 +34,12 @@ test("las fotos del conductor se archivan como WebP con nombre y MIME coherentes
   const previousBitmap = globalThis.createImageBitmap;
   const previousDocument = globalThis.document;
   let canvas;
+  let drawnSize;
   globalThis.createImageBitmap = async () => ({ width: 2400, height: 1200, close() {} });
   globalThis.document = { createElement: () => (canvas = {
     width: 0,
     height: 0,
-    getContext: () => ({ drawImage() {} }),
+    getContext: () => ({ drawImage(_image, _x, _y, width, height) { drawnSize = [width, height]; } }),
     toBlob: (callback, type) => callback(new Blob(["webp-image"], { type })),
   }) };
   try {
@@ -46,8 +47,9 @@ test("las fotos del conductor se archivan como WebP con nombre y MIME coherentes
     const prepared = await prepareDriverPhotoFile(original);
     assert.equal(prepared.name, "ticket.webp");
     assert.equal(prepared.type, "image/webp");
-    assert.equal(canvas.width, 1800);
-    assert.equal(canvas.height, 900);
+    assert.deepEqual(drawnSize, [1800, 900]);
+    assert.equal(canvas.width, 1);
+    assert.equal(canvas.height, 1);
     assert.equal(await prepared.text(), "webp-image");
     assert.equal(original.name, "ticket.jpeg");
   } finally {
@@ -56,19 +58,55 @@ test("las fotos del conductor se archivan como WebP con nombre y MIME coherentes
   }
 });
 
-test("un PDF se mantiene intacto y un navegador sin codificador WebP da un error claro", async () => {
+test("Safari que devuelve PNG usa el codificador alternativo sin modificar el PDF", async () => {
   const pdf = new File(["%PDF"], "factura.pdf", { type: "application/pdf" });
   assert.equal(await prepareDriverPhotoFile(pdf), pdf);
   const previousBitmap = globalThis.createImageBitmap;
   const previousDocument = globalThis.document;
   globalThis.createImageBitmap = async () => ({ width: 10, height: 10, close() {} });
-  globalThis.document = { createElement: () => ({ getContext: () => ({ drawImage() {} }), toBlob: (callback) => callback(new Blob(["png"], { type: "image/png" })) }) };
+  const pixels = { data: new Uint8ClampedArray(400), width: 10, height: 10 };
+  globalThis.document = { createElement: () => ({ getContext: () => ({ drawImage() {}, getImageData: () => pixels }), toBlob: (callback) => callback(new Blob(["png"], { type: "image/png" })) }) };
   try {
     const photo = new File(["jpeg"], "foto.jpg", { type: "image/jpeg" });
-    await assert.rejects(prepareDriverPhotoFile(photo), /WebP/);
+    let calls = 0;
+    const encodeWebp = async (imageData) => { assert.equal(imageData, pixels); calls++; return new Blob(["webp"], { type: "image/webp" }); };
+    const result = await prepareDocumentFile(photo, { encodeWebp });
+    assert.equal(result.type, "image/webp");
+    assert.equal(result.name, "foto.webp");
+    assert.equal(calls, 1);
+    await assert.rejects(prepareDocumentFile(photo, { encodeWebp: async () => { throw new Error("codec unavailable"); } }), /WebP/);
+    assert.equal(photo.type, "image/jpeg");
   } finally {
     globalThis.createImageBitmap = previousBitmap;
     globalThis.document = previousDocument;
+  }
+});
+
+test("la selección permite fotos grandes del iPhone sin relajar el límite de 30 MB", async () => {
+  for (const [name, type] of [["IMG_001.jpeg", "image/jpeg"], ["IMG_002.HEIC", "image/heic"]]) {
+    assert.equal(validateSelectedDocumentFile({ name, type, size: 20 * 1024 * 1024 }).valid, true);
+    const oversized = { name, type, size: 31 * 1024 * 1024 };
+    assert.equal(validateSelectedDocumentFile(oversized).valid, false);
+    assert.equal(await prepareDocumentFile(oversized), oversized);
+  }
+  const heic = new File(["heic"], "IMG_001.HEIC", { type: "image/heic" });
+  assert.equal(await prepareDocumentFile(heic, { allowHeic: false }), heic);
+});
+
+test("los fallos nativos de toBlob también activan el codificador alternativo", async () => {
+  const previous = { bitmap: globalThis.createImageBitmap, document: globalThis.document };
+  let calls = 0;
+  globalThis.createImageBitmap = async () => ({ width: 10, height: 10, close() {} });
+  try {
+    for (const toBlob of [(callback) => callback(null), () => { throw new Error("not supported"); }]) {
+      globalThis.document = { createElement: () => ({ getContext: () => ({ drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(400), width: 10, height: 10 }) }), toBlob }) };
+      const result = await prepareDocumentFile(new File(["jpeg"], "foto.jpg", { type: "image/jpeg" }), { encodeWebp: async () => { calls++; return new Blob(["webp"], { type: "image/webp" }); } });
+      assert.equal(result.type, "image/webp");
+    }
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.createImageBitmap = previous.bitmap;
+    globalThis.document = previous.document;
   }
 });
 
