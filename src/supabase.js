@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getDocumentMimeType, prepareDocumentFile, validateDocumentFile } from "./documentAnalysis.js";
 import { hashDocumentFile } from "./transactions.js";
 import { createStorageThumbnail, thumbnailPath } from "./storageThumbnails.js";
+import { archiveDocumentAttachments, getSupportingDocuments, maxMaintenanceDocuments } from "./documentAttachments.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
@@ -281,7 +282,7 @@ const refreshPendingDocument = async (document, values) => {
   // display stale data on the next reload.
   const { data, error } = await supabase
     .from("documents")
-    .update({ ...values, status: document.status === "approved" ? "approved" : "review", updated_at: new Date().toISOString() })
+    .update({ ...values, extracted_data: { ...values.extracted_data, ...(getSupportingDocuments(document).length ? { supportingDocuments: getSupportingDocuments(document) } : {}) }, status: document.status === "approved" ? "approved" : "review", updated_at: new Date().toISOString() })
     .eq("id", document.id)
     .select(documentRecordColumns)
     .single();
@@ -289,7 +290,49 @@ const refreshPendingDocument = async (document, values) => {
   return data;
 };
 
-export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, file, fileHash = null, documentDate = null, extractedData = {}, fieldConfidence = {}, overallConfidence = null, status = "review" }) => {
+const archiveSupportingFiles = (document, files, persist) => archiveDocumentAttachments({
+  document, files, persist,
+  createPath: (file) => {
+    const prefix = document.file_path ? document.file_path.split("/").slice(0, -1).join("/") : `${document.owner_id}/${document.category}/${document.document_date || "undated"}`;
+    return `${prefix}/${randomUploadToken()}-${safeFileName(file.name)}`;
+  },
+  upload: async (path, file) => {
+    const { error } = await supabase.storage.from("documents").upload(path, file, { contentType: getDocumentMimeType(file), upsert: false });
+    if (error) throw error;
+    await uploadStorageThumbnail("documents", path, file).catch(() => undefined);
+  },
+  remove: async (paths) => {
+    const { error } = await supabase.storage.from("documents").remove(paths.flatMap((path) => [path, thumbnailPath(path)]));
+    if (error) throw error;
+  },
+});
+
+export const appendDocumentAttachments = async (documentId, files) => {
+  if (!supabase || !documentId || !files?.length) throw new Error("Selecciona los archivos de la actuación antes de guardarlos.");
+  const { data: document, error } = await getDocumentRecord({ id: documentId });
+  if (error || !document) throw error || new Error("La actuación ya no está disponible.");
+  return archiveSupportingFiles(document, files, async (attachments) => {
+    // Only change attachment metadata: never re-confirm or duplicate movements.
+    let latest = document;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt) {
+        const response = await getDocumentRecord({ id: documentId });
+        if (response.error || !response.data) throw response.error || new Error("No se ha podido recargar la actuación.");
+        latest = response.data;
+      }
+      const merged = [...new Map([...getSupportingDocuments(latest), ...attachments].map((entry) => [entry.path, entry])).values()];
+      if (merged.length + 1 > maxMaintenanceDocuments) throw new Error(`Máximo ${maxMaintenanceDocuments} documentos por actuación.`);
+      let query = supabase.from("documents").update({ extracted_data: { ...latest.extracted_data, supportingDocuments: merged }, updated_at: new Date().toISOString() }).eq("id", documentId);
+      if (latest.updated_at) query = query.eq("updated_at", latest.updated_at);
+      const { data, error: updateError } = await query.select(documentRecordColumns).maybeSingle();
+      if (updateError) throw updateError;
+      if (data) return data;
+    }
+    throw new Error("La actuación ha cambiado en otro dispositivo. Vuelve a intentarlo.");
+  });
+};
+
+export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, file, additionalFiles = [], fileHash = null, documentDate = null, extractedData = {}, fieldConfidence = {}, overallConfidence = null, status = "review" }) => {
   if (!supabase || !ownerId || !file) throw new Error("No se puede guardar el documento sin una sesión activa.");
   const storedFile = await prepareDocumentFile(file);
   const validation = validateDocumentFile(storedFile, "upload");
@@ -315,7 +358,10 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
     overall_confidence: overallConfidence,
   };
   const existingDocument = await findDocumentByHash(ownerId, resolvedFileHash);
-  if (existingDocument) return refreshPendingDocument(existingDocument, documentValues);
+  if (existingDocument) {
+    if (additionalFiles.length) throw new Error("Esta factura ya está registrada. Ábrela para añadir sus nuevos adjuntos sin duplicar el gasto.");
+    return refreshPendingDocument(existingDocument, documentValues);
+  }
 
   // The date is part of the private object path so Storage policies can apply
   // the same current-week rule as the documents and ledger tables before the
@@ -329,27 +375,23 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
 
   await uploadStorageThumbnail("documents", path, storedFile).catch(() => undefined);
 
-  const { data, error } = await supabase
-    .from("documents")
-    .insert({
-      owner_id: ownerId,
-      ...documentValues,
-      file_path: path,
-      file_hash: resolvedFileHash || null,
-      status,
-    })
-    .select(documentRecordColumns)
-    .single();
-
-  if (error) {
+  const pendingDocument = { owner_id: ownerId, ...documentValues, file_path: path, file_hash: resolvedFileHash || null, status };
+  try {
+    return await archiveSupportingFiles(pendingDocument, additionalFiles, async (attachments) => {
+      const { data, error } = await supabase.from("documents")
+        .insert({ ...pendingDocument, extracted_data: { ...extractedData, ...(attachments.length ? { supportingDocuments: attachments } : {}) } })
+        .select(documentRecordColumns).single();
+      if (error) throw error;
+      return data;
+    });
+  } catch (error) {
     await supabase.storage.from("documents").remove([path, thumbnailPath(path)]);
-    if (resolvedFileHash && (error.code === "23505" || /file_hash|duplicad/i.test(error.message ?? ""))) {
+    if (!additionalFiles.length && resolvedFileHash && (error.code === "23505" || /file_hash|duplicad/i.test(error.message ?? ""))) {
       const racedDocument = await findDocumentByHash(ownerId, resolvedFileHash);
       if (racedDocument) return refreshPendingDocument(racedDocument, documentValues);
     }
     throw error;
   }
-  return data;
 };
 
 const netExpenseColumns = "id, created_by, period_key, vehicle_plate, label, category_key, cadence, amount, expense_date, photo_path, photo_name, photo_mime_type, extraction, created_at";
@@ -458,13 +500,17 @@ export const reassignDriverDocumentDate = async (documentId, targetDate) => {
 
 export const deleteDocumentRecord = async (document) => {
   if (!supabase || !document?.id) throw new Error("No se puede borrar el documento sin una sesión activa.");
+  const latest = await getDocumentRecord({ id: document.id });
+  if (latest.error) throw latest.error;
+  const supportingDocuments = getSupportingDocuments(latest.data || document);
   const { data, error } = await supabase.rpc("delete_document_with_cleanup", { p_document_id: document.id });
   if (error) throw error;
   let storageError = null;
   const filePath = document.file_path || data?.file_path || "";
-  if (filePath) {
-    const result = await supabase.storage.from("documents").remove([filePath, thumbnailPath(filePath)]);
-    clearCachedStorageUrl({ bucket: "documents", path: filePath });
+  const paths = [...new Set([filePath, ...supportingDocuments.map((entry) => entry.path)].filter(Boolean))];
+  if (paths.length) {
+    const result = await supabase.storage.from("documents").remove(paths.flatMap((path) => [path, thumbnailPath(path)]));
+    paths.forEach((path) => clearCachedStorageUrl({ bucket: "documents", path }));
     storageError = result.error ?? null;
   }
   return { ...(data ?? {}), deleted: true, storageError: storageError?.message || "" };

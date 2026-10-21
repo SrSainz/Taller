@@ -1,0 +1,12 @@
+.maintenance-attachments { margin: 12px 0; padding: 14px; border: 1px solid #e7cd9f; border-radius: 10px; background: #fffaf1; color: #273a43; }
+.maintenance-attachments h3 { margin: 0 0 6px; font-size: 15px; }
+.maintenance-attachments p { margin: 6px 0 10px; font-size: 12px; line-height: 1.45; }
+.maintenance-attachments ul, .maintenance-attachments-picker ul { list-style: none; margin: 10px 0; padding: 0; }
+.maintenance-attachments li a { display: flex; align-items: center; gap: 8px; min-height: 40px; color: #975b06; overflow-wrap: anywhere; }
+.maintenance-attachments-picker__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.maintenance-attachments-picker__actions button { min-height: 40px; }
+.maintenance-attachments-picker li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 12px; }
+.maintenance-attachments-picker li span { min-width: 0; overflow-wrap: anywhere; }
+.maintenance-attachments-picker li button { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border: 1px solid #e5ceaa; border-radius: 6px; background: #fff; color: #973429; cursor: pointer; }
+.maintenance-attachments-picker [role="alert"] { color: #b23425; font-size: 12px; }
+.maintenance-attachments button:focus-visible, .maintenance-attachments a:focus-visible { outline: 2px solid #a46b10; outline-offset: 3px; }

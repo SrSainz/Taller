@@ -82,6 +82,9 @@ import { enablePushNotifications, getPushNotificationState } from "./pushNotific
 import { getDriverFineHistory, isValidFineDate } from "./driverFineHistory";
 import UsageView from "./UsageView";
 import ManualNetExpenseDetails from "./ManualNetExpenseDetails.jsx";
+import MaintenanceFilePicker from "./MaintenanceFilePicker.jsx";
+import MaintenanceInvoiceAttachments from "./MaintenanceInvoiceAttachments.jsx";
+import { maxMaintenanceDocuments } from "./documentAttachments.js";
 import { getManualNetExpenseEntries } from "./manualNetExpenseDetails";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
@@ -3524,7 +3527,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   };
 
   const saveProcessedDocumentCentral = async (document) => {
-    const { file, originalFile, ...documentWithoutFile } = document;
+    const { file, originalFile, additionalFiles = [], ...documentWithoutFile } = document;
     const archiveFile = document.driverId ? file || originalFile : originalFile || file;
     const savedDocument = { ...documentWithoutFile, id: document.id || `DOC-${Date.now()}`, savedAt: new Date().toISOString() };
     const fields = savedDocument.fields ?? {};
@@ -3553,7 +3556,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       const fileHash = archiveFile ? await hashDocumentFile(archiveFile) : "";
       const operations = mileageOnly ? [] : operationsFromDocument({ category: savedDocument.category, fields: extractedData, driverId, vehiclePlate, fileHash, fallbackDate: documentDate });
       if (archiveFile && supabase && session.user?.id) {
-        const uploaded = await uploadDocumentRecord({ ownerId: driverId || session.user.id, category: savedDocument.category, vehiclePlate, file: archiveFile, fileHash, documentDate, extractedData, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
+        const uploaded = await uploadDocumentRecord({ ownerId: driverId || session.user.id, category: savedDocument.category, vehiclePlate, file: archiveFile, additionalFiles, fileHash, documentDate, extractedData, fieldConfidence: savedDocument.fieldConfidence, overallConfidence: savedDocument.overallConfidence, status: "review" });
         // Confirm even an empty operation list: if this is a re-review and the
         // user has cleared every amount, the old central movements must be
         // removed instead of being resurrected on the next refresh. A new
@@ -3792,7 +3795,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       )}
 
       <BottomNavigation homeActive={activeNav === "Informes" && homeReportTab === "General"} onHome={openGeneral} onProfile={openAdminProfile} profileLabel={isAdmin ? "Abrir administración" : "Abrir perfil de usuario"} />
-      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoiceCentral} onSaveDocument={saveProcessedDocumentCentral} onSaveMaintenance={saveMaintenanceEdit} vehicles={vehicles} />}
+      {modal && <AppModalV2 modal={modal} onClose={() => setModal(null)} notify={notify} onSaveInvoice={savePhotoInvoiceCentral} onSaveDocument={saveProcessedDocumentCentral} onSaveMaintenance={saveMaintenanceEdit} onDocumentUpdated={(document) => { const normalized = normalizeDocumentRecord(document); setDocumentRecords((current) => [normalized, ...current.filter((item) => item.id !== normalized.id)]); }} vehicles={vehicles} />}
       {toast && <div className="toast" role="status"><IconCircleCheck size={19} />{toast}</div>}
     </div>
   );
@@ -9855,10 +9858,13 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
   };
 
   const handleMaintenanceInvoiceFile = (event) => {
-    const file = event.target.files?.[0] ?? null;
+    const files = [...(event.target.files ?? [])];
+    const file = files[0] ?? null;
     event.target.value = "";
     if (!file) return;
-    const validation = validateDocumentFile(file, "upload");
+    if (files.length > maxMaintenanceDocuments) { notify?.(`Máximo ${maxMaintenanceDocuments} documentos por actuación.`); return; }
+    const invalid = files.find((candidate) => !validateSelectedDocumentFile(candidate, "upload").valid);
+    const validation = validateSelectedDocumentFile(invalid || file, "upload");
     if (!validation.valid) {
       notify?.(validation.message);
       return;
@@ -9868,6 +9874,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
       category: "billing",
       source: "upload",
       file,
+      additionalFiles: files.slice(1),
       selectedPlate: workshopVehicle.plate,
       recordType: "maintenance",
     });
@@ -9964,7 +9971,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
             <span><h2><VehiclePlateLabel vehicleOrPlate={workshopVehicle} className="maintenance-history-plate" /></h2></span>
           </div>
           <div className="maintenance-history-actions">
-            <input ref={maintenanceInvoiceInputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,.pdf,application/pdf" onChange={handleMaintenanceInvoiceFile} />
+            <input ref={maintenanceInvoiceInputRef} className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.pdf,application/pdf" aria-label="Seleccionar documentos de mantenimiento" onChange={handleMaintenanceInvoiceFile} />
             <button type="button" className="maintenance-history-upload-button" onClick={() => maintenanceInvoiceInputRef.current?.click()} aria-label={`Añadir factura de mantenimiento a ${workshopVehicle.plate}`} title={`Añadir factura de mantenimiento a ${workshopVehicle.plate}`}>
               <IconCamera size={19} /><span>Añadir factura</span>
             </button>
@@ -10392,7 +10399,7 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
   );
 }
 
-function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onSaveMaintenance, vehicles }) {
+function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onSaveMaintenance, onDocumentUpdated, vehicles }) {
   const item = modal.item;
   const itemOwner = item?.owner ?? getVehicleOwner(item);
   const isReading = modal.type === "reading-review";
@@ -10437,8 +10444,9 @@ function AppModalV2({ modal, onClose, notify, onSaveInvoice, onSaveDocument, onS
         {isDriverDocumentDateEdit && <DriverDocumentDateWorkflow item={item} onCancel={onClose} />}
         {isMaintenanceEdit && <MaintenanceEditWorkflow item={item} onCancel={onClose} onSave={(values) => { const saved = onSaveMaintenance?.(values); if (saved !== false) complete("Intervención actualizada y reordenada por fecha"); }} />}
         {modal.type === "reading" && <div className="upload-zone"><IconBrandWhatsapp size={30} /><strong>Añadir lectura manual</strong><p>Selecciona una imagen del odómetro o introduce los datos manualmente.</p><button className="secondary-button"><IconUpload size={17} />Seleccionar imagen</button></div>}
+        {isInvoice && item.document?.id && <MaintenanceInvoiceAttachments document={item.document} onUpdated={onDocumentUpdated} renderAttachment={(attachment, index) => <CachedDocumentLink document={{ filePath: attachment.path }} ariaLabel={`Abrir adjunto ${index + 1}: ${attachment.name}`}><IconFileInvoice size={17} /><span>{attachment.name}</span></CachedDocumentLink>} />}
         {isPhotoInvoice && <InvoicePhotoWorkflow initialPlate={modal.plate} vehicles={vehicles} onCancel={onClose} onSave={async (invoice) => { const saved = await onSaveInvoice(invoice); if (saved !== false) complete("Factura guardada; Mantenimiento y Gastos se han actualizado"); }} />}
-        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} defaultVehicle={modal.selectedPlate} defaultDate={modal.defaultDate} recordType={modal.recordType} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument({ ...document, recordType: modal.recordType || document.recordType }); if (saved === false || saved?.ok === false) return saved; complete(isMaintenanceDocumentProcessing ? "Factura de mantenimiento guardada en el vehículo" : "Documento procesado y guardado"); return { ok: true }; }} />}
+        {isDocumentProcessing && <DocumentProcessingWorkflow category={modal.category} source={modal.source} file={modal.file} additionalFiles={modal.additionalFiles} defaultVehicle={modal.selectedPlate} defaultDate={modal.defaultDate} recordType={modal.recordType} driverId={modal.driverId} onCancel={onClose} onSave={async (document) => { const saved = await onSaveDocument({ ...document, recordType: modal.recordType || document.recordType }); if (saved === false || saved?.ok === false) return saved; complete(isMaintenanceDocumentProcessing ? "Factura de mantenimiento guardada en el vehículo" : "Documento procesado y guardado"); return { ok: true }; }} />}
         {modal.type === "support" && <div className="support-form"><label>Asunto<input placeholder="Describe brevemente el problema" /></label><label>Mensaje<textarea placeholder="Cuéntanos qué necesitas revisar" rows={5} /></label></div>}
         {!isPhotoInvoice && !isDocumentProcessing && !isDriverDocument && !isDriverDayEdit && !isDriverDocumentDateEdit && !isMaintenanceEdit && <footer>{isInvoice && item.onDeleteDocument && item.document && <button type="button" className="secondary-button driver-document-delete" onClick={deleteDocumentFromModal} disabled={documentDeleteBusy}><IconTrash size={16} />{documentDeleteBusy ? "Borrando…" : item.deleteLabel ?? "Borrar documento"}</button>}<button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" onClick={() => complete(isReading ? "Lectura validada correctamente" : isFuelInvoice ? "Ticket de gasolina revisado" : isInvoice ? "Factura revisada" : modal.type === "support" ? "Consulta enviada a soporte" : "Archivo preparado para procesar")}><IconCheck size={18} />{isReading ? "Validar lectura" : isFuelInvoice ? "Cerrar ticket" : isInvoice ? "Marcar revisada" : modal.type === "support" ? "Enviar consulta" : "Continuar"}</button>{documentDeleteError && <p className="driver-document-delete-error" role="alert"><IconAlertTriangle size={14} />{documentDeleteError}</p>}</footer>}
       </section>
@@ -10597,12 +10605,13 @@ function DriverCircleReviewDialog({ review, profile, driverId, onClose, onSave }
   </div>;
 }
 
-function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, defaultDate = "", recordType = "", driverId = "", onCancel, onSave }) {
+function DocumentProcessingWorkflow({ category, source, file, additionalFiles = [], defaultVehicle, defaultDate = "", recordType = "", driverId = "", onCancel, onSave }) {
   const controllerRef = useRef(null);
   const [stage, setStage] = useState("processing");
   const [progress, setProgress] = useState(5);
   const [previewUrl, setPreviewUrl] = useState("");
   const [preparedFile, setPreparedFile] = useState(file);
+  const [supportingFiles, setSupportingFiles] = useState(() => additionalFiles);
   const [fields, setFields] = useState(() => normalizeDocumentAnalysis(category, null, defaultVehicle));
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
@@ -10835,6 +10844,7 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
         source,
         file: preparedFile,
         originalFile: file,
+        ...(isMaintenanceReview ? { additionalFiles: supportingFiles } : {}),
         vehiclePlate: defaultVehicle,
         fileName: preparedFile?.name || file.name,
         fileType: preparedFile?.type || file.type,
@@ -10915,6 +10925,11 @@ function DocumentProcessingWorkflow({ category, source, file, defaultVehicle, de
             })}
           </div>
           {analysis?.warnings?.length > 0 && <div className="document-review-notes"><strong>Avisos de la IA</strong><ul>{analysis.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}</ul></div>}
+          {isMaintenanceReview && <section className="maintenance-attachments" aria-label="Adjuntos de la actuación">
+            <h3>Documentos de esta actuación · {1 + supportingFiles.length}</h3>
+            <p>Principal: {file.name}. Los demás archivos se guardarán como adjuntos del mismo día y vehículo. Revisa el importe total de la actuación; los adjuntos no se suman automáticamente.</p>
+            <MaintenanceFilePicker files={supportingFiles} onChange={setSupportingFiles} disabled={saveState.saving} />
+          </section>}
         </div>
       </section>}
 

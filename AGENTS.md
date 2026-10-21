@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Una actuación de Mantenimiento admite varios documentos: selección múltiple de archivos, fotos sucesivas y nuevos adjuntos desde “Abrir factura”. Los adjuntos se archivan privados con la misma fecha y vehículo, las fotos en WebP y los PDF sin conversión; se revisa un único importe total y añadir adjuntos nunca crea otro gasto. Se conserva la consulta individual de todos los archivos.
+
 - En Neto, todos los gastos manuales guardados se pueden pulsar para consultar concepto, categoría, día, importe, vehículo, periodo y justificante si existe. Cuando se suman a una categoría canónica, se conserva el detalle individual de cada entrada, también para gastos antiguos.
 
 - En iPhone/Safari, cuando el navegador no puede codificar WebP y devuelve PNG, la conversión usa un codificador WebP local alternativo antes de analizar o guardar la foto. Se admiten originales JPEG/PNG/HEIC de hasta 30 MB para optimizarlos; el archivo final conserva los límites de subida y siempre debe ser WebP auténtico.
