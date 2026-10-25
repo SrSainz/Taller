@@ -3747,8 +3747,10 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
 .driver-commission-sheet th { position: sticky; top: 0; background: #f0f3f1; font-size: 8px; letter-spacing: .045em; text-transform: uppercase; }
 .driver-commission-sheet tr.is-reached td { background: #edf8f1; color: #145f36; font-weight: 850; }
 .driver-commission-sheet__note { margin: 12px 0 0; color: #59635f; font-size: 9px; line-height: 1.45; }
-.driver-commission-sheet__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #dfe5e2; }
-.driver-commission-sheet__actions button { min-height: 38px; }
+.driver-commission-sheet { display: flex; flex-direction: column; overflow: hidden; }
+.driver-commission-sheet__content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.driver-commission-sheet__actions { flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px solid #dfe5e2; background: #fff; }
+.driver-commission-sheet__actions button { min-height: 44px; }
 
 @media (max-width: 720px) {
   .driver-list-card__hours-button { top: 32px; left: 23px; width: 18px; height: 15px; font-size: 6px; }
@@ -3768,8 +3770,9 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   .driver-commission-sheet__cash-total { min-height: 66px; padding: 16px 18px; }
   .driver-commission-sheet__cash-total span { font-size: 15px; }
   .driver-commission-sheet__cash-total strong { font-size: 30px; }
-  .driver-commission-overlay { padding: 8px; }
-  .driver-commission-sheet { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 16px; border-radius: 14px; }
+  .driver-commission-overlay { padding: 8px 8px calc(var(--bottom-navigation-height, 58px) + env(safe-area-inset-bottom, 0px) + 8px); }
+  .driver-commission-sheet { width: calc(100vw - 16px); max-height: calc(100dvh - var(--bottom-navigation-height, 58px) - env(safe-area-inset-bottom, 0px) - 16px); padding: 12px; border-radius: 14px; }
+  .driver-commission-sheet__actions button { flex: 1; min-height: 48px; }
   .driver-commission-sheet__header h2 { font-size: 22px; }
   .driver-commission-sheet__identity { padding-block: 14px; }
   .driver-commission-sheet__identity strong { font-size: 18px; }
@@ -3787,6 +3790,8 @@ body:has(.drivers-page--calendar-open) .page-scroll { height: calc(100dvh - 70px
   body:has(.driver-commission-sheet) .driver-commission-overlay * { visibility: visible !important; }
   body:has(.driver-commission-sheet) .driver-commission-overlay { position: absolute; inset: 0; display: block; box-sizing: border-box; padding: 14mm; background: #fff; }
   body:has(.driver-commission-sheet) .driver-commission-sheet { width: 100%; max-height: none; overflow: visible; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  body:has(.driver-commission-sheet) .driver-commission-sheet { display: block; }
+  body:has(.driver-commission-sheet) .driver-commission-sheet__content { overflow: visible; padding: 0; }
   body:has(.driver-commission-sheet) .driver-commission-sheet__header > button,
   body:has(.driver-commission-sheet) .driver-commission-sheet__actions { display: none !important; }
   body:has(.driver-commission-sheet) .driver-commission-sheet__table-wrap { max-height: none; overflow: visible; }

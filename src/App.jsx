@@ -8398,6 +8398,7 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
 
   return createPortal(<div className="driver-commission-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="driver-commission-sheet" role="dialog" aria-modal="true" aria-labelledby="driver-commission-title">
+      <div className="driver-commission-sheet__content">
       <header className="driver-commission-sheet__header">
         <div><h2 id="driver-commission-title">{monthLabel}</h2></div>
         <button type="button" onClick={onClose} aria-label="Cerrar evolución de la comisión"><IconX size={20} /></button>
@@ -8420,10 +8421,11 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
         <div className="driver-commission-sheet__cash-total"><span>TOTAL A COBRAR EN EFECTIVO</span><strong>{formatCurrency(calculation.totalToCollect)}</strong></div>
       </div>
       {payrollMessage && <p className="driver-commission-sheet__payroll-message" role="status">{payrollMessage}</p>}
-      <div className="driver-commission-sheet__table-wrap">
+      {reachedRows.length > 0 && <div className="driver-commission-sheet__table-wrap">
         <table><thead><tr><th>Facturación</th><th>Complemento acumulado</th><th>Estado</th></tr></thead><tbody>
-          {evolutionRows.map((item) => <tr className={item.reached ? "is-reached" : ""} key={item.threshold}><td>{formatCurrency(item.threshold)}</td><td>{formatCurrency(item.bonus)}</td><td>{item.reached ? "Alcanzado" : "Siguiente"}</td></tr>)}
+          {reachedRows.map((item) => <tr className="is-reached" key={item.threshold}><td>{formatCurrency(item.threshold)}</td><td>{formatCurrency(item.bonus)}</td><td>Alcanzado</td></tr>)}
         </tbody></table>
+      </div>}
       </div>
       <footer className="driver-commission-sheet__actions"><button type="button" className="secondary-button" onClick={onClose}>Cerrar</button><button type="button" className="primary-button" onClick={() => window.print()}><IconPrinter size={17} />Imprimir</button></footer>
     </section>

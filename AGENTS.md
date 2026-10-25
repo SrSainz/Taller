@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Las fichas de comisión de todos los conductores muestran solo los tramos alcanzados, nunca la fila “Siguiente”. Los botones Cerrar e Imprimir permanecen siempre visibles fuera del contenido desplazable, por encima de la navegación inferior y del área segura del móvil; la impresión A4 conserva todo el contenido.
+
 - Una actuación de Mantenimiento admite varios documentos: selección múltiple de archivos, fotos sucesivas y nuevos adjuntos desde “Abrir factura”. Los adjuntos se archivan privados con la misma fecha y vehículo, las fotos en WebP y los PDF sin conversión; se revisa un único importe total y añadir adjuntos nunca crea otro gasto. Se conserva la consulta individual de todos los archivos.
 
 - En Neto, todos los gastos manuales guardados se pueden pulsar para consultar concepto, categoría, día, importe, vehículo, periodo y justificante si existe. Cuando se suman a una categoría canónica, se conserva el detalle individual de cada entrada, también para gastos antiguos.
