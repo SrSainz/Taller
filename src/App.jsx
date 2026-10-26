@@ -93,6 +93,7 @@ import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLa
 import { formatMaintenanceItvDate, maintenanceVehicleDetailsStorageKey, normalizeMaintenanceVehicleDetails, normalizeMaintenanceVehicleDetailsMap, resolveMaintenanceVehicleDetails } from "./maintenanceVehicleDetails";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { getWeeksTouchingMonth, sumWeeklyCollections } from "./weeklyCollections";
+import { parseWeeklyBankAmounts, weeklyBankVehiclePlates } from "./weeklyBankAmounts.js";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
 import { funesmotorsportAssetMap } from "./data/funesmotorsportAssetMap";
 import { emailMaintenanceAmountOverrides, emailMaintenanceDocuments, emailMaintenanceTypeOverrides } from "./data/emailMaintenanceSummary";
@@ -8081,7 +8082,9 @@ function NetWeeklyCard({ value, weeks, adminUserId, realtimeRevision, onOpenNet 
   const [weeklyExpanded, setWeeklyExpanded] = useState(false);
   const [selectedWeekStart, setSelectedWeekStart] = useState("");
   const [deposits, setDeposits] = useState({});
-  const [bankDraft, setBankDraft] = useState("");
+  const [bankDrafts, setBankDrafts] = useState({});
+  const [bankDirty, setBankDirty] = useState(false);
+  const bankDraftWeekRef = useRef("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const today = new Date();
@@ -8098,15 +8101,18 @@ function NetWeeklyCard({ value, weeks, adminUserId, realtimeRevision, onOpenNet 
     listWeeklyBankDeposits(firstWeekStart, lastWeekStart).then(({ data, error }) => {
       if (cancelled) return;
       if (error) { setMessage("No se pudieron cargar los ingresos bancarios."); return; }
-      setDeposits(Object.fromEntries((data ?? []).map((item) => [item.week_start, Number(item.amount)])));
+      setDeposits(Object.fromEntries((data ?? []).map((item) => [item.week_start, item])));
     }).catch(() => { if (!cancelled) setMessage("No se pudieron cargar los ingresos bancarios."); });
     return () => { cancelled = true; };
   }, [firstWeekStart, lastWeekStart, realtimeRevision]);
 
   useEffect(() => {
-    setBankDraft(deposits[selectedWeek?.start] === undefined ? "" : String(deposits[selectedWeek.start]));
+    if (bankDraftWeekRef.current === selectedWeek?.start && bankDirty) return;
+    bankDraftWeekRef.current = selectedWeek?.start;
+    setBankDrafts(deposits[selectedWeek?.start]?.vehicle_amounts ?? {});
+    setBankDirty(false);
     setMessage("");
-  }, [selectedWeek?.start, deposits]);
+  }, [selectedWeek?.start, deposits, bankDirty]);
 
   useEffect(() => {
     if (!weeklyExpanded) return undefined;
@@ -8116,16 +8122,15 @@ function NetWeeklyCard({ value, weeks, adminUserId, realtimeRevision, onOpenNet 
   }, [weeklyExpanded]);
 
   const saveBankDeposit = async () => {
-    const amount = Number(String(bankDraft).trim().replace(",", "."));
-    if (!bankDraft.trim() || !Number.isFinite(amount) || amount < 0) {
-      setMessage("Introduce un importe válido, incluido 0 si no hubo ingreso.");
-      return;
-    }
+    let parsed;
+    try { parsed = parseWeeklyBankAmounts(bankDrafts); } catch (error) { setMessage(error.message); return; }
+    const weekStart = selectedWeek.start;
     setSaving(true);
     setMessage("");
     try {
-      const saved = await upsertWeeklyBankDeposit({ weekStart: selectedWeek.start, amount: Math.round(amount * 100) / 100, createdBy: adminUserId });
-      setDeposits((current) => ({ ...current, [saved.week_start]: Number(saved.amount) }));
+      const saved = await upsertWeeklyBankDeposit({ weekStart, vehicleAmounts: parsed.vehicleAmounts, createdBy: adminUserId });
+      setBankDirty(false);
+      setDeposits((current) => ({ ...current, [saved.week_start]: saved }));
       setMessage("Ingreso guardado.");
     } catch {
       setMessage("No se pudo guardar el ingreso bancario.");
@@ -8134,22 +8139,32 @@ function NetWeeklyCard({ value, weeks, adminUserId, realtimeRevision, onOpenNet 
     }
   };
 
+  const savedBank = deposits[selectedWeek?.start];
+  let bankTotal = Number(savedBank?.amount ?? 0);
+  if (bankDirty || savedBank?.vehicle_amounts) {
+    try { bankTotal = parseWeeklyBankAmounts(bankDrafts).amount; } catch { bankTotal = null; }
+  }
   const shortDate = (dateKey) => new Date(`${dateKey}T12:00:00Z`).toLocaleDateString("es-ES", { day: "numeric", month: "short", timeZone: "UTC" });
   const weeklyDetails = <div className={`net-weekly-card__details${weeklyExpanded ? " net-weekly-card__details--expanded" : ""}`} onClick={(event) => {
-    if (!weeklyExpanded && window.matchMedia("(max-width: 520px)").matches && !event.target.closest(".net-weekly-card__bank")) setWeeklyExpanded(true);
+    if (!weeklyExpanded && !event.target.closest(".net-weekly-card__bank")) setWeeklyExpanded(true);
   }}>
-    <div className="net-weekly-card__section-title"><button type="button" onClick={() => { if (window.matchMedia("(max-width: 520px)").matches) setWeeklyExpanded(true); }} aria-label="Ampliar cobros semanales"><strong>COBROS SEMANALES</strong></button><span>De lunes a domingo</span></div>
+    <div className="net-weekly-card__section-title"><button type="button" onClick={() => setWeeklyExpanded(true)} aria-label="Ampliar cobros semanales"><strong>COBROS SEMANALES</strong></button><span>De lunes a domingo</span></div>
     <div className="net-weekly-card__weeks" role="group" aria-label="Semanas de lunes a domingo">
-      {weeks.map((week, index) => <button type="button" key={week.start} className={selectedWeek?.start === week.start ? "is-active" : ""} aria-pressed={selectedWeek?.start === week.start} aria-label={`Semana ${index + 1}: ${shortDate(week.start)} a ${shortDate(week.end)}`} onClick={() => setSelectedWeekStart(week.start)}>{shortDate(week.start)}–{shortDate(week.end)}</button>)}
+      {weeks.map((week, index) => <button type="button" disabled={saving} key={week.start} className={selectedWeek?.start === week.start ? "is-active" : ""} aria-pressed={selectedWeek?.start === week.start} aria-label={`Semana ${index + 1}: ${shortDate(week.start)} a ${shortDate(week.end)}`} onClick={() => setSelectedWeekStart(week.start)}>{shortDate(week.start)}–{shortDate(week.end)}</button>)}
     </div>
     <div className="net-weekly-card__amounts">
-      <div className="net-weekly-card__amount"><span><small>COBRADO EN EFECTIVO</small><strong>{formatCurrency(selectedWeek?.cash ?? 0)}</strong></span>{weeklyExpanded && <ul>{selectedWeek?.vehicles?.map((vehicle) => <li key={vehicle.plate}><span>{vehicle.plate}</span><strong>{formatCurrency(vehicle.cash)}</strong></li>)}</ul>}</div>
-      <div className="net-weekly-card__amount"><span><small>COBRADO EN APP</small><strong>{formatCurrency(selectedWeek?.app ?? 0)}</strong></span>{weeklyExpanded && <ul>{selectedWeek?.vehicles?.map((vehicle) => <li key={vehicle.plate}><span>{vehicle.plate}</span><strong>{formatCurrency(vehicle.app)}</strong></li>)}</ul>}</div>
+      <div className="net-weekly-card__amount"><span><small>COBRADO EN EFECTIVO</small><strong>{formatCurrency(selectedWeek?.cash ?? 0)}</strong></span></div>
+      <div className="net-weekly-card__amount"><span><small>COBRADO EN APP</small><strong>{formatCurrency(selectedWeek?.app ?? 0)}</strong></span></div>
     </div>
+    {weeklyExpanded && <div className="net-weekly-card__vehicle-bank" role="table" aria-label="Cobros e ingresos bancarios por coche"><div role="row" className="net-weekly-card__vehicle-bank-head"><span role="columnheader">Coche</span><span role="columnheader">Efectivo</span><span role="columnheader">En APP</span><span role="columnheader">Ingresado en banco</span></div>{weeklyBankVehiclePlates.map((plate) => {
+      const vehicle = selectedWeek?.vehicles?.find((item) => item.plate === plate);
+      return <div role="row" key={plate}><strong role="cell">{plate}</strong><span role="cell">{formatCurrency(vehicle?.cash ?? 0)}</span><span role="cell">{formatCurrency(vehicle?.app ?? 0)}</span><span role="cell"><input aria-label={`Ingresado en banco de ${plate}`} type="text" inputMode="decimal" disabled={saving} value={bankDrafts[plate] ?? ""} placeholder="0,00 €" onChange={(event) => { setBankDirty(true); setBankDrafts((current) => ({ ...current, [plate]: event.target.value })); setMessage(""); }} onKeyDown={(event) => { if (event.key === "Enter") saveBankDeposit(); }} /></span></div>;
+    })}</div>}
+    {weeklyExpanded && savedBank && !savedBank.vehicle_amounts && <small className="net-weekly-card__message">Total anterior: {formatCurrency(Number(savedBank.amount))}. Pendiente de repartir por coche; al guardar se sustituirá por la suma del desglose.</small>}
     <div className="net-weekly-card__bank">
-      <label htmlFor="weekly-bank-amount">INGRESADO EN BANCO</label>
-      <input id="weekly-bank-amount" type="text" inputMode="decimal" value={bankDraft} placeholder="0,00 €" onChange={(event) => setBankDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveBankDeposit(); }} />
-      <button type="button" onClick={saveBankDeposit} disabled={saving}>{saving ? "Guardando…" : "Guardar"}</button>
+      <strong>TOTAL INGRESADO EN BANCO</strong>
+      <output aria-label="Total ingresado en banco">{bankTotal === null ? "Revisa los importes" : formatCurrency(bankTotal)}</output>
+      <button type="button" onClick={() => weeklyExpanded ? saveBankDeposit() : setWeeklyExpanded(true)} disabled={saving || (weeklyExpanded && (!bankDirty || bankTotal === null))}>{saving ? "Guardando…" : weeklyExpanded ? "Guardar" : "Editar"}</button>
     </div>
     {message && <small className="net-weekly-card__message" role="status">{message}</small>}
   </div>;

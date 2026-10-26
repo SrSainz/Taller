@@ -3,6 +3,7 @@ import { getDocumentMimeType, prepareDocumentFile, validateDocumentFile } from "
 import { hashDocumentFile } from "./transactions.js";
 import { createStorageThumbnail, thumbnailPath } from "./storageThumbnails.js";
 import { archiveDocumentAttachments, getSupportingDocuments, maxMaintenanceDocuments } from "./documentAttachments.js";
+import { parseWeeklyBankAmounts } from "./weeklyBankAmounts.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
@@ -644,17 +645,18 @@ export const listCommissionReports = async ({ periodStart = "" } = {}) => {
 export const listWeeklyBankDeposits = async (firstWeekStart, lastWeekStart) => {
   if (!supabase) return { data: [], error: null };
   return supabase.from("weekly_bank_deposits")
-    .select("week_start, amount")
+    .select("week_start, amount, vehicle_amounts")
     .gte("week_start", firstWeekStart)
     .lte("week_start", lastWeekStart)
     .order("week_start");
 };
 
-export const upsertWeeklyBankDeposit = async ({ weekStart, amount, createdBy }) => {
+export const upsertWeeklyBankDeposit = async ({ weekStart, vehicleAmounts, createdBy }) => {
   if (!supabase || !weekStart || !createdBy) throw new Error("Faltan datos para guardar el ingreso bancario.");
+  const { amount, vehicleAmounts: normalizedAmounts } = parseWeeklyBankAmounts(vehicleAmounts);
   const { data, error } = await supabase.from("weekly_bank_deposits")
-    .upsert({ week_start: weekStart, amount: Number(amount), created_by: createdBy, updated_at: new Date().toISOString() }, { onConflict: "week_start" })
-    .select("week_start, amount")
+    .upsert({ week_start: weekStart, amount, vehicle_amounts: normalizedAmounts, created_by: createdBy, updated_at: new Date().toISOString() }, { onConflict: "week_start" })
+    .select("week_start, amount, vehicle_amounts")
     .single();
   if (error) throw error;
   return data;
