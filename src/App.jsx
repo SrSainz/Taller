@@ -89,7 +89,7 @@ import { getManualNetExpenseEntries } from "./manualNetExpenseDetails";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
 import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, isInstrumentClusterVehicle, isOilAndFilterMaintenance } from "./vehicleServiceTracking";
-import { formatMaintenanceItvDate, maintenanceVehicleDetailsStorageKey, normalizeMaintenanceVehicleDetails, normalizeMaintenanceVehicleDetailsMap } from "./maintenanceVehicleDetails";
+import { formatMaintenanceItvDate, maintenanceVehicleDetailsStorageKey, normalizeMaintenanceVehicleDetails, normalizeMaintenanceVehicleDetailsMap, resolveMaintenanceVehicleDetails } from "./maintenanceVehicleDetails";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { getWeeksTouchingMonth, sumWeeklyCollections } from "./weeklyCollections";
 import { funesmotorsportDocuments } from "./data/funesmotorsportSummary";
@@ -9686,17 +9686,20 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
     return { item, invoice, details, key: getMaintenanceRecordKey(item, index) };
   });
   const openVehicleDetailsEditor = (vehicle) => {
-    const current = vehicleDetails[vehicle.plate] ?? {};
+    const current = resolveMaintenanceVehicleDetails(vehicle, vehicleDetails[vehicle.plate]);
     setVehicleDetailsDraft({
       instrumentKm: current.instrumentKm ?? "",
+      realKm: current.realKm ?? "",
       remainingKm: current.remainingKm ?? "",
+      waterPump: current.waterPump ?? "", timingBelt: current.timingBelt ?? "", sparkPlugs: current.sparkPlugs ?? "",
       itvDate: current.itvDate ?? "",
     });
     setEditingVehiclePlate(vehicle.plate);
   };
   const saveVehicleDetails = (event) => {
     event.preventDefault();
-    const details = normalizeMaintenanceVehicleDetails(editingVehiclePlate, vehicleDetailsDraft);
+    const tracking = vehicles.find((vehicle) => vehicle.plate === editingVehiclePlate)?.serviceTracking;
+    const details = normalizeMaintenanceVehicleDetails(editingVehiclePlate, { ...vehicleDetailsDraft, trackingInstrumentKm: tracking?.instrumentKm, trackingServiceTargetKm: tracking?.nextServiceInstrumentKm });
     if (!details) return;
     const next = { ...vehicleDetails, [editingVehiclePlate]: details };
     try { window.localStorage.setItem(maintenanceVehicleDetailsStorageKey, JSON.stringify(next)); }
@@ -9930,25 +9933,27 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
           const reportCounts = getMaintenanceReportCounts(vehicleReports);
           const pendingReports = reportCounts.pending;
           const isParticular = vehicle.use === "Particular";
-          const details = vehicleDetails[vehicle.plate] ?? {};
-          const instrumentKm = vehicle.serviceTracking?.instrumentKm ?? details.instrumentKm;
-          const remainingKm = vehicle.serviceTracking?.remainingKm ?? details.remainingKm;
+          const details = resolveMaintenanceVehicleDetails(vehicle, vehicleDetails[vehicle.plate]);
+          const instrumentKm = details.instrumentKm;
+          const remainingKm = details.remainingKm;
           return (
             <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}${pendingReports ? " has-pending" : ""} has-service-tracking`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
-              <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => selectWorkshopVehicle(vehicle.plate)} aria-label={`Abrir historial de ${vehicle.plate}, ${vehicle.model}`} aria-current={isActive ? "true" : undefined}>
+              <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => { setWorkshopPlate(vehicle.plate); openVehicleDetailsEditor(vehicle); }} aria-label={`Editar datos de mantenimiento de ${vehicle.plate}`} aria-haspopup="dialog" aria-current={isActive ? "true" : undefined}>
                 <span className="maintenance-vehicle-number">{index + 1}</span>
                 <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
                 <span className="maintenance-vehicle-identity"><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" /></span>
                 <span className="maintenance-vehicle-km-tracking">
                   <strong>Km cuadro: {instrumentKm == null ? "—" : formatKm(instrumentKm)}</strong>
-                  {!isParticular && <strong>Km reales: {formatKm(vehicle.serviceTracking.realKm)}</strong>}
+                  {!isParticular && <strong>Km reales: {details.realKm == null ? "—" : formatKm(details.realKm)}</strong>}
                   <strong>Revisión: {remainingKm == null ? "—" : formatKm(remainingKm)}</strong>
+                  <strong title={vehicle.plate === "9401 LTG" ? details.timingBelt : details.waterPump}>{vehicle.plate === "9401 LTG" ? "Correa" : "Bomba del agua"}: {(vehicle.plate === "9401 LTG" ? details.timingBelt : details.waterPump) || "—"}</strong>
+                  <strong title={details.sparkPlugs}>Bujías: {details.sparkPlugs || "—"}</strong>
                   <strong>ITV: {formatMaintenanceItvDate(details.itvDate)}</strong>
                 </span>
                 <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
                 <span className="maintenance-vehicle-latest"><small>Última actuación</small><strong>{latest ? formatMaintenanceDate(latest) : "Sin registros"}</strong><span>{latest?.concept ?? "—"}</span></span>
               </button>
-              <button type="button" className="maintenance-vehicle-edit" onClick={() => openVehicleDetailsEditor(vehicle)} aria-label={`Editar ${isParticular ? "kilómetros e ITV" : "ITV"} de ${vehicle.plate}`} title={`Editar datos de ${vehicle.plate}`}><IconPencil size={17} /></button>
+              <button type="button" className="maintenance-vehicle-edit" onClick={() => openVehicleDetailsEditor(vehicle)} aria-label={`Editar kilómetros e ITV de ${vehicle.plate}`} title={`Editar datos de ${vehicle.plate}`}><IconPencil size={17} /></button>
               <button type="button" className={`maintenance-pending-review-button${pendingReports ? " has-pending" : ""}${reportCounts.total ? " has-history" : ""}`} onClick={() => { void openMaintenanceReports(vehicle.plate); }} aria-haspopup="dialog" aria-busy={reportsRefreshing && reportsPlate === vehicle.plate} aria-label={`Abrir histórico de pendientes de revisión de ${vehicle.plate}${pendingReports ? `, ${pendingReports} pendientes` : ""}${reportCounts.total ? `, ${reportCounts.total} avisos registrados` : ""}`} title={reportCounts.total ? `${reportCounts.total} aviso${reportCounts.total === 1 ? "" : "s"} registrado${reportCounts.total === 1 ? "" : "s"}. Pulsa para consultar el histórico.` : "Abrir histórico de pendientes de revisión, aunque todavía esté vacío"}><IconAlertTriangle size={16} /><span>PENDIENTE DE REVISIÓN</span><small>{reportCounts.total > 0 ? `HISTÓRICO ${reportCounts.total}` : "VER HISTÓRICO"}</small>{pendingReports > 0 && <b>{pendingReports}</b>}</button>
             </div>
           );
@@ -9956,12 +9961,18 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
       </nav>
       {editingVehiclePlate && createPortal(<div className="maintenance-vehicle-editor-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingVehiclePlate(""); }}>
         <form className="maintenance-vehicle-editor" role="dialog" aria-modal="true" aria-labelledby="maintenance-vehicle-editor-title" onSubmit={saveVehicleDetails}>
-          <header><h2 id="maintenance-vehicle-editor-title">Datos de {editingVehiclePlate}</h2><button type="button" onClick={() => setEditingVehiclePlate("")} aria-label="Cerrar editor"><IconX size={20} /></button></header>
-          {!["5043 MLC", "5750 MJV", "5754 MJV"].includes(editingVehiclePlate) && <>
+          <header><h2 id="maintenance-vehicle-editor-title">Datos de {editingVehiclePlate}</h2><button type="button" autoFocus onClick={() => setEditingVehiclePlate("")} aria-label="Cerrar editor"><IconX size={20} /></button></header>
+          <div className="maintenance-vehicle-editor__fields">
             <label>Km cuadro<input type="number" min="0" step="1" inputMode="numeric" value={vehicleDetailsDraft.instrumentKm} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, instrumentKm: event.target.value }))} placeholder="Introducir km del cuadro" /></label>
+            {["5043 MLC", "5750 MJV", "5754 MJV"].includes(editingVehiclePlate) && <label>Km reales<input type="number" min="0" step="1" inputMode="numeric" value={vehicleDetailsDraft.realKm} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, realKm: event.target.value }))} placeholder="Kilómetros reales" /></label>}
             <label>Revisión (km restantes)<input type="number" min="0" step="1" inputMode="numeric" value={vehicleDetailsDraft.remainingKm} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, remainingKm: event.target.value }))} placeholder="Introducir km hasta la revisión" /></label>
-          </>}
+            {editingVehiclePlate === "9401 LTG"
+              ? <label>Correa<input type="text" maxLength={60} value={vehicleDetailsDraft.timingBelt} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, timingBelt: event.target.value }))} placeholder="Kilómetros, fecha o nota" /></label>
+              : <label>Bomba del agua<input type="text" maxLength={60} value={vehicleDetailsDraft.waterPump} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, waterPump: event.target.value }))} placeholder="Kilómetros, fecha o nota" /></label>}
+            <label>Bujías<input type="text" maxLength={60} value={vehicleDetailsDraft.sparkPlugs} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, sparkPlugs: event.target.value }))} placeholder="Kilómetros, fecha o nota" /></label>
           <label>ITV<input type="date" value={vehicleDetailsDraft.itvDate} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, itvDate: event.target.value }))} /></label>
+          </div>
+          <small>Deja un kilometraje vacío para usar el dato automático disponible. Las correcciones se guardan en este dispositivo.</small>
           <footer><button type="button" className="secondary-button" onClick={() => setEditingVehiclePlate("")}>Cancelar</button><button type="submit" className="primary-button">Guardar</button></footer>
         </form>
       </div>, document.body)}

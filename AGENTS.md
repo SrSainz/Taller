@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Pulsar una tarjeta de Mantenimiento selecciona el coche y abre un editor compacto de sus datos (incluidos los kilómetros de los Toyota, Revisión a cero e ITV). Entre Revisión e ITV se muestran Bomba del agua y Bujías; en el Peugeot se usa Correa en vez de Bomba del agua. Estos nuevos campos admiten kilómetros, fecha o nota. Las correcciones se conservan por matrícula en el dispositivo, sin modificar lecturas ni facturas originales; los kilómetros profesionales siguen evolucionando desde el punto corregido.
+
 - Las fichas de comisión de todos los conductores muestran solo los tramos alcanzados, nunca la fila “Siguiente”. Los botones Cerrar e Imprimir permanecen siempre visibles fuera del contenido desplazable, por encima de la navegación inferior y del área segura del móvil; la impresión A4 conserva todo el contenido.
 
 - Una actuación de Mantenimiento admite varios documentos: selección múltiple de archivos, fotos sucesivas y nuevos adjuntos desde “Abrir factura”. Los adjuntos se archivan privados con la misma fecha y vehículo, las fotos en WebP y los PDF sin conversión; se revisa un único importe total y añadir adjuntos nunca crea otro gasto. Se conserva la consulta individual de todos los archivos.

@@ -19,8 +19,9 @@ test("mantenimiento oculta el nombre textual de la marca y destaca la matrícula
 test("los cinco coches comparten matrícula y distribución; las métricas automáticas de Toyota se conservan", () => {
   assert.match(source, /has-service-tracking`\}/);
   assert.match(source, /maintenance-vehicle-identity"><VehiclePlateLabel[^>]*maintenance-vehicle-plate/);
-  assert.match(source, /vehicle\.serviceTracking\?\.instrumentKm \?\? details\.instrumentKm/);
-  assert.match(source, /vehicle\.serviceTracking\?\.remainingKm \?\? details\.remainingKm/);
+  assert.match(source, /resolveMaintenanceVehicleDetails\(vehicle, vehicleDetails\[vehicle\.plate\]\)/);
+  assert.match(source, /const instrumentKm = details\.instrumentKm/);
+  assert.match(source, /const remainingKm = details\.remainingKm/);
   assert.match(source, /Revisión: \{remainingKm == null \? "—" : formatKm\(remainingKm\)\}/);
   assert.match(source, /ITV: \{formatMaintenanceItvDate\(details\.itvDate\)\}/);
   assert.match(css, /has-service-tracking \.maintenance-vehicle-banner\s*\{[^}]*grid-template-areas:[^}]*"number brand plate type latest"[^}]*"number brand tracking type latest"/s);
