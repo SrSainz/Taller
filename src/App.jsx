@@ -9689,6 +9689,24 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
     return () => window.removeEventListener(maintenanceVehicleDetailsChangedEvent, refreshDetails);
   }, []);
   const [editingVehiclePlate, setEditingVehiclePlate] = useState("");
+  const vehiclePressRef = useRef({ timer: null, held: false, x: 0, y: 0 });
+  useEffect(() => () => window.clearTimeout(vehiclePressRef.current.timer), []);
+  const cancelVehiclePress = () => {
+    window.clearTimeout(vehiclePressRef.current.timer);
+    vehiclePressRef.current.timer = null;
+  };
+  const startVehiclePress = (event, vehicle) => {
+    if (!event.isPrimary || event.button !== 0) return;
+    cancelVehiclePress();
+    vehiclePressRef.current = { timer: null, held: false, x: event.clientX, y: event.clientY };
+    vehiclePressRef.current.timer = window.setTimeout(() => {
+      vehiclePressRef.current.held = true;
+      openVehicleDetailsEditor(vehicle);
+    }, 650);
+  };
+  const moveVehiclePress = (event) => {
+    if (Math.hypot(event.clientX - vehiclePressRef.current.x, event.clientY - vehiclePressRef.current.y) > 12) cancelVehiclePress();
+  };
   const [vehicleDetailsDraft, setVehicleDetailsDraft] = useState({ instrumentKm: "", remainingKm: "", itvDate: "" });
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");
   const [openConceptKey, setOpenConceptKey] = useState("");
@@ -9963,7 +9981,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
           const remainingKm = details.remainingKm;
           return (
             <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}${pendingReports ? " has-pending" : ""} has-service-tracking`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
-              <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onClick={() => { setWorkshopPlate(vehicle.plate); openVehicleDetailsEditor(vehicle); }} aria-label={`Editar datos de mantenimiento de ${vehicle.plate}`} aria-haspopup="dialog" aria-current={isActive ? "true" : undefined}>
+              <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onPointerDown={(event) => startVehiclePress(event, vehicle)} onPointerMove={moveVehiclePress} onPointerUp={cancelVehiclePress} onPointerCancel={cancelVehiclePress} onPointerLeave={cancelVehiclePress} onContextMenu={(event) => event.preventDefault()} onClick={(event) => { cancelVehiclePress(); if (vehiclePressRef.current.held && event.detail !== 0) { vehiclePressRef.current.held = false; return; } selectWorkshopVehicle(vehicle.plate); }} aria-label={`Ver mantenimientos de ${vehicle.plate}`} title="Pulsa para ver el historial; mantén pulsado para editar" aria-current={isActive ? "true" : undefined}>
                 <span className="maintenance-vehicle-number">{index + 1}</span>
                 <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
                 <span className="maintenance-vehicle-identity"><VehiclePlateLabel vehicleOrPlate={vehicle} className="maintenance-vehicle-plate" /></span>

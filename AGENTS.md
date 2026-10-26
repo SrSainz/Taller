@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- En las cinco tarjetas de Mantenimiento, una pulsación normal selecciona el vehículo y baja a su historial. Una pulsación larga abre el editor de datos sin navegar al historial; cancelar o desplazar el gesto no abre el editor. El lápiz conserva el acceso directo accesible a la edición.
+
 - Al guardar una factura de Mantenimiento que mencione mantenimiento, revisión, aceite o filtros, ofrecer restablecer los kilómetros de revisión e indicar el intervalo deseado (incluido cero); aplicar el cambio únicamente tras guardar correctamente y aceptar expresamente.
 - En el resumen del conductor, Viajes aparece a la derecha de Horas dentro de la misma tarjeta y suma las capturas guardadas del mes completo, incluidos meses anteriores. Las capturas sin dato de viajes se señalan como pendientes y no se inventan sus valores.
 
