@@ -10849,6 +10849,9 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .driver-performance__metric > span { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .driver-performance__metric small { color: #405d70; font-size: 13px; line-height: 1.1; }
 .driver-performance__metric strong { color: var(--text); font-size: clamp(20px, 2vw, 28px); font-weight: 850; line-height: 1.1; white-space: nowrap; }
+.driver-performance__metric--hours-trips { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.driver-performance__metric--hours-trips > span + span { align-self: stretch; justify-content: center; padding-left: 10px; border-left: 1px solid #cedfe9; }
+.driver-performance__metric--hours-trips .driver-performance__trips-warning { font-size: 10px; color: #9c4514; line-height: 1.25; }
 .driver-performance__metric--breakdown { grid-column: span 2; align-items: flex-start; }
 .driver-performance__metric--breakdown > svg { margin-top: 7px; }
 .driver-performance__metric--breakdown > span { width: 100%; flex: 1; }

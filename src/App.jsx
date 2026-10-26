@@ -85,10 +85,11 @@ import ManualNetExpenseDetails from "./ManualNetExpenseDetails.jsx";
 import MaintenanceFilePicker from "./MaintenanceFilePicker.jsx";
 import MaintenanceInvoiceAttachments from "./MaintenanceInvoiceAttachments.jsx";
 import { maxMaintenanceDocuments } from "./documentAttachments.js";
+import { maintenanceVehicleDetailsChangedEvent, requestServiceReviewReset } from "./serviceReviewReset.js";
 import { getManualNetExpenseEntries } from "./manualNetExpenseDetails";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
-import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, isInstrumentClusterVehicle, isOilAndFilterMaintenance } from "./vehicleServiceTracking";
+import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, isInstrumentClusterVehicle } from "./vehicleServiceTracking";
 import { formatMaintenanceItvDate, maintenanceVehicleDetailsStorageKey, normalizeMaintenanceVehicleDetails, normalizeMaintenanceVehicleDetailsMap, resolveMaintenanceVehicleDetails } from "./maintenanceVehicleDetails";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { getWeeksTouchingMonth, sumWeeklyCollections } from "./weeklyCollections";
@@ -1211,12 +1212,14 @@ const getDriverBillingDocumentStats = (document) => {
       ? Math.max(0, getDriverDocumentNumber(totalValue) - tips)
       : getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["billing", "amount"]));
   const refunds = getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["refunds", "reimbursements", "reembolsos"]));
+  const rawTrips = getDriverDocumentFieldValue(fields, ["trips", "journeys", "viajes"]);
   const total = ((hasComputedNetAmount || billingAmounts.hasNetAmount) ? Number((netAmount + tips).toFixed(2)) : totalValue !== "" ? getDriverDocumentNumber(totalValue) : netAmount + tips) + refunds;
   return {
     dateKey: getDriverDocumentDateKey(document),
     connection,
     connectionHours: parseConnectionHours(connection),
     trips: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["trips", "journeys", "viajes"])),
+    missingTripDocuments: rawTrips === "" || rawTrips == null ? 1 : 0,
     points: getDriverDocumentNumber(getDriverDocumentFieldValue(fields, ["points", "puntos"])),
     baseNetAmount: billingAmounts.baseNetAmount,
     netAmount,
@@ -1275,6 +1278,7 @@ function getDriverBillingStatsByDate(documents = [], driverId, entries = []) {
       connection: stats.connection || current.connection,
       connectionHours: Number((current.connectionHours + stats.connectionHours).toFixed(3)),
       trips: current.trips + stats.trips,
+      missingTripDocuments: (current.missingTripDocuments || 0) + stats.missingTripDocuments,
       points: current.points + stats.points,
       baseNetAmount: Number((current.baseNetAmount + stats.baseNetAmount).toFixed(2)),
       netAmount: Number((current.netAmount + stats.netAmount).toFixed(2)),
@@ -1307,7 +1311,7 @@ function getDriverBillingStatsByDate(documents = [], driverId, entries = []) {
       cashCollected: 0,
       hasBillingAmount: true,
     };
-    statsByDate.set(dateKey, applyDriverBillingOverride(current, entry));
+    statsByDate.set(dateKey, { ...applyDriverBillingOverride(current, entry), ...(Object.prototype.hasOwnProperty.call(override, "trips") ? { missingTripDocuments: 0 } : {}) });
   });
   return statsByDate;
 }
@@ -3485,10 +3489,16 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
   const savePhotoInvoiceCentral = async (invoice) => {
     const { file, ...rawInvoice } = invoice;
     const localInvoice = { ...rawInvoice, plate: canonicalizeVehiclePlate(rawInvoice.plate) };
+    let resetChoice;
+    try { resetChoice = requestServiceReviewReset({ recordType: "maintenance", fields: localInvoice, plate: localInvoice.plate, confirm: (message) => window.confirm(message), prompt: (message, value) => window.prompt(message, value) }); }
+    catch (error) { notify(error.message); return false; }
+    const serviceCounterMetadata = resetChoice?.serviceCounterReset && isInstrumentClusterVehicle(localInvoice.plate)
+      ? buildServiceCounterResetMetadata({ instrumentKm: getLatestInstrumentClusterKm(driverEntries, localInvoice.plate, documentRecords), vehiclePlate: localInvoice.plate, intervalKm: resetChoice.serviceIntervalKm })
+      : resetChoice || {};
     if (file && supabase && session.user?.id) {
       try {
         const fileHash = await hashDocumentFile(file);
-        const fields = { company: localInvoice.provider, invoiceNumber: localInvoice.id, serviceDate: localInvoice.dateIso, total: localInvoice.amount, netAmount: localInvoice.amount, concept: localInvoice.concept, expenseCategory: "Taller", vehicle: localInvoice.plate };
+        const fields = { company: localInvoice.provider, invoiceNumber: localInvoice.id, serviceDate: localInvoice.dateIso, total: localInvoice.amount, netAmount: localInvoice.amount, concept: localInvoice.concept, expenseCategory: "Taller", vehicle: localInvoice.plate, ...serviceCounterMetadata };
         const uploaded = await uploadDocumentRecord({ ownerId: session.user.id, category: "billing", vehiclePlate: localInvoice.plate, file, fileHash, documentDate: localInvoice.dateIso, extractedData: fields, overallConfidence: 96, status: "review" });
         const operations = operationsFromDocument({ category: "billing", fields, vehiclePlate: localInvoice.plate, fileHash, fallbackDate: localInvoice.dateIso });
         const result = await confirmDocumentTransactions(uploaded.id, operations);
@@ -3496,6 +3506,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         const normalizedUploaded = normalizeDocumentRecord(uploaded);
         setDocumentRecords((current) => [normalizedUploaded, ...current.filter((document) => document.id !== normalizedUploaded.id)]);
         await refreshAdminRecentData({ periodDateKey: localInvoice.dateIso });
+        applySavedServiceReviewReset(localInvoice.plate, resetChoice);
         return true;
       } catch (error) {
         const duplicate = error?.code === "23505" || error?.code === "DUPLICATE_DOCUMENT" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
@@ -3504,7 +3515,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         return false;
       }
     }
-    const localDocument = { ...localInvoice, id: localInvoice.id || `DOC-${Date.now()}`, category: "billing", vehicle_plate: localInvoice.plate, extracted_data: localInvoice, status: "review", created_at: new Date().toISOString() };
+    const localDocument = { ...localInvoice, id: localInvoice.id || `DOC-${Date.now()}`, category: "billing", vehicle_plate: localInvoice.plate, extracted_data: { ...localInvoice, ...serviceCounterMetadata }, status: "review", created_at: new Date().toISOString() };
     const operations = operationsFromDocument({ category: "billing", fields: { ...localInvoice, serviceDate: localInvoice.dateIso, total: localInvoice.amount, expenseCategory: "Taller", vehicle: localInvoice.plate }, vehiclePlate: localInvoice.plate, fallbackDate: localInvoice.dateIso });
     const result = addLocalDocumentTransactions(localDocument.id, operations);
     if (result.duplicate) {
@@ -3514,6 +3525,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     setPhotoInvoices((current) => [localInvoice, ...current.filter((item) => item.id !== localInvoice.id)]);
     const normalizedLocalDocument = normalizeDocumentRecord(localDocument);
     setDocumentRecords((current) => [normalizedLocalDocument, ...current.filter((document) => document.id !== normalizedLocalDocument.id)]);
+    applySavedServiceReviewReset(localInvoice.plate, resetChoice);
     return true;
   };
 
@@ -3524,6 +3536,16 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       [editKey]: { dateIso, km: Number(km), updatedAt: new Date().toISOString() },
     }));
     return true;
+  };
+
+  const applySavedServiceReviewReset = (plate, choice) => {
+    if (!choice?.serviceCounterReset) return;
+    try {
+      const stored = loadMaintenanceVehicleDetails();
+      stored[plate] = normalizeMaintenanceVehicleDetails(plate, { ...stored[plate], remainingKm: isInstrumentClusterVehicle(plate) ? null : choice.serviceIntervalKm });
+      window.localStorage.setItem(maintenanceVehicleDetailsStorageKey, JSON.stringify(stored));
+      window.dispatchEvent(new Event(maintenanceVehicleDetailsChangedEvent));
+    } catch { notify("Factura guardada, pero no se ha podido actualizar la corrección de revisión de este dispositivo."); }
   };
 
   const saveProcessedDocumentCentral = async (document) => {
@@ -3539,15 +3561,12 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     const vehiclePlate = canonicalizeVehiclePlate(assignedVehicle || savedDocument.vehiclePlate || fields.vehicle) || resolveVehiclePlate(fields.vehicle);
     const recordType = savedDocument.recordType || fields.recordType || "";
     const mileageOnly = ["daily-km", "partial-1", "total-km", "total", "odometer", "odometro", "kilometraje diario", "km diarios", "kilometraje total", "km acumulados"].includes(normalizeText(recordType));
-    const shouldOfferServiceCounterReset = isInstrumentClusterVehicle(vehiclePlate) && isOilAndFilterMaintenance({ recordType, fields });
-    const resetServiceCounter = shouldOfferServiceCounterReset
-      ? window.confirm("Se ha detectado una revisión de aceite y filtros. ¿Deseas restaurar el contador regresivo a 25.000 km para la próxima revisión?")
-      : false;
-    const serviceCounterMetadata = shouldOfferServiceCounterReset
-      ? resetServiceCounter
-        ? buildServiceCounterResetMetadata({ instrumentKm: Number(fields.odometerKm) || getLatestInstrumentClusterKm(driverEntries, vehiclePlate), vehiclePlate })
-        : { serviceCounterReset: false }
-      : {};
+    let resetChoice;
+    try { resetChoice = requestServiceReviewReset({ recordType, fields, plate: vehiclePlate, confirm: (message) => window.confirm(message), prompt: (message, value) => window.prompt(message, value) }); }
+    catch (error) { notify(error.message); return { ok: false, message: error.message }; }
+    const serviceCounterMetadata = resetChoice?.serviceCounterReset && isInstrumentClusterVehicle(vehiclePlate)
+      ? buildServiceCounterResetMetadata({ instrumentKm: Number(fields.odometerKm) || getLatestInstrumentClusterKm(driverEntries, vehiclePlate, documentRecords), vehiclePlate, intervalKm: resetChoice.serviceIntervalKm })
+      : resetChoice || {};
     const extractedData = { ...fields, ...serviceCounterMetadata, vehicle: vehiclePlate, ...(driverId ? { driverId } : {}), ...(recordType ? { recordType } : {}), source: savedDocument.source || "document-processing" };
     let cloudSaved = false;
     try {
@@ -3582,6 +3601,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       notify(message);
       return { ok: false, message };
     }
+    applySavedServiceReviewReset(vehiclePlate, resetChoice);
     setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
     notify(savedDocument.lowConfidence ? `Datos guardados${cloudSaved ? " en Supabase" : ""}; revisa los campos de baja confianza` : `Datos clasificados y guardados${cloudSaved ? " en Supabase" : ""} correctamente`);
     return { ok: true };
@@ -9036,7 +9056,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
           <button type="button" onClick={() => setSelectedDriverKey("")} aria-label={`Cerrar detalle de ${selectedDriver.driver}`}><IconChevronUp size={22} /></button>
         </header>
         <div className="driver-performance__grid">
-          <div className="driver-performance__metric" title="Horas de conexión acumuladas desde el día 1 hasta el día seleccionado"><span><small>Horas</small><strong>{runningTotalsToSelectedDay.hours.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</strong></span></div>
+          <div className="driver-performance__metric driver-performance__metric--hours-trips" aria-label="Horas y viajes del conductor"><span title="Horas de conexión acumuladas desde el día 1 hasta el día seleccionado"><small>Horas</small><strong>{runningTotalsToSelectedDay.hours.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</strong></span><span title={`Viajes del mes completo de ${reportMonths[reportMonth]} ${reportYear}`}><small>Viajes</small><strong>{performanceSummary.trips.toLocaleString("es-ES")}</strong>{performanceSummary.missingTripDocuments > 0 && <small className="driver-performance__trips-warning">{performanceSummary.missingTripDocuments} captura{performanceSummary.missingTripDocuments === 1 ? "" : "s"} sin dato</small>}</span></div>
           <div className="driver-performance__metric driver-performance__metric--billing"><span><small>Facturación</small><strong>{formatCurrency(selectedDriver.revenue)}</strong></span></div>
           <div className="driver-performance__metric driver-performance__metric--fuel" title="Consumo acumulado desde el día 1 hasta el día seleccionado"><span><small>Consumo</small><strong>{formatCurrency(runningTotalsToSelectedDay.fuelCost)}</strong></span></div>
           <div className="driver-performance__metric driver-performance__metric--efficiency" title="Media de cuatro indicadores: facturación por hora frente a 30 €/h, facturación por kilómetro frente a 0,80 €/km, litros por 100 km frente a 5 y gasto de combustible sobre facturación frente al 10 %. Cada indicador se limita al 100 %."><span><small>Eficacia</small><strong>{performanceSummary.efficiency === null ? "—" : `${performanceSummary.efficiency} %`}</strong><small>{performanceSummary.hours > 0 ? `${performanceSummary.billingPerHour.toLocaleString("es-ES", { maximumFractionDigits: 1 })} €/h` : "— €/h"} · {performanceSummary.billingPerKm == null ? "— €/km" : formatCostRate(performanceSummary.billingPerKm)}</small><small>{performanceSummary.litresPer100Km == null ? "— l/100" : `${performanceSummary.litresPer100Km.toLocaleString("es-ES", { maximumFractionDigits: 1 })} l/100`} · {performanceSummary.fuelCostShare == null ? "— %" : `${performanceSummary.fuelCostShare.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`} combustible</small></span></div>
@@ -9663,6 +9683,11 @@ function formatMaintenanceReportDate(value) {
 function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, maintenanceSearchSelection, maintenanceReports = [], driverProfiles = [], onSaveMaintenanceReport, onMarkMaintenanceReportReviewed, onOpenMaintenanceReports, onRefreshMaintenanceReports, onDeleteMaintenanceDocument }) {
   const [workshopPlate, setWorkshopPlate] = useState(initialPlate);
   const [vehicleDetails, setVehicleDetails] = useState(loadMaintenanceVehicleDetails);
+  useEffect(() => {
+    const refreshDetails = () => setVehicleDetails(loadMaintenanceVehicleDetails());
+    window.addEventListener(maintenanceVehicleDetailsChangedEvent, refreshDetails);
+    return () => window.removeEventListener(maintenanceVehicleDetailsChangedEvent, refreshDetails);
+  }, []);
   const [editingVehiclePlate, setEditingVehiclePlate] = useState("");
   const [vehicleDetailsDraft, setVehicleDetailsDraft] = useState({ instrumentKm: "", remainingKm: "", itvDate: "" });
   const [openMaintenanceKey, setOpenMaintenanceKey] = useState("");

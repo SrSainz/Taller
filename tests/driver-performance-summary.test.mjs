@@ -2,6 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getDriverPerformanceSummary } from "../src/driverPerformanceSummary.js";
 
+test("viajes suma el mes histórico completo y distingue capturas sin dato de viajes cero", () => {
+  const summary = getDriverPerformanceSummary({ calendarRows: [
+    { day: 1, billingStats: { trips: 18 } },
+    { day: 12, billingStats: { trips: 27, missingTripDocuments: 1 } },
+    { day: 26, billingStats: { trips: 0 } },
+    { day: 31, billingStats: { trips: 11, missingTripDocuments: 2 } },
+  ], daysInMonth: 31, year: 2026, month: 9 });
+  assert.equal(summary.trips, 56);
+  assert.equal(summary.missingTripDocuments, 3);
+  assert.equal(getDriverPerformanceSummary({}).trips, 0);
+});
+
 test("el resumen mensual relaciona días facturados, horas, consumo y facturación", () => {
   const summary = getDriverPerformanceSummary({
     calendarRows: [

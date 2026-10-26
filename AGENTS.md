@@ -1,5 +1,8 @@
 # Prototype Instructions
 
+- Al guardar una factura de Mantenimiento que mencione mantenimiento, revisión, aceite o filtros, ofrecer restablecer los kilómetros de revisión e indicar el intervalo deseado (incluido cero); aplicar el cambio únicamente tras guardar correctamente y aceptar expresamente.
+- En el resumen del conductor, Viajes aparece a la derecha de Horas dentro de la misma tarjeta y suma las capturas guardadas del mes completo, incluidos meses anteriores. Las capturas sin dato de viajes se señalan como pendientes y no se inventan sus valores.
+
 - Pulsar una tarjeta de Mantenimiento selecciona el coche y abre un editor compacto de sus datos (incluidos los kilómetros de los Toyota, Revisión a cero e ITV). Entre Revisión e ITV se muestran Bomba del agua y Bujías; en el Peugeot se usa Correa en vez de Bomba del agua. Estos nuevos campos admiten kilómetros, fecha o nota. Las correcciones se conservan por matrícula en el dispositivo, sin modificar lecturas ni facturas originales; los kilómetros profesionales siguen evolucionando desde el punto corregido.
 
 - Las fichas de comisión de todos los conductores muestran solo los tramos alcanzados, nunca la fila “Siguiente”. Los botones Cerrar e Imprimir permanecen siempre visibles fuera del contenido desplazable, por encima de la navegación inferior y del área segura del móvil; la impresión A4 conserva todo el contenido.

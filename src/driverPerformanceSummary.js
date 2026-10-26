@@ -19,6 +19,8 @@ const averageConsumption = (rows) => {
 export const getDriverPerformanceSummary = ({ calendarRows = [], billing = 0, fuelCost = 0, fuelLiters = 0, daysInMonth = 0, year, month }) => {
   // The calendar carries the validated daily billing reports and their saved corrections.
   const hours = calendarRows.reduce((sum, day) => sum + finitePositive(day?.billingStats?.connectionHours), 0);
+  const trips = calendarRows.reduce((sum, day) => sum + Math.floor(finitePositive(day?.billingStats?.trips)), 0);
+  const missingTripDocuments = calendarRows.reduce((sum, day) => sum + finitePositive(day?.billingStats?.missingTripDocuments), 0);
   const kilometres = calendarRows.reduce((sum, day) => sum + finitePositive(day?.km), 0);
   const monthlyBilling = finitePositive(billing);
   const monthlyFuel = finitePositive(fuelCost);
@@ -53,6 +55,7 @@ export const getDriverPerformanceSummary = ({ calendarRows = [], billing = 0, fu
   }
   return {
     hours: Number(hours.toFixed(1)),
+    trips, missingTripDocuments,
     kilometres,
     litresPer100Km: kilometres > 0 && monthlyLitres > 0 ? monthlyLitres / kilometres * 100 : null,
     billingPerKm: kilometres > 0 ? monthlyBilling / kilometres : null,

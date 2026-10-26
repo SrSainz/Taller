@@ -73,7 +73,7 @@ export const isOilAndFilterMaintenance = ({ recordType, fields = {} } = {}) => {
     ? fields.maintenanceItems.map((item) => typeof item === "string" ? item : item?.description ?? item?.concept).join(" ")
     : "";
   const description = normalizeText(`${fields.concept ?? ""} ${fields.expenseCategory ?? ""} ${itemText}`);
-  return description.includes("aceite") && description.includes("filtro");
+  return /\b(mantenimiento|revision|aceite|filtros?)\b/.test(description);
 };
 
 export const getNextServiceInstrumentKm = (documents = [], vehiclePlate = instrumentClusterVehiclePlate) => {
@@ -101,13 +101,13 @@ export const buildInstrumentClusterTracking = ({ entries = [], documents = [], v
   };
 };
 
-export const buildServiceCounterResetMetadata = ({ instrumentKm, vehiclePlate = instrumentClusterVehiclePlate } = {}) => {
+export const buildServiceCounterResetMetadata = ({ instrumentKm, vehiclePlate = instrumentClusterVehiclePlate, intervalKm = oilServiceIntervalKm } = {}) => {
   const config = getTrackingConfig(vehiclePlate);
   const currentInstrumentKm = asPositiveKm(instrumentKm) || config?.instrumentBaselineKm || instrumentClusterBaselineKm;
   return {
     serviceCounterReset: true,
-    serviceIntervalKm: oilServiceIntervalKm,
+    serviceIntervalKm: Math.max(0, Math.round(Number(intervalKm) || 0)),
     serviceResetInstrumentKm: currentInstrumentKm,
-    nextServiceInstrumentKm: currentInstrumentKm + oilServiceIntervalKm,
+    nextServiceInstrumentKm: currentInstrumentKm + Math.max(0, Math.round(Number(intervalKm) || 0)),
   };
 };
