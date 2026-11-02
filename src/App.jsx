@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import NetPayrollEditor from "./NetPayrollEditor.jsx";
+import { resolveMonthlyPayroll } from "./monthlyPayroll.js";
 import { createPortal, flushSync } from "react-dom";
 import {
   IconAlertTriangle,
@@ -806,10 +807,9 @@ export const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commissio
   const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
   const periodEnd = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(new Date(reportYear, reportMonth + 1, 0).getDate()).padStart(2, "0")}`;
   const periodPayrollFor = (row, driverIndex) => {
-    const stored = periodFinancials.find((item) => item.driver_id && row.driverId && item.driver_id === row.driverId && item.period_start === periodStart);
     const importedPayroll = getImportedPayrollForPeriod(row.driver, reportYear, reportMonth);
     const fixedPayroll = getNetMonthlyFixedPayroll(row.driver);
-    return Number(stored?.payroll ?? (importedPayroll > 0 ? importedPayroll : undefined) ?? fixedPayroll ?? netPayrollAmounts[vehicle.plate]?.[driverIndex] ?? 0) || 0;
+    return resolveMonthlyPayroll({ driverId: row.driverId, driver: row.driver, plate: vehicle.plate, periodStart, financials: periodFinancials, overrides: manualBreakdowns, fallback: (importedPayroll > 0 ? importedPayroll : undefined) ?? fixedPayroll ?? netPayrollAmounts[vehicle.plate]?.[driverIndex] ?? 0 });
   };
   const fuelBreakdown = vehicleDrivers.map((driver, driverIndex) => {
     const profile = vehicle.driverProfiles?.[driverIndex];
@@ -848,7 +848,7 @@ export const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commissio
     fuelBreakdown[fuelBreakdown.length - 1].amount = Number((fuelBreakdown[fuelBreakdown.length - 1].amount + adjustment).toFixed(2));
   }
   const resolvedFuelBreakdown = applyNetBreakdownOverrides("fuel", fuelBreakdown, manualBreakdowns);
-  const resolvedPayrollBreakdown = applyNetBreakdownOverrides("payroll", payrollBreakdown, manualBreakdowns);
+  const resolvedPayrollBreakdown = payrollBreakdown;
   const resolvedCommissionBreakdown = applyNetBreakdownOverrides("driver-commission", commissionBreakdown, manualBreakdowns);
   const resolvedSocialBreakdown = applyNetBreakdownOverrides("social-security", socialBreakdown, manualBreakdowns);
   return [
@@ -7444,13 +7444,19 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     return () => { active = false; };
   }, [adminUserId, netDetailOpen,realtimeRevision]);
   useEffect(()=>{let active=true;if(!adminUserId)return;listNetExpenseOverrides().then(({data,error})=>{if(!active)return;if(error)setNetExpenseLoadError("No se pudieron cargar las correcciones de Neto.");else setCloudNetBreakdowns(data??[]);}).catch(()=>{if(active)setNetExpenseLoadError("No se pudieron cargar las correcciones de Neto.");});return()=>{active=false;};},[adminUserId,netDetailOpen,realtimeRevision]);
-  const cloudBreakdowns=cloudNetBreakdowns.map(item=>({id:item.id,periodKey:item.period_key,plate:item.vehicle_plate,expenseKey:item.expense_key,breakdownKey:item.breakdown_key,driverLabel:item.driver_label,concept:item.concept,amount:Number(item.amount),date:item.expense_date}));
+  const cloudBreakdowns=cloudNetBreakdowns.map(item=>({id:item.id,periodKey:item.period_key,plate:item.vehicle_plate,expenseKey:item.expense_key,breakdownKey:item.breakdown_key,driverLabel:item.driver_label,concept:item.concept,amount:Number(item.amount),date:item.expense_date,updatedAt:item.updated_at}));
   const editNetExpense = async(id,changes)=>{
     const original=cloudNetExpenses.find(item=>item.id===id);
     if(original){const saved=await updateNetExpense(original,changes);setCloudNetExpenses(current=>current.map(item=>item.id===id?saved:item));}
     else{if(!manualNetExpenses.some(item=>item.id===id))throw new Error("El gasto ya no está disponible. Vuelve a abrir Neto.");setManualNetExpenses(current=>current.map(item=>item.id===id?{...item,...changes}:item));}
   };
   const saveNetBreakdown = async(values)=>{
+    if (values.expenseKey === "payroll" && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(values.breakdownKey)) {
+      const [year, month] = values.periodKey.split("-").map(Number);
+      const saved = await upsertDriverPeriodFinancial({ driverId: values.breakdownKey, periodStart: `${year}-${String(month + 1).padStart(2, "0")}-01`, payroll: values.amount, createdBy: adminUserId });
+      setPeriodFinancials((current) => [...current.filter((row) => !(row.driver_id === saved.driver_id && row.period_start === saved.period_start)), saved]);
+      return;
+    }
     const original=cloudNetBreakdowns.find(item=>item.period_key===values.periodKey&&item.vehicle_plate===values.plate&&item.expense_key===values.expenseKey&&item.breakdown_key===values.breakdownKey);
     const saved=await saveNetExpenseOverride({...values,createdBy:adminUserId},original);
     setCloudNetBreakdowns(current=>[saved,...current.filter(item=>item.id!==saved.id)]);
@@ -7495,9 +7501,8 @@ function FuelView({ vehicles, driverEntries = [], transactions = [], documents =
     if (!supabase) return undefined;
     const shouldRefresh = !realtimeTable || ["driver_period_financials", "manual"].includes(realtimeTable) || periodFinancialsPeriodRef.current !== periodStart;
     if (!shouldRefresh) return undefined;
-    periodFinancialsPeriodRef.current = periodStart;
     listDriverPeriodFinancials(periodStart)
-      .then(({ data, error }) => { if (mounted && !error) setPeriodFinancials(data ?? []); })
+      .then(({ data, error }) => { if (mounted && !error) { periodFinancialsPeriodRef.current = periodStart; setPeriodFinancials(data ?? []); } })
       .catch(() => { if (mounted) setPeriodFinancials([]); });
     return () => { mounted = false; };
   }, [periodStart, realtimeRevision, realtimeTable]);
@@ -8632,18 +8637,16 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
     if (!supabase) return undefined;
     const shouldRefresh = !realtimeTable || ["driver_period_financials", "manual"].includes(realtimeTable) || periodFinancialsPeriodRef.current !== periodStart;
     if (!shouldRefresh) return undefined;
-    periodFinancialsPeriodRef.current = periodStart;
     listDriverPeriodFinancials(periodStart)
-      .then(({ data, error }) => { if (mounted && !error) setPeriodFinancials(data ?? []); })
+      .then(({ data, error }) => { if (mounted && !error) { periodFinancialsPeriodRef.current = periodStart; setPeriodFinancials(data ?? []); } })
       .catch(() => { if (mounted) setPeriodFinancials([]); });
     return () => { mounted = false; };
   }, [periodStart, realtimeRevision, realtimeTable]);
   const getDriverPayroll = useCallback((row) => {
     if (!row) return 0;
-    const stored = periodFinancials.find((item) => item.driver_id && row.driverId && item.driver_id === row.driverId && item.period_start === periodStart);
     const imported = getImportedPayrollForPeriod(row.driver, reportYear, reportMonth);
-    return Number(stored?.payroll ?? (imported > 0 ? imported : undefined) ?? getNetMonthlyFixedPayroll(row.driver) ?? 0) || 0;
-  }, [periodFinancials, periodStart, reportMonth, reportYear]);
+    return resolveMonthlyPayroll({ driverId: row.driverId, driver: row.driver, plate: row.plate, periodStart, financials: periodFinancials, overrides: [...archivedNetBreakdowns, ...loadManualNetBreakdowns()], fallback: (imported > 0 ? imported : undefined) ?? getNetMonthlyFixedPayroll(row.driver) ?? 0 });
+  }, [periodFinancials, periodStart, reportMonth, reportYear, archivedNetBreakdowns]);
   const commissionPayroll = getDriverPayroll(commissionDriver);
   const commissionCalculation = useMemo(() => {
     if (!commissionDriver) return null;
@@ -8715,7 +8718,7 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const vehicleCostMetrics = useMemo(() => {
     const periodKey = `${reportYear}-${reportMonth}`;
     const manualExpenses = loadManualNetExpenses();
-    const manualBreakdowns = [...archivedNetBreakdowns.map(item=>({id:item.id,periodKey:item.period_key,plate:item.vehicle_plate,expenseKey:item.expense_key,breakdownKey:item.breakdown_key,driverLabel:item.driver_label,concept:item.concept,amount:Number(item.amount),date:item.expense_date})),...loadManualNetBreakdowns()];
+    const manualBreakdowns = [...archivedNetBreakdowns.map(item=>({id:item.id,periodKey:item.period_key,plate:item.vehicle_plate,expenseKey:item.expense_key,breakdownKey:item.breakdown_key,driverLabel:item.driver_label,concept:item.concept,amount:Number(item.amount),date:item.expense_date,updatedAt:item.updated_at})),...loadManualNetBreakdowns()];
     return professionalVehicles.map((vehicle) => {
       const rows = driverRows.filter((row) => row.plate === vehicle.plate);
       const billing = rows.reduce((sum, row) => sum + row.revenue, 0);
@@ -10432,6 +10435,15 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
   const reportYear = 2026;
   const periodFactor = getReportPeriodFactor(reportMonth, reportYear);
   const periodStart = `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-01`;
+  const [payrollSources, setPayrollSources] = useState({ financials: [], overrides: [] });
+  useEffect(() => {
+    let active = true;
+    Promise.all([listDriverPeriodFinancials(periodStart), listNetExpenseOverrides()]).then(([financials, overrides]) => {
+      if (active && !financials.error && !overrides.error) setPayrollSources({ financials: financials.data ?? [], overrides: overrides.data ?? [] });
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [periodStart, vehicle.plate]);
+  const payrollForDriver = (driver) => resolveMonthlyPayroll({ driverId: vehicle.driverProfiles?.find((profile) => normalizeText(profile.full_name) === normalizeText(driver))?.id, driver, plate: vehicle.plate, periodStart, ...payrollSources, fallback: getImportedPayrollForPeriod(driver, reportYear, reportMonth) || getNetMonthlyFixedPayroll(driver) || 0 });
   const periodTransactions = transactions.filter((transaction) => String(transaction.occurred_on ?? "").startsWith(periodStart.slice(0, 7)) && transaction.vehicle_plate === vehicle.plate);
   const transactionTotal = (type) => periodTransactions.filter((transaction) => transaction.type === type).reduce((sum, transaction) => sum + (Number(transaction.amount) || 0), 0);
   const fuelAmount = transactionTotal("fuel") || getFuelCostForPeriod(vehicle, reportMonth, reportYear);
@@ -10444,11 +10456,11 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
   const driverRevenue = vehicle.use === "Profesional"
     ? vehicle.drivers.slice(0, 2).map((driver) => ({ driver, amount: Number(((getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor).toFixed(2)) }))
     : [];
-  const commissionAmount = Number(driverRevenue.reduce((sum, entry) => sum + calculateNetDriverCommission(entry.driver, entry.amount), 0).toFixed(2));
+  const commissionAmount = Number(driverRevenue.reduce((sum, entry) => sum + calculateDriverCommission({ driverName: entry.driver, billing: entry.amount, payroll: payrollForDriver(entry.driver) }).totalToCollect, 0).toFixed(2));
   const intracommunityVatRate = getIntracommunityVatRateForPeriod(reportYear, reportMonth);
   const intracommunityVatAmount = Number((driverRevenue.reduce((sum, entry) => sum + entry.amount, 0) * intracommunityVatRate).toFixed(2));
   const payrollAmount = vehicle.use === "Profesional"
-    ? Number(vehicle.drivers.slice(0, 2).reduce((sum, driver) => sum + getImportedPayrollForPeriod(driver, reportYear, reportMonth), 0).toFixed(2))
+    ? Number(vehicle.drivers.slice(0, 2).reduce((sum, driver) => sum + payrollForDriver(driver), 0).toFixed(2))
     : 0;
   const socialSecurityAmount = vehicle.use === "Profesional"
     ? [0, 1, 2].reduce((sum, index) => sum + getNetSocialSecurityAmount(vehicle.plate, index), 0)
