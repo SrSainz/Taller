@@ -60,6 +60,8 @@ const appRealtimeTables = ({ userId, isAdmin }) => {
       "maintenance_reports",
       "driver_period_financials",
       "commission_reports",
+      "net_expenses",
+      "net_expense_overrides",
     ].map((table) => ({ table }));
   }
   return [
@@ -395,7 +397,7 @@ export const uploadDocumentRecord = async ({ ownerId, category, vehiclePlate, fi
   }
 };
 
-const netExpenseColumns = "id, created_by, period_key, vehicle_plate, label, category_key, cadence, amount, expense_date, photo_path, photo_name, photo_mime_type, extraction, created_at";
+const netExpenseColumns = "id, version, created_by, period_key, vehicle_plate, label, category_key, cadence, amount, expense_date, photo_path, photo_name, photo_mime_type, extraction, created_at";
 
 export const listNetExpenses = () => {
   if (!supabase) return Promise.resolve({ data: [], error: new Error("No hay sesión activa.") });
@@ -434,6 +436,19 @@ export const createNetExpense = async ({ createdBy, periodKey, plate, label, cat
     throw error;
   }
   return data;
+};
+
+export const updateNetExpense = async (original, changes) => {
+  if (!supabase || !original?.id) throw new Error("Inicia sesión para editar el gasto.");
+  const {data,error}=await supabase.from("net_expenses").update({label:changes.label,category_key:changes.categoryKey??original.category_key,cadence:changes.cadence??original.cadence,amount:changes.amount,expense_date:changes.date,version:original.version+1}).eq("id",original.id).eq("version",original.version).select(netExpenseColumns).maybeSingle();
+  if(error)throw error;if(!data)throw new Error("El gasto cambió en otro dispositivo. Cierra y vuelve a abrir Neto antes de editar.");return data;
+};
+export const listNetExpenseOverrides = () => !supabase?Promise.resolve({data:[],error:new Error("No hay sesión activa.")}):fetchAllSupabaseRows(()=>supabase.from("net_expense_overrides").select("*").order("id"));
+export const saveNetExpenseOverride = async (values,original=null) => {
+ if(!supabase)throw new Error("Inicia sesión para editar el concepto.");
+ const payload={period_key:values.periodKey,vehicle_plate:values.plate,expense_key:values.expenseKey,breakdown_key:values.breakdownKey,driver_label:values.driverLabel,concept:values.concept,amount:values.amount,expense_date:values.date,version:(original?.version??0)+1};
+ const query=original?supabase.from("net_expense_overrides").update(payload).eq("id",original.id).eq("version",original.version):supabase.from("net_expense_overrides").insert({...payload,created_by:values.createdBy});
+ const {data,error}=await query.select("*").maybeSingle();if(error)throw error;if(!data)throw new Error("El concepto cambió en otro dispositivo. Vuelve a abrir Neto.");return data;
 };
 
 export const deleteNetExpense = async (expense) => {
