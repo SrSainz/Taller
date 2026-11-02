@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Neto > Nóminas ofrece un importe editable y Guardar visible por conductor; guarda la corrección por conductor, coche y mes en Supabase, recalcula el total de nóminas y Neto, y confirma el guardado o conserva el borrador ante un error.
+
 - Cobros semanales muestra una fila por Toyota con Efectivo, En APP e Ingresado en banco editable; el total bancario suma esos tres importes y el desglose se guarda por semana en Supabase. Los totales antiguos sin desglose se conservan hasta repartirlos explícitamente; las semanas siempre abarcan lunes a domingo aunque crucen de mes.
 
 - En las cinco tarjetas de Mantenimiento, una pulsación normal selecciona el vehículo y baja a su historial. Una pulsación larga abre el editor de datos sin navegar al historial; cancelar o desplazar el gesto no abre el editor. El lápiz conserva el acceso directo accesible a la edición.

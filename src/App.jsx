@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import NetPayrollEditor from "./NetPayrollEditor.jsx";
 import { createPortal, flushSync } from "react-dom";
 import {
   IconAlertTriangle,
@@ -7189,6 +7190,10 @@ export function NetDetailModal({ details, historicalBillingRows: unassignedHisto
           {expandable ? <button type="button" className={rowClass} aria-expanded={breakdownOpen} aria-controls={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} onClick={() => toggleExpenseRow(rowKey)}><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{getExpenseCadence(expense)}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong><IconChevronRight size={15} /></span></button> : <div className={rowClass} role="row"><span className="net-detail-card__expense-label" role="cell"><i><ExpenseIcon size={17} /></i><span><strong>{expense.label}</strong><small>{getExpenseCadence(expense)}</small></span></span><span className="net-detail-card__expense-value" role="cell"><strong>{formatCurrency(expense.amount)}</strong>{expense.manualPhotos?.map((photo, index) => <button type="button" className="net-detail-card__photo-action" onClick={() => openExpensePhoto(photo)} aria-label={`Ver justificante ${index + 1} de ${expense.label}`} title={`Ver justificante ${photo.name}`} key={photo.path}><IconCamera size={16} /></button>)}{(expense.manual || expense.manualExpenseIds?.length > 0) && <button type="button" onClick={() => onRemoveExpense(expense.manual ? expense.id : expense.manualExpenseIds)} aria-label={`Eliminar gasto manual de ${expense.label}`}><IconTrash size={12} /></button>}</span></div>}
           {breakdownOpen && <div className="net-detail-card__expense-breakdown" id={`net-expense-breakdown-${rowKey.replace(/\s/g, "-")}`} role="rowgroup" aria-label={`Detalle de ${expense.label}`}>
             {(expense.breakdown ?? []).filter(breakdown=>breakdown.label!=="Añadido a mano").map((breakdown, breakdownIndex) => {
+              if (expense.key === "payroll") return <NetPayrollEditor key={`${periodKey}-${rowKey}-${getNetBreakdownKey(breakdown, breakdownIndex)}`} driver={breakdown.label} amount={breakdown.amount} onSave={async (amount) => {
+                if (!onSaveBreakdown) throw new Error("No se puede guardar la nómina en este momento.");
+                await onSaveBreakdown({ periodKey, plate: detail.vehicle.plate, expenseKey: "payroll", breakdownKey: getNetBreakdownKey(breakdown, breakdownIndex), driverLabel: breakdown.label, concept: breakdown.concept || "Nómina mensual", amount, date: getNetExpenseDateForPeriod(breakdown.date, periodKey) });
+              }} />;
               const breakdownEditorKey = getBreakdownEditorKey(rowKey, breakdown, breakdownIndex);
               const breakdownEditorId = `net-breakdown-editor-${rowKey.replace(/\s/g, "-")}-${breakdownIndex}`;
               const editingBreakdown = activeBreakdownEditor === breakdownEditorKey;

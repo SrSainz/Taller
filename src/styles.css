@@ -5975,6 +5975,15 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .net-detail-card__breakdown-editor-actions button { min-height: 27px; padding-inline: 9px; border-radius: 6px; font-size: 8px; }
 .net-detail-card__breakdown-editor-actions .net-detail-card__form-save { border: 1px solid var(--net-accent); background: var(--net-accent); color: #fff; }
 .net-detail-card__breakdown-editor p { grid-column: 1 / -1; margin: 0; color: #b4382e; font-size: 8px; }
+.net-payroll-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 140px) auto; align-items: center; gap: 8px; padding: 10px 8px; border-bottom: 1px solid #dce9df; }
+.net-payroll-editor > strong { font-size: 12px; color: #345145; }
+.net-payroll-editor label { display: flex; align-items: center; gap: 4px; min-width: 0; color: #287c43; }
+.net-payroll-editor input { width: 100%; min-width: 0; min-height: 40px; padding: 6px; border: 1px solid #a4c8af; border-radius: 6px; background: #fff; color: #203e2a; font: inherit; font-size: 16px; text-align: right; }
+.net-payroll-editor button { min-height: 40px; padding: 6px 10px; border: 1px solid #278c3b; border-radius: 6px; background: #278c3b; color: white; font-weight: 750; cursor: pointer; }
+.net-payroll-editor button:disabled { opacity: .65; cursor: wait; }
+.net-payroll-editor small { grid-column: 1 / -1; color: #176b2c; font-size: 11px; }
+.net-payroll-editor small.is-error { color: #b4382e; }
+@media (max-width: 520px) { .net-payroll-editor { grid-template-columns: minmax(0, 1fr) auto; } .net-payroll-editor > strong { grid-column: 1 / -1; } }
 
 /* Neto registra también el día exacto de cada ajuste o gasto añadido. */
 .net-detail-card__add-form { grid-template-columns: minmax(0, 1fr) minmax(116px, 132px) minmax(86px, 104px); }
