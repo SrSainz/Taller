@@ -1,5 +1,6 @@
 const normalized = (value) => String(value ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 const timestamp = (row) => Date.parse(row?.updated_at || row?.updatedAt || row?.created_at || "") || 0;
+export const getMonthlyCommissionAdjustments = (financials, driverId, periodStart) => financials.find((row) => driverId && row.driver_id === driverId && row.period_start === periodStart)?.commission_adjustments ?? {};
 
 export function resolveMonthlyPayroll({ driverId, driver, plate, periodStart, financials = [], overrides = [], fallback = 0 }) {
   const period = new Date(`${periodStart}T12:00:00Z`);

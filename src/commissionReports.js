@@ -36,15 +36,18 @@ export const getCommissionThresholdsForBilling = (billing = 0) => {
 
 export const isAlex = (name = "") => normalizeDriverName(name) === "alex";
 
-export const calculateDriverCommission = ({ driverName = "", billing = 0, refunds = 0, tips = 0, tolls = 0, payroll = 0 } = {}) => {
-  const monthlyBilling = money(billing);
-  const commissionRate = getDriverCommissionRate(driverName);
+export const calculateDriverCommission = ({ driverName = "", billing = 0, refunds = 0, tips = 0, tolls = 0, payroll = 0, adjustments = {} } = {}) => {
+  const manual = (key) => Object.hasOwn(adjustments, key) && typeof adjustments[key] === "number" && Number.isFinite(adjustments[key]);
+  const monthlyBilling = money(manual("monthlyBilling") ? adjustments.monthlyBilling : Number(billing) - Number(refunds));
+  const commissionRate = manual("commissionRate") ? Math.max(0, Math.min(1, adjustments.commissionRate)) : getDriverCommissionRate(driverName);
   const commissionEligible = commissionRate > 0 && monthlyBilling > FIRST_BONUS_THRESHOLD;
-  const commissionBase = commissionEligible ? money(monthlyBilling * commissionRate) : 0;
-  const thresholdBonus = commissionEligible ? calculateCommissionThresholdBonus(monthlyBilling) : 0;
+  const commissionBase = manual("commissionBase") ? money(adjustments.commissionBase) : commissionEligible ? money(monthlyBilling * commissionRate) : 0;
+  const thresholdBonus = manual("thresholdBonus") ? money(adjustments.thresholdBonus) : commissionEligible ? calculateCommissionThresholdBonus(monthlyBilling) : 0;
   const commission = money(commissionBase + thresholdBonus);
-  const totalBenefitMonth = commissionEligible ? money(commission + tips + tolls) : 0;
-  const totalToCollect = commissionEligible ? signedMoney(totalBenefitMonth - payroll) : 0;
+  const monthlyTips = manual("tips") ? money(adjustments.tips) : money(tips);
+  const hasManualBenefit = ["commissionBase", "thresholdBonus", "tips", "totalBenefitMonth"].some(manual);
+  const totalBenefitMonth = manual("totalBenefitMonth") ? money(adjustments.totalBenefitMonth) : commissionEligible || hasManualBenefit ? money(commission + monthlyTips + tolls) : 0;
+  const totalToCollect = manual("totalToCollect") ? signedMoney(adjustments.totalToCollect) : commissionEligible || hasManualBenefit ? signedMoney(totalBenefitMonth - payroll) : 0;
   return {
     driverName,
     monthlyBilling,
@@ -54,7 +57,7 @@ export const calculateDriverCommission = ({ driverName = "", billing = 0, refund
     thresholdBonus,
     commission,
     refunds: money(refunds),
-    tips: money(tips),
+    tips: monthlyTips,
     tolls: money(tolls),
     totalBenefitMonth,
     payroll: money(payroll),
@@ -129,8 +132,6 @@ export const buildAlexCommissionReportPdf = ({ driverName = "Alex", vehiclePlate
     textCommand("F2", 13, 430, 328, pdfMoney(report.tips), "0.14 0.20 0.24"),
     textCommand("F1", 12, 55, 296, "Peajes del mes", "0.14 0.20 0.24"),
     textCommand("F2", 13, 430, 296, pdfMoney(report.tolls), "0.14 0.20 0.24"),
-    textCommand("F1", 12, 55, 264, "Reembolsos incluidos en la facturacion", "0.14 0.20 0.24"),
-    textCommand("F2", 13, 430, 264, pdfMoney(report.refunds), "0.14 0.20 0.24"),
     boxCommand(42, 192, 511, 60, "0.86 0.95 0.89"),
     textCommand("F2", 13, 58, 227, "TOTAL BENEFICIO MES", "0.06 0.23 0.14"),
     textCommand("F2", 18, 405, 223, pdfMoney(report.totalBenefitMonth), "0.06 0.23 0.14"),

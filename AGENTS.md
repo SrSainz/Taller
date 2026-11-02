@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- La ficha mensual de comisión permite pulsar y corregir Facturación, porcentaje, comisión, bono, propinas, beneficio y efectivo final, además de nómina. Las correcciones se guardan por conductor/mes, recalculan dependencias y gastos de Neto, se marcan Manual y permiten volver a Automático. No alteran documentos originales ni informes ya archivados. Los reembolsos se liquidan semanalmente y se excluyen de la base de comisión y de las operaciones de esta ficha mensual.
+
 - La nómina mensual editada es compartida por Neto y Conductores: recalcula nóminas, complemento en efectivo (beneficio menos nómina), gastos y neto sin contabilizar dos veces la remuneración. Las correcciones antiguas se leen por conductor/mes y un nuevo guardado central prevalece por fecha de actualización; los informes ya archivados no se reescriben.
 
 - Neto > Nóminas ofrece un importe editable y Guardar visible por conductor; guarda la corrección por conductor, coche y mes en Supabase, recalcula el total de nóminas y Neto, y confirma el guardado o conserva el borrador ante un error.

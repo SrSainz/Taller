@@ -25,11 +25,11 @@ test("al superar 5.000 euros se aplica el porcentaje al total y el primer bono",
   assert.equal(result.totalToCollect, 646.6);
 });
 
-test("los reembolsos se exponen como desglose y la comisión se calcula sobre la facturación que ya los incluye", () => {
+test("los reembolsos semanales quedan fuera de la base de comisión mensual", () => {
   const result = calculateDriverCommission({ driverName: "Alex", billing: 5100, refunds: 100 });
-  assert.equal(result.monthlyBilling, 5100);
+  assert.equal(result.monthlyBilling, 5000);
   assert.equal(result.refunds, 100);
-  assert.equal(result.commissionBase, 1632);
+  assert.equal(result.commissionBase, 0);
 });
 
 test("los perfiles nuevos reciben automáticamente el porcentaje general del 30 por ciento", () => {

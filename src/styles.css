@@ -5983,6 +5983,17 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .net-payroll-editor button:disabled { opacity: .65; cursor: wait; }
 .net-payroll-editor small { grid-column: 1 / -1; color: #176b2c; font-size: 11px; }
 .net-payroll-editor small.is-error { color: #b4382e; }
+.commission-value-trigger { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: 100%; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; font: inherit; }
+.commission-value-trigger > span { font-size: 11px; font-weight: 750; color: #62726a; }
+.commission-value-trigger > span small { color: #a45d09; }
+.driver-commission-sheet__cash-total .commission-value-trigger > span { color: #c8322b; font-size: 16px; font-weight: 850; }
+.driver-commission-sheet__progress .commission-value-trigger, .driver-commission-sheet__total .commission-value-trigger { flex-direction: row; justify-content: space-between; align-items: center; }
+.commission-value-editor { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 9px; }
+.commission-value-editor input { width: 100%; min-width: 0; min-height: 38px; border: 1px solid #a4c8af; border-radius: 6px; font: inherit; font-size: 16px; padding: 5px; }
+.commission-value-editor button { min-height: 36px; border: 1px solid #278c3b; border-radius: 6px; padding: 4px 8px; background: white; color: #176b2c; font-weight: 700; }
+.commission-value-editor button[type="submit"] { color: white; background: #278c3b; }
+.commission-value-editor small { color: #a72e24; width: 100%; }
+@media print { .commission-value-editor, .commission-value-trigger small { display: none !important; } }
 @media (max-width: 520px) { .net-payroll-editor { grid-template-columns: minmax(0, 1fr) auto; } .net-payroll-editor > strong { grid-column: 1 / -1; } }
 
 /* Neto registra también el día exacto de cada ajuste o gasto añadido. */

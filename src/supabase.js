@@ -627,19 +627,20 @@ export const listDriverPeriodFinancials = async (periodStart) => {
   if (!supabase) return { data: [], error: null };
   return supabase
     .from("driver_period_financials")
-    .select("id, driver_id, period_start, payroll, created_by, created_at, updated_at")
+    .select("id, driver_id, period_start, payroll, commission_adjustments, created_by, created_at, updated_at")
     .eq("period_start", periodStart)
     .order("driver_id");
 };
 
-export const upsertDriverPeriodFinancial = async ({ driverId, periodStart, payroll, createdBy }) => {
+export const upsertDriverPeriodFinancial = async ({ driverId, periodStart, payroll, createdBy, commissionAdjustments }) => {
   if (!supabase || !driverId || !periodStart || !createdBy) throw new Error("Faltan datos para guardar la nómina del periodo.");
   const { data, error } = await supabase
     .from("driver_period_financials")
-    .upsert({ driver_id: driverId, period_start: periodStart, payroll: Math.max(0, Number(payroll) || 0), created_by: createdBy, updated_at: new Date().toISOString() }, { onConflict: "driver_id,period_start" })
-    .select("id, driver_id, period_start, payroll, created_by, created_at, updated_at")
+    .upsert({ driver_id: driverId, period_start: periodStart, payroll: Math.max(0, Number(payroll) || 0), ...(commissionAdjustments !== undefined ? { commission_adjustments: commissionAdjustments } : {}), created_by: createdBy, updated_at: new Date().toISOString() }, { onConflict: "driver_id,period_start" })
+    .select("id, driver_id, period_start, payroll, commission_adjustments, created_by, created_at, updated_at")
     .single();
   if (error) throw error;
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("sobre-ruedas:driver-financials-changed", { detail: data }));
   return data;
 };
 
