@@ -37,16 +37,18 @@ export const getDriverHoursWorker = (name, plate) => WORKERS_BY_PLATE[String(pla
   ?? { name: String(name ?? ""), nif: "", affiliation: "" };
 
 export const buildDriverHoursRows = ({ calendarRows = [], month, year, driverName = "", today = new Date() }) => {
+  const key = driverKey(driverName);
+  const fixedRestDays = { alex: [1, 2], amin: [1, 2], fernando: [0, 6], william: [0, 1], tirso: [0, 1], mauricio: [0, 4] }[key];
+  // The October weekly model is a timetable, independent of uploaded revenue.
+  const days = fixedRestDays && calendarRows.length === 0 ? Array.from({ length: new Date(year, month + 1, 0).getDate() }, (_, index) => ({ day: index + 1 })) : calendarRows;
   const todayKey = isoDate(today.getFullYear(), today.getMonth(), today.getDate());
-  const rows = calendarRows.map((row) => {
+  const rows = days.map((row) => {
     const dateKey = isoDate(year, month, row.day);
     const date = new Date(year, month, row.day, 12);
     const future = dateKey > todayKey;
     return { ...row, dateKey, date, weekKey: startOfMondayWeek(date), future, active: !future && Boolean(row.active), billing: Number(row.billing) || 0 };
   });
-  const key = driverKey(driverName);
   const fixedNightRest = ["alex", "amin"].includes(key);
-  const fixedRestDays = { alex: [1, 2], amin: [1, 2], fernando: [0, 6], william: [0, 1], tirso: [0, 1], mauricio: [0, 4] }[key];
   const selectedRestDates = new Set();
   const weeks = new Map();
   rows.filter((row) => !row.future).forEach((row) => weeks.set(row.weekKey, [...(weeks.get(row.weekKey) ?? []), row]));
@@ -59,7 +61,7 @@ export const buildDriverHoursRows = ({ calendarRows = [], month, year, driverNam
   return rows.map((row) => {
     const weeklyLowest = selectedRestDates.has(row.dateKey);
     const fixedRest = fixedRestDays?.includes(row.date.getDay());
-    const status = row.future ? "Pendiente" : fixedRest ? "Descanso" : !row.active ? "Sin datos" : weeklyLowest ? "Menor facturación semanal" : "Trabajado";
+    const status = fixedRestDays ? (fixedRest ? "Descanso" : "Trabajado") : row.future ? "Pendiente" : !row.active ? "Sin datos" : weeklyLowest ? "Menor facturación semanal" : "Trabajado";
     const hours = status === "Trabajado" ? (fixedNightRest ? ([5, 6].includes(row.date.getDay()) ? 9 : 7) : 8) : 0;
     return { ...row, weeklyLowest, hours, status };
   });

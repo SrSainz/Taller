@@ -2,6 +2,22 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildDriverHoursRows, getDriverHoursCompany, getDriverHoursDefaultShift, getDriverHoursWorker, migrateNightShiftRows } from "../src/driverHoursReport.js";
 
+test("todos los meses repiten el modelo semanal de octubre sin depender de facturación ni fechas futuras", () => {
+  const rest = { Alex: [1, 2], Amin: [1, 2], Fernando: [0, 6], William: [0, 1], Tirso: [0, 1], Mauricio: [0, 4] };
+  for (const [driverName, restDays] of Object.entries(rest)) {
+    const october = buildDriverHoursRows({ driverName, month: 9, year: 2026, today: new Date(2026, 10, 3, 12) });
+    const template = new Map(october.map((row) => [row.date.getDay(), getDriverHoursDefaultShift(driverName, row.date, row.status)]));
+    for (const [year, month] of [[2026, 10], [2026, 11], [2027, 0], [2028, 1]]) {
+      const rows = buildDriverHoursRows({ driverName, month, year, today: new Date(2026, 10, 3, 12) });
+      assert.equal(rows.length, new Date(year, month + 1, 0).getDate());
+      for (const row of rows) {
+        assert.equal(row.status, restDays.includes(row.date.getDay()) ? "Descanso" : "Trabajado");
+        assert.deepEqual(getDriverHoursDefaultShift(driverName, row.date, row.status), template.get(row.date.getDay()));
+      }
+    }
+  }
+});
+
 test("el registro de jornada de Álex muestra su identidad laboral completa", () => {
   assert.deepEqual(getDriverHoursWorker("ÁLEX", "5043 MLC"), { name: "Alexandru Florin Radu", nif: "Y3789801J", affiliation: "28/14202868-68" });
   assert.deepEqual(getDriverHoursWorker("Tirso", "5043 MLC"), { name: "Tirso Rafael Rojano Gutiérrez", nif: "Z2451698H", affiliation: "28/16614610-02" });

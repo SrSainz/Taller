@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Horario aplica en todos los meses el patrón semanal de octubre de los seis conductores: días laborables, horas y libranzas según el día de la semana, aunque no haya tickets ni haya llegado aún la fecha. Las correcciones manuales del mes se conservan y no se trasladan automáticamente a otros meses.
+
 - Todas las fichas de comisión incluyen Adelanto y Otro concepto entre Nómina y Efectivo final, con selector Sumar/Restar e importe guardado por conductor/mes. Adelanto descuenta por defecto y es un pago anticipado: cambia el pendiente, sin volver a reducir el gasto mensual. Otro concepto ajusta el pendiente y la remuneración del mes. Se conservan en la impresión y funcionan también si el total final estaba corregido manualmente.
 
 - La ficha mensual de comisión permite pulsar y corregir Facturación, porcentaje, comisión, bono, propinas, beneficio y efectivo final, además de nómina. Las correcciones se guardan por conductor/mes, recalculan dependencias y gastos de Neto, se marcan Manual y permiten volver a Automático. No alteran documentos originales ni informes ya archivados. Los reembolsos se liquidan semanalmente y se excluyen de la base de comisión y de las operaciones de esta ficha mensual.
