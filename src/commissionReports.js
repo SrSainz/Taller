@@ -47,7 +47,10 @@ export const calculateDriverCommission = ({ driverName = "", billing = 0, refund
   const monthlyTips = manual("tips") ? money(adjustments.tips) : money(tips);
   const hasManualBenefit = ["commissionBase", "thresholdBonus", "tips", "totalBenefitMonth"].some(manual);
   const totalBenefitMonth = manual("totalBenefitMonth") ? money(adjustments.totalBenefitMonth) : commissionEligible || hasManualBenefit ? money(commission + monthlyTips + tolls) : 0;
-  const totalToCollect = manual("totalToCollect") ? signedMoney(adjustments.totalToCollect) : commissionEligible || hasManualBenefit ? signedMoney(totalBenefitMonth - payroll) : 0;
+  const advance = manual("advance") ? signedMoney(adjustments.advance) : 0;
+  const otherConcept = manual("otherConcept") ? signedMoney(adjustments.otherConcept) : 0;
+  const baseToCollect = manual("totalToCollect") ? signedMoney(adjustments.totalToCollect) : commissionEligible || hasManualBenefit ? signedMoney(totalBenefitMonth - payroll) : 0;
+  const totalToCollect = signedMoney(baseToCollect + advance + otherConcept);
   return {
     driverName,
     monthlyBilling,
@@ -62,6 +65,9 @@ export const calculateDriverCommission = ({ driverName = "", billing = 0, refund
     totalBenefitMonth,
     payroll: money(payroll),
     totalToCollect,
+    advance,
+    otherConcept,
+    commissionExpense: signedMoney(totalToCollect - advance),
   };
 };
 
@@ -137,9 +143,13 @@ export const buildAlexCommissionReportPdf = ({ driverName = "Alex", vehiclePlate
     textCommand("F2", 18, 405, 223, pdfMoney(report.totalBenefitMonth), "0.06 0.23 0.14"),
     textCommand("F1", 12, 55, 168, "Nomina", "0.14 0.20 0.24"),
     textCommand("F2", 13, 430, 168, pdfMoney(report.payroll), "0.14 0.20 0.24"),
-    boxCommand(42, 73, 511, 63, "0.08 0.48 0.35"),
-    textCommand("F2", 13, 58, 111, "TOTAL A COBRAR", "1 1 1"),
-    textCommand("F2", 19, 405, 106, pdfMoney(report.totalToCollect), "1 1 1"),
+    textCommand("F1", 12, 55, 148, "Adelanto", "0.14 0.20 0.24"),
+    textCommand("F2", 13, 430, 148, pdfMoney(report.advance), "0.14 0.20 0.24"),
+    textCommand("F1", 12, 55, 128, "Otro concepto", "0.14 0.20 0.24"),
+    textCommand("F2", 13, 430, 128, pdfMoney(report.otherConcept), "0.14 0.20 0.24"),
+    boxCommand(42, 50, 511, 56, "0.08 0.48 0.35"),
+    textCommand("F2", 13, 58, 85, "TOTAL A COBRAR", "1 1 1"),
+    textCommand("F2", 19, 405, 66, pdfMoney(report.totalToCollect), "1 1 1"),
     textCommand("F1", 8, 42, 20, "SOBRE RUEDAS · INFORME GENERADO PARA ADMINISTRACION", "0.42 0.50 0.53"),
   ].join("\n");
   return new Blob([buildPdfBytes(content)], { type: "application/pdf" });

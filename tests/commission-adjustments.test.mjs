@@ -16,3 +16,15 @@ test("los reembolsos no generan comisión mensual ni tramos y conservan la cifra
   const result = calculateDriverCommission({ driverName: "Fernando", billing: 5200, refunds: 200 });
   assert.equal(result.monthlyBilling, 5000); assert.equal(result.commissionBase, 0); assert.equal(result.thresholdBonus, 0); assert.equal(result.refunds, 200);
 });
+
+test("adelanto y otro concepto suman o restan al pendiente sin duplicar el adelanto como gasto", () => {
+  const base = { driverName: "Fernando", billing: 6000, payroll: 1300 };
+  const original = calculateDriverCommission(base);
+  const result = calculateDriverCommission({ ...base, adjustments: { advance: -100, otherConcept: 25 } });
+  assert.equal(result.totalToCollect, original.totalToCollect - 75);
+  assert.equal(result.commissionExpense, original.commissionExpense + 25);
+  const manual = calculateDriverCommission({ ...base, adjustments: { totalToCollect: 1000, advance: -100, otherConcept: -25 } });
+  assert.equal(manual.totalToCollect, 875);
+  assert.equal(calculateDriverCommission({ ...base, adjustments: { advance: 100, otherConcept: -25 } }).totalToCollect, original.totalToCollect + 75);
+  assert.equal(calculateDriverCommission({ driverName: "Fernando", billing: 0, adjustments: { advance: -100 } }).totalToCollect, -100);
+});

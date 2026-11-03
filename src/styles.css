@@ -5993,6 +5993,14 @@ body:has(.net-detail-backdrop) .topbar--reports {
 .commission-value-editor button { min-height: 36px; border: 1px solid #278c3b; border-radius: 6px; padding: 4px 8px; background: white; color: #176b2c; font-weight: 700; }
 .commission-value-editor button[type="submit"] { color: white; background: #278c3b; }
 .commission-value-editor small { color: #a72e24; width: 100%; }
+.driver-commission-sheet__settlement { grid-column: 1 / -1; min-width: 0; padding: 10px 12px; border: 1px solid #d9dee0; border-radius: 10px; background: #f7f8f8; }
+.driver-commission-sheet__settlement header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.driver-commission-sheet__settlement header strong { font-size: 13px; }
+.driver-commission-sheet__settlement form { display: grid; grid-template-columns: 112px minmax(70px, 1fr) auto; gap: 6px; margin-top: 7px; }
+.driver-commission-sheet__settlement input, .driver-commission-sheet__settlement select { min-width: 0; width: 100%; min-height: 38px; padding: 4px 6px; border: 1px solid #a4c8af; border-radius: 6px; background: #fff; color: #203e2a; font: inherit; font-size: 16px; }
+.driver-commission-sheet__settlement button { min-height: 38px; padding: 4px 8px; border: 1px solid #278c3b; border-radius: 6px; background: #fff; color: #176b2c; font-weight: 750; }
+.driver-commission-sheet__settlement small { font-size: 11px; }
+@media print { .driver-commission-sheet__settlement form, .driver-commission-sheet__settlement small { display: none !important; } }
 @media print { .commission-value-editor, .commission-value-trigger small { display: none !important; } }
 @media (max-width: 520px) { .net-payroll-editor { grid-template-columns: minmax(0, 1fr) auto; } .net-payroll-editor > strong { grid-column: 1 / -1; } }
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import NetPayrollEditor from "./NetPayrollEditor.jsx";
 import { resolveMonthlyPayroll, getMonthlyCommissionAdjustments } from "./monthlyPayroll.js";
 import EditableCommissionValue from "./EditableCommissionValue.jsx";
+import SettlementAdjustmentRow from "./SettlementAdjustmentRow.jsx";
 
 function useDriverFinancialEvents(setRecords) {
   useEffect(() => {
@@ -840,7 +841,7 @@ export const buildNetExpenseBreakdown = ({ vehicle, fuel, maintenance, commissio
     const payroll = payrollBreakdown[index]?.amount ?? 0;
     const commissionCalculation = calculateDriverCommission({ driverName: row.driver, billing: row.revenue, refunds: row.refunds, tips, tolls, payroll, adjustments: getMonthlyCommissionAdjustments(periodFinancials, row.driverId, periodStart) });
     const calculation = isAlex(row.driver) ? commissionCalculation : null;
-    return { driver: row.driver, driverId: row.driverId ?? "", amount: commissionCalculation.totalToCollect, commissionCalculation, calculation, periodStart, periodEnd, vehiclePlate: vehicle.plate };
+    return { driver: row.driver, driverId: row.driverId ?? "", amount: commissionCalculation.commissionExpense, commissionCalculation, calculation, periodStart, periodEnd, vehiclePlate: vehicle.plate };
   });
   const commissionBreakdown = commissionSummary.map((row) => ({ breakdownKey: row.driverId || normalizeNetExpenseCategory(row.driver), driverId: row.driverId ?? "", label: row.driver, amount: row.amount, meta: `Total a cobrar · ${Math.round(row.commissionCalculation.commissionRate * 100)}% + bonos desde 5.000 €` }));
   const alexCommissionReport = commissionSummary.find((row) => row.calculation)?.calculation
@@ -8499,6 +8500,8 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
         <div>{field("tips", "Propinas", calculation.tips)}</div>
         <div className="driver-commission-sheet__total">{field("totalBenefitMonth", "TOTAL BENEFICIO MES", calculation.totalBenefitMonth)}</div>
         <label className="driver-commission-sheet__payroll"><span>Nómina</span><span><input type="number" min="0" step="0.01" inputMode="decimal" value={payrollDraft} onChange={(event) => onPayrollDraftChange(event.target.value)} aria-label={`Nómina mensual de ${row.driver}`} /><button type="button" onClick={onSavePayroll} disabled={payrollBusy}>{payrollBusy ? "Guardando…" : "Guardar"}</button></span><strong>{formatCurrency(payroll)}</strong></label>
+        <SettlementAdjustmentRow key={`${row.key}-${year}-${month}-advance`} label="Adelanto" defaultSign={-1} value={calculation.advance} formatted={formatCurrency(calculation.advance)} onSave={(value) => onSaveField("advance", value)} />
+        <SettlementAdjustmentRow key={`${row.key}-${year}-${month}-other`} label="Otro concepto" value={calculation.otherConcept} formatted={formatCurrency(calculation.otherConcept)} onSave={(value) => onSaveField("otherConcept", value)} />
         <div className="driver-commission-sheet__cash-total">{field("totalToCollect", "TOTAL A COBRAR EN EFECTIVO", calculation.totalToCollect, formatCurrency(calculation.totalToCollect), true)}</div>
       </div>
       <p className="driver-commission-sheet__payroll-message">Reembolsos: liquidación semanal, fuera del cálculo mensual.</p>
@@ -8674,9 +8677,9 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const saveCommissionField = async (key, value) => {
     if (payrollBusy) throw new Error("Espera a que termine el guardado actual.");
     if (!commissionDriver?.driverId) throw new Error("Este conductor necesita un perfil asignado.");
-    if (value !== null && (!Number.isFinite(value) || (key !== "totalToCollect" && value < 0) || Math.abs(value) > 9999999999.99 || (key === "commissionRate" && value > 100))) throw new Error("Introduce un valor válido; el porcentaje debe estar entre 0 y 100.");
+    if (value !== null && (!Number.isFinite(value) || (!["totalToCollect", "advance", "otherConcept"].includes(key) && value < 0) || Math.abs(value) > 9999999999.99 || (key === "commissionRate" && value > 100))) throw new Error("Introduce un valor válido; el porcentaje debe estar entre 0 y 100.");
     const changes = { ...getMonthlyCommissionAdjustments(periodFinancials, commissionDriver.driverId, periodStart) };
-    if (value === null) delete changes[key]; else changes[key] = key === "commissionRate" ? value / 100 : value;
+    if (value === null) delete changes[key]; else changes[key] = key === "commissionRate" ? value / 100 : key === "totalToCollect" ? value - (commissionCalculation.advance + commissionCalculation.otherConcept) : value;
     setPayrollBusy(true);
     try {
       const saved = await upsertDriverPeriodFinancial({ driverId: commissionDriver.driverId, periodStart, payroll: commissionPayroll, createdBy: adminUserId, commissionAdjustments: changes });
@@ -10483,7 +10486,7 @@ function VehicleExpenses({ vehicle, transactions = [] }) {
   const driverRevenue = vehicle.use === "Profesional"
     ? vehicle.drivers.slice(0, 2).map((driver) => ({ driver, amount: Number(((getDriverDay(vehicle, driver).monthRevenue ?? 0) * periodFactor).toFixed(2)) }))
     : [];
-  const commissionAmount = Number(driverRevenue.reduce((sum, entry) => sum + calculateDriverCommission({ driverName: entry.driver, billing: entry.amount, payroll: payrollForDriver(entry.driver), adjustments: getMonthlyCommissionAdjustments(payrollSources.financials, vehicle.driverProfiles?.find((profile) => normalizeText(profile.full_name) === normalizeText(entry.driver))?.id, periodStart) }).totalToCollect, 0).toFixed(2));
+  const commissionAmount = Number(driverRevenue.reduce((sum, entry) => sum + calculateDriverCommission({ driverName: entry.driver, billing: entry.amount, payroll: payrollForDriver(entry.driver), adjustments: getMonthlyCommissionAdjustments(payrollSources.financials, vehicle.driverProfiles?.find((profile) => normalizeText(profile.full_name) === normalizeText(entry.driver))?.id, periodStart) }).commissionExpense, 0).toFixed(2));
   const intracommunityVatRate = getIntracommunityVatRateForPeriod(reportYear, reportMonth);
   const intracommunityVatAmount = Number((driverRevenue.reduce((sum, entry) => sum + entry.amount, 0) * intracommunityVatRate).toFixed(2));
   const payrollAmount = vehicle.use === "Profesional"
