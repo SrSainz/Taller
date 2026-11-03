@@ -3,6 +3,8 @@ import NetPayrollEditor from "./NetPayrollEditor.jsx";
 import { resolveMonthlyPayroll, getMonthlyCommissionAdjustments } from "./monthlyPayroll.js";
 import EditableCommissionValue from "./EditableCommissionValue.jsx";
 import SettlementAdjustmentRow from "./SettlementAdjustmentRow.jsx";
+import EditableCommissionText from "./EditableCommissionText.jsx";
+import { getCommissionText, withCommissionText } from "./commissionPresentation.js";
 
 function useDriverFinancialEvents(setRecords) {
   useEffect(() => {
@@ -8477,7 +8479,9 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
   const progressStart = lastReached || 0;
   const progressRange = Math.max(1, nextThreshold - progressStart);
   const progress = Math.max(0, Math.min(100, ((calculation.monthlyBilling - progressStart) / progressRange) * 100));
-  const field = (key, label, value, formatted = formatCurrency(value), signed = false) => <EditableCommissionValue key={`${row.key}-${year}-${month}-${key}`} label={label} value={value} formatted={formatted} signed={signed} manual={Object.hasOwn(adjustments, key)} onSave={(value) => onSaveField(key, value)} />;
+  const text = (key, fallback) => getCommissionText(adjustments, key, fallback);
+  const editText = (key, fallback) => <EditableCommissionText key={`${row.key}-${year}-${month}-text-${key}`} value={text(key, fallback)} name={fallback} onSave={(value) => onSaveField(`text:${key}`, value)} />;
+  const field = (key, label, value, formatted = formatCurrency(value), signed = false) => <EditableCommissionValue key={`${row.key}-${year}-${month}-${key}`} label={text(key, label)} textName={label} onSaveLabel={(value) => onSaveField(`text:${key}`, value)} value={value} formatted={formatted} signed={signed} manual={Object.hasOwn(adjustments, key)} onSave={(value) => onSaveField(key, value)} />;
 
   return createPortal(<div className="driver-commission-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="driver-commission-sheet" role="dialog" aria-modal="true" aria-labelledby="driver-commission-title">
@@ -8487,7 +8491,7 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
         <button type="button" onClick={onClose} aria-label="Cerrar evolución de la comisión"><IconX size={20} /></button>
       </header>
       <div className="driver-commission-sheet__identity">
-        <span><strong>{row.driver}</strong><VehiclePlateLabel vehicleOrPlate={row.plate} className="driver-commission-sheet__plate" /></span>
+        <span><strong>{editText("driverName", row.driver)}</strong><span className="driver-commission-sheet__plate">{editText("plate", row.plate)}</span></span>
       </div>
       <div className="driver-commission-sheet__progress">
         <div>{field("monthlyBilling", "Facturación acumulada", calculation.monthlyBilling)}</div>
@@ -8499,9 +8503,9 @@ function DriverCommissionDialog({ row, calculation, month, year, payroll, payrol
         <div>{field("thresholdBonus", "Bono por tramos", calculation.thresholdBonus)}</div>
         <div>{field("tips", "Propinas", calculation.tips)}</div>
         <div className="driver-commission-sheet__total">{field("totalBenefitMonth", "TOTAL BENEFICIO MES", calculation.totalBenefitMonth)}</div>
-        <label className="driver-commission-sheet__payroll"><span>Nómina</span><span><input type="number" min="0" step="0.01" inputMode="decimal" value={payrollDraft} onChange={(event) => onPayrollDraftChange(event.target.value)} aria-label={`Nómina mensual de ${row.driver}`} /><button type="button" onClick={onSavePayroll} disabled={payrollBusy}>{payrollBusy ? "Guardando…" : "Guardar"}</button></span><strong>{formatCurrency(payroll)}</strong></label>
-        <SettlementAdjustmentRow key={`${row.key}-${year}-${month}-advance`} label="Adelanto" defaultSign={-1} value={calculation.advance} formatted={formatCurrency(calculation.advance)} onSave={(value) => onSaveField("advance", value)} />
-        <SettlementAdjustmentRow key={`${row.key}-${year}-${month}-other`} label="Otro concepto" value={calculation.otherConcept} formatted={formatCurrency(calculation.otherConcept)} onSave={(value) => onSaveField("otherConcept", value)} />
+        <div className="driver-commission-sheet__payroll"><span>{editText("payroll", "Nómina")}</span><span><input type="number" min="0" step="0.01" inputMode="decimal" value={payrollDraft} onChange={(event) => onPayrollDraftChange(event.target.value)} aria-label={`Nómina mensual de ${row.driver}`} /><button type="button" onClick={onSavePayroll} disabled={payrollBusy}>{payrollBusy ? "Guardando…" : "Guardar"}</button></span><strong>{formatCurrency(payroll)}</strong></div>
+        <SettlementAdjustmentRow key={`${row.key}-${year}-${month}-advance`} label={text("advance", "Adelanto")} textName="Adelanto" onSaveLabel={(value) => onSaveField("text:advance", value)} defaultSign={-1} value={calculation.advance} formatted={formatCurrency(calculation.advance)} onSave={(value) => onSaveField("advance", value)} />
+        <SettlementAdjustmentRow key={`${row.key}-${year}-${month}-other`} label={text("otherConcept", "Otro concepto")} textName="Otro concepto" onSaveLabel={(value) => onSaveField("text:otherConcept", value)} value={calculation.otherConcept} formatted={formatCurrency(calculation.otherConcept)} onSave={(value) => onSaveField("otherConcept", value)} />
         <div className="driver-commission-sheet__cash-total">{field("totalToCollect", "TOTAL A COBRAR EN EFECTIVO", calculation.totalToCollect, formatCurrency(calculation.totalToCollect), true)}</div>
       </div>
       <p className="driver-commission-sheet__payroll-message">Reembolsos: liquidación semanal, fuera del cálculo mensual.</p>
@@ -8677,9 +8681,11 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const saveCommissionField = async (key, value) => {
     if (payrollBusy) throw new Error("Espera a que termine el guardado actual.");
     if (!commissionDriver?.driverId) throw new Error("Este conductor necesita un perfil asignado.");
-    if (value !== null && (!Number.isFinite(value) || (!["totalToCollect", "advance", "otherConcept"].includes(key) && value < 0) || Math.abs(value) > 9999999999.99 || (key === "commissionRate" && value > 100))) throw new Error("Introduce un valor válido; el porcentaje debe estar entre 0 y 100.");
-    const changes = { ...getMonthlyCommissionAdjustments(periodFinancials, commissionDriver.driverId, periodStart) };
-    if (value === null) delete changes[key]; else changes[key] = key === "commissionRate" ? value / 100 : key === "totalToCollect" ? value - (commissionCalculation.advance + commissionCalculation.otherConcept) : value;
+    const isText = key.startsWith("text:");
+    if (!isText && value !== null && (!Number.isFinite(value) || (!["totalToCollect", "advance", "otherConcept"].includes(key) && value < 0) || Math.abs(value) > 9999999999.99 || (key === "commissionRate" && value > 100))) throw new Error("Introduce un valor válido; el porcentaje debe estar entre 0 y 100.");
+    const current = getMonthlyCommissionAdjustments(periodFinancials, commissionDriver.driverId, periodStart);
+    const changes = isText ? withCommissionText(current, key.slice(5), value) : { ...current };
+    if (!isText) { if (value === null) delete changes[key]; else changes[key] = key === "commissionRate" ? value / 100 : key === "totalToCollect" ? value - (commissionCalculation.advance + commissionCalculation.otherConcept) : value; }
     setPayrollBusy(true);
     try {
       const saved = await upsertDriverPeriodFinancial({ driverId: commissionDriver.driverId, periodStart, payroll: commissionPayroll, createdBy: adminUserId, commissionAdjustments: changes });

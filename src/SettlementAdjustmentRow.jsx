@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import EditableCommissionText from "./EditableCommissionText.jsx";
 
-export default function SettlementAdjustmentRow({ label, value = 0, formatted, defaultSign = 1, onSave }) {
+export default function SettlementAdjustmentRow({ label, value = 0, formatted, defaultSign = 1, onSave, textName, onSaveLabel }) {
   const [sign, setSign] = useState(value ? Math.sign(value) : defaultSign);
   const [draft, setDraft] = useState(String(Math.abs(value)));
   const [busy, setBusy] = useState(false);
@@ -18,7 +19,7 @@ export default function SettlementAdjustmentRow({ label, value = 0, formatted, d
     finally { setBusy(false); }
   };
   return <div className="driver-commission-sheet__settlement">
-    <header><strong>{label}</strong><strong>{value > 0 ? "+" : ""}{formatted}</strong></header>
+    <header>{onSaveLabel ? <EditableCommissionText value={label} name={textName} onSave={onSaveLabel} /> : <strong>{label}</strong>}<strong>{value > 0 ? "+" : ""}{formatted}</strong></header>
     <form aria-label={`Ajustar ${label}`} onSubmit={submit}>
       <select aria-label={`Operación de ${label}`} disabled={busy} value={sign} onChange={(event) => { setSign(Number(event.target.value)); setMessage(""); }}><option value={-1}>− Restar</option><option value={1}>+ Sumar</option></select>
       <input aria-label={`Importe de ${label}`} type="text" inputMode="decimal" disabled={busy} value={draft} onChange={(event) => { setDraft(event.target.value); setMessage(""); }} />

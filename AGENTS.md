@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- La ficha de comisión permite editar sus títulos y el nombre y matrícula mostrados, guardándolos por conductor/mes como presentación. Las claves de los conceptos, perfil, asignación real, porcentaje y fórmulas nunca dependen de esos textos; renombrar un concepto conserva su operación y sus importes. Los textos personalizados aparecen al imprimir y pueden restaurarse.
+
 - Horario aplica en todos los meses el patrón semanal de octubre de los seis conductores: días laborables, horas y libranzas según el día de la semana, aunque no haya tickets ni haya llegado aún la fecha. Las correcciones manuales del mes se conservan y no se trasladan automáticamente a otros meses.
 
 - Todas las fichas de comisión incluyen Adelanto y Otro concepto entre Nómina y Efectivo final, con selector Sumar/Restar e importe guardado por conductor/mes. Adelanto descuenta por defecto y es un pago anticipado: cambia el pendiente, sin volver a reducir el gasto mensual. Otro concepto ajusta el pendiente y la remuneración del mes. Se conservan en la impresión y funcionan también si el total final estaba corregido manualmente.
