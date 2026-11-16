@@ -4,12 +4,33 @@ import {
   buildInstrumentClusterTracking,
   buildServiceCounterResetMetadata,
   getLatestInstrumentClusterKm,
+  getServiceInvoiceInstrumentKm,
   initialNextServiceInstrumentKm,
   instrumentClusterBaselineKm,
   instrumentClusterOffsetKm,
   isOilAndFilterMaintenance,
   oilServiceIntervalKm,
 } from "../src/vehicleServiceTracking.js";
+
+test("los tres Toyota descuentan los kilómetros recorridos desde la revisión indicada", () => {
+  for (const [vehiclePlate, realKm] of [["5754 MJV", "510.143"], ["5043 MLC", "541.730"], ["5750 MJV", "575.169"]]) {
+    const anchor = getServiceInvoiceInstrumentKm(realKm, vehiclePlate);
+    for (const [distance, expected] of [[0, 25000], [2000, 23000], [3000, 22000], [26000, 0]]) {
+      const tracking = buildInstrumentClusterTracking({ vehiclePlate, entries: [{ entry_date: "2026-11-16", vehicle_plate: vehiclePlate, odometer_km: anchor + distance }] });
+      assert.equal(tracking.remainingKm, expected);
+    }
+  }
+});
+
+test("Lexus y Peugeot descuentan las nuevas lecturas desde una revisión guardada", () => {
+  for (const vehiclePlate of ["0344 LCP", "9401 LTG"]) {
+    const reset = buildServiceCounterResetMetadata({ vehiclePlate, instrumentKm: 100000 });
+    const documents = [{ vehicle_plate: vehiclePlate, document_date: "2026-11-01", extracted_data: reset }];
+    assert.equal(buildInstrumentClusterTracking({ vehiclePlate, documents }).remainingKm, 25000);
+    const entries = [{ vehicle_plate: vehiclePlate, entry_date: "2026-11-16", odometer_km: 105000 }];
+    assert.equal(buildInstrumentClusterTracking({ vehiclePlate, documents, entries }).remainingKm, 20000);
+  }
+});
 
 test("5754 MJV muestra kilometraje de cuadro y real a partir de las lecturas de ambos conductores", () => {
   const entries = [
@@ -22,6 +43,7 @@ test("5754 MJV muestra kilometraje de cuadro y real a partir de las lecturas de 
     instrumentKm: 174900,
     realKm: 486900,
     nextServiceInstrumentKm: initialNextServiceInstrumentKm,
+    serviceAnchorKm: 198143,
     remainingKm: 25000,
   });
 });
@@ -32,7 +54,8 @@ test("5754 MJV parte de 174.900 de cuadro, 486.900 reales y 25.000 para revisió
   assert.deepEqual(buildInstrumentClusterTracking(), {
     instrumentKm: 174900,
     realKm: 486900,
-    nextServiceInstrumentKm: 199900,
+    nextServiceInstrumentKm: 223143,
+    serviceAnchorKm: 198143,
     remainingKm: 25000,
   });
 });
@@ -52,38 +75,40 @@ test("una revisión de aceite y filtros puede reiniciar el contador a 25.000 km"
     recordType: "maintenance",
     fields: { concept: "Revisión completa", maintenanceItems: [{ description: "Cambio de aceite" }, { description: "Filtros" }] },
   }), true);
-  const reset = buildServiceCounterResetMetadata({ instrumentKm: 174900 });
+  const reset = buildServiceCounterResetMetadata({ instrumentKm: 198143 });
   assert.equal(reset.serviceIntervalKm, oilServiceIntervalKm);
-  assert.equal(reset.nextServiceInstrumentKm, 199900);
+  assert.equal(reset.nextServiceInstrumentKm, 223143);
   const tracking = buildInstrumentClusterTracking({
-    entries: [{ vehicle_plate: "5754 MJV", entry_date: "2026-09-29", odometer_km: 175040 }],
+    entries: [{ vehicle_plate: "5754 MJV", entry_date: "2026-09-29", odometer_km: 198283 }],
     documents: [{ vehicle_plate: "5754 MJV", document_date: "2026-09-29", extracted_data: reset }],
   });
   assert.equal(tracking.remainingKm, 24860);
 });
 
-test("rechazar el reinicio conserva el objetivo inicial de 199.900 km", () => {
+test("rechazar el reinicio conserva el objetivo de la última revisión", () => {
   const tracking = buildInstrumentClusterTracking({
     documents: [{ vehicle_plate: "5754 MJV", document_date: "2026-09-28", extracted_data: { serviceCounterReset: false } }],
   });
-  assert.equal(tracking.nextServiceInstrumentKm, 199900);
+  assert.equal(tracking.nextServiceInstrumentKm, 223143);
 });
 
-test("5750 MJV cuenta 25.000 km desde la revisión realizada a los 2.850 km", () => {
+test("5750 MJV cuenta 25.000 km desde la revisión realizada a los 575.169 km reales", () => {
   assert.deepEqual(buildInstrumentClusterTracking({ vehiclePlate: "5750MJV" }), {
     instrumentKm: 5843,
     realKm: 554774,
-    nextServiceInstrumentKm: 27850,
-    remainingKm: 22007,
+    nextServiceInstrumentKm: 51238,
+    serviceAnchorKm: 26238,
+    remainingKm: 25000,
   });
 });
 
-test("5043 MLC muestra cuadro, kilómetros reales y revisión desde los 98.749 km", () => {
+test("5043 MLC muestra cuadro, kilómetros reales y revisión desde los 541.730 km reales", () => {
   assert.deepEqual(buildInstrumentClusterTracking({ vehiclePlate: "5043MLC" }), {
     instrumentKm: 108987,
     realKm: 528837,
-    nextServiceInstrumentKm: 123749,
-    remainingKm: 14762,
+    nextServiceInstrumentKm: 146880,
+    serviceAnchorKm: 121880,
+    remainingKm: 25000,
   });
 });
 
@@ -95,8 +120,9 @@ test("5043 MLC avanza con las lecturas de Álex o Tirso sin retroceder el cuadro
   assert.deepEqual(buildInstrumentClusterTracking({ entries, vehiclePlate: "5043 MLC" }), {
     instrumentKm: 109100,
     realKm: 528950,
-    nextServiceInstrumentKm: 123749,
-    remainingKm: 14649,
+    nextServiceInstrumentKm: 146880,
+    serviceAnchorKm: 121880,
+    remainingKm: 25000,
   });
   assert.equal(buildInstrumentClusterTracking({ entries: entries.slice(0, 1), vehiclePlate: "5043 MLC" }).instrumentKm, 108987);
 });
@@ -109,8 +135,9 @@ test("5750 MJV suma las nuevas lecturas a cuadro y reales y las resta de revisi�
   assert.deepEqual(buildInstrumentClusterTracking({ entries, vehiclePlate: "5750 MJV" }), {
     instrumentKm: 6018,
     realKm: 554949,
-    nextServiceInstrumentKm: 27850,
-    remainingKm: 21832,
+    nextServiceInstrumentKm: 51238,
+    serviceAnchorKm: 26238,
+    remainingKm: 25000,
   });
 });
 
@@ -123,8 +150,9 @@ test("una foto de KM ACUMULADOS actualiza mantenimiento aunque la entrada diaria
   assert.deepEqual(buildInstrumentClusterTracking({ documents, vehiclePlate: "5750 MJV" }), {
     instrumentKm: 6125,
     realKm: 555056,
-    nextServiceInstrumentKm: 27850,
-    remainingKm: 21725,
+    nextServiceInstrumentKm: 51238,
+    serviceAnchorKm: 26238,
+    remainingKm: 25000,
   });
 });
 
@@ -138,7 +166,8 @@ test("usa la lectura acumulada más alta de los dos conductores del coche", () =
   assert.deepEqual(buildInstrumentClusterTracking({ entries, documents, vehiclePlate: "5754 MJV" }), {
     instrumentKm: 175120,
     realKm: 487120,
-    nextServiceInstrumentKm: 199900,
-    remainingKm: 24780,
+    nextServiceInstrumentKm: 223143,
+    serviceAnchorKm: 198143,
+    remainingKm: 25000,
   });
 });

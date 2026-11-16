@@ -106,7 +106,7 @@ import { maintenanceVehicleDetailsChangedEvent, requestServiceReviewReset } from
 import { getManualNetExpenseEntries } from "./manualNetExpenseDetails";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
-import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, isInstrumentClusterVehicle } from "./vehicleServiceTracking";
+import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, getServiceInvoiceInstrumentKm } from "./vehicleServiceTracking";
 import { formatMaintenanceItvDate, maintenanceVehicleDetailsStorageKey, normalizeMaintenanceVehicleDetails, normalizeMaintenanceVehicleDetailsMap, resolveMaintenanceVehicleDetails } from "./maintenanceVehicleDetails";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { getWeeksTouchingMonth, sumWeeklyCollections } from "./weeklyCollections";
@@ -3294,7 +3294,6 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     return rows;
   }, [invoices, maintenanceEdits, transactions]);
   const instrumentClusterTracking = useMemo(() => Object.fromEntries(vehiclesSeed
-    .filter((vehicle) => isInstrumentClusterVehicle(vehicle.plate))
     .map((vehicle) => [vehicle.plate, buildInstrumentClusterTracking({ entries: driverEntries, documents: documentRecords, vehiclePlate: vehicle.plate })])), [documentRecords, driverEntries]);
   const vehicles = useMemo(() => vehiclesSeed.map((vehicle) => {
     const recordedMaintenance = invoices
@@ -3513,8 +3512,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     let resetChoice;
     try { resetChoice = requestServiceReviewReset({ recordType: "maintenance", fields: localInvoice, plate: localInvoice.plate, confirm: (message) => window.confirm(message), prompt: (message, value) => window.prompt(message, value) }); }
     catch (error) { notify(error.message); return false; }
-    const serviceCounterMetadata = resetChoice?.serviceCounterReset && isInstrumentClusterVehicle(localInvoice.plate)
-      ? buildServiceCounterResetMetadata({ instrumentKm: getLatestInstrumentClusterKm(driverEntries, localInvoice.plate, documentRecords), vehiclePlate: localInvoice.plate, intervalKm: resetChoice.serviceIntervalKm })
+    const serviceCounterMetadata = resetChoice?.serviceCounterReset
+      ? prepareServiceReset(localInvoice.plate, localInvoice.odometerKm ?? localInvoice.km, resetChoice)
       : resetChoice || {};
     if (file && supabase && session.user?.id) {
       try {
@@ -3527,7 +3526,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
         const normalizedUploaded = normalizeDocumentRecord(uploaded);
         setDocumentRecords((current) => [normalizedUploaded, ...current.filter((document) => document.id !== normalizedUploaded.id)]);
         await refreshAdminRecentData({ periodDateKey: localInvoice.dateIso });
-        applySavedServiceReviewReset(localInvoice.plate, resetChoice);
+        applySavedServiceReviewReset(localInvoice.plate, serviceCounterMetadata);
         return true;
       } catch (error) {
         const duplicate = error?.code === "23505" || error?.code === "DUPLICATE_DOCUMENT" || /duplicad|ya estaba registrado|file_hash/i.test(error?.message ?? "");
@@ -3546,7 +3545,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     setPhotoInvoices((current) => [localInvoice, ...current.filter((item) => item.id !== localInvoice.id)]);
     const normalizedLocalDocument = normalizeDocumentRecord(localDocument);
     setDocumentRecords((current) => [normalizedLocalDocument, ...current.filter((document) => document.id !== normalizedLocalDocument.id)]);
-    applySavedServiceReviewReset(localInvoice.plate, resetChoice);
+    applySavedServiceReviewReset(localInvoice.plate, serviceCounterMetadata);
     return true;
   };
 
@@ -3559,11 +3558,26 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     return true;
   };
 
+  const prepareServiceReset = (plate, invoiceKm, choice) => {
+    const manual = loadMaintenanceVehicleDetails()[plate];
+    const latest = getLatestInstrumentClusterKm(driverEntries, plate, documentRecords);
+    const reference = manual?.instrumentKm != null
+      ? manual.trackingInstrumentKm == null ? Math.max(manual.instrumentKm, latest) : manual.instrumentKm + Math.max(0, latest - manual.trackingInstrumentKm)
+      : latest;
+    let instrumentKm = getServiceInvoiceInstrumentKm(invoiceKm, plate) || reference;
+    if (!instrumentKm) {
+      const reading = window.prompt("Introduce los kilómetros del cuadro al hacer la revisión:");
+      instrumentKm = getServiceInvoiceInstrumentKm(reading, plate);
+      if (!instrumentKm) return { serviceCounterReset: false };
+    }
+    return buildServiceCounterResetMetadata({ instrumentKm, vehiclePlate: plate, intervalKm: choice.serviceIntervalKm });
+  };
+
   const applySavedServiceReviewReset = (plate, choice) => {
     if (!choice?.serviceCounterReset) return;
     try {
       const stored = loadMaintenanceVehicleDetails();
-      stored[plate] = normalizeMaintenanceVehicleDetails(plate, { ...stored[plate], remainingKm: isInstrumentClusterVehicle(plate) ? null : choice.serviceIntervalKm });
+      stored[plate] = normalizeMaintenanceVehicleDetails(plate, { ...stored[plate], remainingKm: null });
       window.localStorage.setItem(maintenanceVehicleDetailsStorageKey, JSON.stringify(stored));
       window.dispatchEvent(new Event(maintenanceVehicleDetailsChangedEvent));
     } catch { notify("Factura guardada, pero no se ha podido actualizar la corrección de revisión de este dispositivo."); }
@@ -3585,8 +3599,8 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
     let resetChoice;
     try { resetChoice = requestServiceReviewReset({ recordType, fields, plate: vehiclePlate, confirm: (message) => window.confirm(message), prompt: (message, value) => window.prompt(message, value) }); }
     catch (error) { notify(error.message); return { ok: false, message: error.message }; }
-    const serviceCounterMetadata = resetChoice?.serviceCounterReset && isInstrumentClusterVehicle(vehiclePlate)
-      ? buildServiceCounterResetMetadata({ instrumentKm: Number(fields.odometerKm) || getLatestInstrumentClusterKm(driverEntries, vehiclePlate, documentRecords), vehiclePlate, intervalKm: resetChoice.serviceIntervalKm })
+    const serviceCounterMetadata = resetChoice?.serviceCounterReset
+      ? prepareServiceReset(vehiclePlate, fields.odometerKm, resetChoice)
       : resetChoice || {};
     const extractedData = { ...fields, ...serviceCounterMetadata, vehicle: vehiclePlate, ...(driverId ? { driverId } : {}), ...(recordType ? { recordType } : {}), source: savedDocument.source || "document-processing" };
     let cloudSaved = false;
@@ -3622,7 +3636,7 @@ function AuthenticatedApp({ session, profile, onSignOut, onProfileChange, onInst
       notify(message);
       return { ok: false, message };
     }
-    applySavedServiceReviewReset(vehiclePlate, resetChoice);
+    applySavedServiceReviewReset(vehiclePlate, serviceCounterMetadata);
     setProcessedDocuments((current) => [savedDocument, ...current.filter((item) => item.id !== savedDocument.id)]);
     notify(savedDocument.lowConfidence ? `Datos guardados${cloudSaved ? " en Supabase" : ""}; revisa los campos de baja confianza` : `Datos clasificados y guardados${cloudSaved ? " en Supabase" : ""} correctamente`);
     return { ok: true };

@@ -4,7 +4,7 @@ export const maintenanceVehicleDetailsChangedEvent = "sobre-ruedas:maintenance-v
 
 export function requestServiceReviewReset({ recordType, fields, plate, confirm, prompt }) {
   if (!isOilAndFilterMaintenance({ recordType, fields })) return null;
-  if (!confirm(`La factura de ${plate} contiene mantenimiento, revisión, aceite o filtros. ¿Quieres restablecer los kilómetros de revisión?`)) return { serviceCounterReset: false };
+  if (!confirm(`La factura de ${plate} contiene mantenimiento, revisión, aceite o filtros. ¿Quieres iniciar una nueva cuenta atrás para la próxima revisión (25.000 km por defecto)?`)) return { serviceCounterReset: false };
   const value = prompt("Kilómetros que deben quedar hasta la próxima revisión (puedes indicar 0):", String(oilServiceIntervalKm));
   if (value === null) return { serviceCounterReset: false };
   const text = String(value).trim().replace(/\s/g, "");

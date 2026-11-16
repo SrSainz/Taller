@@ -24,7 +24,7 @@ test("el reinicio admite cero y valida el intervalo, el nuevo objetivo descuenta
   const args = { recordType: "maintenance", fields: { concept: "Aceite" }, plate: "5750 MJV", confirm: () => true };
   assert.equal(requestServiceReviewReset({ ...args, prompt: () => "0" }).serviceIntervalKm, 0);
   for (const value of ["", "-1", "1,5", "abc"]) assert.throws(() => requestServiceReviewReset({ ...args, prompt: () => value }));
-  const reset = buildServiceCounterResetMetadata({ vehiclePlate: "5750 MJV", instrumentKm: 10000, intervalKm: 15000 });
-  const tracked = buildInstrumentClusterTracking({ vehiclePlate: "5750 MJV", entries: [{ vehicle_plate: "5750 MJV", entry_date: "2026-10-21", odometer_km: 10150 }], documents: [{ vehicle_plate: "5750 MJV", document_date: "2026-10-20", extracted_data: reset }] });
+  const reset = buildServiceCounterResetMetadata({ vehiclePlate: "5750 MJV", instrumentKm: 27000, intervalKm: 15000 });
+  const tracked = buildInstrumentClusterTracking({ vehiclePlate: "5750 MJV", entries: [{ vehicle_plate: "5750 MJV", entry_date: "2026-10-21", odometer_km: 27150 }], documents: [{ vehicle_plate: "5750 MJV", document_date: "2026-10-20", extracted_data: reset }] });
   assert.equal(tracked.remainingKm, 14850);
 });

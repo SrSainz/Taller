@@ -27,13 +27,21 @@ export const resolveMaintenanceVehicleDetails = (vehicle, values = {}) => {
   const tracking = vehicle.serviceTracking ?? {};
   const distance = details.trackingInstrumentKm != null && tracking.instrumentKm != null
     ? Math.max(0, tracking.instrumentKm - details.trackingInstrumentKm) : 0;
-  const serviceWasReset = details.trackingServiceTargetKm != null && tracking.nextServiceInstrumentKm != null
-    && details.trackingServiceTargetKm !== tracking.nextServiceInstrumentKm;
+  const serviceWasReset = tracking.nextServiceInstrumentKm > 0 && details.trackingServiceTargetKm !== tracking.nextServiceInstrumentKm;
+  const instrumentKm = details.instrumentKm != null
+    ? details.trackingInstrumentKm == null ? Math.max(details.instrumentKm, tracking.instrumentKm ?? 0) : details.instrumentKm + distance
+    : tracking.instrumentKm ?? null;
+  const realKm = details.realKm != null ? details.realKm + distance : tracking.realKm ?? null;
+  const offset = tracking.realKm != null && tracking.instrumentKm != null ? tracking.realKm - tracking.instrumentKm : 0;
+  const currentKm = details.realKm != null && tracking.realKm != null ? realKm - offset : instrumentKm;
+  const remainingKm = tracking.nextServiceInstrumentKm > 0 && tracking.serviceAnchorKm != null
+    ? Math.max(0, tracking.nextServiceInstrumentKm - Math.max(currentKm ?? 0, tracking.serviceAnchorKm))
+    : tracking.remainingKm ?? null;
   return {
     ...details,
-    instrumentKm: details.instrumentKm != null ? details.instrumentKm + distance : tracking.instrumentKm ?? null,
-    realKm: details.realKm != null ? details.realKm + distance : tracking.realKm ?? null,
-    remainingKm: details.remainingKm != null && !serviceWasReset ? Math.max(0, details.remainingKm - distance) : tracking.remainingKm ?? null,
+    instrumentKm,
+    realKm,
+    remainingKm: details.remainingKm != null && !serviceWasReset ? Math.max(0, details.remainingKm - distance) : remainingKm,
   };
 };
 
