@@ -11062,3 +11062,12 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
   .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-banner { grid-template-rows: 25px minmax(0, 1fr); }
   .maintenance-page .maintenance-vehicle-banner-row.has-service-tracking .maintenance-vehicle-km-tracking { font-size: clamp(10px, 2.7vw, 12px); line-height: 1; }
 }
+.maintenance-page .maintenance-vehicle-banner-row.has-atf .maintenance-vehicle-banner {
+  height: auto;
+  grid-template-rows: auto auto;
+  align-content: start;
+  padding-block: 4px;
+}
+.maintenance-page .maintenance-vehicle-banner-row.has-atf .maintenance-vehicle-identity { transform: none; }
+.maintenance-page .maintenance-vehicle-banner-row.has-atf .maintenance-vehicle-plate { line-height: 1; }
+.maintenance-page .maintenance-vehicle-banner-row.has-atf .maintenance-vehicle-km-tracking { line-height: 1.05; }

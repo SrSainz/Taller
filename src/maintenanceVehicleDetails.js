@@ -18,7 +18,9 @@ export const normalizeMaintenanceVehicleDetails = (plate, values = {}) => {
     trackingInstrumentKm: normalizeKm(values.trackingInstrumentKm), trackingServiceTargetKm: normalizeKm(values.trackingServiceTargetKm),
     waterPump: plate === "9401 LTG" ? "" : note(values.waterPump),
     timingBelt: plate === "9401 LTG" ? note(values.timingBelt) : "",
-    sparkPlugs: note(values.sparkPlugs), itvDate,
+    sparkPlugs: note(values.sparkPlugs),
+    atfKm: professionalPlates.has(plate) ? normalizeKm(values.atfKm) : null,
+    itvDate,
   };
 };
 

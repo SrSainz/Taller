@@ -106,7 +106,7 @@ import { maintenanceVehicleDetailsChangedEvent, requestServiceReviewReset } from
 import { getManualNetExpenseEntries } from "./manualNetExpenseDetails";
 import { hashDocumentFile, mergeDriverEntries, operationsFromDocument, transactionsToDriverEntries } from "./transactions";
 import { removeDocumentLocalData } from "./documentDeletion";
-import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, getServiceInvoiceInstrumentKm } from "./vehicleServiceTracking";
+import { buildInstrumentClusterTracking, buildServiceCounterResetMetadata, getLatestInstrumentClusterKm, getServiceInvoiceInstrumentKm, isInstrumentClusterVehicle } from "./vehicleServiceTracking";
 import { formatMaintenanceItvDate, maintenanceVehicleDetailsStorageKey, normalizeMaintenanceVehicleDetails, normalizeMaintenanceVehicleDetailsMap, resolveMaintenanceVehicleDetails } from "./maintenanceVehicleDetails";
 import { buildAlexCommissionReportPdf, buildCommissionReportFileName, calculateDriverCommission, getCommissionThresholdsForBilling, isAlex } from "./commissionReports";
 import { getWeeksTouchingMonth, sumWeeklyCollections } from "./weeklyCollections";
@@ -9833,6 +9833,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
       realKm: current.realKm ?? "",
       remainingKm: current.remainingKm ?? "",
       waterPump: current.waterPump ?? "", timingBelt: current.timingBelt ?? "", sparkPlugs: current.sparkPlugs ?? "",
+      atfKm: current.atfKm ?? "",
       itvDate: current.itvDate ?? "",
     });
     setEditingVehiclePlate(vehicle.plate);
@@ -10078,7 +10079,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
           const instrumentKm = details.instrumentKm;
           const remainingKm = details.remainingKm;
           return (
-            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}${pendingReports ? " has-pending" : ""} has-service-tracking`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
+            <div className={`maintenance-vehicle-banner-row ${isActive ? "active" : ""}${pendingReports ? " has-pending" : ""} has-service-tracking${isInstrumentClusterVehicle(vehicle.plate) ? " has-atf" : ""}`} key={vehicle.plate} role="group" aria-label={`Tarjeta del coche ${vehicle.plate}`}>
               <button className={`maintenance-vehicle-banner ${isActive ? "active" : ""}`} onPointerDown={(event) => startVehiclePress(event, vehicle)} onPointerMove={moveVehiclePress} onPointerUp={cancelVehiclePress} onPointerCancel={cancelVehiclePress} onPointerLeave={cancelVehiclePress} onContextMenu={(event) => event.preventDefault()} onClick={(event) => { cancelVehiclePress(); if (vehiclePressRef.current.held && event.detail !== 0) { vehiclePressRef.current.held = false; return; } selectWorkshopVehicle(vehicle.plate); }} aria-label={`Ver mantenimientos de ${vehicle.plate}`} title="Pulsa para ver el historial; mantén pulsado para editar" aria-current={isActive ? "true" : undefined}>
                 <span className="maintenance-vehicle-number">{index + 1}</span>
                 <span className={`vehicle-brand-mark vehicle-brand-mark--${brand.toLocaleLowerCase("es")}`}><img src={vehicleBrandLogos[brand]} alt={`Logotipo de ${brand}`} /></span>
@@ -10089,6 +10090,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
                   <strong>Revisión: {remainingKm == null ? "—" : formatKm(remainingKm)}</strong>
                   <strong title={vehicle.plate === "9401 LTG" ? details.timingBelt : details.waterPump}>{vehicle.plate === "9401 LTG" ? "Correa" : "Bomba del agua"}: {(vehicle.plate === "9401 LTG" ? details.timingBelt : details.waterPump) || "—"}</strong>
                   <strong title={details.sparkPlugs}>Bujías: {details.sparkPlugs || "—"}</strong>
+                  {isInstrumentClusterVehicle(vehicle.plate) && <strong>ATF: {details.atfKm == null ? "—" : formatKm(details.atfKm)}</strong>}
                   <strong>ITV: {formatMaintenanceItvDate(details.itvDate)}</strong>
                 </span>
                 <span className="maintenance-vehicle-type"><StatusBadge status={vehicle.use} /></span>
@@ -10111,6 +10113,7 @@ function MaintenanceView({ initialPlate, invoices, setModal, notify, vehicles, m
               ? <label>Correa<input type="text" maxLength={60} value={vehicleDetailsDraft.timingBelt} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, timingBelt: event.target.value }))} placeholder="Kilómetros, fecha o nota" /></label>
               : <label>Bomba del agua<input type="text" maxLength={60} value={vehicleDetailsDraft.waterPump} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, waterPump: event.target.value }))} placeholder="Kilómetros, fecha o nota" /></label>}
             <label>Bujías<input type="text" maxLength={60} value={vehicleDetailsDraft.sparkPlugs} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, sparkPlugs: event.target.value }))} placeholder="Kilómetros, fecha o nota" /></label>
+            {isInstrumentClusterVehicle(editingVehiclePlate) && <label>ATF (km del cambio)<input type="number" min="0" step="1" inputMode="numeric" value={vehicleDetailsDraft.atfKm ?? ""} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, atfKm: event.target.value }))} placeholder="Kilómetros del cambio de ATF" /></label>}
           <label>ITV<input type="date" value={vehicleDetailsDraft.itvDate} onChange={(event) => setVehicleDetailsDraft((current) => ({ ...current, itvDate: event.target.value }))} /></label>
           </div>
           <small>Deja un kilometraje vacío para usar el dato automático disponible. Las correcciones se guardan en este dispositivo.</small>

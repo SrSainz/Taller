@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Los tres Toyota muestran ATF entre Bujías e ITV. El kilometraje del cambio es editable por matrícula y se guarda en el dispositivo; toda la información queda dentro de la tarjeta.
+
 - Revisión muestra los kilómetros restantes desde la última revisión confirmada. Las referencias reales iniciales son 510.143 km para 5754 MJV, 541.730 km para 5043 MLC y 575.169 km para 5750 MJV. Las cinco matrículas pueden reiniciar la cuenta desde la lectura de la revisión, con 25.000 km por defecto.
 
 - La ficha de comisión permite editar sus títulos y el nombre y matrícula mostrados, guardándolos por conductor/mes como presentación. Las claves de los conceptos, perfil, asignación real, porcentaje y fórmulas nunca dependen de esos textos; renombrar un concepto conserva su operación y sus importes. Los textos personalizados aparecen al imprimir y pueden restaurarse.

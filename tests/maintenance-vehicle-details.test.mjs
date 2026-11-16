@@ -54,7 +54,7 @@ test("Bomba del agua, Correa y Bujías se conservan separados por coche", () => 
 });
 
 test("las cinco tarjetas muestran las métricas y el editor no abre el historial", () => {
-  assert.match(app, /has-service-tracking`\}/);
+  assert.match(app, /has-service-tracking.*has-atf/);
   assert.match(app, /Km cuadro: \{instrumentKm == null/);
   assert.match(app, /Revisión: \{remainingKm == null/);
   assert.match(app, /ITV: \{formatMaintenanceItvDate\(details\.itvDate\)\}/);
