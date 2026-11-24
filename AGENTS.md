@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Pulsar un día del calendario semanal o mensual permite activar y quitar una marca amarilla. Las marcas se guardan en el dispositivo por identificador de conductor y fecha y se conservan al cambiar de semana, mes o recargar.
+
 - Los tres Toyota muestran ATF entre Bujías e ITV. El kilometraje del cambio es editable por matrícula y se guarda en el dispositivo; toda la información queda dentro de la tarjeta.
 
 - Revisión muestra los kilómetros restantes desde la última revisión confirmada. Las referencias reales iniciales son 510.143 km para 5754 MJV, 541.730 km para 5043 MLC y 575.169 km para 5750 MJV. Las cinco matrículas pueden reiniciar la cuenta desde la lectura de la revisión, con 25.000 km por defecto.
