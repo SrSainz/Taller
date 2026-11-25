@@ -10900,6 +10900,19 @@ body:has(.drivers-page--calendar-open) .page-scroll { overflow-y: auto; overscro
 .driver-fines-dialog form > button:disabled { opacity: .5; cursor: not-allowed; }
 .driver-fines-dialog--preview { width: min(900px, 100%); }
 .driver-fines-dialog--preview img { display: block; max-width: 100%; max-height: 75vh; margin: 12px auto 0; object-fit: contain; }
+.driver-fines-dialog--preview iframe { width: 100%; height: 65vh; border: 0; margin-top: 12px; }
+.driver-fines-dialog__list button.driver-fines-dialog__entry { flex: 1; width: auto; height: auto; min-height: 44px; display: grid; gap: 4px; padding: 6px; text-align: left; overflow-wrap: anywhere; }
+.driver-fines-dialog__detail { display: grid; gap: 8px; padding: 12px; margin-bottom: 14px; background: #f1f7fc; border: 1px solid #c6d9ea; border-radius: 8px; }
+.driver-fines-dialog__detail h3, .driver-fines-dialog__detail p { margin: 0; overflow-wrap: anywhere; }
+.driver-fines-dialog__detail button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px; border: 1px solid #bdcfda; border-radius: 7px; background: white; color: #123b66; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.driver-fines-dialog__detail button span { min-width: 0; }
+.driver-fines-dialog form .driver-fines-dialog__concept, .driver-fines-dialog__pending { grid-column: 1 / -1; }
+.driver-fines-dialog form .driver-fines-dialog__files { background: #176cba; border-color: #125a9c; }
+.driver-fines-dialog__pending { display: grid; gap: 8px; min-width: 0; }
+.driver-fines-dialog__pending > div { display: flex; align-items: center; gap: 8px; }
+.driver-fines-dialog__pending span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.driver-fines-dialog__pending button { min-width: 44px; min-height: 44px; border: 1px solid #bdcfda; border-radius: 7px; background: #fff3f1; color: #a42a21; cursor: pointer; }
+.driver-fines-dialog__camera:focus-within { outline: 3px solid #103d73; outline-offset: 2px; }
 @media (max-width: 640px) {
   .drivers-vehicle-cost-details > div { grid-template-columns: 1fr; }
 }

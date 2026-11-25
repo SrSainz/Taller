@@ -1,4 +1,5 @@
 import useDriverCalendarMarks from "./useDriverCalendarMarks.js";
+import { getFineDocuments, maxFineDocuments } from "./fineDocuments.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import NetPayrollEditor from "./NetPayrollEditor.jsx";
 import { resolveMonthlyPayroll, getMonthlyCommissionAdjustments } from "./monthlyPayroll.js";
@@ -8608,7 +8609,8 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   const [fineDate, setFineDate] = useState("");
   const [fineAmount, setFineAmount] = useState("");
   const [fineNote, setFineNote] = useState("");
-  const [finePhoto, setFinePhoto] = useState(null);
+  const [fineFiles, setFineFiles] = useState([]);
+  const [fineDetail, setFineDetail] = useState(null);
   const [finePreview, setFinePreview] = useState(null);
   const [fineBusy, setFineBusy] = useState(false);
   const [fineError, setFineError] = useState("");
@@ -8800,29 +8802,39 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
   }, [professionalVehicles, driverRows, fuelSummaries, transactions, documents, reportMonth, reportYear, periodStart, periodFactor, periodFinancials, archivedNetExpenses,archivedNetBreakdowns]);
   const openFineDialog = (date = "") => {
     setFineDate(date || `${reportYear}-${String(reportMonth + 1).padStart(2, "0")}-${String(selectedDay || 1).padStart(2, "0")}`);
-    setFineAmount(""); setFineNote(""); setFinePhoto(null); setFineError(""); setFineDialogOpen(true);
+    setFineAmount(""); setFineNote(""); setFineFiles([]); setFineDetail(null); setFineError(""); setFineDialogOpen(true);
+  };
+  const addFineFiles = (event) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (fineFiles.length + files.length > maxFineDocuments) { setFineError(`Puedes adjuntar hasta ${maxFineDocuments} documentos por multa.`); return; }
+    setFineFiles((current) => [...current, ...files]);
+    setFineError("");
   };
   const saveFine = async (event) => {
     event.preventDefault();
-    if (!selectedDriver?.driverId || !finePhoto || !isValidFineDate(fineDate)) { setFineError("Selecciona una fecha válida y una foto de la multa."); return; }
+    if (fineBusy) return;
+    if (!selectedDriver?.driverId || !fineFiles.length || !isValidFineDate(fineDate)) { setFineError("Selecciona una fecha válida y al menos una foto o archivo de la multa."); return; }
     setFineBusy(true); setFineError("");
     try {
-      const preparedPhoto = await prepareDocumentFile(finePhoto, { allowHeic: true });
-      const saved = await createDriverFine({ createdBy: adminUserId, driverId: selectedDriver.driverId, plate: selectedDriver.plate, date: fineDate, amount: Number(String(fineAmount).replace(",", ".")) || 0, note: fineNote, photoFile: preparedPhoto });
-      setDriverFines((current) => [saved, ...current]); setFinePhoto(null); setFineAmount(""); setFineNote("");
+      const saved = await createDriverFine({ createdBy: adminUserId, driverId: selectedDriver.driverId, plate: selectedDriver.plate, date: fineDate, amount: Number(String(fineAmount).replace(",", ".")) || 0, note: fineNote, files: fineFiles });
+      setDriverFines((current) => [saved, ...current]); setFineFiles([]); setFineAmount(""); setFineNote(""); setFineDetail(saved);
     } catch (error) { setFineError(error.message); } finally { setFineBusy(false); }
   };
-  const openFinePreview = async (fine) => {
-    setFinePreview({ name: fine.photo_name, url: "", error: "" });
-    const { signedUrl, error } = await createCachedStorageUrl({ bucket: "driver-fines", path: fine.photo_path, expiresIn: 600 });
-    setFinePreview({ name: fine.photo_name, url: signedUrl || "", error: error?.message || "" });
+  const openFinePreview = async (document) => {
+    setFinePreview({ ...document, url: "", error: "" });
+    try {
+      const { signedUrl, error } = await createCachedStorageUrl({ bucket: "driver-fines", path: document.path, expiresIn: 600 });
+      setFinePreview((current) => current?.path === document.path ? { ...document, url: signedUrl || "", error: error?.message || "" } : current);
+    } catch (error) { setFinePreview((current) => current?.path === document.path ? { ...document, error: error.message } : current); }
   };
   const removeFine = async (fine) => {
-    if (!window.confirm("¿Borrar esta multa y su foto?")) return;
+    if (!window.confirm("¿Borrar esta multa y todos sus documentos?")) return;
     setFineBusy(true); setFineError("");
     try {
       const warning = await deleteDriverFine(fine);
       setDriverFines((current) => current.filter((item) => item.id !== fine.id));
+      if (fineDetail?.id === fine.id) setFineDetail(null);
       if (warning) setFineError(`Multa borrada; no se pudo retirar la foto: ${warning}`);
     } catch (error) { setFineError(error.message); } finally { setFineBusy(false); }
   };
@@ -9175,13 +9187,23 @@ function DriversView({ vehicles, driverEntries = [], transactions = [], document
             <header><h2>Multas · {selectedDriver.driver}</h2><button type="button" onClick={() => setFineDialogOpen(false)} aria-label="Cerrar multas"><IconX size={21} /></button></header>
             <p className="driver-fines-dialog__history-label">Historial completo · {selectedDriverFines.length} {selectedDriverFines.length === 1 ? "multa" : "multas"} · más recientes primero</p>
             <div className="driver-fines-dialog__list">
-              {selectedDriverFines.map((fine) => <div className={fine.fine_date === fineDate ? "is-selected" : ""} key={fine.id}><span><strong>{formatNetExpenseDate(fine.fine_date)}</strong><small>{fine.note || "Multa registrada"} · {formatCurrency(fine.amount)}</small></span><button type="button" onClick={() => openFinePreview(fine)} aria-label={`Ver foto de la multa del ${formatNetExpenseDate(fine.fine_date)}`}><IconCamera size={19} /></button><button type="button" onClick={() => removeFine(fine)} aria-label={`Borrar multa del ${formatNetExpenseDate(fine.fine_date)}`} disabled={fineBusy}><IconTrash size={17} /></button></div>)}
+              {selectedDriverFines.map((fine) => <div className={fineDetail?.id === fine.id ? "is-selected" : ""} key={fine.id}><button type="button" className="driver-fines-dialog__entry" onClick={() => setFineDetail(fine)}><strong>{formatNetExpenseDate(fine.fine_date)}</strong><small>{fine.note || "Multa registrada"} · {formatCurrency(fine.amount)}</small><small>{getFineDocuments(fine).length} documentos · Consultar</small></button><button type="button" onClick={() => removeFine(fine)} aria-label={`Borrar multa del ${formatNetExpenseDate(fine.fine_date)}`} disabled={fineBusy}><IconTrash size={17} /></button></div>)}
               {selectedDriverFines.length === 0 && <p>Este conductor no tiene multas registradas.</p>}
             </div>
-            <form onSubmit={saveFine}><h3>Registrar multa</h3><label>Fecha<input type="date" value={fineDate} onChange={(event) => setFineDate(event.target.value)} required /></label><label>Importe (€)<input type="number" min="0" step="0.01" inputMode="decimal" value={fineAmount} onChange={(event) => setFineAmount(event.target.value)} placeholder="0,00" /></label><label>Nota<input type="text" maxLength={180} value={fineNote} onChange={(event) => setFineNote(event.target.value)} placeholder="Concepto o referencia" /></label><label className="driver-fines-dialog__camera"><IconCamera size={19} />{finePhoto ? finePhoto.name : "Hacer foto de la multa"}<input type="file" accept="image/*,.heic,.heif" capture="environment" onChange={(event) => setFinePhoto(event.target.files?.[0] ?? null)} /></label>{fineError && <p role="alert">{fineError}</p>}<button type="submit" disabled={fineBusy || !finePhoto}>{fineBusy ? "Guardando…" : "Guardar multa"}</button></form>
+            {fineDetail && <section className="driver-fines-dialog__detail" aria-label="Detalle de la multa"><h3>{formatNetExpenseDate(fineDetail.fine_date)} · {formatCurrency(fineDetail.amount)}</h3><p>{fineDetail.note || "Multa registrada"}</p>{getFineDocuments(fineDetail).map((document, index) => <button type="button" key={document.path} onClick={() => openFinePreview(document)}><IconCamera size={18} /><span>Documento {index + 1} · {document.name || "Consultar documento"}</span></button>)}{getFineDocuments(fineDetail).length === 0 && <p>No hay documentos guardados.</p>}</section>}
+            <form onSubmit={saveFine}>
+              <h3>Registrar multa</h3>
+              <label>Fecha<input type="date" value={fineDate} onChange={(event) => setFineDate(event.target.value)} required disabled={fineBusy} /></label>
+              <label>Importe (€)<input type="number" min="0" step="0.01" inputMode="decimal" value={fineAmount} onChange={(event) => setFineAmount(event.target.value)} placeholder="0,00" disabled={fineBusy} /></label>
+              <label className="driver-fines-dialog__concept">Concepto<input type="text" maxLength={180} value={fineNote} onChange={(event) => setFineNote(event.target.value)} placeholder="Concepto o referencia" disabled={fineBusy} /></label>
+              <label className="driver-fines-dialog__camera"><IconCamera size={19} />Hacer foto de la multa<input type="file" accept="image/*,.heic,.heif" capture="environment" onChange={addFineFiles} disabled={fineBusy} /></label>
+              <label className="driver-fines-dialog__camera driver-fines-dialog__files"><IconFileInvoice size={19} />Adjuntar archivos<input type="file" accept="image/*,.heic,.heif,application/pdf,.pdf" multiple onChange={addFineFiles} disabled={fineBusy} /></label>
+              {fineFiles.length > 0 && <div className="driver-fines-dialog__pending"><strong>{fineFiles.length} documentos preparados</strong>{fineFiles.map((file, index) => <div key={`${index}-${file.name}`}><span>{file.name}</span><button type="button" onClick={() => setFineFiles((current) => current.filter((_, position) => position !== index))} aria-label={`Quitar ${file.name}`} disabled={fineBusy}><IconX size={18} /></button></div>)}<small>Puedes hacer otra foto o adjuntar más archivos antes de guardar.</small></div>}
+              {fineError && <p role="alert">{fineError}</p>}<button type="submit" disabled={fineBusy || !fineFiles.length}>{fineBusy ? "Guardando…" : "Guardar multa"}</button>
+            </form>
           </section>
         </div>, document.body)}
-      {finePreview && createPortal(<div className="driver-fines-backdrop driver-fines-backdrop--preview" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFinePreview(null); }}><section className="driver-fines-dialog driver-fines-dialog--preview" role="dialog" aria-modal="true" aria-label={`Documento ${finePreview.name}`}><header><h2>{finePreview.name}</h2><button type="button" onClick={() => setFinePreview(null)} aria-label="Cerrar documento"><IconX size={21} /></button></header>{finePreview.error ? <p role="alert">{finePreview.error}</p> : finePreview.url ? <img src={finePreview.url} alt={`Documento de multa ${finePreview.name}`} /> : <p>Abriendo documento…</p>}</section></div>, document.body)}
+      {finePreview && createPortal(<div className="driver-fines-backdrop driver-fines-backdrop--preview" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFinePreview(null); }}><section className="driver-fines-dialog driver-fines-dialog--preview" role="dialog" aria-modal="true" aria-label={`Documento ${finePreview.name}`}><header><h2>{finePreview.name}</h2><button type="button" onClick={() => setFinePreview(null)} aria-label="Cerrar documento"><IconX size={21} /></button></header>{finePreview.error ? <p role="alert">{finePreview.error}</p> : finePreview.url ? <><a href={finePreview.url} target="_blank" rel="noopener noreferrer">Abrir documento en otra pestaña</a>{finePreview.mimeType === "application/pdf" ? <iframe src={finePreview.url} title={finePreview.name || "Documento de multa"} /> : <img src={finePreview.url} alt={`Documento de multa ${finePreview.name}`} />}</> : <p>Abriendo documento…</p>}</section></div>, document.body)}
     </section>
   );
 }

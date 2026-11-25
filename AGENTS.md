@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Multas conserva el historial completo por conductor, ordenado por fecha descendente y con concepto legible. Cada multa admite fotos sucesivas y selección múltiple de imágenes o PDF, hasta 20 documentos privados vinculados a un único importe; al pulsar una multa se consulta cada documento, incluidas las fotos antiguas.
+
 - Pulsar un día del calendario semanal o mensual permite activar y quitar una marca amarilla. Las marcas se guardan en el dispositivo por identificador de conductor y fecha y se conservan al cambiar de semana, mes o recargar.
 
 - Los tres Toyota muestran ATF entre Bujías e ITV. El kilometraje del cambio es editable por matrícula y se guarda en el dispositivo; toda la información queda dentro de la tarjeta.

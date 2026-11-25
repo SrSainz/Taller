@@ -4,6 +4,7 @@ import { hashDocumentFile } from "./transactions.js";
 import { createStorageThumbnail, thumbnailPath } from "./storageThumbnails.js";
 import { archiveDocumentAttachments, getSupportingDocuments, maxMaintenanceDocuments } from "./documentAttachments.js";
 import { parseWeeklyBankAmounts } from "./weeklyBankAmounts.js";
+import { archiveFineDocuments, getFineDocuments } from "./fineDocuments.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
@@ -463,37 +464,51 @@ export const deleteNetExpense = async (expense) => {
   return { warning: "" };
 };
 
-const driverFineColumns = "id, created_by, driver_id, vehicle_plate, fine_date, amount, note, photo_path, photo_name, photo_mime_type, created_at";
+const driverFineColumns = "id, created_by, driver_id, vehicle_plate, fine_date, amount, note, photo_path, photo_name, photo_mime_type, attachments, created_at";
 
 export const listDriverFines = () => {
   if (!supabase) return Promise.resolve({ data: [], error: new Error("No hay sesión activa.") });
   return fetchAllSupabaseRows(() => supabase.from("driver_fines").select(driverFineColumns).order("fine_date", { ascending: false }));
 };
 
-export const createDriverFine = async ({ createdBy, driverId, plate, date, amount = 0, note = "", photoFile }) => {
-  if (!supabase || !createdBy || !driverId || !photoFile) throw new Error("Selecciona un conductor y una foto para registrar la multa.");
-  const storedPhoto = await prepareDocumentFile(photoFile);
-  const validation = validateDocumentFile(storedPhoto, "camera");
-  if (!validation.valid) throw new Error(validation.message);
-  const photoMimeType = getDocumentMimeType(storedPhoto);
-  const photoPath = `${createdBy}/driver-fines/${randomUploadToken()}-${safeFileName(storedPhoto.name || "multa.webp")}`;
-  const { error: uploadError } = await supabase.storage.from("driver-fines").upload(photoPath, storedPhoto, { contentType: photoMimeType, upsert: false });
-  if (uploadError) throw uploadError;
-  const { data, error } = await supabase.from("driver_fines").insert({
-    created_by: createdBy, driver_id: driverId, vehicle_plate: plate, fine_date: date,
-    amount: Math.max(0, Number(amount) || 0), note: String(note).trim(),
-    photo_path: photoPath, photo_name: storedPhoto.name, photo_mime_type: photoMimeType,
-  }).select(driverFineColumns).single();
-  if (error) { await supabase.storage.from("driver-fines").remove([photoPath]); throw error; }
-  return data;
+export const createDriverFine = async ({ createdBy, driverId, plate, date, amount = 0, note = "", photoFile, files = photoFile ? [photoFile] : [] }) => {
+  if (!supabase || !createdBy || !driverId) throw new Error("Selecciona un conductor para registrar la multa.");
+  return archiveFineDocuments({
+    files,
+    prepare: async (file) => {
+      const stored = await prepareDocumentFile(file, { allowHeic: true });
+      const validation = validateDocumentFile(stored);
+      if (!validation.valid) throw new Error(`${file.name}: ${validation.message}`);
+      if (validation.kind === "image" && stored.type !== "image/webp") throw new Error("No se ha podido convertir la foto a WebP.");
+      return stored;
+    },
+    upload: async (file) => {
+      const path = `${createdBy}/driver-fines/${randomUploadToken()}-${safeFileName(file.name)}`;
+      const mimeType = getDocumentMimeType(file);
+      const { error } = await supabase.storage.from("driver-fines").upload(path, file, { contentType: mimeType, upsert: false });
+      if (error) throw error;
+      return { path, name: file.name, mimeType };
+    },
+    remove: async (paths) => { const { error } = await supabase.storage.from("driver-fines").remove(paths); if (error) throw error; },
+    persist: async ([first, ...attachments]) => {
+      const { data, error } = await supabase.from("driver_fines").insert({
+        created_by: createdBy, driver_id: driverId, vehicle_plate: plate, fine_date: date,
+        amount: Math.max(0, Number(amount) || 0), note: String(note).trim(),
+        photo_path: first.path, photo_name: first.name, photo_mime_type: first.mimeType, attachments,
+      }).select(driverFineColumns).single();
+      if (error) throw error;
+      return data;
+    },
+  });
 };
 
 export const deleteDriverFine = async (fine) => {
   if (!supabase || !fine?.id) throw new Error("No se puede borrar la multa sin una sesión activa.");
   const { error } = await supabase.from("driver_fines").delete().eq("id", fine.id);
   if (error) throw error;
-  const { error: storageError } = await supabase.storage.from("driver-fines").remove([fine.photo_path]);
-  clearCachedStorageUrl({ bucket: "driver-fines", path: fine.photo_path });
+  const paths = getFineDocuments(fine).map((document) => document.path);
+  const { error: storageError } = paths.length ? await supabase.storage.from("driver-fines").remove(paths) : {};
+  paths.forEach((path) => clearCachedStorageUrl({ bucket: "driver-fines", path }));
   return storageError?.message || "";
 };
 

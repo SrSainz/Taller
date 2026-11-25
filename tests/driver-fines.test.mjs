@@ -11,14 +11,15 @@ test("las multas quedan archivadas con fecha y foto privada", () => {
   assert.match(migration, /create table if not exists public\.driver_fines/);
   assert.match(migration, /'driver-fines', 'driver-fines', false/);
   assert.match(migration, /alter table public\.driver_fines enable row level security/);
-  assert.match(storage, /from\("driver-fines"\)\.upload\(photoPath, storedPhoto/);
-  assert.match(app, /createCachedStorageUrl\(\{ bucket: "driver-fines", path: fine\.photo_path/);
+  assert.match(storage, /from\("driver-fines"\)\.upload\(path, file/);
+  assert.match(app, /createCachedStorageUrl\(\{ bucket: "driver-fines", path: document\.path/);
 });
 
 test("el calendario marca el día de la multa y abre su registro", () => {
   assert.match(app, /drivers-calendar-day--fine/);
   assert.match(app, /openFineDialog\(dayKey\)/);
-  assert.match(app, /Ver foto de la multa del/);
+  assert.match(app, /setFineDetail\(fine\)/);
+  assert.match(app, /getFineDocuments\(fineDetail\)\.map/);
 });
 
 test("Multas es un botón pequeño junto a Horario y Facturación muestra solo el total", () => {
